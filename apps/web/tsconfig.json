@@ -1,0 +1,11 @@
+{
+  "extends": "@knowledgehub/tsconfig/react.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "paths": {
+      "~/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", ".output", ".tanstack"]
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "@knowledgehub/tsconfig/nestjs.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

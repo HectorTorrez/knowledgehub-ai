@@ -1,0 +1,30 @@
+{
+  "name": "@knowledgehub/shared-types",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "check-types": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@knowledgehub/eslint-config": "workspace:*",
+    "@knowledgehub/tsconfig": "workspace:*",
+    "eslint": "^10.12.0",
+    "typescript": "^6.0.3"
+  }
+}

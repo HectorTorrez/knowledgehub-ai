@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Environment files (local secrets) - keep committed templates
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Build output
+dist/
+build/
+out/
+.output/
+
+# Framework / tooling generated output
+.vinxi/
+.tanstack/
+.vite/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+*.lcov
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Local tool state
+.hubble/
+
+# Turborepo cache
+.turbo/
