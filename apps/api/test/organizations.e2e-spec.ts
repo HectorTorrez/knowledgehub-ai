@@ -34,6 +34,43 @@ function bearer(token: string): { Authorization: string } {
   return { Authorization: `Bearer ${token}` };
 }
 
+/** A promise plus its externally callable resolver, for test coordination. */
+function deferred<T = void>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+/**
+ * Waits until a competing database session is visibly blocked on the
+ * organization row lock, as reported by PostgreSQL itself. Observing the real
+ * lock-wait state makes the blocking assertion deterministic instead of
+ * depending on a sleep long enough to "probably" lose the race.
+ */
+async function waitForOrganizationLockWaiter(
+  prisma: PrismaService,
+  timeoutMs = 2000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const waiters = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT count(*) AS count FROM pg_stat_activity
+      WHERE wait_event_type = 'Lock'
+        AND state = 'active'
+        AND query ILIKE ${'%FROM "Organization"%'}
+    `;
+    if (Number(waiters[0].count) > 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(
+    'Timed out waiting for a competing transaction to block on the organization lock',
+  );
+}
+
 describe('organizations (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -747,6 +784,58 @@ describe('organizations (e2e)', () => {
           where: { organizationId, userId: target.userId },
         }),
       ).toBe(0);
+    });
+
+    it('serializes mutations by blocking a competitor on the organization lock', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      const locked = deferred();
+      const release = deferred();
+
+      // Hold the organization row lock in a separate transaction, mirroring
+      // the first statement of every membership mutation.
+      const holder = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
+        locked.resolve();
+        await release.promise;
+      });
+
+      let competitorSettled = false;
+      try {
+        await locked.promise;
+
+        const competitor = addMember(owner.token, organizationId, {
+          email: target.email,
+        });
+        competitor.then(
+          () => {
+            competitorSettled = true;
+          },
+          () => {
+            competitorSettled = true;
+          },
+        );
+
+        // Deterministically confirm the competitor is blocked on the lock.
+        await waitForOrganizationLockWaiter(prisma);
+        expect(competitorSettled).toBe(false);
+
+        release.resolve();
+        const response = await competitor;
+        expect(response.status).toBe(201);
+      } finally {
+        release.resolve();
+        await holder.catch(() => undefined);
+      }
+
+      const membership = await prisma.membership.findUniqueOrThrow({
+        where: {
+          userId_organizationId: { userId: target.userId, organizationId },
+        },
+      });
+      expect(membership.role).toBe('MEMBER');
     });
   });
 });

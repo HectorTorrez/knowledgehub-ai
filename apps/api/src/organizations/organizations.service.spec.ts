@@ -100,6 +100,7 @@ interface HarnessOptions {
   memberRows?: MemberRow[];
   actorMembership?: { role: 'OWNER' | 'MEMBER' } | null;
   targetUser?: TargetUser | null;
+  lockRows?: { id: string }[];
 }
 
 /** Builds a real Prisma known-request error for the membership unique key. */
@@ -120,8 +121,13 @@ function duplicateMembershipError(): unknown {
 function createHarness(options: HarnessOptions = {}) {
   const organizations: ReturnType<typeof organizationRecord>[] = [];
   const memberships: Record<string, unknown>[] = [];
+  const calls: string[] = [];
 
   const tx = {
+    $queryRaw: vi.fn(async () => {
+      calls.push('lock-organization');
+      return options.lockRows ?? [{ id: 'org-1' }];
+    }),
     organization: {
       create: vi.fn(async ({ data }: { data: { name: string } }) => {
         const organization = organizationRecord(
@@ -149,12 +155,12 @@ function createHarness(options: HarnessOptions = {}) {
         memberships.push(membership);
         return membership;
       }),
-      findUnique: vi.fn(
-        async () =>
-          options.actorMembership === undefined
-            ? { role: 'OWNER' }
-            : options.actorMembership,
-      ),
+      findUnique: vi.fn(async () => {
+        calls.push('read-actor-membership');
+        return options.actorMembership === undefined
+          ? { role: 'OWNER' }
+          : options.actorMembership;
+      }),
     },
     user: {
       findUnique: vi.fn(
@@ -191,7 +197,7 @@ function createHarness(options: HarnessOptions = {}) {
 
   const service = new OrganizationsService(prisma as unknown as PrismaService);
 
-  return { service, prisma, tx, organizations, memberships };
+  return { service, prisma, tx, organizations, memberships, calls };
 }
 
 describe('OrganizationsService.create', () => {
@@ -541,6 +547,47 @@ describe('OrganizationsService.addMember', () => {
         where: { email: 'new-user@example.test' },
       }),
     );
+  });
+
+  it('acquires the organization lock before reading the actor membership', async () => {
+    const { service, calls } = createHarness();
+
+    await service.addMember(organizationContext(), {
+      email: 'new-user@example.test',
+    });
+
+    expect(calls).toEqual(['lock-organization', 'read-actor-membership']);
+  });
+
+  it('locks the organization through a parameterized FOR UPDATE query', async () => {
+    const { service, tx } = createHarness();
+
+    await service.addMember(organizationContext(), {
+      email: 'new-user@example.test',
+    });
+
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    const [strings, organizationId] = tx.$queryRaw.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      string,
+    ];
+    expect(strings.join('')).toContain('FROM "Organization"');
+    expect(strings.join('')).toContain('FOR UPDATE');
+    expect(organizationId).toBe('org-1');
+  });
+
+  it('fails with 404 without reading the actor or writing when the organization row is missing', async () => {
+    const { service, tx, memberships, calls } = createHarness({ lockRows: [] });
+
+    await expect(
+      service.addMember(organizationContext(), {
+        email: 'new-user@example.test',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(calls).toEqual(['lock-organization']);
+    expect(tx.membership.create).not.toHaveBeenCalled();
+    expect(memberships).toHaveLength(0);
   });
 
   it('revalidates the OWNER role on the transaction client', async () => {

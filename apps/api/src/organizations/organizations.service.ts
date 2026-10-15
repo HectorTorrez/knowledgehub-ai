@@ -22,6 +22,85 @@ import type {
   OrganizationContext,
 } from './organization-context.js';
 
+/**
+ * PostgreSQL unique index Prisma creates for Membership's
+ * `@@unique([userId, organizationId])`. The driver adapter reports the exact
+ * index name for a unique violation, so it is the reliable way to tell this
+ * constraint apart from any other unique constraint on the same table.
+ */
+const MEMBERSHIP_USER_ORGANIZATION_CONSTRAINT =
+  'Membership_userId_organizationId_key';
+
+/**
+ * Interactive-transaction options for membership mutations.
+ *
+ * READ COMMITTED is PostgreSQL's default and is what the organization-row lock
+ * protocol relies on: a `FOR UPDATE` that blocks behind another transaction
+ * re-reads the committed row (and, for later statements, the committed
+ * memberships) once the lock is released. It is stated explicitly so the
+ * dependency is documented rather than incidental.
+ */
+const MEMBERSHIP_MUTATION_TRANSACTION = {
+  isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+} as const;
+
+/**
+ * Serializes membership mutations for a single organization by taking an
+ * exclusive row lock on its `Organization` row. It must be the first database
+ * statement in the mutation transaction.
+ *
+ * Raw SQL is required because Prisma exposes no typed `SELECT ... FOR UPDATE`
+ * API. It is issued through the interactive transaction client so Postgres
+ * holds the lock until the transaction commits or rolls back. The table name is
+ * quoted because Prisma maps the `Organization` model to the case-sensitive
+ * `"Organization"` table (the schema declares no `@@map`), and the tagged
+ * template binds the id as a parameter instead of interpolating it.
+ *
+ * A missing row would acquire no lock, silently defeating serialization, so its
+ * absence is surfaced as a 404 instead of allowing the caller to proceed.
+ */
+export async function lockOrganization(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+): Promise<void> {
+  const locked = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE
+  `;
+
+  if (locked.length === 0) {
+    throw new NotFoundException('Organization not found');
+  }
+}
+
+/**
+ * Revalidates, inside the mutation transaction and after the organization lock
+ * is held, that the actor is still an OWNER of the organization.
+ *
+ * The route guard only proves membership (any role) and reads outside this
+ * transaction, so it cannot authorize a privileged write on its own: without
+ * this re-read, a concurrent demotion could authorize the mutation from a stale
+ * read. Querying by both userId and organizationId is what keeps the check
+ * scoped to the tenant.
+ */
+export async function requireOwner(
+  tx: Prisma.TransactionClient,
+  context: Pick<OrganizationContext, 'userId' | 'organizationId'>,
+): Promise<void> {
+  const actor = await tx.membership.findUnique({
+    where: {
+      userId_organizationId: {
+        userId: context.userId,
+        organizationId: context.organizationId,
+      },
+    },
+    select: { role: true },
+  });
+
+  if (!actor || actor.role !== MembershipRole.OWNER) {
+    throw new ForbiddenException('Only an organization owner can add members');
+  }
+}
+
 /** Creates organizations and lists the organizations a user belongs to. */
 @Injectable()
 export class OrganizationsService {
@@ -137,13 +216,15 @@ export class OrganizationsService {
    * Adds an existing user, identified by email, as a `MEMBER` of the authorized
    * organization.
    *
-   * The actor's OWNER role is re-read and enforced *inside* the same
-   * transaction that writes the membership. The route guard already resolved
-   * the caller's membership, but that check ran before this method: a role or
-   * membership that changed in between must not authorize the write, so the
-   * permission is revalidated transactionally rather than trusted from the
-   * request context. The role check runs before the target lookup so a
-   * non-owner cannot use the error to probe which emails are registered.
+   * The transaction first acquires the organization-row lock (see
+   * {@link lockOrganization}), which serializes every membership mutation for
+   * the organization. Only then is the actor's OWNER role re-read and enforced
+   * *inside* the same transaction. The route guard already resolved the caller's
+   * membership, but that check ran before this method: a role or membership that
+   * changed in between must not authorize the write, so the permission is
+   * revalidated transactionally rather than trusted from the request context.
+   * The role check runs before the target lookup so a non-owner cannot use the
+   * error to probe which emails are registered.
    *
    * The organization comes from the guarded context (which derives it from the
    * route) and the role is hard-coded to `MEMBER`; neither is accepted from the
@@ -158,21 +239,12 @@ export class OrganizationsService {
 
     try {
       const member = await this.prisma.$transaction(async (tx) => {
-        const actor = await tx.membership.findUnique({
-          where: {
-            userId_organizationId: {
-              userId: context.userId,
-              organizationId: context.organizationId,
-            },
-          },
-          select: { role: true },
-        });
-
-        if (!actor || actor.role !== MembershipRole.OWNER) {
-          throw new ForbiddenException(
-            'Only an organization owner can add members',
-          );
-        }
+        // The organization-row lock is acquired first so every membership
+        // mutation for this organization is serialized. Only then is the
+        // actor revalidated: a concurrent demotion must not race past a role
+        // check that ran before it could commit.
+        await lockOrganization(tx, context.organizationId);
+        await requireOwner(tx, context);
 
         const user = await tx.user.findUnique({
           where: { email },
@@ -207,7 +279,7 @@ export class OrganizationsService {
           role: membership.role,
           createdAt: membership.createdAt.toISOString(),
         };
-      });
+      }, MEMBERSHIP_MUTATION_TRANSACTION);
 
       return { member };
     } catch (error) {
