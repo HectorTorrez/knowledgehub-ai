@@ -42,5 +42,8 @@ Thumbs.db
 # Local tool state
 .hubble/
 
+# Local planning notes (not committed)
+sprint*.md
+
 # Turborepo cache
 .turbo/
