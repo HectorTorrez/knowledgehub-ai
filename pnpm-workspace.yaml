@@ -1,3 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Dependencies allowed to run install scripts. Prisma's CLI and engines need
+# theirs to set up the migration/generation tooling.
+allowBuilds:
+  '@prisma/engines': true
+  prisma: true

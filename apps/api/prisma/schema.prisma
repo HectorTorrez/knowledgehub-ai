@@ -1,0 +1,88 @@
+// KnowledgeHub AI persistence schema.
+//
+// The connection URL is intentionally not defined here: it is supplied at
+// runtime by the API (see `src/prisma/prisma.service.ts`) and to the Prisma CLI
+// by `prisma.config.ts`, both reading `DATABASE_URL`.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// An authenticated account. Deliberately not tied to an organization: users
+/// will eventually belong to many organizations, so tenancy is modeled
+/// separately from identity.
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Normalized (trimmed, lower-cased) email. Uniqueness is enforced on the
+  /// normalized form; see `src/users/email.ts`.
+  email String @unique
+
+  passwordHash String
+  firstName    String
+  lastName     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions AuthSession[]
+}
+
+/// A single login on a single device. This is the unit of revocation: revoking
+/// a session immediately invalidates that device's access tokens and its
+/// refresh-token chain, without affecting the user's other sessions.
+model AuthSession {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  /// Absolute session lifetime. Independent of individual refresh tokens.
+  expiresAt DateTime
+
+  /// Set when the session is revoked (logout, reuse detected, admin action).
+  revokedAt DateTime?
+
+  /// Updated when a refresh token is successfully rotated.
+  lastUsedAt DateTime?
+
+  /// Device information captured at session creation for the audit trail.
+  userAgent String?
+  ipAddress String?
+
+  refreshTokens RefreshToken[]
+
+  @@index([userId])
+}
+
+/// One issued opaque refresh token. Tokens are single-use: on refresh the
+/// presented token is marked `usedAt` and a new row is issued. Keeping used rows
+/// (until they expire) is what makes reuse detection possible: presenting an
+/// already-used token is treated as theft and revokes the whole session.
+model RefreshToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  sessionId String      @db.Uuid
+  session   AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 (or stronger) hash of the opaque token. The plaintext token is
+  /// only ever returned to the client, never stored.
+  tokenHash String @unique
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  /// Set the moment the token is exchanged during rotation. A non-null value
+  /// means "already used" and therefore a reuse attempt if presented again.
+  usedAt DateTime?
+
+  @@index([sessionId])
+}

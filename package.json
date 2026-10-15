@@ -7,7 +7,16 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:health": "docker compose ps postgres",
+    "db:logs": "docker compose logs -f postgres",
+    "db:migrate": "pnpm --filter @knowledgehub/api db:migrate",
+    "db:migrate:deploy": "pnpm --filter @knowledgehub/api db:migrate:deploy",
+    "db:migrate:status": "pnpm --filter @knowledgehub/api db:migrate:status",
+    "db:reset": "pnpm --filter @knowledgehub/api db:reset",
+    "db:studio": "pnpm --filter @knowledgehub/api db:studio"
   },
   "packageManager": "pnpm@11.23.0",
   "engines": {

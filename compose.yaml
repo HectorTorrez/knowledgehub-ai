@@ -1,0 +1,40 @@
+# Local development infrastructure for KnowledgeHub AI.
+#
+# Postgres only: the API and web applications are run on the host with pnpm
+# during development. Containerizing them can be revisited later.
+#
+# Credentials come from the root `.env` file (see `.env.example`). Never commit
+# real credentials.
+
+name: knowledgehub
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    container_name: knowledgehub-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-knowledgehub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-knowledgehub}
+    # Only reachable from the local machine, never from the network.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-knowledgehub} -d ${POSTGRES_DB:-knowledgehub}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  # Named volume so data survives `docker compose down` / container restarts.
+  # Removed only by `docker compose down --volumes`.
+  postgres-data:
+    name: knowledgehub-postgres-data

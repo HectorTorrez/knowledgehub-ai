@@ -13,6 +13,10 @@ build/
 out/
 .output/
 
+# Generated Prisma Client (recreated by `pnpm prisma:generate`, run via the
+# `pre*` scripts before build/dev/type-check/test)
+apps/api/src/generated/
+
 # Framework / tooling generated output
 .vinxi/
 .tanstack/

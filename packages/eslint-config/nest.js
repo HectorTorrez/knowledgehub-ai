@@ -16,6 +16,11 @@ export default [
     rules: {
       // NestJS relies on decorators and dependency-injection classes.
       '@typescript-eslint/no-explicit-any': 'off',
+      // Injected classes are referenced in constructor parameter positions and
+      // must remain value imports so `emitDecoratorMetadata` can emit them for
+      // the DI container at runtime. `import type` would erase them and break
+      // injection, so this rule cannot be applied to Nest code.
+      '@typescript-eslint/consistent-type-imports': 'off',
     },
   },
   {
