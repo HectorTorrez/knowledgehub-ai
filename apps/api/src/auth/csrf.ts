@@ -111,6 +111,23 @@ export function buildCsrfCookieOptions(
   };
 }
 
+/**
+ * Options for clearing the CSRF cookie on logout. It is intentionally not
+ * `HttpOnly` (the SPA must read it) and its path must match the one it was set
+ * with, otherwise the browser keeps the stale cookie.
+ */
+export function buildClearCsrfCookieOptions(
+  policy: CookiePolicy,
+): CookieOptions {
+  return {
+    httpOnly: false,
+    secure: policy.secure,
+    sameSite: policy.sameSite,
+    domain: policy.domain,
+    path: CSRF_COOKIE_PATH,
+  };
+}
+
 function firstHeaderValue(value: unknown): string | undefined {
   if (Array.isArray(value)) {
     const [first] = value;

@@ -91,6 +91,26 @@ describe('TokenService', () => {
     );
   });
 
+  it('caps the expiry at an absolute deadline when one is supplied', () => {
+    const { service } = buildService();
+    const cap = new Date(Date.now() + 60_000);
+
+    const generated = service.generateRefreshToken(cap);
+
+    expect(generated.expiresAt.getTime()).toBe(cap.getTime());
+  });
+
+  it('ignores a deadline that is further out than the configured TTL', () => {
+    const { service } = buildService();
+    const cap = new Date(Date.now() + REFRESH_TTL_MS * 2);
+
+    const generated = service.generateRefreshToken(cap);
+
+    expect(generated.expiresAt.getTime()).toBeLessThanOrEqual(
+      Date.now() + REFRESH_TTL_MS,
+    );
+  });
+
   it('hashes refresh tokens deterministically with SHA-256', () => {
     const { service } = buildService();
     const token = 'some-opaque-refresh-token';

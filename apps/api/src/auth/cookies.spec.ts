@@ -3,6 +3,8 @@ import {
   ACCESS_TOKEN_COOKIE_PATH,
   REFRESH_TOKEN_COOKIE_PATH,
   buildAccessCookieOptions,
+  buildClearAccessCookieOptions,
+  buildClearRefreshCookieOptions,
   buildRefreshCookieOptions,
   resolveCookiePolicy,
 } from './cookies.js';
@@ -73,5 +75,33 @@ describe('cookie option builders', () => {
 
   it('omits domain when not configured (host-only cookie)', () => {
     expect(buildAccessCookieOptions(policy, 1).domain).toBeUndefined();
+  });
+});
+
+describe('cookie clearing option builders', () => {
+  const policy = {
+    secure: true,
+    sameSite: 'lax' as const,
+    domain: '.example.com',
+  };
+
+  it('clears the access cookie on its original path with matching attributes', () => {
+    expect(buildClearAccessCookieOptions(policy)).toMatchObject({
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      domain: '.example.com',
+      path: ACCESS_TOKEN_COOKIE_PATH,
+    });
+    expect(buildClearAccessCookieOptions(policy).maxAge).toBeUndefined();
+  });
+
+  it('clears the refresh cookie on the /auth path', () => {
+    expect(buildClearRefreshCookieOptions(policy)).toMatchObject({
+      httpOnly: true,
+      secure: true,
+      path: REFRESH_TOKEN_COOKIE_PATH,
+    });
+    expect(buildClearRefreshCookieOptions(policy).path).toBe('/auth');
   });
 });

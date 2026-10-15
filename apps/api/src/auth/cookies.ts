@@ -75,3 +75,31 @@ export function buildRefreshCookieOptions(
 ): CookieOptions {
   return baseCookieOptions(policy, REFRESH_TOKEN_COOKIE_PATH, maxAgeMs);
 }
+
+/**
+ * Options for clearing the auth cookies on logout. They mirror the security
+ * attributes and path of the cookies they delete: a browser only removes a
+ * cookie when the clearing `Set-Cookie` matches its name, path and domain, so
+ * a stale cookie on a differently-scoped path would otherwise survive logout.
+ */
+function clearCookieOptions(policy: CookiePolicy, path: string): CookieOptions {
+  return {
+    httpOnly: true,
+    secure: policy.secure,
+    sameSite: policy.sameSite,
+    domain: policy.domain,
+    path,
+  };
+}
+
+export function buildClearAccessCookieOptions(
+  policy: CookiePolicy,
+): CookieOptions {
+  return clearCookieOptions(policy, ACCESS_TOKEN_COOKIE_PATH);
+}
+
+export function buildClearRefreshCookieOptions(
+  policy: CookiePolicy,
+): CookieOptions {
+  return clearCookieOptions(policy, REFRESH_TOKEN_COOKIE_PATH);
+}

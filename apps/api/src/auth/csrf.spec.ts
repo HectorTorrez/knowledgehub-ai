@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CSRF_COOKIE_PATH,
+  buildClearCsrfCookieOptions,
   buildCsrfCookieOptions,
   csrfTokensMatch,
   generateCsrfToken,
@@ -90,6 +91,18 @@ describe('buildCsrfCookieOptions', () => {
     });
     expect(options.domain).toBeUndefined();
   });
+
+  it('clears the CSRF cookie as a readable, same-pathed cookie', () => {
+    const options = buildClearCsrfCookieOptions(policy);
+
+    expect(options).toMatchObject({
+      httpOnly: false,
+      secure: true,
+      sameSite: 'lax',
+      path: CSRF_COOKIE_PATH,
+    });
+    expect(options.maxAge).toBeUndefined();
+  });
 });
 
 describe('isUnsafeMethod', () => {
@@ -147,5 +160,42 @@ describe('origin helpers', () => {
     expect(isTrustedOrigin('http://evil.test', trusted)).toBe(false);
     expect(isTrustedOrigin('null', trusted)).toBe(false);
     expect(isTrustedOrigin(undefined, trusted)).toBe(false);
+  });
+
+  it('rejects lookalike hostnames', () => {
+    const trusted = ['http://localhost:3000'];
+    expect(isTrustedOrigin('http://localhost:3000.evil.test', trusted)).toBe(
+      false,
+    );
+    expect(isTrustedOrigin('http://evil-localhost:3000', trusted)).toBe(false);
+    expect(isTrustedOrigin('http://localhost@evil.test', trusted)).toBe(false);
+  });
+
+  it('rejects unexpected schemes and ports', () => {
+    const trusted = ['http://localhost:3000'];
+    expect(isTrustedOrigin('https://localhost:3000', trusted)).toBe(false);
+    expect(isTrustedOrigin('http://localhost:3001', trusted)).toBe(false);
+    expect(isTrustedOrigin('http://localhost', trusted)).toBe(false);
+  });
+
+  it('rejects origins carrying credentials', () => {
+    const trusted = ['http://localhost:3000'];
+    expect(
+      isTrustedOrigin('http://user:pass@localhost:3000', trusted),
+    ).toBe(false);
+  });
+
+  it('rejects malformed origin values', () => {
+    const trusted = ['http://localhost:3000'];
+    expect(isTrustedOrigin('not a url', trusted)).toBe(false);
+    expect(isTrustedOrigin('http://', trusted)).toBe(false);
+    expect(originFromUrl('http://')).toBeUndefined();
+    expect(originFromUrl(':://')).toBeUndefined();
+  });
+
+  it('parses the Referer origin including a non-default port', () => {
+    expect(
+      resolveRequestOrigin({ headers: { referer: 'https://app.example.com:8443/x' } }),
+    ).toBe('https://app.example.com:8443');
   });
 });

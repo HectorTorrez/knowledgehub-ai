@@ -7,6 +7,7 @@ import {
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthConfig } from './auth.config.js';
+import { extractBearerToken } from './authorization.js';
 import { ACCESS_TOKEN_COOKIE } from './cookies.js';
 import { TokenService } from './token.service.js';
 
@@ -82,15 +83,15 @@ export class SessionGuard implements CanActivate {
 
 /**
  * Extracts an access token, preferring the `Authorization: Bearer` header over
- * the cookie so a client that sends both is treated as a bearer client.
+ * the cookie so a client that sends both is treated as a bearer client. An
+ * empty or malformed bearer credential is ignored (see {@link extractBearerToken}),
+ * so it falls through to cookie authentication rather than masquerading as
+ * bearer and skipping CSRF.
  */
 function extractToken(request: Request): ExtractedToken | undefined {
-  const header = request.headers.authorization;
-  if (header?.startsWith('Bearer ')) {
-    const bearer = header.slice('Bearer '.length);
-    if (bearer.length > 0) {
-      return { token: bearer, source: 'bearer' };
-    }
+  const bearer = extractBearerToken(request.headers.authorization);
+  if (bearer !== undefined) {
+    return { token: bearer, source: 'bearer' };
   }
 
   const cookie = request.cookies?.[ACCESS_TOKEN_COOKIE];

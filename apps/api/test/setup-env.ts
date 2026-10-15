@@ -4,7 +4,7 @@
 process.env.NODE_ENV ??= 'test';
 process.env.JWT_ACCESS_SECRET ??= 'test-only-access-secret-value-32-chars-min';
 process.env.JWT_ACCESS_TTL ??= '15m';
-process.env.REFRESH_TOKEN_TTL_DAYS ??= '30';
+process.env.REFRESH_TOKEN_TTL_DAYS ??= '7';
 process.env.COOKIE_SAMESITE ??= 'lax';
 
 // Browser (cookie) authentication is opt-in and requires a CSRF secret. The
