@@ -1,9 +1,24 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type {
+  AddMemberResponse,
   MemberListResponse,
   OrganizationDetailResponse,
 } from '@knowledgehub/shared-types';
 import { SessionGuard } from '../auth/session.guard.js';
+import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
+import {
+  addMemberSchema,
+  type AddMemberInput,
+} from './dto/add-member.schema.js';
 import {
   requireOrganizationContext,
   type OrganizationRequest,
@@ -38,6 +53,25 @@ export class OrganizationTenantController {
   listMembers(@Req() request: OrganizationRequest): Promise<MemberListResponse> {
     return this.organizations.listMembers(
       requireOrganizationContext(request).organizationId,
+    );
+  }
+
+  /**
+   * Adds an existing user, by email, as a `MEMBER`. Both class-level guards run
+   * first (authentication, then membership); the service still revalidates the
+   * caller's OWNER role inside the writing transaction. The organization is
+   * read from the guarded context and the role is fixed server-side, so neither
+   * can be influenced by the request body.
+   */
+  @Post(':organizationId/members')
+  @HttpCode(HttpStatus.CREATED)
+  addMember(
+    @Body(new ZodValidationPipe(addMemberSchema)) body: AddMemberInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<AddMemberResponse> {
+    return this.organizations.addMember(
+      requireOrganizationContext(request),
+      body,
     );
   }
 }

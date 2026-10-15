@@ -1,13 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
+  AddMemberResponse,
   MemberListResponse,
   OrganizationDetailResponse,
   OrganizationListResponse,
   OrganizationRole,
   OrganizationSummary,
 } from '@knowledgehub/shared-types';
-import { MembershipRole } from '../generated/prisma/client.js';
+import { MembershipRole, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { normalizeEmail } from '../users/email.js';
+import type { AddMemberInput } from './dto/add-member.schema.js';
 import type { CreateOrganizationInput } from './dto/create-organization.schema.js';
 import type {
   AuthorizedOrganization,
@@ -124,6 +132,93 @@ export class OrganizationsService {
       })),
     };
   }
+
+  /**
+   * Adds an existing user, identified by email, as a `MEMBER` of the authorized
+   * organization.
+   *
+   * The actor's OWNER role is re-read and enforced *inside* the same
+   * transaction that writes the membership. The route guard already resolved
+   * the caller's membership, but that check ran before this method: a role or
+   * membership that changed in between must not authorize the write, so the
+   * permission is revalidated transactionally rather than trusted from the
+   * request context. The role check runs before the target lookup so a
+   * non-owner cannot use the error to probe which emails are registered.
+   *
+   * The organization comes from the guarded context (which derives it from the
+   * route) and the role is hard-coded to `MEMBER`; neither is accepted from the
+   * request body. Duplicate membership is caught from the database's unique
+   * constraint and surfaced as a `409` without leaking the underlying error.
+   */
+  async addMember(
+    context: OrganizationContext,
+    input: AddMemberInput,
+  ): Promise<AddMemberResponse> {
+    const email = normalizeEmail(input.email);
+
+    try {
+      const member = await this.prisma.$transaction(async (tx) => {
+        const actor = await tx.membership.findUnique({
+          where: {
+            userId_organizationId: {
+              userId: context.userId,
+              organizationId: context.organizationId,
+            },
+          },
+          select: { role: true },
+        });
+
+        if (!actor || actor.role !== MembershipRole.OWNER) {
+          throw new ForbiddenException(
+            'Only an organization owner can add members',
+          );
+        }
+
+        const user = await tx.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        });
+
+        if (!user) {
+          throw new NotFoundException(
+            'No user found with this email address',
+          );
+        }
+
+        const membership = await tx.membership.create({
+          data: {
+            userId: user.id,
+            organizationId: context.organizationId,
+            role: MembershipRole.MEMBER,
+          },
+          select: { role: true, createdAt: true },
+        });
+
+        return {
+          userId: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: membership.role,
+          createdAt: membership.createdAt.toISOString(),
+        };
+      });
+
+      return { member };
+    } catch (error) {
+      if (isDuplicateMembershipViolation(error)) {
+        throw new ConflictException(
+          'User is already a member of this organization',
+        );
+      }
+      throw error;
+    }
+  }
 }
 
 /** Maps a persisted organization plus the caller's role to the public shape. */
@@ -138,4 +233,35 @@ function toOrganizationSummary(
     createdAt: organization.createdAt.toISOString(),
     updatedAt: organization.updatedAt.toISOString(),
   };
+}
+
+/**
+ * True only for a unique-constraint violation on the membership join key
+ * (`[userId, organizationId]`).
+ *
+ * Scoped narrowly, mirroring {@link isUniqueEmailViolation}: a unique violation
+ * elsewhere (for example on `User.email`) must surface as an internal error
+ * rather than a misleading "already a member" `409`.
+ */
+export function isDuplicateMembershipViolation(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
+  }
+
+  if (error.code !== 'P2002') {
+    return false;
+  }
+
+  const meta = error.meta as
+    | { modelName?: string; target?: unknown }
+    | undefined;
+
+  if (meta?.modelName === 'Membership') {
+    return true;
+  }
+
+  const target = Array.isArray(meta?.target) ? meta.target.map(String) : [];
+  return (
+    target.includes('userId') && target.includes('organizationId')
+  );
 }

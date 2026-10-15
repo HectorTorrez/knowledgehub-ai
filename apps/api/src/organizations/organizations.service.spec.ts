@@ -1,6 +1,16 @@
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { OrganizationsService } from './organizations.service.js';
+import type { OrganizationContext } from './organization-context.js';
+import {
+  OrganizationsService,
+  isDuplicateMembershipViolation,
+} from './organizations.service.js';
 
 interface MembershipWithOrganization {
   id: string;
@@ -69,10 +79,36 @@ function memberRow(
   };
 }
 
+interface TargetUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
+const defaultTargetUser: TargetUser = {
+  id: 'new-user',
+  email: 'new-user@example.test',
+  firstName: 'Grace',
+  lastName: 'Hopper',
+};
+
 interface HarnessOptions {
   membershipCreateFails?: boolean;
+  membershipCreateError?: unknown;
   memberships?: MembershipWithOrganization[];
   memberRows?: MemberRow[];
+  actorMembership?: { role: 'OWNER' | 'MEMBER' } | null;
+  targetUser?: TargetUser | null;
+}
+
+/** Builds a real Prisma known-request error for the membership unique key. */
+function duplicateMembershipError(): unknown {
+  return new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+    meta: { modelName: 'Membership', target: ['userId', 'organizationId'] },
+  });
 }
 
 /**
@@ -98,13 +134,35 @@ function createHarness(options: HarnessOptions = {}) {
     },
     membership: {
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        if (options.membershipCreateError !== undefined) {
+          throw options.membershipCreateError;
+        }
         if (options.membershipCreateFails) {
           throw new Error('membership persistence failed');
         }
-        const membership = { id: `membership-${memberships.length + 1}`, ...data };
+        const membership = {
+          id: `membership-${memberships.length + 1}`,
+          createdAt: new Date('2026-03-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-03-01T00:00:00.000Z'),
+          ...data,
+        };
         memberships.push(membership);
         return membership;
       }),
+      findUnique: vi.fn(
+        async () =>
+          options.actorMembership === undefined
+            ? { role: 'OWNER' }
+            : options.actorMembership,
+      ),
+    },
+    user: {
+      findUnique: vi.fn(
+        async () =>
+          options.targetUser === undefined
+            ? defaultTargetUser
+            : options.targetUser,
+      ),
     },
   };
 
@@ -415,5 +473,184 @@ describe('OrganizationsService.listMembers', () => {
       'role',
       'createdAt',
     ]);
+  });
+});
+
+function organizationContext(
+  role: 'OWNER' | 'MEMBER' = 'OWNER',
+): OrganizationContext {
+  return {
+    organizationId: 'org-1',
+    userId: 'owner-1',
+    role,
+    organization: {
+      id: 'org-1',
+      name: 'Acme',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+    },
+  };
+}
+
+describe('OrganizationsService.addMember', () => {
+  it('adds an existing user as a MEMBER and returns the public member shape', async () => {
+    const { service } = createHarness();
+
+    const result = await service.addMember(organizationContext(), {
+      email: 'new-user@example.test',
+    });
+
+    expect(result).toEqual({
+      member: {
+        userId: 'new-user',
+        email: 'new-user@example.test',
+        firstName: 'Grace',
+        lastName: 'Hopper',
+        role: 'MEMBER',
+        createdAt: '2026-03-01T00:00:00.000Z',
+      },
+    });
+  });
+
+  it('always writes role MEMBER for the organization from the context', async () => {
+    const { service, tx } = createHarness();
+
+    await service.addMember(organizationContext(), {
+      email: 'new-user@example.test',
+    });
+
+    expect(tx.membership.create).toHaveBeenCalledWith({
+      data: {
+        userId: 'new-user',
+        organizationId: 'org-1',
+        role: 'MEMBER',
+      },
+      select: { role: true, createdAt: true },
+    });
+  });
+
+  it('normalizes the email before the lookup, like registration', async () => {
+    const { service, tx } = createHarness();
+
+    await service.addMember(organizationContext(), {
+      email: '  New-User@Example.Test  ',
+    });
+
+    expect(tx.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { email: 'new-user@example.test' },
+      }),
+    );
+  });
+
+  it('revalidates the OWNER role on the transaction client', async () => {
+    const { service, tx } = createHarness();
+
+    await service.addMember(organizationContext(), {
+      email: 'new-user@example.test',
+    });
+
+    expect(tx.membership.findUnique).toHaveBeenCalledTimes(1);
+    expect(tx.membership.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_organizationId: {
+          userId: 'owner-1',
+          organizationId: 'org-1',
+        },
+      },
+      select: { role: true },
+    });
+  });
+
+  it('rejects with 403 when the transaction re-read shows a non-owner, even if the context claimed OWNER', async () => {
+    const { service, tx, memberships } = createHarness({
+      actorMembership: { role: 'MEMBER' },
+    });
+
+    await expect(
+      service.addMember(organizationContext('OWNER'), {
+        email: 'new-user@example.test',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(tx.membership.create).not.toHaveBeenCalled();
+    expect(memberships).toHaveLength(0);
+  });
+
+  it('rejects with 403 when the actor membership no longer exists in the transaction', async () => {
+    const { service, tx } = createHarness({ actorMembership: null });
+
+    await expect(
+      service.addMember(organizationContext('OWNER'), {
+        email: 'new-user@example.test',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(tx.user.findUnique).not.toHaveBeenCalled();
+    expect(tx.membership.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects with 404 when no user exists for the email', async () => {
+    const { service, tx } = createHarness({ targetUser: null });
+
+    await expect(
+      service.addMember(organizationContext(), {
+        email: 'missing@example.test',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(tx.membership.create).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a duplicate membership as 409 without leaking the database error', async () => {
+    const { service } = createHarness({
+      membershipCreateError: duplicateMembershipError(),
+    });
+
+    const error = await service
+      .addMember(organizationContext(), { email: 'new-user@example.test' })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as Error).message).toBe(
+      'User is already a member of this organization',
+    );
+    expect((error as Error).message).not.toContain('P2002');
+  });
+
+  it('does not leak internal fields in the response', async () => {
+    const { service } = createHarness();
+
+    const result = await service.addMember(organizationContext(), {
+      email: 'new-user@example.test',
+    });
+
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('passwordHash');
+    expect(serialized).not.toContain('organizationId');
+    expect(Object.keys(result.member)).toEqual([
+      'userId',
+      'email',
+      'firstName',
+      'lastName',
+      'role',
+      'createdAt',
+    ]);
+  });
+
+  it('only treats a membership unique violation as a duplicate', () => {
+    expect(isDuplicateMembershipViolation(duplicateMembershipError())).toBe(
+      true,
+    );
+    expect(
+      isDuplicateMembershipViolation(
+        new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { modelName: 'User', target: ['email'] },
+        }),
+      ),
+    ).toBe(false);
+    expect(isDuplicateMembershipViolation(new Error('boom'))).toBe(false);
   });
 });

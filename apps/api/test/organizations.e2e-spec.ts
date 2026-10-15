@@ -539,4 +539,214 @@ describe('organizations (e2e)', () => {
       expect(serialized).not.toContain('organizationId');
     });
   });
+
+  describe('add member', () => {
+    const addMember = (
+      token: string,
+      organizationId: string,
+      body: object,
+    ) =>
+      request(app.getHttpServer())
+        .post(`/organizations/${organizationId}/members`)
+        .set(bearer(token))
+        .send(body);
+
+    const createOwnedOrganization = async (token: string) => {
+      const created = await createOrganization(token, {
+        name: 'Add Member Org',
+      }).expect(201);
+      const organizationId = created.body.organization.id as string;
+      trackedOrganizationIds.add(organizationId);
+      return organizationId;
+    };
+
+    it('rejects unauthenticated requests with 401', async () => {
+      await request(app.getHttpServer())
+        .post(`/organizations/${randomUUID()}/members`)
+        .send({ email: 'someone@example.test' })
+        .expect(401);
+    });
+
+    it('rejects an authenticated non-member with 403', async () => {
+      const owner = await registerUser();
+      const outsider = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await addMember(outsider.token, organizationId, {
+        email: owner.email,
+      }).expect(403);
+    });
+
+    it('rejects a MEMBER with 403', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      await addMember(member.token, organizationId, {
+        email: owner.email,
+      }).expect(403);
+    });
+
+    it('lets an OWNER add an existing user, who becomes a MEMBER', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      const response = await addMember(owner.token, organizationId, {
+        email: target.email,
+      }).expect(201);
+
+      expect(response.body).toEqual({
+        member: {
+          userId: target.userId,
+          email: target.email,
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          role: 'MEMBER',
+          createdAt: expect.any(String),
+        },
+      });
+
+      const membership = await prisma.membership.findUniqueOrThrow({
+        where: {
+          userId_organizationId: {
+            userId: target.userId,
+            organizationId,
+          },
+        },
+      });
+      expect(membership.role).toBe('MEMBER');
+    });
+
+    it('normalizes the email consistently with registration', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      const response = await addMember(owner.token, organizationId, {
+        email: `  ${target.email.toUpperCase()}  `,
+      }).expect(201);
+
+      expect(response.body.member.userId).toBe(target.userId);
+      expect(response.body.member.email).toBe(target.email);
+    });
+
+    it('returns a deliberate 404 when no user exists for the email', async () => {
+      const owner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      const response = await addMember(owner.token, organizationId, {
+        email: `ghost-${randomUUID()}@example.test`,
+      }).expect(404);
+
+      expect(JSON.stringify(response.body)).not.toContain('passwordHash');
+    });
+
+    it('handles a duplicate membership with 409 without leaking internal errors', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await addMember(owner.token, organizationId, {
+        email: target.email,
+      }).expect(201);
+
+      const response = await addMember(owner.token, organizationId, {
+        email: target.email,
+      }).expect(409);
+
+      const serialized = JSON.stringify(response.body);
+      expect(serialized).not.toContain('P2002');
+      expect(serialized).not.toContain('Prisma');
+      expect(serialized).not.toContain('constraint');
+    });
+
+    it('never accepts role, user id or organization id from the body', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      const other = await registerUser();
+      const otherOrganizationId = await createOwnedOrganization(other.token);
+
+      for (const extra of [
+        { role: 'OWNER' },
+        { role: 'MEMBER' },
+        { userId: owner.userId },
+        { organizationId: otherOrganizationId },
+      ]) {
+        await addMember(owner.token, organizationId, {
+          email: target.email,
+          ...extra,
+        }).expect(400);
+      }
+
+      // Nothing was written to either organization.
+      expect(
+        await prisma.membership.count({
+          where: { userId: target.userId },
+        }),
+      ).toBe(0);
+      expect(
+        await prisma.membership.count({
+          where: { organizationId: otherOrganizationId, userId: target.userId },
+        }),
+      ).toBe(0);
+    });
+
+    it('exposes only approved public member fields', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      const response = await addMember(owner.token, organizationId, {
+        email: target.email,
+      }).expect(201);
+
+      expect(Object.keys(response.body.member).sort()).toEqual(
+        [
+          'createdAt',
+          'email',
+          'firstName',
+          'lastName',
+          'role',
+          'userId',
+        ].sort(),
+      );
+
+      const serialized = JSON.stringify(response.body);
+      expect(serialized).not.toContain('passwordHash');
+      expect(serialized).not.toContain('sessionId');
+      expect(serialized).not.toContain('refreshToken');
+      expect(serialized).not.toContain('organizationId');
+    });
+
+    it('authorizes on the membership role re-read, not the request guard alone', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      // The guard lets any member through; demote the owner to MEMBER after the
+      // membership was already established, so only a transactional role check
+      // can deny the write.
+      await prisma.membership.update({
+        where: {
+          userId_organizationId: { userId: owner.userId, organizationId },
+        },
+        data: { role: 'MEMBER' },
+      });
+
+      await addMember(owner.token, organizationId, {
+        email: target.email,
+      }).expect(403);
+
+      expect(
+        await prisma.membership.count({
+          where: { organizationId, userId: target.userId },
+        }),
+      ).toBe(0);
+    });
+  });
 });

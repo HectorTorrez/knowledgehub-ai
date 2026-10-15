@@ -114,10 +114,23 @@ export interface CreateOrganizationRequest {
   name: string;
 }
 
-/** Request body of `POST /organizations/:organizationId/members`. */
+/**
+ * Request body of `POST /organizations/:organizationId/members`.
+ *
+ * Only the invitee's email is accepted. The organization comes from the route
+ * and the caller's identity from the session; the new member's role is always
+ * `MEMBER`, so no role, user id or organization id is part of this contract.
+ */
 export interface AddMemberRequest {
   email: string;
-  role: OrganizationRole;
+}
+
+/**
+ * Response body of `POST /organizations/:organizationId/members`: the newly
+ * created membership in the same public shape used by the member list.
+ */
+export interface AddMemberResponse {
+  member: OrganizationMember;
 }
 
 /** Request body of `PATCH /organizations/:organizationId/members/:userId`. */
