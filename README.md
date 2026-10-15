@@ -88,11 +88,35 @@ POST /auth/register
   log in) again. Refresh is the next phase.
 
 **CSRF:** `HttpOnly` cookies stop token theft via XSS but do not prevent CSRF.
-Local development relies on `SameSite=Lax` plus the API's explicit CORS
-allow-list. Before this is exposed beyond local development, add a CSRF token
-(double-submit) and/or strict `Origin`/`Referer` validation for state-changing
-requests. Refresh-token rotation and reuse detection are designed into the
-schema but not yet implemented, so there is intentionally no refresh endpoint.
+The API now ships the CSRF foundations:
+
+- **Signed double-submit token.** When browser authentication is enabled,
+  registration (and, later, login) sets a JavaScript-readable `csrf_token`
+  cookie whose value is `nonce.HMAC-SHA256(nonce)` signed with a dedicated
+  `CSRF_SECRET`. Every unsafe cookie-authenticated request must echo that value
+  in the `X-CSRF-Token` header; the API verifies the signature and compares the
+  cookie and header with a timing-safe comparison.
+- **Origin validation.** Unsafe cookie-authenticated requests must carry an
+  `Origin` (or a `Referer` to fall back to) that matches the `CORS_ORIGIN`
+  allow-list.
+- **Bearer clients are unaffected.** Requests authenticated with
+  `Authorization: Bearer` are not subject to cookie CSRF rules.
+
+**Frontend responsibility:** read the `csrf_token` cookie (it is intentionally
+not `HttpOnly`) and send its value in the `X-CSRF-Token` header on every unsafe
+request (`POST`/`PUT`/`PATCH`/`DELETE`) that relies on cookie authentication.
+
+**Browser-auth security gate:** browser (cookie) authentication is opt-in via
+`BROWSER_AUTH_ENABLED` (default `false`) and requires a `CSRF_SECRET` of at
+least 32 characters. Enabling browser auth without a secret fails startup, so a
+production deployment cannot silently accept cookie-authenticated writes without
+CSRF. When disabled, cookie tokens are rejected and only bearer tokens are
+accepted. This is still local-development-only until the remaining auth flows
+(login/refresh/logout) and their security review are complete; do not treat the
+implementation of this guard as production readiness.
+
+Refresh-token rotation and reuse detection are designed into the schema but not
+yet implemented, so there is intentionally no refresh endpoint.
 
 ## Development
 

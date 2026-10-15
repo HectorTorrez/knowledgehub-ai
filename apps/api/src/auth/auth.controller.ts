@@ -17,6 +17,11 @@ import {
   buildAccessCookieOptions,
   buildRefreshCookieOptions,
 } from './cookies.js';
+import {
+  CSRF_COOKIE,
+  buildCsrfCookieOptions,
+  generateCsrfToken,
+} from './csrf.js';
 import { registerSchema, type RegisterInput } from './dto/register.schema.js';
 import { ZodValidationPipe } from './zod-validation.pipe.js';
 
@@ -53,6 +58,17 @@ export class AuthController {
       result.refreshToken,
       buildRefreshCookieOptions(policy, this.authConfig.refreshTtlMs),
     );
+
+    // Signed double-submit token, readable by the SPA so it can echo the value
+    // back in the `X-CSRF-Token` header on unsafe requests. Only issued when
+    // browser authentication is enabled.
+    if (this.authConfig.browserAuthEnabled) {
+      response.cookie(
+        CSRF_COOKIE,
+        generateCsrfToken(this.authConfig.csrfSecret),
+        buildCsrfCookieOptions(policy, this.authConfig.sessionTtlMs),
+      );
+    }
 
     return { user: result.user };
   }

@@ -7,7 +7,12 @@ import { z } from 'zod';
  * authentication setting fails fast instead of surfacing on the first request.
  * Values are coerced/defaulted here and read via `ConfigService` afterwards.
  */
-export const envSchema = z.object({
+/**
+ * Immutable list of environment variables that make up a complete, valid
+ * configuration. Kept as a flat object so the production browser-auth gate
+ * below can be expressed as a single refinement.
+ */
+const envObjectSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
     .default('development'),
@@ -37,6 +42,25 @@ export const envSchema = z.object({
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   COOKIE_DOMAIN: z.string().min(1).optional(),
+
+  // Browser (cookie-based) authentication is opt-in, so a deployment cannot
+  // accidentally accept cookie-authenticated writes without CSRF protection.
+  BROWSER_AUTH_ENABLED: z.enum(['true', 'false']).default('false'),
+  // Dedicated secret used to sign CSRF tokens. Required when browser auth is on.
+  CSRF_SECRET: z
+    .string()
+    .min(32, 'CSRF_SECRET must be at least 32 characters')
+    .optional(),
+});
+
+export const envSchema = envObjectSchema.superRefine((env, ctx) => {
+  if (env.BROWSER_AUTH_ENABLED === 'true' && env.CSRF_SECRET === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['CSRF_SECRET'],
+      message: 'CSRF_SECRET is required when BROWSER_AUTH_ENABLED is true',
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

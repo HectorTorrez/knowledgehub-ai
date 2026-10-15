@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module.js';
-import { resolveCorsOrigins } from './config/cors.js';
+import { buildCorsOptions, resolveCorsOrigins } from './config/cors.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,10 +15,8 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Explicit allow-list rather than a wildcard, because credentials are enabled.
-  app.enableCors({
-    origin: corsOrigins,
-    credentials: true,
-  });
+  // The CSRF header is explicitly permitted (see buildCorsOptions).
+  app.enableCors(buildCorsOptions(corsOrigins));
 
   await app.listen(port);
 }

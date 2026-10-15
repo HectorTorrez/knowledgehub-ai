@@ -1,4 +1,9 @@
-import { DEFAULT_CORS_ORIGIN, resolveCorsOrigins } from './cors.js';
+import {
+  CORS_ALLOWED_HEADERS,
+  DEFAULT_CORS_ORIGIN,
+  buildCorsOptions,
+  resolveCorsOrigins,
+} from './cors.js';
 
 describe('resolveCorsOrigins', () => {
   it('falls back to the local development origin when unset', () => {
@@ -25,5 +30,20 @@ describe('resolveCorsOrigins', () => {
     expect(() => resolveCorsOrigins('http://localhost:3000,*')).toThrow(
       /wildcard/i,
     );
+  });
+});
+
+describe('buildCorsOptions', () => {
+  it('enables credentials with an explicit origin allow-list', () => {
+    const options = buildCorsOptions(['http://localhost:3000']);
+
+    expect(options).toMatchObject({
+      origin: ['http://localhost:3000'],
+      credentials: true,
+    });
+  });
+
+  it('permits the CSRF header so cross-origin writes are not blocked', () => {
+    expect(CORS_ALLOWED_HEADERS).toContain('X-CSRF-Token');
   });
 });

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { resolveCorsOrigins } from '../config/cors.js';
 import { resolveCookiePolicy, type CookiePolicy } from './cookies.js';
 
 const MS_PER_SECOND = 1_000;
@@ -67,5 +68,23 @@ export class AuthConfig {
       COOKIE_SAMESITE: this.config.get<string>('COOKIE_SAMESITE'),
       COOKIE_DOMAIN: this.config.get<string>('COOKIE_DOMAIN'),
     });
+  }
+
+  /**
+   * Whether browser (cookie-based) authentication is enabled. Off by default;
+   * startup validation guarantees a CSRF secret is present when this is true.
+   */
+  get browserAuthEnabled(): boolean {
+    return this.config.get<string>('BROWSER_AUTH_ENABLED') === 'true';
+  }
+
+  /** Dedicated HMAC secret for signing CSRF tokens. */
+  get csrfSecret(): string {
+    return this.config.getOrThrow<string>('CSRF_SECRET');
+  }
+
+  /** Origins trusted for credential-bearing (cookie) requests. */
+  get trustedOrigins(): string[] {
+    return resolveCorsOrigins(this.config.get<string>('CORS_ORIGIN'));
   }
 }

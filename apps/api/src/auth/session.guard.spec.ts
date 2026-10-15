@@ -2,6 +2,7 @@ import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TokenService } from './token.service.js';
+import type { AuthConfig } from './auth.config.js';
 import { ACCESS_TOKEN_COOKIE } from './cookies.js';
 import { SessionGuard } from './session.guard.js';
 
@@ -27,6 +28,7 @@ function context(request: FakeRequest): ExecutionContext {
 function buildGuard(options: {
   session?: unknown;
   verify?: () => Promise<unknown>;
+  browserAuthEnabled?: boolean;
 } = {}) {
   const tokens = {
     verifyAccessToken: vi.fn(
@@ -43,7 +45,11 @@ function buildGuard(options: {
     },
   } as unknown as PrismaService;
 
-  return new SessionGuard(tokens, prisma);
+  const authConfig = {
+    browserAuthEnabled: options.browserAuthEnabled ?? true,
+  } as unknown as AuthConfig;
+
+  return new SessionGuard(tokens, prisma, authConfig);
 }
 
 describe('SessionGuard', () => {
@@ -142,5 +148,37 @@ describe('SessionGuard', () => {
     await expect(
       guard.canActivate(context(request)),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('rejects a cookie token when browser authentication is disabled', async () => {
+    const guard = buildGuard({ browserAuthEnabled: false });
+    const request: FakeRequest = {
+      cookies: { [ACCESS_TOKEN_COOKIE]: 'valid-token' },
+      headers: {},
+    };
+
+    await expect(
+      guard.canActivate(context(request)),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('still accepts a bearer token when browser authentication is disabled', async () => {
+    const guard = buildGuard({ browserAuthEnabled: false });
+    const request: FakeRequest = {
+      headers: { authorization: 'Bearer valid-token' },
+    };
+
+    await expect(guard.canActivate(context(request))).resolves.toBe(true);
+    expect(request.auth).toEqual({ userId: 'user-1', sessionId: 'session-1' });
+  });
+
+  it('prefers the bearer token over a cookie when both are present', async () => {
+    const guard = buildGuard({ browserAuthEnabled: false });
+    const request: FakeRequest = {
+      cookies: { [ACCESS_TOKEN_COOKIE]: 'cookie-token' },
+      headers: { authorization: 'Bearer header-token' },
+    };
+
+    await expect(guard.canActivate(context(request))).resolves.toBe(true);
   });
 });

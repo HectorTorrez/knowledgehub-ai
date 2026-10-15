@@ -4,6 +4,41 @@
  */
 export const DEFAULT_CORS_ORIGIN = 'http://localhost:3000';
 
+/** Methods the API accepts. Explicit rather than reflected for clarity. */
+export const CORS_METHODS = [
+  'GET',
+  'HEAD',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'OPTIONS',
+];
+
+/**
+ * Request headers the browser is allowed to send. Includes the CSRF header the
+ * double-submit flow relies on; without it, a browser would block the header on
+ * a cross-origin request before it ever reached the API.
+ */
+export const CORS_ALLOWED_HEADERS = [
+  'Content-Type',
+  'Authorization',
+  'X-CSRF-Token',
+];
+
+/**
+ * Builds the CORS options for the API. Credentials are enabled, so the origin
+ * must be an explicit allow-list (never `*`).
+ */
+export function buildCorsOptions(origins: string[]) {
+  return {
+    origin: origins,
+    credentials: true,
+    methods: [...CORS_METHODS],
+    allowedHeaders: [...CORS_ALLOWED_HEADERS],
+  };
+}
+
 /**
  * Parses the `CORS_ORIGIN` value into an explicit allow-list.
  *

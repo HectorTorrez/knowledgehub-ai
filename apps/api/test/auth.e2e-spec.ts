@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from '../src/auth/cookies.js';
+import { CSRF_COOKIE } from '../src/auth/csrf.js';
 import { PasswordService } from '../src/auth/password.service.js';
 import { SessionGuard } from '../src/auth/session.guard.js';
 import { TokenService } from '../src/auth/token.service.js';
@@ -136,6 +137,22 @@ describe('POST /auth/register (e2e)', () => {
       createHash('sha256').update(rawRefresh).digest('hex'),
     );
     expect(storedHash).not.toBe(rawRefresh);
+  });
+
+  it('issues a JavaScript-readable CSRF cookie when browser authentication is enabled', async () => {
+    const body = validBody();
+    trackedEmails.add(body.email);
+
+    const response = await register(body).expect(201);
+    const cookies = setCookies(response);
+
+    const csrf = requireCookie(cookies, CSRF_COOKIE);
+    expect(csrf).not.toMatch(/HttpOnly/i);
+    expect(csrf).toMatch(/SameSite=Lax/i);
+    expect(csrf).toMatch(/Path=\//i);
+    expect(cookieValue(cookies, CSRF_COOKIE)).toMatch(
+      /^[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/,
+    );
   });
 
   it('normalizes the email and rejects a differently-cased duplicate', async () => {

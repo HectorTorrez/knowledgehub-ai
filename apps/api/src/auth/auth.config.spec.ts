@@ -52,4 +52,30 @@ describe('AuthConfig', () => {
       sameSite: 'strict',
     });
   });
+
+  it('defaults the browser-auth gate to off', () => {
+    expect(build({}).browserAuthEnabled).toBe(false);
+  });
+
+  it('exposes the browser-auth gate and the CSRF secret', () => {
+    const secret = 'c'.repeat(32);
+    const authConfig = build({
+      BROWSER_AUTH_ENABLED: 'true',
+      CSRF_SECRET: secret,
+    });
+
+    expect(authConfig.browserAuthEnabled).toBe(true);
+    expect(authConfig.csrfSecret).toBe(secret);
+  });
+
+  it('derives trusted origins from the CORS allow-list', () => {
+    const authConfig = build({
+      CORS_ORIGIN: 'http://localhost:3000, https://app.example.com',
+    });
+
+    expect(authConfig.trustedOrigins).toEqual([
+      'http://localhost:3000',
+      'https://app.example.com',
+    ]);
+  });
 });
