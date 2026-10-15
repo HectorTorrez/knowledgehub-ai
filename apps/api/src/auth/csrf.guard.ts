@@ -1,11 +1,14 @@
 import {
   ForbiddenException,
   Injectable,
+  SetMetadata,
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { AuthConfig } from './auth.config.js';
+import { extractBearerToken } from './authorization.js';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from './cookies.js';
 import {
   CSRF_COOKIE,
@@ -16,6 +19,29 @@ import {
   resolveRequestOrigin,
   verifyCsrfToken,
 } from './csrf.js';
+
+/**
+ * Metadata key set by {@link EnforceCsrfWhenBrowserAuthDisabled} on handlers
+ * that must keep passing Origin/CSRF checks even when browser authentication is
+ * disabled, rather than being rejected outright by the disabled-mode gate.
+ */
+export const ENFORCE_CSRF_WHEN_BROWSER_AUTH_DISABLED =
+  'knowledgehub:enforce-csrf-when-browser-auth-disabled';
+
+/**
+ * Marks a handler as still subject to cookie Origin/CSRF validation when
+ * browser authentication is disabled.
+ *
+ * Applied only to `POST /auth/logout`. A disabled deployment normally rejects
+ * every cookie-authenticated unsafe request outright, but logout does not act on
+ * the cookie's authority while browser auth is off (it clears cookies and never
+ * revokes a session), so it must be able to reach the controller and hand the
+ * client a clean state. The normal origin allow-list and the signed
+ * double-submit token are still enforced, so this widens nothing else.
+ */
+export function EnforceCsrfWhenBrowserAuthDisabled(): MethodDecorator {
+  return SetMetadata(ENFORCE_CSRF_WHEN_BROWSER_AUTH_DISABLED, true);
+}
 
 /**
  * Enforces CSRF protection on unsafe, cookie-authenticated requests.
@@ -32,11 +58,17 @@ import {
  * the signed double-submit token from the JavaScript-readable cookie against the
  * `X-CSRF-Token` header using timing-safe comparisons. When browser
  * authentication is disabled the guard rejects the request outright, so a
- * deployment cannot accept cookie-authenticated writes without CSRF.
+ * deployment cannot accept cookie-authenticated writes without CSRF. The sole
+ * exception is a handler marked with
+ * {@link EnforceCsrfWhenBrowserAuthDisabled}, which keeps the full Origin/CSRF
+ * validation instead of the blanket rejection; only `POST /auth/logout` opts in.
  */
 @Injectable()
 export class CsrfGuard implements CanActivate {
-  constructor(private readonly authConfig: AuthConfig) {}
+  constructor(
+    private readonly authConfig: AuthConfig,
+    private readonly reflector: Reflector,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
@@ -53,7 +85,9 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
-    if (!this.authConfig.browserAuthEnabled) {
+    const enforceWhenDisabled = this.enforcesCsrfWhenDisabled(context);
+
+    if (!this.authConfig.browserAuthEnabled && !enforceWhenDisabled) {
       throw new ForbiddenException('Browser authentication is disabled');
     }
 
@@ -62,11 +96,13 @@ export class CsrfGuard implements CanActivate {
       throw new ForbiddenException('Request origin is not allowed');
     }
 
+    const csrfSecret = this.authConfig.csrfSecretOrUndefined;
     const cookieToken = request.cookies?.[CSRF_COOKIE];
     const headerToken = readHeader(request, CSRF_HEADER);
 
     if (
-      !verifyCsrfToken(this.authConfig.csrfSecret, cookieToken) ||
+      csrfSecret === undefined ||
+      !verifyCsrfToken(csrfSecret, cookieToken) ||
       !csrfTokensMatch(cookieToken, headerToken)
     ) {
       throw new ForbiddenException('Invalid or missing CSRF token');
@@ -74,10 +110,19 @@ export class CsrfGuard implements CanActivate {
 
     return true;
   }
+
+  private enforcesCsrfWhenDisabled(context: ExecutionContext): boolean {
+    return (
+      this.reflector.getAllAndOverride<boolean>(
+        ENFORCE_CSRF_WHEN_BROWSER_AUTH_DISABLED,
+        [context.getHandler(), context.getClass()],
+      ) === true
+    );
+  }
 }
 
 function isBearerAuthenticated(request: Request): boolean {
-  return request.headers.authorization?.startsWith('Bearer ') === true;
+  return extractBearerToken(request.headers.authorization) !== undefined;
 }
 
 function isCookieAuthenticated(request: Request): boolean {

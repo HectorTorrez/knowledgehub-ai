@@ -181,4 +181,38 @@ describe('SessionGuard', () => {
 
     await expect(guard.canActivate(context(request))).resolves.toBe(true);
   });
+
+  it('treats an empty bearer credential as cookie authentication', async () => {
+    const guard = buildGuard({ browserAuthEnabled: true });
+    const request: FakeRequest = {
+      cookies: { [ACCESS_TOKEN_COOKIE]: 'cookie-token' },
+      headers: { authorization: 'Bearer ' },
+    };
+
+    await expect(guard.canActivate(context(request))).resolves.toBe(true);
+    expect(request.auth).toEqual({ userId: 'user-1', sessionId: 'session-1' });
+  });
+
+  it('applies the browser-auth gate when the bearer credential is empty', async () => {
+    const guard = buildGuard({ browserAuthEnabled: false });
+    const request: FakeRequest = {
+      cookies: { [ACCESS_TOKEN_COOKIE]: 'cookie-token' },
+      headers: { authorization: 'Bearer ' },
+    };
+
+    await expect(
+      guard.canActivate(context(request)),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('rejects a malformed bearer credential when no cookie is present', async () => {
+    const guard = buildGuard();
+    const request: FakeRequest = {
+      headers: { authorization: 'Bearer' },
+    };
+
+    await expect(
+      guard.canActivate(context(request)),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
 });

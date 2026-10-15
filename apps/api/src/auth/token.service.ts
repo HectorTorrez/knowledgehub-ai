@@ -62,13 +62,23 @@ export class TokenService {
     return payload;
   }
 
-  generateRefreshToken(): GeneratedRefreshToken {
+  /**
+   * Generates an opaque refresh token. `notAfter` optionally caps the token's
+   * lifetime (rotation passes the session's absolute expiry) so a rotated token
+   * can never outlive its session.
+   */
+  generateRefreshToken(notAfter?: Date): GeneratedRefreshToken {
     const token = randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
+    const defaultExpiry = Date.now() + this.authConfig.refreshTtlMs;
+    const cappedExpiry =
+      notAfter === undefined
+        ? defaultExpiry
+        : Math.min(defaultExpiry, notAfter.getTime());
 
     return {
       token,
       hash: this.hashRefreshToken(token),
-      expiresAt: new Date(Date.now() + this.authConfig.refreshTtlMs),
+      expiresAt: new Date(cappedExpiry),
     };
   }
 

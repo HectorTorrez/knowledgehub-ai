@@ -42,3 +42,19 @@ export interface PublicUser {
 export interface RegisterResponse {
   user: PublicUser;
 }
+
+/**
+ * Response body of `POST /auth/login`. Same public contract as registration:
+ * credentials travel only as cookies, so the body carries just the profile.
+ */
+export interface LoginResponse {
+  user: PublicUser;
+}
+
+/**
+ * Response body of `POST /auth/refresh`. Rotating the refresh token issues new
+ * cookies, so as with the other auth flows the body carries only the profile.
+ */
+export interface RefreshResponse {
+  user: PublicUser;
+}

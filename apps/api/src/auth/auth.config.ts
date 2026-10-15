@@ -83,6 +83,16 @@ export class AuthConfig {
     return this.config.getOrThrow<string>('CSRF_SECRET');
   }
 
+  /**
+   * The CSRF secret when one is configured, or `undefined` when browser
+   * authentication is disabled and none is set. The guard uses this so a
+   * disabled deployment without a secret rejects a stray cookie request with a
+   * clean 403 instead of crashing while reading the secret.
+   */
+  get csrfSecretOrUndefined(): string | undefined {
+    return this.config.get<string>('CSRF_SECRET');
+  }
+
   /** Origins trusted for credential-bearing (cookie) requests. */
   get trustedOrigins(): string[] {
     return resolveCorsOrigins(this.config.get<string>('CORS_ORIGIN'));
