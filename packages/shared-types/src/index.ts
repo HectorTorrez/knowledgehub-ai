@@ -137,3 +137,11 @@ export interface AddMemberResponse {
 export interface UpdateMemberRoleRequest {
   role: OrganizationRole;
 }
+
+/**
+ * Response body of `PATCH /organizations/:organizationId/members/:userId`: the
+ * updated membership in the same public shape used by the member list.
+ */
+export interface UpdateMemberRoleResponse {
+  member: OrganizationMember;
+}

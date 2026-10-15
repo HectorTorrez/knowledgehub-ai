@@ -9,14 +9,17 @@ import type {
   MemberListResponse,
   OrganizationDetailResponse,
   OrganizationListResponse,
+  OrganizationMember,
   OrganizationRole,
   OrganizationSummary,
+  UpdateMemberRoleResponse,
 } from '@knowledgehub/shared-types';
 import { MembershipRole, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { normalizeEmail } from '../users/email.js';
 import type { AddMemberInput } from './dto/add-member.schema.js';
 import type { CreateOrganizationInput } from './dto/create-organization.schema.js';
+import type { UpdateMemberRoleInput } from './dto/update-member-role.schema.js';
 import type {
   AuthorizedOrganization,
   OrganizationContext,
@@ -42,6 +45,20 @@ const MEMBERSHIP_USER_ORGANIZATION_CONSTRAINT =
  */
 const MEMBERSHIP_MUTATION_TRANSACTION = {
   isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+} as const;
+
+/**
+ * The membership projection every member-returning read shares: the role and
+ * join date plus the user's public profile fields. Kept in one place so a member
+ * can never be assembled from a wider (or different) field set than the public
+ * contract allows.
+ */
+const MEMBER_PROJECTION = {
+  role: true,
+  createdAt: true,
+  user: {
+    select: { id: true, email: true, firstName: true, lastName: true },
+  },
 } as const;
 
 /**
@@ -80,11 +97,13 @@ export async function lockOrganization(
  * transaction, so it cannot authorize a privileged write on its own: without
  * this re-read, a concurrent demotion could authorize the mutation from a stale
  * read. Querying by both userId and organizationId is what keeps the check
- * scoped to the tenant.
+ * scoped to the tenant. The action is supplied by the caller so the `403` names
+ * the operation that was actually denied.
  */
 export async function requireOwner(
   tx: Prisma.TransactionClient,
   context: Pick<OrganizationContext, 'userId' | 'organizationId'>,
+  action: string,
 ): Promise<void> {
   const actor = await tx.membership.findUnique({
     where: {
@@ -97,7 +116,7 @@ export async function requireOwner(
   });
 
   if (!actor || actor.role !== MembershipRole.OWNER) {
-    throw new ForbiddenException('Only an organization owner can add members');
+    throw new ForbiddenException(`Only an organization owner can ${action}`);
   }
 }
 
@@ -185,31 +204,11 @@ export class OrganizationsService {
   async listMembers(organizationId: string): Promise<MemberListResponse> {
     const memberships = await this.prisma.membership.findMany({
       where: { organizationId },
-      select: {
-        role: true,
-        createdAt: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
+      select: MEMBER_PROJECTION,
       orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
     });
 
-    return {
-      members: memberships.map((membership) => ({
-        userId: membership.user.id,
-        email: membership.user.email,
-        firstName: membership.user.firstName,
-        lastName: membership.user.lastName,
-        role: membership.role,
-        createdAt: membership.createdAt.toISOString(),
-      })),
-    };
+    return { members: memberships.map(toOrganizationMember) };
   }
 
   /**
@@ -244,7 +243,7 @@ export class OrganizationsService {
         // actor revalidated: a concurrent demotion must not race past a role
         // check that ran before it could commit.
         await lockOrganization(tx, context.organizationId);
-        await requireOwner(tx, context);
+        await requireOwner(tx, context, 'add members');
 
         const user = await tx.user.findUnique({
           where: { email },
@@ -271,14 +270,11 @@ export class OrganizationsService {
           select: { role: true, createdAt: true },
         });
 
-        return {
-          userId: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
+        return toOrganizationMember({
           role: membership.role,
-          createdAt: membership.createdAt.toISOString(),
-        };
+          createdAt: membership.createdAt,
+          user,
+        });
       }, MEMBERSHIP_MUTATION_TRANSACTION);
 
       return { member };
@@ -290,6 +286,86 @@ export class OrganizationsService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Changes an existing member's role within the authorized organization.
+   *
+   * As with {@link addMember}, the transaction first acquires the
+   * organization-row lock (see {@link lockOrganization}) and only then
+   * revalidates the actor's OWNER role, so a concurrent demotion cannot
+   * authorize the change from a stale read. The lock additionally makes the
+   * "last owner" invariant below safe: the owner count and the write happen
+   * under the same lock, so two concurrent demotions cannot each observe two
+   * owners and both commit.
+   *
+   * The target comes from the route as a `userId` and is resolved through a
+   * membership scoped to the authorized organization, so a user who is not a
+   * member (including a member of another tenant) is a `404`, never a write.
+   * Assigning the role a member already holds is a successful no-op. Demoting
+   * an owner when they are the organization's only owner is a `409`, so an
+   * organization can never be left ownerless.
+   */
+  async updateMemberRole(
+    context: OrganizationContext,
+    targetUserId: string,
+    input: UpdateMemberRoleInput,
+  ): Promise<UpdateMemberRoleResponse> {
+    const member = await this.prisma.$transaction(async (tx) => {
+      await lockOrganization(tx, context.organizationId);
+      await requireOwner(tx, context, 'change member roles');
+
+      const target = await tx.membership.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: targetUserId,
+            organizationId: context.organizationId,
+          },
+        },
+        select: MEMBER_PROJECTION,
+      });
+
+      if (!target) {
+        throw new NotFoundException('Member not found');
+      }
+
+      if (target.role === input.role) {
+        return toOrganizationMember(target);
+      }
+
+      if (
+        target.role === MembershipRole.OWNER &&
+        input.role === MembershipRole.MEMBER
+      ) {
+        const ownerCount = await tx.membership.count({
+          where: {
+            organizationId: context.organizationId,
+            role: MembershipRole.OWNER,
+          },
+        });
+
+        if (ownerCount <= 1) {
+          throw new ConflictException(
+            'Organization must have at least one owner',
+          );
+        }
+      }
+
+      const updated = await tx.membership.update({
+        where: {
+          userId_organizationId: {
+            userId: targetUserId,
+            organizationId: context.organizationId,
+          },
+        },
+        data: { role: input.role },
+        select: MEMBER_PROJECTION,
+      });
+
+      return toOrganizationMember(updated);
+    }, MEMBERSHIP_MUTATION_TRANSACTION);
+
+    return { member };
   }
 }
 
@@ -304,6 +380,34 @@ function toOrganizationSummary(
     role,
     createdAt: organization.createdAt.toISOString(),
     updatedAt: organization.updatedAt.toISOString(),
+  };
+}
+
+/** The row shape produced by {@link MEMBER_PROJECTION}. */
+interface MemberProjection {
+  role: OrganizationRole;
+  createdAt: Date;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+/**
+ * Maps a {@link MEMBER_PROJECTION} row to the public member shape. The mapping
+ * is explicit (rather than a spread) so persistence-only columns such as the
+ * membership id or organization id can never leak into a response.
+ */
+function toOrganizationMember(membership: MemberProjection): OrganizationMember {
+  return {
+    userId: membership.user.id,
+    email: membership.user.email,
+    firstName: membership.user.firstName,
+    lastName: membership.user.lastName,
+    role: membership.role,
+    createdAt: membership.createdAt.toISOString(),
   };
 }
 

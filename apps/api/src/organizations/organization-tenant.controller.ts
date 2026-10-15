@@ -4,6 +4,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -12,6 +15,7 @@ import type {
   AddMemberResponse,
   MemberListResponse,
   OrganizationDetailResponse,
+  UpdateMemberRoleResponse,
 } from '@knowledgehub/shared-types';
 import { SessionGuard } from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
@@ -19,6 +23,10 @@ import {
   addMemberSchema,
   type AddMemberInput,
 } from './dto/add-member.schema.js';
+import {
+  updateMemberRoleSchema,
+  type UpdateMemberRoleInput,
+} from './dto/update-member-role.schema.js';
 import {
   requireOrganizationContext,
   type OrganizationRequest,
@@ -71,6 +79,28 @@ export class OrganizationTenantController {
   ): Promise<AddMemberResponse> {
     return this.organizations.addMember(
       requireOrganizationContext(request),
+      body,
+    );
+  }
+
+  /**
+   * Changes a member's role. The target is the route `userId`, validated as a
+   * UUID so a malformed id is a `400` before it reaches the database, and the
+   * organization is read from the guarded context. The class-level guards prove
+   * membership only; the service revalidates the caller's OWNER role inside the
+   * writing transaction.
+   */
+  @Patch(':organizationId/members/:userId')
+  @HttpCode(HttpStatus.OK)
+  updateMemberRole(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body(new ZodValidationPipe(updateMemberRoleSchema))
+    body: UpdateMemberRoleInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<UpdateMemberRoleResponse> {
+    return this.organizations.updateMemberRole(
+      requireOrganizationContext(request),
+      userId,
       body,
     );
   }

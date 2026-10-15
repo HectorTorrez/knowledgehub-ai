@@ -93,6 +93,32 @@ const defaultTargetUser: TargetUser = {
   lastName: 'Hopper',
 };
 
+/** The authenticated actor's user id, as used by {@link organizationContext}. */
+const ACTOR_USER_ID = 'owner-1';
+
+interface TargetMembershipRow {
+  role: 'OWNER' | 'MEMBER';
+  createdAt: Date;
+  user: TargetUser;
+}
+
+function targetMembershipRow(
+  userId: string,
+  role: 'OWNER' | 'MEMBER',
+  createdAt = new Date('2026-01-01T00:00:00.000Z'),
+): TargetMembershipRow {
+  return {
+    role,
+    createdAt,
+    user: {
+      id: userId,
+      email: `${userId}@example.test`,
+      firstName: 'Grace',
+      lastName: 'Hopper',
+    },
+  };
+}
+
 interface HarnessOptions {
   membershipCreateFails?: boolean;
   membershipCreateError?: unknown;
@@ -100,6 +126,8 @@ interface HarnessOptions {
   memberRows?: MemberRow[];
   actorMembership?: { role: 'OWNER' | 'MEMBER' } | null;
   targetUser?: TargetUser | null;
+  targetMembership?: TargetMembershipRow | null;
+  ownerCount?: number;
   lockRows?: { id: string }[];
 }
 
@@ -200,12 +228,36 @@ function createHarness(options: HarnessOptions = {}) {
         memberships.push(membership);
         return membership;
       }),
-      findUnique: vi.fn(async () => {
-        calls.push('read-actor-membership');
-        return options.actorMembership === undefined
-          ? { role: 'OWNER' }
-          : options.actorMembership;
+      findUnique: vi.fn(
+        async ({
+          where,
+        }: {
+          where: { userId_organizationId: { userId: string } };
+        }) => {
+          const { userId } = where.userId_organizationId;
+          if (userId === ACTOR_USER_ID) {
+            calls.push('read-actor-membership');
+            return options.actorMembership === undefined
+              ? { role: 'OWNER' }
+              : options.actorMembership;
+          }
+          calls.push('read-target-membership');
+          return options.targetMembership ?? null;
+        },
+      ),
+      count: vi.fn(async () => {
+        calls.push('count-owners');
+        return options.ownerCount ?? 1;
       }),
+      update: vi.fn(
+        async ({ data }: { data: { role: 'OWNER' | 'MEMBER' } }) => {
+          calls.push('update-membership');
+          const base =
+            options.targetMembership ??
+            targetMembershipRow('target-user', 'MEMBER');
+          return { ...base, role: data.role };
+        },
+      ),
     },
     user: {
       findUnique: vi.fn(
@@ -809,5 +861,274 @@ describe('isDuplicateMembershipViolation', () => {
         }),
       ),
     ).toBe(false);
+  });
+});
+
+const TARGET_USER_ID = 'target-user';
+
+describe('OrganizationsService.updateMemberRole', () => {
+  it('promotes a MEMBER to OWNER and returns the public member shape', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    const result = await service.updateMemberRole(
+      organizationContext(),
+      TARGET_USER_ID,
+      { role: 'OWNER' },
+    );
+
+    expect(result).toEqual({
+      member: {
+        userId: TARGET_USER_ID,
+        email: 'target-user@example.test',
+        firstName: 'Grace',
+        lastName: 'Hopper',
+        role: 'OWNER',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    });
+    expect(tx.membership.update).toHaveBeenCalledTimes(1);
+    expect(tx.membership.count).not.toHaveBeenCalled();
+  });
+
+  it('scopes the update to the context organization and route user, not request input', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await service.updateMemberRole(organizationContext(), TARGET_USER_ID, {
+      role: 'OWNER',
+    });
+
+    expect(tx.membership.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId_organizationId: {
+            userId: TARGET_USER_ID,
+            organizationId: 'org-1',
+          },
+        },
+        data: { role: 'OWNER' },
+      }),
+    );
+  });
+
+  it('demotes an OWNER to MEMBER when another owner remains', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'OWNER'),
+      ownerCount: 2,
+    });
+
+    const result = await service.updateMemberRole(
+      organizationContext(),
+      TARGET_USER_ID,
+      { role: 'MEMBER' },
+    );
+
+    expect(result.member.role).toBe('MEMBER');
+    expect(tx.membership.count).toHaveBeenCalledWith({
+      where: { organizationId: 'org-1', role: 'OWNER' },
+    });
+    expect(tx.membership.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { role: 'MEMBER' } }),
+    );
+  });
+
+  it('treats assigning the role a member already holds as a successful no-op', async () => {
+    const { service, tx, calls } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    const result = await service.updateMemberRole(
+      organizationContext(),
+      TARGET_USER_ID,
+      { role: 'MEMBER' },
+    );
+
+    expect(result.member.role).toBe('MEMBER');
+    expect(tx.membership.update).not.toHaveBeenCalled();
+    expect(tx.membership.count).not.toHaveBeenCalled();
+    // The lock and owner revalidation still run, so a no-op cannot bypass them.
+    expect(calls).toEqual([
+      'lock-organization',
+      'read-actor-membership',
+      'read-target-membership',
+    ]);
+  });
+
+  it('treats re-assigning OWNER to an owner as a successful no-op', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'OWNER'),
+    });
+
+    const result = await service.updateMemberRole(
+      organizationContext(),
+      TARGET_USER_ID,
+      { role: 'OWNER' },
+    );
+
+    expect(result.member.role).toBe('OWNER');
+    expect(tx.membership.update).not.toHaveBeenCalled();
+  });
+
+  it('acquires the organization lock before reading the actor and the target', async () => {
+    const { service, calls } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await service.updateMemberRole(organizationContext(), TARGET_USER_ID, {
+      role: 'OWNER',
+    });
+
+    expect(calls).toEqual([
+      'lock-organization',
+      'read-actor-membership',
+      'read-target-membership',
+      'update-membership',
+    ]);
+  });
+
+  it('locks the organization through a parameterized FOR UPDATE query', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await service.updateMemberRole(organizationContext(), TARGET_USER_ID, {
+      role: 'OWNER',
+    });
+
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    const [strings, organizationId] = tx.$queryRaw.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      string,
+    ];
+    expect(strings.join('')).toContain('FROM "Organization"');
+    expect(strings.join('')).toContain('FOR UPDATE');
+    expect(organizationId).toBe('org-1');
+  });
+
+  it('fails with 404 without reading the actor when the organization row is missing', async () => {
+    const { service, tx, calls } = createHarness({
+      lockRows: [],
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await expect(
+      service.updateMemberRole(organizationContext(), TARGET_USER_ID, {
+        role: 'OWNER',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(calls).toEqual(['lock-organization']);
+    expect(tx.membership.update).not.toHaveBeenCalled();
+  });
+
+  it('revalidates the OWNER role on the transaction client', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await service.updateMemberRole(organizationContext(), TARGET_USER_ID, {
+      role: 'OWNER',
+    });
+
+    expect(tx.membership.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_organizationId: {
+          userId: 'owner-1',
+          organizationId: 'org-1',
+        },
+      },
+      select: { role: true },
+    });
+  });
+
+  it('rejects with 403 when the transaction re-read shows a non-owner, before touching the target', async () => {
+    const { service, tx, calls } = createHarness({
+      actorMembership: { role: 'MEMBER' },
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    const error = await service
+      .updateMemberRole(organizationContext('OWNER'), TARGET_USER_ID, {
+        role: 'OWNER',
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ForbiddenException);
+    expect((error as Error).message).toContain('change member roles');
+    expect(calls).toEqual(['lock-organization', 'read-actor-membership']);
+    expect(tx.membership.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects with 403 when the actor membership no longer exists', async () => {
+    const { service, tx } = createHarness({
+      actorMembership: null,
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await expect(
+      service.updateMemberRole(organizationContext('OWNER'), TARGET_USER_ID, {
+        role: 'OWNER',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(tx.membership.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the target is not a member of the organization', async () => {
+    const { service, tx } = createHarness({ targetMembership: null });
+
+    await expect(
+      service.updateMemberRole(organizationContext(), TARGET_USER_ID, {
+        role: 'OWNER',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(tx.membership.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when demoting the last owner would leave no owner', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'OWNER'),
+      ownerCount: 1,
+    });
+
+    const error = await service
+      .updateMemberRole(organizationContext(), TARGET_USER_ID, {
+        role: 'MEMBER',
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as Error).message).toBe(
+      'Organization must have at least one owner',
+    );
+    expect(tx.membership.update).not.toHaveBeenCalled();
+  });
+
+  it('does not leak internal fields in the response', async () => {
+    const { service } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    const result = await service.updateMemberRole(
+      organizationContext(),
+      TARGET_USER_ID,
+      { role: 'OWNER' },
+    );
+
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('passwordHash');
+    expect(serialized).not.toContain('organizationId');
+    expect(Object.keys(result.member)).toEqual([
+      'userId',
+      'email',
+      'firstName',
+      'lastName',
+      'role',
+      'createdAt',
+    ]);
   });
 });

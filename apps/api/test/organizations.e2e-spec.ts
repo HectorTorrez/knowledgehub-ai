@@ -45,13 +45,14 @@ function deferred<T = void>() {
 }
 
 /**
- * Waits until a competing database session is visibly blocked on the
+ * Waits until `expected` competing database sessions are visibly blocked on the
  * organization row lock, as reported by PostgreSQL itself. Observing the real
  * lock-wait state makes the blocking assertion deterministic instead of
  * depending on a sleep long enough to "probably" lose the race.
  */
 async function waitForOrganizationLockWaiter(
   prisma: PrismaService,
+  expected = 1,
   timeoutMs = 2000,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -62,7 +63,7 @@ async function waitForOrganizationLockWaiter(
         AND state = 'active'
         AND query ILIKE ${'%FROM "Organization"%'}
     `;
-    if (Number(waiters[0].count) > 0) {
+    if (Number(waiters[0].count) >= expected) {
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -864,6 +865,388 @@ describe('organizations (e2e)', () => {
         },
       });
       expect(membership.role).toBe('MEMBER');
+    });
+  });
+
+  describe('update member role', () => {
+    const updateMemberRole = (
+      token: string,
+      organizationId: string,
+      userId: string,
+      body: object,
+    ) =>
+      request(app.getHttpServer())
+        .patch(`/organizations/${organizationId}/members/${userId}`)
+        .set(bearer(token))
+        .send(body);
+
+    const createOwnedOrganization = async (token: string) => {
+      const created = await createOrganization(token, {
+        name: 'Update Role Org',
+      }).expect(201);
+      const organizationId = created.body.organization.id as string;
+      trackedOrganizationIds.add(organizationId);
+      return organizationId;
+    };
+
+    const findMembership = (userId: string, organizationId: string) =>
+      prisma.membership.findUniqueOrThrow({
+        where: { userId_organizationId: { userId, organizationId } },
+      });
+
+    it('rejects unauthenticated requests with 401', async () => {
+      await request(app.getHttpServer())
+        .patch(`/organizations/${randomUUID()}/members/${randomUUID()}`)
+        .send({ role: 'OWNER' })
+        .expect(401);
+    });
+
+    it('rejects an authenticated non-member with 403', async () => {
+      const owner = await registerUser();
+      const outsider = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await updateMemberRole(outsider.token, organizationId, outsider.userId, {
+        role: 'OWNER',
+      }).expect(403);
+    });
+
+    it('rejects a non-owner member with 403', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      await updateMemberRole(member.token, organizationId, member.userId, {
+        role: 'OWNER',
+      }).expect(403);
+    });
+
+    it('lets an OWNER promote a MEMBER to OWNER', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      const response = await updateMemberRole(
+        owner.token,
+        organizationId,
+        member.userId,
+        { role: 'OWNER' },
+      ).expect(200);
+
+      expect(response.body).toEqual({
+        member: {
+          userId: member.userId,
+          email: member.email,
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          role: 'OWNER',
+          createdAt: expect.any(String),
+        },
+      });
+
+      expect((await findMembership(member.userId, organizationId)).role).toBe(
+        'OWNER',
+      );
+    });
+
+    it('lets an OWNER demote another OWNER when an owner remains', async () => {
+      const owner = await registerUser();
+      const secondOwner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(secondOwner.userId, organizationId, 'OWNER');
+
+      const response = await updateMemberRole(
+        owner.token,
+        organizationId,
+        secondOwner.userId,
+        { role: 'MEMBER' },
+      ).expect(200);
+
+      expect(response.body.member.role).toBe('MEMBER');
+      expect(
+        (await findMembership(secondOwner.userId, organizationId)).role,
+      ).toBe('MEMBER');
+      expect((await findMembership(owner.userId, organizationId)).role).toBe(
+        'OWNER',
+      );
+    });
+
+    it('treats assigning the existing role as a successful no-op', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      const before = await findMembership(member.userId, organizationId);
+
+      const response = await updateMemberRole(
+        owner.token,
+        organizationId,
+        member.userId,
+        { role: 'MEMBER' },
+      ).expect(200);
+
+      expect(response.body.member.role).toBe('MEMBER');
+
+      // A no-op must not rewrite the row, so the join timestamp is untouched.
+      const after = await findMembership(member.userId, organizationId);
+      expect(after.role).toBe('MEMBER');
+      expect(after.updatedAt.getTime()).toBe(before.updatedAt.getTime());
+    });
+
+    it('returns 409 when demoting the last owner would leave no owner', async () => {
+      const owner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await updateMemberRole(owner.token, organizationId, owner.userId, {
+        role: 'MEMBER',
+      }).expect(409);
+
+      expect((await findMembership(owner.userId, organizationId)).role).toBe(
+        'OWNER',
+      );
+    });
+
+    it('returns 404 when the target is not a member of the organization', async () => {
+      const owner = await registerUser();
+      const outsider = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await updateMemberRole(
+        owner.token,
+        organizationId,
+        outsider.userId,
+        { role: 'OWNER' },
+      ).expect(404);
+
+      expect(
+        await prisma.membership.count({
+          where: { organizationId, userId: outsider.userId },
+        }),
+      ).toBe(0);
+    });
+
+    it('returns 404 when the target belongs only to another organization', async () => {
+      const ownerA = await registerUser();
+      const ownerB = await registerUser();
+      const organizationA = await createOwnedOrganization(ownerA.token);
+      const organizationB = await createOwnedOrganization(ownerB.token);
+
+      await updateMemberRole(ownerA.token, organizationA, ownerB.userId, {
+        role: 'MEMBER',
+      }).expect(404);
+
+      // The other tenant's membership is untouched.
+      expect((await findMembership(ownerB.userId, organizationB)).role).toBe(
+        'OWNER',
+      );
+    });
+
+    it('rejects invalid roles and unexpected fields with 400', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      const cases: object[] = [
+        {},
+        { role: 'owner' },
+        { role: 'ADMIN' },
+        { role: 123 },
+        { role: null },
+        { role: 'OWNER', userId: 'someone-else' },
+        { role: 'OWNER', organizationId: randomUUID() },
+      ];
+
+      for (const body of cases) {
+        await updateMemberRole(
+          owner.token,
+          organizationId,
+          member.userId,
+          body,
+        ).expect(400);
+      }
+
+      // Nothing changed and no role was assigned from a rejected request.
+      expect((await findMembership(member.userId, organizationId)).role).toBe(
+        'MEMBER',
+      );
+    });
+
+    it('rejects a malformed target user id with 400', async () => {
+      const owner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      for (const malformed of ['not-a-uuid', '123', 'null']) {
+        await request(app.getHttpServer())
+          .patch(`/organizations/${organizationId}/members/${malformed}`)
+          .set(bearer(owner.token))
+          .send({ role: 'OWNER' })
+          .expect(400);
+      }
+    });
+
+    it('authorizes on the membership role re-read, not the request guard alone', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(target.userId, organizationId, 'MEMBER');
+
+      // The guard lets any member through; demote the actor after the
+      // membership was established, so only a transactional role check denies.
+      await prisma.membership.update({
+        where: {
+          userId_organizationId: { userId: owner.userId, organizationId },
+        },
+        data: { role: 'MEMBER' },
+      });
+
+      await updateMemberRole(owner.token, organizationId, target.userId, {
+        role: 'OWNER',
+      }).expect(403);
+
+      expect((await findMembership(target.userId, organizationId)).role).toBe(
+        'MEMBER',
+      );
+    });
+
+    it('exposes only approved public member fields', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      const response = await updateMemberRole(
+        owner.token,
+        organizationId,
+        member.userId,
+        { role: 'OWNER' },
+      ).expect(200);
+
+      expect(Object.keys(response.body.member).sort()).toEqual(
+        [
+          'createdAt',
+          'email',
+          'firstName',
+          'lastName',
+          'role',
+          'userId',
+        ].sort(),
+      );
+
+      const serialized = JSON.stringify(response.body);
+      expect(serialized).not.toContain('passwordHash');
+      expect(serialized).not.toContain('sessionId');
+      expect(serialized).not.toContain('refreshToken');
+      expect(serialized).not.toContain('organizationId');
+    });
+
+    it('serializes concurrent owner demotions and never leaves the organization ownerless', async () => {
+      const owner = await registerUser();
+      const secondOwner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(secondOwner.userId, organizationId, 'OWNER');
+
+      const locked = deferred();
+      const release = deferred();
+
+      // Hold the organization lock so both demotions block before either can
+      // read the actor role or the owner count.
+      const holder = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
+        locked.resolve();
+        await release.promise;
+      });
+
+      try {
+        await locked.promise;
+
+        // Kick off both requests (supertest sends lazily on first await) so
+        // they race for the lock before it is released.
+        const demoteSecond = updateMemberRole(
+          owner.token,
+          organizationId,
+          secondOwner.userId,
+          { role: 'MEMBER' },
+        ).then((response) => response);
+        const demoteOwner = updateMemberRole(
+          secondOwner.token,
+          organizationId,
+          owner.userId,
+          { role: 'MEMBER' },
+        ).then((response) => response);
+
+        // Both competing transactions are now visibly blocked on the lock.
+        await waitForOrganizationLockWaiter(prisma, 2);
+        release.resolve();
+
+        const [first, second] = await Promise.all([demoteSecond, demoteOwner]);
+        expect([first.status, second.status].sort()).toEqual([200, 403]);
+      } finally {
+        release.resolve();
+        await holder.catch(() => undefined);
+      }
+
+      expect(
+        await prisma.membership.count({
+          where: { organizationId, role: 'OWNER' },
+        }),
+      ).toBe(1);
+    });
+
+    it('rejects one of two concurrent self-demotions with 409', async () => {
+      const owner = await registerUser();
+      const secondOwner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(secondOwner.userId, organizationId, 'OWNER');
+
+      const locked = deferred();
+      const release = deferred();
+
+      const holder = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
+        locked.resolve();
+        await release.promise;
+      });
+
+      try {
+        await locked.promise;
+
+        // Kick off both requests (supertest sends lazily on first await) so
+        // they race for the lock before it is released.
+        const demoteSelf = updateMemberRole(
+          owner.token,
+          organizationId,
+          owner.userId,
+          { role: 'MEMBER' },
+        ).then((response) => response);
+        const demoteOtherSelf = updateMemberRole(
+          secondOwner.token,
+          organizationId,
+          secondOwner.userId,
+          { role: 'MEMBER' },
+        ).then((response) => response);
+
+        await waitForOrganizationLockWaiter(prisma, 2);
+        release.resolve();
+
+        const [first, second] = await Promise.all([
+          demoteSelf,
+          demoteOtherSelf,
+        ]);
+        expect([first.status, second.status].sort()).toEqual([200, 409]);
+      } finally {
+        release.resolve();
+        await holder.catch(() => undefined);
+      }
+
+      expect(
+        await prisma.membership.count({
+          where: { organizationId, role: 'OWNER' },
+        }),
+      ).toBe(1);
     });
   });
 });
