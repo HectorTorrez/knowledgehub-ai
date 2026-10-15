@@ -41,9 +41,38 @@ function membershipRow(
   };
 }
 
+interface MemberRow {
+  role: 'OWNER' | 'MEMBER';
+  createdAt: Date;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+function memberRow(
+  userId: string,
+  role: 'OWNER' | 'MEMBER',
+  createdAt = new Date('2026-01-01T00:00:00.000Z'),
+): MemberRow {
+  return {
+    role,
+    createdAt,
+    user: {
+      id: userId,
+      email: `${userId}@example.test`,
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    },
+  };
+}
+
 interface HarnessOptions {
   membershipCreateFails?: boolean;
   memberships?: MembershipWithOrganization[];
+  memberRows?: MemberRow[];
 }
 
 /**
@@ -81,7 +110,9 @@ function createHarness(options: HarnessOptions = {}) {
 
   const prisma = {
     membership: {
-      findMany: vi.fn(async () => options.memberships ?? []),
+      findMany: vi.fn(
+        async () => options.memberRows ?? options.memberships ?? [],
+      ),
     },
     $transaction: vi.fn(
       async (callback: (client: typeof tx) => Promise<unknown>) => {
@@ -247,5 +278,142 @@ describe('OrganizationsService.listForUser', () => {
     expect(serialized).not.toContain('organizationId');
     expect(serialized).not.toContain('userId');
     expect(serialized).not.toContain('passwordHash');
+  });
+});
+
+describe('OrganizationsService.getDetail', () => {
+  it('returns the authorized organization with the membership role', async () => {
+    const { service } = createHarness();
+
+    const result = await service.getDetail({
+      organizationId: 'org-1',
+      userId: 'user-1',
+      role: 'MEMBER',
+      organization: {
+        id: 'org-1',
+        name: 'Acme',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      },
+    });
+
+    expect(result).toEqual({
+      organization: {
+        id: 'org-1',
+        name: 'Acme',
+        role: 'MEMBER',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-02T00:00:00.000Z',
+      },
+    });
+  });
+
+  it('does not expose internal database fields', async () => {
+    const { service } = createHarness();
+
+    const result = await service.getDetail({
+      organizationId: 'org-1',
+      userId: 'user-1',
+      role: 'OWNER',
+      organization: {
+        id: 'org-1',
+        name: 'Acme',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      },
+    });
+
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('organizationId');
+    expect(serialized).not.toContain('userId');
+    expect(serialized).not.toContain('passwordHash');
+  });
+});
+
+describe('OrganizationsService.listMembers', () => {
+  it('scopes the query to the authorized organization', async () => {
+    const { service, prisma } = createHarness({ memberRows: [] });
+
+    await service.listMembers('org-1');
+
+    expect(prisma.membership.findMany).toHaveBeenCalledWith({
+      where: { organizationId: 'org-1' },
+      select: {
+        role: true,
+        createdAt: true,
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+    });
+  });
+
+  it('maps each membership to the public member shape with the membership createdAt', async () => {
+    const { service } = createHarness({
+      memberRows: [
+        memberRow('owner-1', 'OWNER', new Date('2026-01-01T00:00:00.000Z')),
+        memberRow('member-2', 'MEMBER', new Date('2026-01-02T00:00:00.000Z')),
+      ],
+    });
+
+    const result = await service.listMembers('org-1');
+
+    expect(result.members).toEqual([
+      {
+        userId: 'owner-1',
+        email: 'owner-1@example.test',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        role: 'OWNER',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        userId: 'member-2',
+        email: 'member-2@example.test',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        role: 'MEMBER',
+        createdAt: '2026-01-02T00:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('preserves the deterministic database ordering', async () => {
+    const { service } = createHarness({
+      memberRows: [
+        memberRow('b-user', 'MEMBER', new Date('2026-01-01T00:00:00.000Z')),
+        memberRow('a-user', 'OWNER', new Date('2026-01-02T00:00:00.000Z')),
+      ],
+    });
+
+    const result = await service.listMembers('org-1');
+
+    expect(result.members.map((member) => member.userId)).toEqual([
+      'b-user',
+      'a-user',
+    ]);
+  });
+
+  it('excludes internal user fields from the response', async () => {
+    const { service } = createHarness({
+      memberRows: [memberRow('user-1', 'OWNER')],
+    });
+
+    const result = await service.listMembers('org-1');
+
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('passwordHash');
+    expect(serialized).not.toContain('sessionId');
+    expect(serialized).not.toContain('revokedAt');
+    expect(serialized).not.toContain('organizationId');
+    expect(Object.keys(result.members[0])).toEqual([
+      'userId',
+      'email',
+      'firstName',
+      'lastName',
+      'role',
+      'createdAt',
+    ]);
   });
 });

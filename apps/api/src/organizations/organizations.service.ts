@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  MemberListResponse,
   OrganizationDetailResponse,
   OrganizationListResponse,
   OrganizationRole,
@@ -8,18 +9,10 @@ import type {
 import { MembershipRole } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateOrganizationInput } from './dto/create-organization.schema.js';
-
-/**
- * The subset of an organization row the HTTP contract exposes. Declared
- * structurally so persistence-only columns cannot leak into a response by
- * being spread in.
- */
-interface OrganizationRecord {
-  id: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type {
+  AuthorizedOrganization,
+  OrganizationContext,
+} from './organization-context.js';
 
 /** Creates organizations and lists the organizations a user belongs to. */
 @Injectable()
@@ -78,11 +71,64 @@ export class OrganizationsService {
       ),
     };
   }
+
+  /**
+   * Returns the detail of the organization the caller has already been
+   * authorized against. The organization and the caller's role both come from
+   * the guard-verified {@link OrganizationContext}, never from request input.
+   */
+  async getDetail(
+    context: OrganizationContext,
+  ): Promise<OrganizationDetailResponse> {
+    return {
+      organization: toOrganizationSummary(context.organization, context.role),
+    };
+  }
+
+  /**
+   * Lists the members of the authorized organization. Scoped strictly to
+   * `organizationId`, which the guard derived from the route after verifying
+   * membership.
+   *
+   * Each row selects only the user fields the public contract exposes and maps
+   * them explicitly, so password hashes, session data and other internal fields
+   * cannot leak. Ordering is deterministic: membership creation time, then user
+   * id.
+   */
+  async listMembers(organizationId: string): Promise<MemberListResponse> {
+    const memberships = await this.prisma.membership.findMany({
+      where: { organizationId },
+      select: {
+        role: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+    });
+
+    return {
+      members: memberships.map((membership) => ({
+        userId: membership.user.id,
+        email: membership.user.email,
+        firstName: membership.user.firstName,
+        lastName: membership.user.lastName,
+        role: membership.role,
+        createdAt: membership.createdAt.toISOString(),
+      })),
+    };
+  }
 }
 
 /** Maps a persisted organization plus the caller's role to the public shape. */
 function toOrganizationSummary(
-  organization: OrganizationRecord,
+  organization: AuthorizedOrganization,
   role: OrganizationRole,
 ): OrganizationSummary {
   return {
