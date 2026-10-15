@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { ACCESS_TOKEN_COOKIE } from '../src/auth/cookies.js';
+import { isDuplicateMembershipViolation } from '../src/organizations/organizations.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
 const PASSWORD = 'correct horse battery staple';
@@ -784,6 +785,33 @@ describe('organizations (e2e)', () => {
           where: { organizationId, userId: target.userId },
         }),
       ).toBe(0);
+    });
+
+    it('recognizes the real adapter P2002 metadata, and only for the join constraint', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await addMembership(target.userId, organizationId, 'MEMBER');
+      const duplicateMembership = await prisma.membership
+        .create({
+          data: { userId: target.userId, organizationId, role: 'MEMBER' },
+        })
+        .catch((error: unknown) => error);
+
+      const duplicateEmail = await prisma.user
+        .create({
+          data: {
+            email: owner.email,
+            passwordHash: 'x',
+            firstName: 'Ada',
+            lastName: 'Lovelace',
+          },
+        })
+        .catch((error: unknown) => error);
+
+      expect(isDuplicateMembershipViolation(duplicateMembership)).toBe(true);
+      expect(isDuplicateMembershipViolation(duplicateEmail)).toBe(false);
     });
 
     it('serializes mutations by blocking a competitor on the organization lock', async () => {

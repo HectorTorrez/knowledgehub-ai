@@ -308,12 +308,40 @@ function toOrganizationSummary(
 }
 
 /**
- * True only for a unique-constraint violation on the membership join key
- * (`[userId, organizationId]`).
+ * The `meta` shape of a Prisma `P2002` unique-constraint violation.
  *
- * Scoped narrowly, mirroring {@link isUniqueEmailViolation}: a unique violation
- * elsewhere (for example on `User.email`) must surface as an internal error
- * rather than a misleading "already a member" `409`.
+ * The exact shape depends on whether a driver adapter is in use. With
+ * `@prisma/adapter-pg` (this project) Prisma does not populate `target` at all;
+ * the driver reports the violating table as `driverAdapterError.cause.table`
+ * and the unique index as `driverAdapterError.cause.constraint.index`. Without
+ * an adapter, Prisma reports `{ modelName, target }` where `target` lists the
+ * violating fields. Both are typed here because both are handled.
+ */
+interface UniqueViolationMeta {
+  modelName?: string;
+  target?: unknown;
+  driverAdapterError?: {
+    cause?: {
+      table?: string;
+      constraint?: { index?: string };
+    };
+  };
+}
+
+/**
+ * True only for a unique-constraint violation on the membership join key
+ * (`@@unique([userId, organizationId])`).
+ *
+ * Scoped narrowly: an unrelated unique violation — on `User.email`, or a future
+ * unique constraint on `Membership` — must surface as an internal error rather
+ * than a misleading "already a member" `409`. Matching only `modelName` is not
+ * enough, because it would also swallow those other constraints on `Membership`.
+ *
+ * Verified against Prisma 7.10.0 with `@prisma/adapter-pg`: `meta.target` is
+ * absent and the violating table and unique index name are exposed as
+ * `meta.driverAdapterError.cause.table` and
+ * `meta.driverAdapterError.cause.constraint.index`. The classic
+ * `{ modelName, target }` shape is kept as a fallback for a non-adapter setup.
  */
 export function isDuplicateMembershipViolation(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
@@ -324,16 +352,26 @@ export function isDuplicateMembershipViolation(error: unknown): boolean {
     return false;
   }
 
-  const meta = error.meta as
-    | { modelName?: string; target?: unknown }
-    | undefined;
-
-  if (meta?.modelName === 'Membership') {
-    return true;
+  const meta = error.meta as UniqueViolationMeta | undefined;
+  if (!meta) {
+    return false;
   }
 
-  const target = Array.isArray(meta?.target) ? meta.target.map(String) : [];
-  return (
-    target.includes('userId') && target.includes('organizationId')
-  );
+  // Driver-adapter shape: match the exact index, not just the table, so a
+  // different unique constraint on Membership is not misreported.
+  const cause = meta.driverAdapterError?.cause;
+  if (cause) {
+    return (
+      cause.table === 'Membership' &&
+      cause.constraint?.index === MEMBERSHIP_USER_ORGANIZATION_CONSTRAINT
+    );
+  }
+
+  // Classic Prisma shape: the model plus the list of violating fields.
+  if (meta.modelName !== 'Membership') {
+    return false;
+  }
+
+  const target = Array.isArray(meta.target) ? meta.target.map(String) : [];
+  return target.includes('userId') && target.includes('organizationId');
 }

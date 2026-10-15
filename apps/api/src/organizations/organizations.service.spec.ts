@@ -103,12 +103,57 @@ interface HarnessOptions {
   lockRows?: { id: string }[];
 }
 
-/** Builds a real Prisma known-request error for the membership unique key. */
-function duplicateMembershipError(): unknown {
+/** Builds the real adapter P2002 meta for the membership join constraint. */
+function membershipUniqueError(): unknown {
   return new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
     code: 'P2002',
     clientVersion: 'test',
-    meta: { modelName: 'Membership', target: ['userId', 'organizationId'] },
+    meta: {
+      modelName: 'Membership',
+      driverAdapterError: {
+        cause: {
+          kind: 'UniqueConstraintViolation',
+          table: 'Membership',
+          constraint: { index: 'Membership_userId_organizationId_key' },
+        },
+      },
+    },
+  });
+}
+
+/** Builds a P2002 for a different unique constraint on the Membership table. */
+function otherMembershipUniqueError(): unknown {
+  return new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+    meta: {
+      modelName: 'Membership',
+      driverAdapterError: {
+        cause: {
+          kind: 'UniqueConstraintViolation',
+          table: 'Membership',
+          constraint: { index: 'Membership_inviteToken_key' },
+        },
+      },
+    },
+  });
+}
+
+/** Builds the real adapter P2002 meta for the User email constraint. */
+function userUniqueError(): unknown {
+  return new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+    meta: {
+      modelName: 'User',
+      driverAdapterError: {
+        cause: {
+          kind: 'UniqueConstraintViolation',
+          table: 'User',
+          constraint: { index: 'User_email_key' },
+        },
+      },
+    },
   });
 }
 
@@ -651,7 +696,7 @@ describe('OrganizationsService.addMember', () => {
 
   it('surfaces a duplicate membership as 409 without leaking the database error', async () => {
     const { service } = createHarness({
-      membershipCreateError: duplicateMembershipError(),
+      membershipCreateError: membershipUniqueError(),
     });
 
     const error = await service
@@ -686,9 +731,49 @@ describe('OrganizationsService.addMember', () => {
   });
 
   it('only treats a membership unique violation as a duplicate', () => {
-    expect(isDuplicateMembershipViolation(duplicateMembershipError())).toBe(
-      true,
+    expect(isDuplicateMembershipViolation(membershipUniqueError())).toBe(true);
+    expect(isDuplicateMembershipViolation(otherMembershipUniqueError())).toBe(
+      false,
     );
+    expect(isDuplicateMembershipViolation(userUniqueError())).toBe(false);
+    expect(isDuplicateMembershipViolation(new Error('boom'))).toBe(false);
+  });
+});
+
+describe('isDuplicateMembershipViolation', () => {
+  it('recognizes the adapter-shaped membership join constraint', () => {
+    expect(isDuplicateMembershipViolation(membershipUniqueError())).toBe(true);
+  });
+
+  it('recognizes the classic Prisma shape via modelName and target', () => {
+    expect(
+      isDuplicateMembershipViolation(
+        new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { modelName: 'Membership', target: ['userId', 'organizationId'] },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not treat another unique constraint on Membership as a duplicate', () => {
+    expect(isDuplicateMembershipViolation(otherMembershipUniqueError())).toBe(
+      false,
+    );
+    expect(
+      isDuplicateMembershipViolation(
+        new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { modelName: 'Membership', target: ['inviteToken'] },
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not treat a unique violation on User as a duplicate', () => {
+    expect(isDuplicateMembershipViolation(userUniqueError())).toBe(false);
     expect(
       isDuplicateMembershipViolation(
         new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
@@ -698,6 +783,31 @@ describe('OrganizationsService.addMember', () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it('only recognizes P2002 violations, not other Prisma or plain errors', () => {
+    expect(
+      isDuplicateMembershipViolation(
+        new Prisma.PrismaClientKnownRequestError('not found', {
+          code: 'P2001',
+          clientVersion: 'test',
+          meta: { modelName: 'Membership' },
+        }),
+      ),
+    ).toBe(false);
     expect(isDuplicateMembershipViolation(new Error('boom'))).toBe(false);
+    expect(isDuplicateMembershipViolation(undefined)).toBe(false);
+  });
+
+  it('does not guess when neither shape identifies the constraint', () => {
+    expect(
+      isDuplicateMembershipViolation(
+        new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { modelName: 'Membership' },
+        }),
+      ),
+    ).toBe(false);
   });
 });
