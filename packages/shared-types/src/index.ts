@@ -58,3 +58,69 @@ export interface LoginResponse {
 export interface RefreshResponse {
   user: PublicUser;
 }
+
+/**
+ * A user's role within an organization.
+ *
+ * Deliberately a plain string union rather than the backend's persistence enum,
+ * so the HTTP contract does not depend on generated database types.
+ */
+export type OrganizationRole = 'OWNER' | 'MEMBER';
+
+/**
+ * Public view of an organization from the perspective of the requesting user,
+ * carrying the requesting user's role in it. This is the only organization
+ * shape the API may return; it never exposes persistence-only fields.
+ */
+export interface OrganizationSummary {
+  id: string;
+  name: string;
+  role: OrganizationRole;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Response body of `GET /organizations`: the organizations the user belongs to. */
+export interface OrganizationListResponse {
+  organizations: OrganizationSummary[];
+}
+
+/** Response body of `POST /organizations` and `GET /organizations/:id`. */
+export interface OrganizationDetailResponse {
+  organization: OrganizationSummary;
+}
+
+/**
+ * A member of an organization. Exposes only the profile fields a client needs
+ * to render a member list alongside the member's role; `createdAt` is when the
+ * membership was created (the join date).
+ */
+export interface OrganizationMember {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: OrganizationRole;
+  createdAt: string;
+}
+
+/** Response body of `GET /organizations/:organizationId/members`. */
+export interface MemberListResponse {
+  members: OrganizationMember[];
+}
+
+/** Request body of `POST /organizations`. */
+export interface CreateOrganizationRequest {
+  name: string;
+}
+
+/** Request body of `POST /organizations/:organizationId/members`. */
+export interface AddMemberRequest {
+  email: string;
+  role: OrganizationRole;
+}
+
+/** Request body of `PATCH /organizations/:organizationId/members/:userId`. */
+export interface UpdateMemberRoleRequest {
+  role: OrganizationRole;
+}
