@@ -9,5 +9,6 @@ import { OrganizationsService } from './organizations.service.js';
   imports: [AuthModule],
   controllers: [OrganizationsController, OrganizationTenantController],
   providers: [OrganizationsService, OrganizationMembershipGuard],
+  exports: [OrganizationMembershipGuard],
 })
 export class OrganizationsModule {}

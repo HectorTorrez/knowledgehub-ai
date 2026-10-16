@@ -33,6 +33,7 @@ model User {
 
   sessions    AuthSession[]
   memberships Membership[]
+  documents   Document[]
 }
 
 /// A single login on a single device. This is the unit of revocation: revoking
@@ -114,6 +115,7 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   memberships Membership[]
+  documents   Document[]
 }
 
 /// Links a user to an organization with a role. The [userId, organizationId]
@@ -134,4 +136,56 @@ model Membership {
   @@unique([userId, organizationId])
   @@index([organizationId])
   @@index([userId])
+}
+
+/// Processing lifecycle of a document: PENDING once registered and awaiting
+/// upload, PROCESSING while its contents are extracted and embedded, then READY
+/// on success or FAILED on error.
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+/// A file registered within a single organization.
+///
+/// OWNERSHIP — a document belongs to its organization, not to the user who
+/// uploaded it. `uploadedById` is provenance only: it is nullable so a document
+/// survives its uploader's deletion, and it never scopes access. Every read and
+/// write is scoped by `organizationId`, which is why the organization relation
+/// cascades but the uploader relation does not.
+///
+/// The file coordinates (`storageKey`, `originalFileName`, `contentType`,
+/// `sizeBytes`) stay null until an upload is confirmed; they are populated by
+/// the object-storage upload flow, not at registration.
+model Document {
+  id String @id @default(uuid()) @db.Uuid
+
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  uploadedById String? @db.Uuid
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  title String
+
+  status DocumentStatus @default(PENDING)
+
+  /// Object-storage location; null until an upload is confirmed. Never exposed
+  /// through the public API.
+  storageKey String?
+
+  originalFileName String?
+  contentType      String?
+  sizeBytes        Int?
+
+  /// Sanitized reason populated only when `status` is FAILED.
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
 }

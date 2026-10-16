@@ -132,3 +132,50 @@ export interface UpdateMemberRoleRequest {
 export interface UpdateMemberRoleResponse {
   member: OrganizationMember;
 }
+
+/**
+ * Processing lifecycle of a document. `PENDING` means registered but not yet
+ * uploaded or processed; the remaining states describe the processing pipeline,
+ * which is not implemented yet, so every document currently stays `PENDING`.
+ */
+export type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
+
+/**
+ * Public view of a document. Carries metadata only: file coordinates
+ * (`originalFileName`, `contentType`, `sizeBytes`) are null until an upload is
+ * confirmed, and persistence-only fields (`storageKey`, `uploadedById`,
+ * `failureReason`) are deliberately absent — this is the only document shape
+ * the API may return.
+ */
+export interface DocumentSummary {
+  id: string;
+  title: string;
+  status: DocumentStatus;
+  originalFileName: string | null;
+  contentType: string | null;
+  sizeBytes: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Response body of `GET /organizations/:organizationId/documents`. */
+export interface DocumentListResponse {
+  documents: DocumentSummary[];
+}
+
+/** Response body of `POST` and `GET /organizations/:organizationId/documents[/:documentId]`. */
+export interface DocumentDetailResponse {
+  document: DocumentSummary;
+}
+
+/**
+ * Request body of `POST /organizations/:organizationId/documents`.
+ *
+ * Only the title is accepted. The organization comes from the route, the
+ * uploader from the session, and the status starts at `PENDING`, so no
+ * organization id, uploader id, status, or file metadata is part of this
+ * contract.
+ */
+export interface CreateDocumentRequest {
+  title: string;
+}

@@ -194,3 +194,68 @@ failure (`40P01` / `40001`), or an interactive-transaction timeout — return `5
 Service Unavailable`. The API does not retry mutations automatically.
 
 Failed requests use the `ApiErrorResponse` shape `{ statusCode, message, error? }`.
+
+## Documents
+
+Documents are files registered within a single organization. This section
+covers metadata registration only; uploads and processing are not implemented
+yet (see [Limitations](#limitations)).
+
+Every document endpoint requires an authenticated session and membership in the
+organization named in the route. Authentication and membership work exactly as
+described under [Organizations and membership](#organizations-and-membership):
+an unauthenticated request returns `401`, an authenticated non-member returns
+`403` (without revealing whether the organization exists), and a malformed
+`:organizationId` or `:documentId` returns `400`.
+
+```
+POST /organizations/:organizationId/documents
+GET  /organizations/:organizationId/documents
+GET  /organizations/:organizationId/documents/:documentId
+```
+
+Any organization member — `OWNER` or `MEMBER` — may create, list, and read
+documents. A document belongs to its organization, not to the user who
+registered it: the uploader is recorded for provenance only and never scopes
+access.
+
+### POST /organizations/:organizationId/documents → 201
+
+Body `{ "title": string }` (trimmed, 1–200 characters; unknown fields are
+rejected with `400`). The organization comes from the route, the uploader from
+the session, and the status always starts at `PENDING`. Returns `{ document }`
+(`DocumentDetailResponse`).
+
+### GET /organizations/:organizationId/documents → 200
+
+Returns `{ documents }` (`DocumentListResponse`) — only the documents belonging
+to the organization — ordered by creation time descending, then id descending.
+
+### GET /organizations/:organizationId/documents/:documentId → 200
+
+Returns `{ document }` (`DocumentDetailResponse`). The document is looked up by
+both id and organization, so a document that exists only in another
+organization returns `404`.
+
+### Response contract
+
+`DocumentSummary` exposes only `id`, `title`, `status`, `originalFileName`,
+`contentType`, `sizeBytes`, `createdAt`, and `updatedAt`. The processing
+`status` is one of `PENDING`, `PROCESSING`, `READY`, or `FAILED`. The file
+metadata fields (`originalFileName`, `contentType`, `sizeBytes`) are `null`
+until an upload is confirmed. Persistence-only fields — `storageKey`,
+`uploadedById`, and `failureReason` — are never returned.
+
+### Limitations
+
+- **Uploads and processing are not implemented yet.** The only status a
+  document can reach today is `PENDING`; `PROCESSING`, `READY`, and `FAILED`
+  describe the pipeline that a later phase adds.
+- **Listing is unpaginated.** `GET …/documents` returns every document in the
+  organization in one response. Pagination is deferred; large organizations
+  will need it.
+- **Storage arrives in Phase 5.2.** Cloudflare R2 (production) and MinIO
+  (local), behind an S3-compatible adapter, will hold file bytes. No storage
+  dependency, configuration, or endpoint exists yet.
+- **Documents cannot be deleted or renamed** in this increment.
+
