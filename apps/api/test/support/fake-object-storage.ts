@@ -6,6 +6,7 @@ import {
   type ObjectStorage,
   type PresignedUpload,
   type PresignedUploadInput,
+  type ReadObjectInput,
   type ReadObjectPrefixInput,
 } from '../../src/storage/object-storage.port.js';
 
@@ -34,6 +35,7 @@ export class FakeObjectStorage implements ObjectStorage {
   onPresign: (() => Promise<void> | void) | null = null;
   onInspectObject: ((key: string) => void) | null = null;
   onReadObjectPrefix: ((input: ReadObjectPrefixInput) => void) | null = null;
+  onReadObject: ((input: ReadObjectInput) => void) | null = null;
   onCopyObject: ((input: CopyObjectInput) => void) | null = null;
   private readonly objects = new Map<string, StoredObject>();
 
@@ -102,15 +104,25 @@ export class FakeObjectStorage implements ObjectStorage {
       throw new RangeError('maxBytes must be a positive integer');
     }
 
+    const bytes = await this.readObject({
+      key: input.key,
+      version: input.version,
+    });
+    const prefix = bytes.slice(0, input.maxBytes);
+    this.onReadObjectPrefix?.(input);
+
+    return prefix;
+  }
+
+  async readObject(input: ReadObjectInput): Promise<Uint8Array> {
     const object = this.objects.get(input.key);
     if (!object || object.version !== input.version) {
       throw new ObjectVersionMismatchError();
     }
 
-    const prefix = object.bytes.slice(0, input.maxBytes);
-    this.onReadObjectPrefix?.(input);
+    this.onReadObject?.(input);
 
-    return prefix;
+    return object.bytes.slice();
   }
 
   async copyObject(input: CopyObjectInput): Promise<void> {

@@ -222,6 +222,7 @@ model Document {
   updatedAt DateTime @updatedAt
 
   processingJobs DocumentProcessingJob[]
+  extractions    DocumentExtraction[]
 
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
@@ -268,4 +269,32 @@ model DocumentProcessingJob {
   @@index([nextAttemptAt, id], where: raw("state = 'QUEUED'"))
   @@index([documentId, documentGeneration])
   @@index([organizationId, state])
+}
+
+/// Extracted text published for exactly one verified document generation.
+///
+/// IMMUTABILITY — the [documentId, documentGeneration] pair is unique: a
+/// generation is extracted once, and a stale or duplicate execution cannot
+/// overwrite an accepted result. The publishing write revalidates the current
+/// job lease and the document generation in the same transaction, so only the
+/// current lease holder can create the row.
+model DocumentExtraction {
+  id String @id @default(uuid()) @db.Uuid
+
+  documentId String   @db.Uuid
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  organizationId String @db.Uuid
+
+  documentGeneration Int
+  verifiedStorageKey String
+
+  content        String
+  characterCount Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([documentId, documentGeneration])
+  @@index([organizationId])
 }

@@ -321,6 +321,45 @@ describe('S3ObjectStorage.readObjectPrefix', () => {
   });
 });
 
+describe('S3ObjectStorage.readObject', () => {
+  const read = { key: input.key, version: '"version-1"' };
+
+  it('reads the whole object with the version precondition and no range', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ ETag: '"version-1"', Body: bodyOf([1, 2, 3]) });
+
+    const bytes = await adapter.readObject(read);
+
+    expect(Array.from(bytes)).toEqual([1, 2, 3]);
+
+    const command = send.mock.calls[0][0] as GetObjectCommand;
+    expect(command).toBeInstanceOf(GetObjectCommand);
+    expect(command.input).toEqual({
+      Bucket: 'knowledgehub-documents',
+      Key: input.key,
+      IfMatch: '"version-1"',
+    });
+  });
+
+  it('fails when the object was overwritten before the read', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockRejectedValue(awsError('PreconditionFailed', 412));
+
+    await expect(adapter.readObject(read)).rejects.toBeInstanceOf(
+      ObjectVersionMismatchError,
+    );
+  });
+
+  it('fails when the provider ignores the precondition and returns other bytes', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ ETag: '"version-2"', Body: bodyOf([9]) });
+
+    await expect(adapter.readObject(read)).rejects.toBeInstanceOf(
+      ObjectVersionMismatchError,
+    );
+  });
+});
+
 describe('S3ObjectStorage.copyObject', () => {
   const copy = {
     sourceKey: 'organizations/org-1/documents/doc-1/2f1c',

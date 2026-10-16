@@ -42,6 +42,32 @@ function recoveryHarness(counts: number[]) {
   return { service, transaction, executeRaw };
 }
 
+function transactionHarness(counts: number[]) {
+  const executeRaw = vi.fn();
+  for (const count of counts) {
+    executeRaw.mockResolvedValueOnce(count);
+  }
+
+  const transaction = vi.fn(
+    async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({ $executeRaw: executeRaw }),
+  );
+
+  const service = new ProcessingJobService({
+    $transaction: transaction,
+  } as unknown as PrismaService);
+
+  return { service, transaction, executeRaw };
+}
+
+const OWNERSHIP = {
+  jobId: 'job-1',
+  leaseId: 'lease-1',
+  organizationId: 'org-1',
+  documentGeneration: 1,
+  verifiedStorageKey: 'organizations/org-1/verified',
+};
+
 describe('ProcessingJobService', () => {
   describe('claimNextDueJob', () => {
     it('returns null when no job is due', async () => {
@@ -124,6 +150,69 @@ describe('ProcessingJobService', () => {
       await expect(service.ownsProcessableDocument(ownership)).resolves.toBe(
         false,
       );
+    });
+  });
+
+  describe('renewLease', () => {
+    it('is true when the unexpired lease is matched and renewed', async () => {
+      const { service, calls } = queryHarness([{ id: 'job-1' }]);
+
+      await expect(
+        service.renewLease({ jobId: 'job-1', leaseId: 'lease-1' }),
+      ).resolves.toBe(true);
+
+      const [query] = calls;
+      expect(query.values).toContain('job-1');
+      expect(query.values).toContain('lease-1');
+      expect(query.values).toContain(PROCESSING_LEASE_DURATION_SECONDS);
+    });
+
+    it('is false when the lease is stale or expired', async () => {
+      const { service } = queryHarness([]);
+
+      await expect(
+        service.renewLease({ jobId: 'job-1', leaseId: 'lease-1' }),
+      ).resolves.toBe(false);
+    });
+  });
+
+  describe('publishExtraction', () => {
+    const result = { content: 'extracted text', characterCount: 14 };
+
+    it('inserts the result and completes the job in one transaction', async () => {
+      const { service, transaction, executeRaw } = transactionHarness([1, 1]);
+
+      await expect(service.publishExtraction(OWNERSHIP, result)).resolves.toBe(
+        true,
+      );
+
+      expect(transaction).toHaveBeenCalledTimes(1);
+      expect(executeRaw).toHaveBeenCalledTimes(2);
+
+      const [insert] = executeRaw.mock.calls[0] as [
+        TemplateStringsArray,
+        ...unknown[],
+      ];
+      expect(insert.join('?')).toContain('INSERT INTO "DocumentExtraction"');
+      const insertValues = (executeRaw.mock.calls[0] as unknown[]).slice(1);
+      expect(insertValues).toContain(result.content);
+      expect(insertValues).toContain(result.characterCount);
+      expect(insertValues).toContain(OWNERSHIP.jobId);
+      expect(insertValues).toContain(OWNERSHIP.leaseId);
+      expect(insertValues).toContain(OWNERSHIP.verifiedStorageKey);
+
+      const [update] = executeRaw.mock.calls[1] as [TemplateStringsArray];
+      expect(update.join('?')).toContain("state = 'SUCCEEDED'");
+    });
+
+    it('discards the result when no lease-matching row is written', async () => {
+      const { service, executeRaw } = transactionHarness([0]);
+
+      await expect(service.publishExtraction(OWNERSHIP, result)).resolves.toBe(
+        false,
+      );
+
+      expect(executeRaw).toHaveBeenCalledTimes(1);
     });
   });
 });

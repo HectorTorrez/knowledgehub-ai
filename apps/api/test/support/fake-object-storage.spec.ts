@@ -19,6 +19,7 @@ describe('FakeObjectStorage', () => {
     expect(storage.createPresignedUpload).toBeTypeOf('function');
     expect(storage.inspectObject).toBeTypeOf('function');
     expect(storage.readObjectPrefix).toBeTypeOf('function');
+    expect(storage.readObject).toBeTypeOf('function');
     expect(storage.copyObject).toBeTypeOf('function');
   });
 
@@ -97,6 +98,24 @@ describe('FakeObjectStorage', () => {
     });
 
     expect(new TextDecoder().decode(bytes)).toBe('abc');
+  });
+
+  it('reads the whole object for the given version', async () => {
+    const storage = new FakeObjectStorage();
+    const version = storage.putObject(input.key, 'abcdef', 'text/plain');
+
+    const bytes = await storage.readObject({ key: input.key, version });
+
+    expect(new TextDecoder().decode(bytes)).toBe('abcdef');
+  });
+
+  it('fails the whole-object read when the version no longer matches', async () => {
+    const storage = new FakeObjectStorage();
+    storage.putObject(input.key, 'original', 'text/plain');
+
+    await expect(
+      storage.readObject({ key: input.key, version: 'stale' }),
+    ).rejects.toBeInstanceOf(ObjectVersionMismatchError);
   });
 
   it('changes the version when the object is overwritten', async () => {

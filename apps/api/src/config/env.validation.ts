@@ -63,6 +63,23 @@ const envObjectSchema = z.object({
     .string()
     .min(32, 'STORAGE_SECRET_ACCESS_KEY must be at least 32 characters')
     .optional(),
+
+  PROCESSING_WORKER_ENABLED: z.enum(['true', 'false']).default('false'),
+  PROCESSING_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(2000),
+  PROCESSING_LEASE_RENEWAL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(20000),
+  PROCESSING_RECOVERY_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30000),
 });
 
 const PRODUCTION_STORAGE_KEYS = [

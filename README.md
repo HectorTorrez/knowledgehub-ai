@@ -144,6 +144,10 @@ storage's contents. Run `pnpm db:up` and `pnpm db:migrate` first, then
 `pnpm storage:up`: the upload endpoint issues presigned URLs against the local
 MinIO bucket.
 
+Document processing is off by default: with `PROCESSING_WORKER_ENABLED=false`
+nothing consumes the queue. Set `PROCESSING_WORKER_ENABLED=true` in
+`apps/api/.env` to run the in-process worker that extracts queued documents.
+
 Quality gates:
 
 ```bash
@@ -281,9 +285,8 @@ Failed requests use the `ApiErrorResponse` shape `{ statusCode, message, error? 
 ## Documents
 
 Documents are files registered within a single organization. This section
-covers metadata registration, upload-URL issuance, and upload verification.
-Extracting and processing contents are not implemented yet (see
-[Limitations](#limitations)).
+covers metadata registration, upload-URL issuance, upload verification, and the
+worker that extracts a verified document's text.
 
 Every document endpoint requires an authenticated session and membership in the
 organization named in the route. Authentication and membership work exactly as
@@ -459,6 +462,35 @@ yet (see [Limitations](#limitations)).
   structural, not semantic. Antivirus scanning and content sanitization are out
   of scope.
 
+### Processing
+
+Once verification promotes a document to `PROCESSING`, its durable job carries
+the exact verified generation and storage key. A dedicated worker consumes the
+queue when `PROCESSING_WORKER_ENABLED=true`; it runs in-process with the API and
+starts and stops with the application. It is disabled by default, so nothing
+consumes the queue unless it is explicitly switched on.
+
+Each iteration the worker recovers expired leases, claims one due job atomically
+(`FOR UPDATE SKIP LOCKED`), renews that job's lease while it works, reads the
+verified object bound to its inspected version, and extracts text:
+
+- `text/plain` and `text/markdown` decode as strict UTF-8;
+- `application/pdf` extracts embedded text with `unpdf`.
+
+Publishing is fenced. The extracted text is written to `DocumentExtraction`,
+keyed by `[documentId, documentGeneration]`, by a single conditional write that
+revalidates — in the same transaction — the current lease id, an unexpired
+lease, the job's generation and storage key, and the document's organization,
+generation, storage key, and `PROCESSING` status. A stale execution therefore
+writes zero rows and its result is discarded; only the current lease holder can
+create the result, after which the job becomes `SUCCEEDED`.
+
+Leases last 60 seconds and are renewed while a job runs. Renewal matches the job
+and lease ids and refuses to revive an expired lease. Processing deliberately
+implements no retries, backoff, or failure transitions of its own: if a job
+fails or its worker dies, the lease expires and the existing recovery sweep
+requeues it until its attempts are exhausted.
+
 ### Response contract
 
 `DocumentSummary` exposes only `id`, `title`, `status`, `originalFileName`,
@@ -475,10 +507,13 @@ and `PROCESSING` for a verified document whose processing failed, and
 
 ### Limitations
 
-- **Verification stops at `PROCESSING`.** `upload-complete` confirms and
-  promotes the object and, atomically, queues a durable processing job for that
-  generation. No worker consumes the queue yet, so nothing extracts, chunks,
-  embeds, or processes the document and it never reaches `READY`.
+- **Processing is extraction-only.** `upload-complete` confirms and promotes the
+  object and, atomically, queues a durable processing job for that generation.
+  The worker extracts the document's text into `DocumentExtraction` and marks the
+  job `SUCCEEDED`, but it does not yet chunk, embed, or process that text, and it
+  does not move the document out of `PROCESSING`: the `PROCESSING → READY`
+  transition and the sanitized processing-failure state are deferred. A document
+  in `PROCESSING` is therefore not evidence that extraction succeeded.
 - **Orphaned objects are not cleaned up.** A failed or superseded promotion can
   leave a staging or verified object with no document referencing it, and there
   is no deletion or garbage collection yet. An object's existence alone is

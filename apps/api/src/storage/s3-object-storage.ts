@@ -15,6 +15,7 @@ import {
   type ObjectStorage,
   type PresignedUpload,
   type PresignedUploadInput,
+  type ReadObjectInput,
   type ReadObjectPrefixInput,
 } from './object-storage.port.js';
 import { S3_CLIENT } from './s3-client.provider.js';
@@ -149,12 +150,24 @@ export class S3ObjectStorage implements ObjectStorage {
       throw new RangeError('maxBytes must be a positive integer');
     }
 
+    return this.readObjectBytes(key, version, `bytes=0-${maxBytes - 1}`);
+  }
+
+  async readObject(input: ReadObjectInput): Promise<Uint8Array> {
+    return this.readObjectBytes(input.key, input.version);
+  }
+
+  private async readObjectBytes(
+    key: string,
+    version: string,
+    range?: string,
+  ): Promise<Uint8Array> {
     try {
       const object = await this.client.send(
         new GetObjectCommand({
           Bucket: this.config.bucket,
           Key: key,
-          Range: `bytes=0-${maxBytes - 1}`,
+          ...(range ? { Range: range } : {}),
           IfMatch: version,
         }),
       );

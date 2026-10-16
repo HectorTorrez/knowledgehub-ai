@@ -14,3 +14,5 @@ process.env.STORAGE_FORCE_PATH_STYLE ??= 'true';
 process.env.STORAGE_ACCESS_KEY_ID ??= 'test-only-storage-access-key-id-000000';
 process.env.STORAGE_SECRET_ACCESS_KEY ??=
   'test-only-storage-secret-access-key-000000';
+
+process.env.PROCESSING_WORKER_ENABLED ??= 'false';

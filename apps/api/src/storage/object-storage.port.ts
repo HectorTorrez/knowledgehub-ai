@@ -26,6 +26,11 @@ export interface ReadObjectPrefixInput {
   version: string;
 }
 
+export interface ReadObjectInput {
+  key: string;
+  version: string;
+}
+
 export interface CopyObjectInput {
   sourceKey: string;
   destinationKey: string;
@@ -65,5 +70,6 @@ export interface ObjectStorage {
   createPresignedUpload(input: PresignedUploadInput): Promise<PresignedUpload>;
   inspectObject(key: string): Promise<ObjectMetadata | null>;
   readObjectPrefix(input: ReadObjectPrefixInput): Promise<Uint8Array>;
+  readObject(input: ReadObjectInput): Promise<Uint8Array>;
   copyObject(input: CopyObjectInput): Promise<void>;
 }
