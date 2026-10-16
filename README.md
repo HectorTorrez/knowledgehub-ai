@@ -10,7 +10,7 @@ Multi-tenant RAG SaaS. A pnpm + Turborepo monorepo:
 
 - Node.js 24 (`nvm use`)
 - pnpm 11 (`corepack enable` then `pnpm -v`)
-- Docker with the Compose plugin (for the local PostgreSQL database)
+- Docker with the Compose plugin (for local PostgreSQL and MinIO object storage)
 
 ## Setup
 
@@ -18,7 +18,7 @@ Multi-tenant RAG SaaS. A pnpm + Turborepo monorepo:
 pnpm install
 
 # Environment files (never committed).
-cp .env.example .env                 # Postgres credentials for Docker Compose
+cp .env.example .env                 # Postgres and MinIO credentials for Compose
 cp apps/api/.env.example apps/api/.env
 ```
 
@@ -37,6 +37,11 @@ The example enables the local browser (cookie) authentication flow via
 `BROWSER_AUTH_ENABLED=true`, which also requires a `CSRF_SECRET` of at least 32
 characters. Generate a unique one per environment the same way. See
 `apps/api/.env.example` for every available setting.
+
+`apps/api/.env` also configures object storage (`STORAGE_*`). Its defaults match
+the local MinIO service in the root `.env`; keep `STORAGE_ACCESS_KEY_ID` and
+`STORAGE_SECRET_ACCESS_KEY` equal to `MINIO_ROOT_USER` and
+`MINIO_ROOT_PASSWORD`. See [Local object storage](#local-object-storage-minio-via-docker-compose).
 
 ## Local database (PostgreSQL via Docker Compose)
 
@@ -70,14 +75,55 @@ pnpm db:migrate:status     # migration state
 pnpm db:studio             # browse data (Prisma Studio)
 ```
 
+## Local object storage (MinIO via Docker Compose)
+
+Documents are stored in S3-compatible object storage: MinIO locally and
+Cloudflare R2 in production. Local MinIO runs in a container alongside Postgres,
+and a one-shot `minio-init` service waits until MinIO is healthy, creates the
+documents bucket, and applies its CORS policy. Initialization is idempotent, so
+it is safe to run repeatedly.
+
+```bash
+# 1. Start MinIO and run its initializer (in the background).
+pnpm storage:up
+
+# 2. Check health — wait until STATUS shows "healthy".
+pnpm storage:health
+
+# 3. Stop MinIO without deleting data.
+pnpm storage:down
+```
+
+Other useful commands:
+
+```bash
+pnpm storage:logs          # follow MinIO logs
+```
+
+The bucket name and the browser origin allowed to upload to it come from the
+root `.env` (`STORAGE_BUCKET`, `STORAGE_CORS_ORIGIN`). `STORAGE_CORS_ORIGIN`
+must match the frontend origin and the API's `CORS_ORIGIN` in `apps/api/.env`;
+the CORS policy allows only `PUT` with `Content-Type` from that origin. Both
+MinIO ports bind to `127.0.0.1` only: the S3-compatible API on
+http://127.0.0.1:9000 and the web console on http://127.0.0.1:9001.
+
+Object storage credentials here are local development values from the ignored
+root `.env`. They are **not** suitable for production, which uses Cloudflare R2
+with its own credentials. Successful initialization proves the bucket and CORS
+policy were applied; it does not prove a browser can upload with a presigned
+URL, which is validated once the upload endpoint exists (see
+[Limitations](#limitations)).
+
 ## Development
 
 ```bash
 pnpm dev        # starts the API (watch) and the web app together
 ```
 
-`pnpm dev` only starts the applications; it never touches the database's
-contents. Run `pnpm db:up` and `pnpm db:migrate` first.
+`pnpm dev` only starts the applications; it never touches the database's or
+storage's contents. Run `pnpm db:up` and `pnpm db:migrate` first. Run
+`pnpm storage:up` once a feature uses object storage (uploads are not
+implemented yet).
 
 Quality gates:
 
@@ -254,8 +300,8 @@ until an upload is confirmed. Persistence-only fields — `storageKey`,
 - **Listing is unpaginated.** `GET …/documents` returns every document in the
   organization in one response. Pagination is deferred; large organizations
   will need it.
-- **Storage arrives in Phase 5.2.** Cloudflare R2 (production) and MinIO
-  (local), behind an S3-compatible adapter, will hold file bytes. No storage
-  dependency, configuration, or endpoint exists yet.
+- **Uploads are not wired to storage yet.** An S3-compatible adapter
+  (Cloudflare R2 in production, MinIO locally) and its configuration exist, but
+  no endpoint issues presigned uploads, so no document can leave `PENDING`.
 - **Documents cannot be deleted or renamed** in this increment.
 
