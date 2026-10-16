@@ -8,8 +8,6 @@ import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
   imports: [
-    // Loads `.env` into process.env, validates it, and makes ConfigService
-    // globally available. Invalid/missing auth config fails at startup.
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     PrismaModule,
     HealthModule,

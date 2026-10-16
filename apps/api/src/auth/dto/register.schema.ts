@@ -5,13 +5,6 @@ const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 128;
 const EMAIL_MAX_LENGTH = 254;
 
-/**
- * Request contract for `POST /auth/register`.
- *
- * The password is validated but never transformed: no trimming, casing, or
- * normalization, so the exact bytes the user typed are what gets hashed.
- * Unknown fields are rejected (`.strict()`).
- */
 export const registerSchema = z
   .object({
     email: z

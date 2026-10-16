@@ -11,7 +11,6 @@ import { extractBearerToken } from './authorization.js';
 import { ACCESS_TOKEN_COOKIE } from './cookies.js';
 import { TokenService } from './token.service.js';
 
-/** Shape attached to the request once a session is validated. */
 export interface AuthenticatedRequest extends Request {
   auth?: {
     userId: string;
@@ -24,17 +23,6 @@ interface ExtractedToken {
   source: 'bearer' | 'cookie';
 }
 
-/**
- * Guards endpoints that require an authenticated, active session.
- *
- * Verifies the access token signature and expiry, then confirms the referenced
- * session still exists, is not revoked, and has not expired. Revoking a session
- * therefore invalidates its access tokens immediately, not just on JWT expiry.
- *
- * When browser authentication is disabled, access tokens presented via cookie
- * are rejected; bearer tokens keep working. This keeps the browser-auth security
- * gate honest rather than merely cosmetic.
- */
 @Injectable()
 export class SessionGuard implements CanActivate {
   constructor(
@@ -81,13 +69,6 @@ export class SessionGuard implements CanActivate {
   }
 }
 
-/**
- * Extracts an access token, preferring the `Authorization: Bearer` header over
- * the cookie so a client that sends both is treated as a bearer client. An
- * empty or malformed bearer credential is ignored (see {@link extractBearerToken}),
- * so it falls through to cookie authentication rather than masquerading as
- * bearer and skipping CSRF.
- */
 function extractToken(request: Request): ExtractedToken | undefined {
   const bearer = extractBearerToken(request.headers.authorization);
   if (bearer !== undefined) {

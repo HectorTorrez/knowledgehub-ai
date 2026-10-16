@@ -10,7 +10,6 @@ const MS_PER_DAY = 86_400_000;
 
 const DURATION_PATTERN = /^(\d+)(s|m|h|d)$/;
 
-/** Parses a duration such as `15m`, `1h` or `7d` into milliseconds. */
 export function parseDurationToMs(value: string): number {
   const match = DURATION_PATTERN.exec(value);
 
@@ -33,10 +32,6 @@ export function parseDurationToMs(value: string): number {
   return amount * multiplier;
 }
 
-/**
- * Typed, centralized access to the authentication-related environment values.
- * Values are already validated by {@link validateEnv} at startup.
- */
 @Injectable()
 export class AuthConfig {
   constructor(private readonly config: ConfigService) {}
@@ -70,30 +65,18 @@ export class AuthConfig {
     });
   }
 
-  /**
-   * Whether browser (cookie-based) authentication is enabled. Off by default;
-   * startup validation guarantees a CSRF secret is present when this is true.
-   */
   get browserAuthEnabled(): boolean {
     return this.config.get<string>('BROWSER_AUTH_ENABLED') === 'true';
   }
 
-  /** Dedicated HMAC secret for signing CSRF tokens. */
   get csrfSecret(): string {
     return this.config.getOrThrow<string>('CSRF_SECRET');
   }
 
-  /**
-   * The CSRF secret when one is configured, or `undefined` when browser
-   * authentication is disabled and none is set. The guard uses this so a
-   * disabled deployment without a secret rejects a stray cookie request with a
-   * clean 403 instead of crashing while reading the secret.
-   */
   get csrfSecretOrUndefined(): string | undefined {
     return this.config.get<string>('CSRF_SECRET');
   }
 
-  /** Origins trusted for credential-bearing (cookie) requests. */
   get trustedOrigins(): string[] {
     return resolveCorsOrigins(this.config.get<string>('CORS_ORIGIN'));
   }

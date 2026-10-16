@@ -1,13 +1,9 @@
 import type { CookieOptions } from 'express';
 
-/** Name of the short-lived access-token cookie. */
 export const ACCESS_TOKEN_COOKIE = 'access_token';
-/** Name of the long-lived refresh-token cookie. */
 export const REFRESH_TOKEN_COOKIE = 'refresh_token';
 
-/** Access cookie is sent to the whole API. */
 export const ACCESS_TOKEN_COOKIE_PATH = '/';
-/** Refresh cookie is scoped to auth routes so it is not attached elsewhere. */
 export const REFRESH_TOKEN_COOKIE_PATH = '/auth';
 
 export type SameSitePolicy = 'lax' | 'strict' | 'none';
@@ -26,9 +22,6 @@ export interface CookieEnv {
 }
 
 /**
- * Resolves the cookie security policy from the environment.
- *
- * `secure` is on by default in production and can be overridden explicitly.
  * `SameSite=None` forces `Secure`, since browsers reject a `None` cookie that
  * is not also `Secure`.
  */
@@ -77,10 +70,9 @@ export function buildRefreshCookieOptions(
 }
 
 /**
- * Options for clearing the auth cookies on logout. They mirror the security
- * attributes and path of the cookies they delete: a browser only removes a
- * cookie when the clearing `Set-Cookie` matches its name, path and domain, so
- * a stale cookie on a differently-scoped path would otherwise survive logout.
+ * A browser only removes a cookie when the clearing `Set-Cookie` matches its
+ * name, path and domain, so a stale cookie on a differently-scoped path would
+ * otherwise survive logout.
  */
 function clearCookieOptions(policy: CookiePolicy, path: string): CookieOptions {
   return {

@@ -3,9 +3,6 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import base from './base.js';
 
-/**
- * Flat config preset for React (Vite / TanStack Start) applications.
- */
 export default [
   ...base,
   {

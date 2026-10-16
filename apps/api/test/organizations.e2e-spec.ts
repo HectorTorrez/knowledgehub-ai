@@ -35,7 +35,6 @@ function bearer(token: string): { Authorization: string } {
   return { Authorization: `Bearer ${token}` };
 }
 
-/** A promise plus its externally callable resolver, for test coordination. */
 function deferred<T = void>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((res) => {
@@ -44,12 +43,6 @@ function deferred<T = void>() {
   return { promise, resolve };
 }
 
-/**
- * Waits until `expected` competing database sessions are visibly blocked on the
- * organization row lock, as reported by PostgreSQL itself. Observing the real
- * lock-wait state makes the blocking assertion deterministic instead of
- * depending on a sleep long enough to "probably" lose the race.
- */
 async function waitForOrganizationLockWaiter(
   prisma: PrismaService,
   expected = 1,
@@ -174,12 +167,10 @@ describe('organizations (e2e)', () => {
       },
     });
 
-    // Timestamps are ISO 8601 and parse back losslessly.
     const { createdAt, updatedAt } = response.body.organization;
     expect(new Date(createdAt).toISOString()).toBe(createdAt);
     expect(new Date(updatedAt).toISOString()).toBe(updatedAt);
 
-    // No persistence-only fields leak into the response.
     const serialized = JSON.stringify(response.body);
     expect(serialized).not.toContain('organizationId');
     expect(serialized).not.toContain('userId');
@@ -273,7 +264,6 @@ describe('organizations (e2e)', () => {
     expect(new Set(idsOf(listA.body))).toEqual(new Set([ids[0], ids[1]]));
     expect(idsOf(listB.body)).toEqual([ids[2]]);
 
-    // Every listed organization carries the requesting user's own role.
     expect(
       listA.body.organizations.every(
         (organization: { role: string }) => organization.role === 'OWNER',
@@ -388,7 +378,6 @@ describe('organizations (e2e)', () => {
         },
       });
 
-      // The role is the persisted membership role, not anything client-provided.
       const membership = await prisma.membership.findFirstOrThrow({
         where: { organizationId, userId },
       });
@@ -455,8 +444,6 @@ describe('organizations (e2e)', () => {
       const otherOrganizationId = otherOrg.body.organization.id as string;
       trackedOrganizationIds.add(otherOrganizationId);
 
-      // The route parameter is authoritative; a conflicting query parameter is
-      // ignored, so the caller still gets their own organization.
       const response = await request(app.getHttpServer())
         .get(`/organizations/${ownOrganizationId}?organizationId=${otherOrganizationId}`)
         .set(bearer(owner.token))
@@ -478,7 +465,6 @@ describe('organizations (e2e)', () => {
       await addMembership(member.userId, organizationId, 'MEMBER');
       await getOrganizationDetail(member.token, organizationId).expect(200);
 
-      // Revoke directly through Prisma, as the existing setup can.
       await prisma.membership.deleteMany({
         where: { userId: member.userId, organizationId },
       });
@@ -722,7 +708,6 @@ describe('organizations (e2e)', () => {
         }).expect(400);
       }
 
-      // Nothing was written to either organization.
       expect(
         await prisma.membership.count({
           where: { userId: target.userId },
@@ -767,9 +752,6 @@ describe('organizations (e2e)', () => {
       const target = await registerUser();
       const organizationId = await createOwnedOrganization(owner.token);
 
-      // The guard lets any member through; demote the owner to MEMBER after the
-      // membership was already established, so only a transactional role check
-      // can deny the write.
       await prisma.membership.update({
         where: {
           userId_organizationId: { userId: owner.userId, organizationId },
@@ -823,8 +805,6 @@ describe('organizations (e2e)', () => {
       const locked = deferred();
       const release = deferred();
 
-      // Hold the organization row lock in a separate transaction, mirroring
-      // the first statement of every membership mutation.
       const holder = prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
         locked.resolve();
@@ -847,7 +827,6 @@ describe('organizations (e2e)', () => {
           },
         );
 
-        // Deterministically confirm the competitor is blocked on the lock.
         await waitForOrganizationLockWaiter(prisma);
         expect(competitorSettled).toBe(false);
 
@@ -990,7 +969,6 @@ describe('organizations (e2e)', () => {
 
       expect(response.body.member.role).toBe('MEMBER');
 
-      // A no-op must not rewrite the row, so the join timestamp is untouched.
       const after = await findMembership(member.userId, organizationId);
       expect(after.role).toBe('MEMBER');
       expect(after.updatedAt.getTime()).toBe(before.updatedAt.getTime());
@@ -1038,7 +1016,6 @@ describe('organizations (e2e)', () => {
         role: 'MEMBER',
       }).expect(404);
 
-      // The other tenant's membership is untouched.
       expect((await findMembership(ownerB.userId, organizationB)).role).toBe(
         'OWNER',
       );
@@ -1069,7 +1046,6 @@ describe('organizations (e2e)', () => {
         ).expect(400);
       }
 
-      // Nothing changed and no role was assigned from a rejected request.
       expect((await findMembership(member.userId, organizationId)).role).toBe(
         'MEMBER',
       );
@@ -1094,8 +1070,6 @@ describe('organizations (e2e)', () => {
       const organizationId = await createOwnedOrganization(owner.token);
       await addMembership(target.userId, organizationId, 'MEMBER');
 
-      // The guard lets any member through; demote the actor after the
-      // membership was established, so only a transactional role check denies.
       await prisma.membership.update({
         where: {
           userId_organizationId: { userId: owner.userId, organizationId },
@@ -1152,8 +1126,6 @@ describe('organizations (e2e)', () => {
       const locked = deferred();
       const release = deferred();
 
-      // Hold the organization lock so both demotions block before either can
-      // read the actor role or the owner count.
       const holder = prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
         locked.resolve();
@@ -1178,7 +1150,6 @@ describe('organizations (e2e)', () => {
           { role: 'MEMBER' },
         ).then((response) => response);
 
-        // Both competing transactions are now visibly blocked on the lock.
         await waitForOrganizationLockWaiter(prisma, 2);
         release.resolve();
 
@@ -1322,7 +1293,6 @@ describe('organizations (e2e)', () => {
 
       expect(response.text).toBe('');
       expect(await countMembership(member.userId, organizationId)).toBe(0);
-      // The actor and their own membership are untouched.
       expect((await findMembership(owner.userId, organizationId)).role).toBe(
         'OWNER',
       );
@@ -1371,7 +1341,6 @@ describe('organizations (e2e)', () => {
       expect((await findMembership(owner.userId, organizationId)).role).toBe(
         'OWNER',
       );
-      // The removal was rejected atomically; the member is still present.
       expect(await countMembership(member.userId, organizationId)).toBe(1);
     });
 
@@ -1395,7 +1364,6 @@ describe('organizations (e2e)', () => {
 
       await removeMember(ownerA.token, organizationA, ownerB.userId).expect(404);
 
-      // The other tenant's membership is untouched.
       expect((await findMembership(ownerB.userId, organizationB)).role).toBe(
         'OWNER',
       );
@@ -1419,8 +1387,6 @@ describe('organizations (e2e)', () => {
       const organizationId = await createOwnedOrganization(owner.token);
       await addMembership(target.userId, organizationId, 'MEMBER');
 
-      // The guard lets any member through; demote the actor after the
-      // membership was established, so only a transactional role check denies.
       await prisma.membership.update({
         where: {
           userId_organizationId: { userId: owner.userId, organizationId },
@@ -1442,8 +1408,6 @@ describe('organizations (e2e)', () => {
       const locked = deferred();
       const release = deferred();
 
-      // Hold the organization lock so both removals block before either can
-      // re-read the actor role or the owner count.
       const holder = prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
         locked.resolve();
@@ -1453,8 +1417,6 @@ describe('organizations (e2e)', () => {
       try {
         await locked.promise;
 
-        // Each owner removes themselves. Without serialization both could read
-        // two owners and both delete, leaving the organization ownerless.
         const removeSelf = removeMember(
           owner.token,
           organizationId,
@@ -1501,8 +1463,6 @@ describe('organizations (e2e)', () => {
       try {
         await locked.promise;
 
-        // Each owner removes the other. The winner deletes the loser's
-        // membership, so the loser's transactional OWNER re-read then fails.
         const removeSecond = removeMember(
           owner.token,
           organizationId,

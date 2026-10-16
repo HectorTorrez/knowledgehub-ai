@@ -3,18 +3,6 @@ import { z } from 'zod';
 const PASSWORD_MAX_LENGTH = 128;
 const EMAIL_MAX_LENGTH = 254;
 
-/**
- * Request contract for `POST /auth/login`.
- *
- * The email accepts the same shape as registration so a valid registered
- * address is always accepted here. The password is only required to be present
- * and bounded: it is deliberately not held to the registration minimum, because
- * an incorrect password must surface as a generic 401 (not a 400 that leaks the
- * password policy), and it is never trimmed, cased or otherwise transformed, so
- * the exact bytes the user typed are what gets verified.
- *
- * Unknown fields are rejected (`.strict()`), matching registration.
- */
 export const loginSchema = z
   .object({
     email: z

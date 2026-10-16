@@ -100,12 +100,6 @@ export class AuthController {
    * and clears every auth cookie. Always 204 and idempotent: logging out twice,
    * or without a usable cookie, still clears cookies and never fails. It does
    * not require an access token, so it works after the access token expires.
-   *
-   * `@EnforceCsrfWhenBrowserAuthDisabled` keeps a cookie-authenticated logout
-   * reachable when browser authentication is disabled: instead of the guard's
-   * blanket rejection, the normal trusted-Origin and CSRF checks still apply.
-   * The service ignores the refresh cookie while browser auth is off, so this
-   * clears the client without revoking a session through an untrusted cookie.
    */
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -118,12 +112,6 @@ export class AuthController {
     this.clearAuthCookies(response);
   }
 
-  /**
-   * Delivers credentials as cookies only; the response body carries the public
-   * profile. Cookies are set after the login/registration/rotation transaction
-   * has committed, so a failed attempt never hands out credentials. The CSRF
-   * cookie is issued only when browser authentication is enabled.
-   */
   private issueAuthCookies(response: Response, result: AuthResult): void {
     const policy = this.authConfig.cookiePolicy;
     response.cookie(
@@ -140,8 +128,6 @@ export class AuthController {
       ),
     );
 
-    // Signed double-submit token, readable by the SPA so it can echo the value
-    // back in the `X-CSRF-Token` header on unsafe requests.
     if (this.authConfig.browserAuthEnabled) {
       response.cookie(
         CSRF_COOKIE,
@@ -151,11 +137,6 @@ export class AuthController {
     }
   }
 
-  /**
-   * Clears every auth cookie with the same path and security attributes used to
-   * set them, so the browser actually removes them. Runs regardless of browser
-   * authentication so logout always leaves a clean client.
-   */
   private clearAuthCookies(response: Response): void {
     const policy = this.authConfig.cookiePolicy;
     response.clearCookie(
@@ -170,7 +151,6 @@ export class AuthController {
   }
 }
 
-/** Reads a cookie value, tolerating missing or non-string values. */
 function readCookie(request: Request, name: string): string | undefined {
   const value = request.cookies?.[name];
   return typeof value === 'string' && value.length > 0 ? value : undefined;

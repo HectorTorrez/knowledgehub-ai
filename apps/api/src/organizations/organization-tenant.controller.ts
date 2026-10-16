@@ -36,13 +36,6 @@ import { OrganizationMembershipGuard } from './organization-membership.guard.js'
 import { OrganizationsService } from './organizations.service.js';
 
 /**
- * Tenant-scoped organization routes (`/organizations/:organizationId...`).
- *
- * Both guards are applied at the class level so every route added here — now or
- * later — inherits authentication and membership authorization. They are
- * deliberately kept out of {@link OrganizationsController} so organization
- * creation and listing are never subjected to the membership guard.
- *
  * `SessionGuard` is listed first: Nest runs guards in declaration order, so
  * authentication is resolved before membership.
  */
@@ -66,11 +59,7 @@ export class OrganizationTenantController {
   }
 
   /**
-   * Adds an existing user, by email, as a `MEMBER`. Both class-level guards run
-   * first (authentication, then membership); the service still revalidates the
-   * caller's OWNER role inside the writing transaction. The organization is
-   * read from the guarded context and the role is fixed server-side, so neither
-   * can be influenced by the request body.
+   * Adds an existing user, by email, as a `MEMBER`.
    */
   @Post(':organizationId/members')
   @HttpCode(HttpStatus.CREATED)
@@ -85,11 +74,7 @@ export class OrganizationTenantController {
   }
 
   /**
-   * Changes a member's role. The target is the route `userId`, validated as a
-   * UUID so a malformed id is a `400` before it reaches the database, and the
-   * organization is read from the guarded context. The class-level guards prove
-   * membership only; the service revalidates the caller's OWNER role inside the
-   * writing transaction.
+   * Changes a member's role.
    */
   @Patch(':organizationId/members/:userId')
   @HttpCode(HttpStatus.OK)
@@ -107,12 +92,7 @@ export class OrganizationTenantController {
   }
 
   /**
-   * Removes a member from the organization. The target is the route `userId`,
-   * validated as a UUID so a malformed id is a `400` before it reaches the
-   * database, and the organization is read from the guarded context. The
-   * class-level guards prove membership only; the service revalidates the
-   * caller's OWNER role inside the writing transaction and enforces the
-   * last-owner invariant. A successful removal is `204 No Content`.
+   * Removes a member from the organization. A successful removal is `204 No Content`.
    */
   @Delete(':organizationId/members/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)

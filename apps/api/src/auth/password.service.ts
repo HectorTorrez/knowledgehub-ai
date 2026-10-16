@@ -7,11 +7,6 @@ import { Injectable } from '@nestjs/common';
 // which cannot be referenced as a value when `isolatedModules` is enabled.
 const ARGON2ID = 2 as Algorithm;
 
-/**
- * OWASP-recommended Argon2id parameters: 19 MiB memory, 2 iterations, 1 lane.
- * The parameters are encoded into the hash string, so verification does not
- * need them.
- */
 export const ARGON2_OPTIONS = {
   algorithm: ARGON2ID,
   memoryCost: 19456,
@@ -19,7 +14,6 @@ export const ARGON2_OPTIONS = {
   parallelism: 1,
 } satisfies Options;
 
-/** Hashes and verifies passwords with Argon2id. Never handles plaintext at rest. */
 @Injectable()
 export class PasswordService {
   hash(plainPassword: string): Promise<string> {

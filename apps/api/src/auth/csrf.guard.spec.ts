@@ -19,7 +19,6 @@ interface FakeRequest {
   cookies?: Record<string, string>;
 }
 
-/** Stand-in controller: `plain` is unmarked, `logout` opts into the exemption. */
 class TestController {
   plain(): void {}
   logout(): void {}

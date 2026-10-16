@@ -93,7 +93,6 @@ const defaultTargetUser: TargetUser = {
   lastName: 'Hopper',
 };
 
-/** The authenticated actor's user id, as used by {@link organizationContext}. */
 const ACTOR_USER_ID = 'owner-1';
 
 interface TargetMembershipRow {
@@ -131,7 +130,6 @@ interface HarnessOptions {
   lockRows?: { id: string }[];
 }
 
-/** Builds the real adapter P2002 meta for the membership join constraint. */
 function membershipUniqueError(): unknown {
   return new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
     code: 'P2002',
@@ -149,7 +147,6 @@ function membershipUniqueError(): unknown {
   });
 }
 
-/** Builds a P2002 for a different unique constraint on the Membership table. */
 function otherMembershipUniqueError(): unknown {
   return new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
     code: 'P2002',
@@ -167,7 +164,6 @@ function otherMembershipUniqueError(): unknown {
   });
 }
 
-/** Builds the real adapter P2002 meta for the User email constraint. */
 function userUniqueError(): unknown {
   return new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
     code: 'P2002',
@@ -185,12 +181,6 @@ function userUniqueError(): unknown {
   });
 }
 
-/**
- * Builds the service with hand-rolled doubles. The `$transaction` double runs
- * the callback against a stateful transaction client and rolls the store back
- * when the callback throws, so the atomicity requirement is exercised rather
- * than stubbed away.
- */
 function createHarness(options: HarnessOptions = {}) {
   const organizations: ReturnType<typeof organizationRecord>[] = [];
   const memberships: Record<string, unknown>[] = [];
@@ -955,7 +945,6 @@ describe('OrganizationsService.updateMemberRole', () => {
     expect(result.member.role).toBe('MEMBER');
     expect(tx.membership.update).not.toHaveBeenCalled();
     expect(tx.membership.count).not.toHaveBeenCalled();
-    // The lock and owner revalidation still run, so a no-op cannot bypass them.
     expect(calls).toEqual([
       'lock-organization',
       'read-actor-membership',
@@ -1158,7 +1147,6 @@ describe('OrganizationsService.removeMember', () => {
         },
       },
     });
-    // Removing a MEMBER cannot change the owner count, so it is never read.
     expect(tx.membership.count).not.toHaveBeenCalled();
   });
 
@@ -1281,7 +1269,6 @@ describe('OrganizationsService.removeMember', () => {
   });
 
   it('allows an owner to remove themselves while another owner remains', async () => {
-    // The actor is owner-1, and the target is that same user.
     const { service, tx } = createHarness({ ownerCount: 2 });
 
     await service.removeMember(organizationContext(), ACTOR_USER_ID);

@@ -9,7 +9,6 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from './organization-context.js';
 import { OrganizationMembershipGuard } from './organization-membership.guard.js';
 
-/** A syntactically valid UUID used as the route organization id. */
 const ORGANIZATION_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_ORGANIZATION_ID = '22222222-2222-4222-8222-222222222222';
 

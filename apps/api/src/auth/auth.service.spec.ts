@@ -26,11 +26,6 @@ interface HarnessOptions {
   refreshCreateFails?: boolean;
 }
 
-/**
- * Builds the service with hand-rolled doubles. The `$transaction` double runs
- * the callback against a transaction client, so the persistence path under test
- * is exercised for real rather than stubbed away.
- */
 function createHarness(options: HarnessOptions = {}) {
   let sessionCounter = 0;
 
@@ -191,8 +186,6 @@ describe('AuthService.login', () => {
       service.login({ email: 'nobody@example.com', password: 'whatever' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
-    // The dummy hash is derived once and then verified against the supplied
-    // password, exactly as the known-email path would.
     expect(passwords.hash).toHaveBeenCalledTimes(1);
     expect(passwords.verify).toHaveBeenCalledTimes(1);
     expect(passwords.verify).toHaveBeenCalledWith(
@@ -306,11 +299,6 @@ interface RotationOverrides {
   activeCount?: number;
 }
 
-/**
- * Harness for the refresh/logout flow. The transaction double runs the callback
- * against a client whose conditional updates report configurable row counts, so
- * race outcomes (0 rows consumed, 0 active sessions) can be simulated.
- */
 function createRotationHarness(overrides: RotationOverrides = {}) {
   const now = Date.now();
   const token: RefreshTokenRow | null =

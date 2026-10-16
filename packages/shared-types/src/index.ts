@@ -1,11 +1,3 @@
-/**
- * Shared API contract types.
- *
- * These types describe the HTTP contracts exchanged between the frontend and
- * the backend. They are deliberately decoupled from backend domain models and
- * only expose what a client needs to consume an endpoint.
- */
-
 /** Response body of `GET /health` on the API. */
 export interface HealthResponse {
   status: 'ok';
@@ -59,12 +51,7 @@ export interface RefreshResponse {
   user: PublicUser;
 }
 
-/**
- * A user's role within an organization.
- *
- * Deliberately a plain string union rather than the backend's persistence enum,
- * so the HTTP contract does not depend on generated database types.
- */
+/** A user's role within an organization. */
 export type OrganizationRole = 'OWNER' | 'MEMBER';
 
 /**

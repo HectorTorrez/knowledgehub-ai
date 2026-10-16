@@ -25,34 +25,19 @@ import type {
   OrganizationContext,
 } from './organization-context.js';
 
-/**
- * PostgreSQL unique index Prisma creates for Membership's
- * `@@unique([userId, organizationId])`. The driver adapter reports the exact
- * index name for a unique violation, so it is the reliable way to tell this
- * constraint apart from any other unique constraint on the same table.
- */
 const MEMBERSHIP_USER_ORGANIZATION_CONSTRAINT =
   'Membership_userId_organizationId_key';
 
 /**
- * Interactive-transaction options for membership mutations.
- *
  * READ COMMITTED is PostgreSQL's default and is what the organization-row lock
  * protocol relies on: a `FOR UPDATE` that blocks behind another transaction
  * re-reads the committed row (and, for later statements, the committed
- * memberships) once the lock is released. It is stated explicitly so the
- * dependency is documented rather than incidental.
+ * memberships) once the lock is released.
  */
 const MEMBERSHIP_MUTATION_TRANSACTION = {
   isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
 } as const;
 
-/**
- * The membership projection every member-returning read shares: the role and
- * join date plus the user's public profile fields. Kept in one place so a member
- * can never be assembled from a wider (or different) field set than the public
- * contract allows.
- */
 const MEMBER_PROJECTION = {
   role: true,
   createdAt: true,
@@ -62,19 +47,8 @@ const MEMBER_PROJECTION = {
 } as const;
 
 /**
- * Serializes membership mutations for a single organization by taking an
- * exclusive row lock on its `Organization` row. It must be the first database
- * statement in the mutation transaction.
- *
  * Raw SQL is required because Prisma exposes no typed `SELECT ... FOR UPDATE`
- * API. It is issued through the interactive transaction client so Postgres
- * holds the lock until the transaction commits or rolls back. The table name is
- * quoted because Prisma maps the `Organization` model to the case-sensitive
- * `"Organization"` table (the schema declares no `@@map`), and the tagged
- * template binds the id as a parameter instead of interpolating it.
- *
- * A missing row would acquire no lock, silently defeating serialization, so its
- * absence is surfaced as a 404 instead of allowing the caller to proceed.
+ * API.
  */
 export async function lockOrganization(
   tx: Prisma.TransactionClient,
@@ -89,17 +63,6 @@ export async function lockOrganization(
   }
 }
 
-/**
- * Revalidates, inside the mutation transaction and after the organization lock
- * is held, that the actor is still an OWNER of the organization.
- *
- * The route guard only proves membership (any role) and reads outside this
- * transaction, so it cannot authorize a privileged write on its own: without
- * this re-read, a concurrent demotion could authorize the mutation from a stale
- * read. Querying by both userId and organizationId is what keeps the check
- * scoped to the tenant. The action is supplied by the caller so the `403` names
- * the operation that was actually denied.
- */
 export async function requireOwner(
   tx: Prisma.TransactionClient,
   context: Pick<OrganizationContext, 'userId' | 'organizationId'>,
@@ -120,17 +83,10 @@ export async function requireOwner(
   }
 }
 
-/** Creates organizations and lists the organizations a user belongs to. */
 @Injectable()
 export class OrganizationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Creates an organization and the caller's OWNER membership atomically. The
-   * user ID is supplied by the caller (derived from the session), never from
-   * the request body. If either write fails the transaction rolls back, so an
-   * organization is never left without its owner.
-   */
   async create(
     userId: string,
     input: CreateOrganizationInput,
@@ -156,11 +112,6 @@ export class OrganizationsService {
     return { organization: toOrganizationSummary(organization, role) };
   }
 
-  /**
-   * Lists the organizations the user belongs to, scoped to the user's own
-   * membership rows so no other tenant's data can be returned. Ordering is
-   * deterministic: organization creation time, then organization id.
-   */
   async listForUser(userId: string): Promise<OrganizationListResponse> {
     const memberships = await this.prisma.membership.findMany({
       where: { userId },
@@ -178,11 +129,6 @@ export class OrganizationsService {
     };
   }
 
-  /**
-   * Returns the detail of the organization the caller has already been
-   * authorized against. The organization and the caller's role both come from
-   * the guard-verified {@link OrganizationContext}, never from request input.
-   */
   async getDetail(
     context: OrganizationContext,
   ): Promise<OrganizationDetailResponse> {
@@ -191,16 +137,6 @@ export class OrganizationsService {
     };
   }
 
-  /**
-   * Lists the members of the authorized organization. Scoped strictly to
-   * `organizationId`, which the guard derived from the route after verifying
-   * membership.
-   *
-   * Each row selects only the user fields the public contract exposes and maps
-   * them explicitly, so password hashes, session data and other internal fields
-   * cannot leak. Ordering is deterministic: membership creation time, then user
-   * id.
-   */
   async listMembers(organizationId: string): Promise<MemberListResponse> {
     const memberships = await this.prisma.membership.findMany({
       where: { organizationId },
@@ -211,25 +147,6 @@ export class OrganizationsService {
     return { members: memberships.map(toOrganizationMember) };
   }
 
-  /**
-   * Adds an existing user, identified by email, as a `MEMBER` of the authorized
-   * organization.
-   *
-   * The transaction first acquires the organization-row lock (see
-   * {@link lockOrganization}), which serializes every membership mutation for
-   * the organization. Only then is the actor's OWNER role re-read and enforced
-   * *inside* the same transaction. The route guard already resolved the caller's
-   * membership, but that check ran before this method: a role or membership that
-   * changed in between must not authorize the write, so the permission is
-   * revalidated transactionally rather than trusted from the request context.
-   * The role check runs before the target lookup so a non-owner cannot use the
-   * error to probe which emails are registered.
-   *
-   * The organization comes from the guarded context (which derives it from the
-   * route) and the role is hard-coded to `MEMBER`; neither is accepted from the
-   * request body. Duplicate membership is caught from the database's unique
-   * constraint and surfaced as a `409` without leaking the underlying error.
-   */
   async addMember(
     context: OrganizationContext,
     input: AddMemberInput,
@@ -238,10 +155,6 @@ export class OrganizationsService {
 
     try {
       const member = await this.prisma.$transaction(async (tx) => {
-        // The organization-row lock is acquired first so every membership
-        // mutation for this organization is serialized. Only then is the
-        // actor revalidated: a concurrent demotion must not race past a role
-        // check that ran before it could commit.
         await lockOrganization(tx, context.organizationId);
         await requireOwner(tx, context, 'add members');
 
@@ -288,24 +201,6 @@ export class OrganizationsService {
     }
   }
 
-  /**
-   * Changes an existing member's role within the authorized organization.
-   *
-   * As with {@link addMember}, the transaction first acquires the
-   * organization-row lock (see {@link lockOrganization}) and only then
-   * revalidates the actor's OWNER role, so a concurrent demotion cannot
-   * authorize the change from a stale read. The lock additionally makes the
-   * "last owner" invariant below safe: the owner count and the write happen
-   * under the same lock, so two concurrent demotions cannot each observe two
-   * owners and both commit.
-   *
-   * The target comes from the route as a `userId` and is resolved through a
-   * membership scoped to the authorized organization, so a user who is not a
-   * member (including a member of another tenant) is a `404`, never a write.
-   * Assigning the role a member already holds is a successful no-op. Demoting
-   * an owner when they are the organization's only owner is a `409`, so an
-   * organization can never be left ownerless.
-   */
   async updateMemberRole(
     context: OrganizationContext,
     targetUserId: string,
@@ -368,25 +263,6 @@ export class OrganizationsService {
     return { member };
   }
 
-  /**
-   * Removes a member from the authorized organization.
-   *
-   * As with {@link addMember} and {@link updateMemberRole}, the transaction
-   * first acquires the organization-row lock (see {@link lockOrganization}) and
-   * only then revalidates the actor's OWNER role, so a concurrent demotion
-   * cannot authorize the removal from a stale read. The lock additionally makes
-   * the "last owner" invariant below safe: the owner count and the delete happen
-   * under the same lock, so two concurrent owner removals cannot each observe
-   * two owners and both commit.
-   *
-   * The target comes from the route as a `userId` and is resolved through the
-   * compound `(userId, organizationId)` membership key, so a user who is not a
-   * member (including a member of another tenant) is a `404`, never a delete.
-   * Removing an owner when they are the organization's only owner is a `409`, so
-   * an organization can never be left ownerless. An owner may therefore remove
-   * themselves only while another owner remains. Success is a `204`, so this
-   * method returns no body to map.
-   */
   async removeMember(
     context: OrganizationContext,
     targetUserId: string,
@@ -436,7 +312,6 @@ export class OrganizationsService {
   }
 }
 
-/** Maps a persisted organization plus the caller's role to the public shape. */
 function toOrganizationSummary(
   organization: AuthorizedOrganization,
   role: OrganizationRole,
@@ -450,7 +325,6 @@ function toOrganizationSummary(
   };
 }
 
-/** The row shape produced by {@link MEMBER_PROJECTION}. */
 interface MemberProjection {
   role: OrganizationRole;
   createdAt: Date;
@@ -462,11 +336,6 @@ interface MemberProjection {
   };
 }
 
-/**
- * Maps a {@link MEMBER_PROJECTION} row to the public member shape. The mapping
- * is explicit (rather than a spread) so persistence-only columns such as the
- * membership id or organization id can never leak into a response.
- */
 function toOrganizationMember(membership: MemberProjection): OrganizationMember {
   return {
     userId: membership.user.id,
@@ -479,14 +348,9 @@ function toOrganizationMember(membership: MemberProjection): OrganizationMember 
 }
 
 /**
- * The `meta` shape of a Prisma `P2002` unique-constraint violation.
- *
- * The exact shape depends on whether a driver adapter is in use. With
- * `@prisma/adapter-pg` (this project) Prisma does not populate `target` at all;
+ * With `@prisma/adapter-pg` (this project) Prisma does not populate `target`;
  * the driver reports the violating table as `driverAdapterError.cause.table`
- * and the unique index as `driverAdapterError.cause.constraint.index`. Without
- * an adapter, Prisma reports `{ modelName, target }` where `target` lists the
- * violating fields. Both are typed here because both are handled.
+ * and the unique index as `driverAdapterError.cause.constraint.index`.
  */
 interface UniqueViolationMeta {
   modelName?: string;
@@ -499,21 +363,6 @@ interface UniqueViolationMeta {
   };
 }
 
-/**
- * True only for a unique-constraint violation on the membership join key
- * (`@@unique([userId, organizationId])`).
- *
- * Scoped narrowly: an unrelated unique violation — on `User.email`, or a future
- * unique constraint on `Membership` — must surface as an internal error rather
- * than a misleading "already a member" `409`. Matching only `modelName` is not
- * enough, because it would also swallow those other constraints on `Membership`.
- *
- * Verified against Prisma 7.10.0 with `@prisma/adapter-pg`: `meta.target` is
- * absent and the violating table and unique index name are exposed as
- * `meta.driverAdapterError.cause.table` and
- * `meta.driverAdapterError.cause.constraint.index`. The classic
- * `{ modelName, target }` shape is kept as a fallback for a non-adapter setup.
- */
 export function isDuplicateMembershipViolation(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
     return false;
@@ -528,8 +377,6 @@ export function isDuplicateMembershipViolation(error: unknown): boolean {
     return false;
   }
 
-  // Driver-adapter shape: match the exact index, not just the table, so a
-  // different unique constraint on Membership is not misreported.
   const cause = meta.driverAdapterError?.cause;
   if (cause) {
     return (
@@ -538,7 +385,6 @@ export function isDuplicateMembershipViolation(error: unknown): boolean {
     );
   }
 
-  // Classic Prisma shape: the model plus the list of violating fields.
   if (meta.modelName !== 'Membership') {
     return false;
   }

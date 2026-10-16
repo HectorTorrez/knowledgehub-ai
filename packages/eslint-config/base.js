@@ -1,10 +1,6 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
-/**
- * Shared base flat config for all TypeScript workspaces.
- * Framework-specific presets extend this and add their own globals.
- */
 export default tseslint.config(
   {
     ignores: [

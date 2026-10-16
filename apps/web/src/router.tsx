@@ -6,8 +6,6 @@ import { NotFound } from '~/components/NotFound';
 import { routeTree } from './routeTree.gen';
 
 /**
- * Creates a fresh router (and its QueryClient) per call.
- *
  * TanStack Start calls `getRouter` once per server request, so creating the
  * QueryClient here — rather than at module scope — keeps the query cache
  * isolated between requests during SSR.
@@ -16,7 +14,6 @@ export function getRouter() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        // Avoid an immediate refetch right after hydration on the client.
         staleTime: 60_000,
         refetchOnWindowFocus: false,
       },
@@ -27,15 +24,12 @@ export function getRouter() {
     routeTree,
     context: { queryClient },
     defaultPreload: 'intent',
-    // Let TanStack Query decide whether a preload actually needs data.
     defaultPreloadStaleTime: 0,
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
     scrollRestoration: true,
   });
 
-  // Provides the QueryClient via context and handles SSR dehydration,
-  // hydration and streaming.
   setupRouterSsrQueryIntegration({ router, queryClient });
 
   return router;

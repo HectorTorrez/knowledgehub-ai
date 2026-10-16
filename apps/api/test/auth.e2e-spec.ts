@@ -23,11 +23,6 @@ import { SessionGuard } from '../src/auth/session.guard.js';
 import { TokenService } from '../src/auth/token.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
-/**
- * Test-only route used to exercise the real Nest request pipeline (global
- * CsrfGuard + route-level SessionGuard). It is never registered in production
- * code; only this e2e module declares it.
- */
 @Controller('__test/protected')
 class TestProtectedController {
   @Post()
@@ -37,7 +32,6 @@ class TestProtectedController {
     return { ok: true };
   }
 }
-
 
 const PASSWORD = 'correct horse battery staple';
 
@@ -112,7 +106,6 @@ describe('POST /auth/register (e2e)', () => {
     const access = requireCookie(cookies, ACCESS_TOKEN_COOKIE);
     const refresh = requireCookie(cookies, REFRESH_TOKEN_COOKIE);
 
-    // Cookie separation: access is broad, refresh is scoped to /auth.
     expect(access).toMatch(/HttpOnly/i);
     expect(access).toMatch(/SameSite=Lax/i);
     expect(access).toMatch(/Path=\//i);
@@ -120,7 +113,6 @@ describe('POST /auth/register (e2e)', () => {
     expect(refresh).toMatch(/HttpOnly/i);
     expect(refresh).toMatch(/Path=\/auth/i);
 
-    // Response exposes only the public profile, never tokens or hashes.
     expect(response.body).toEqual({
       user: {
         id: expect.any(String),
@@ -313,8 +305,6 @@ describe('POST /auth/register transaction rollback (e2e)', () => {
   const collidingHash = randomUUID();
 
   beforeAll(async () => {
-    // Force the refresh-token insert to violate its unique constraint, so the
-    // transaction fails after the user row is created.
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -338,7 +328,6 @@ describe('POST /auth/register transaction rollback (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
 
-    // Seed a token that already owns the colliding hash.
     ownerEmail = `owner-${randomUUID()}@example.test`;
     trackedEmails.add(ownerEmail);
     const owner = await prisma.user.create({
@@ -379,7 +368,6 @@ describe('POST /auth/register transaction rollback (e2e)', () => {
     expect(response.status).toBe(500);
     expect(response.status).not.toBe(409);
 
-    // The user was rolled back with its session/token; the seeded owner remains.
     expect(
       await prisma.user.findUnique({ where: { email: body.email } }),
     ).toBeNull();
@@ -399,8 +387,6 @@ describe('CSRF enforcement over HTTP (e2e)', () => {
   let trustedOrigin: string;
 
   beforeAll(async () => {
-    // The database is stubbed for this suite: these tests exercise guard/HTTP
-    // wiring, not persistence, and must run without PostgreSQL.
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule, AuthModule],
       controllers: [TestProtectedController],
@@ -547,19 +533,15 @@ describe('POST /auth/login (e2e)', () => {
     const access = requireCookie(cookies, ACCESS_TOKEN_COOKIE);
     const refresh = requireCookie(cookies, REFRESH_TOKEN_COOKIE);
 
-    // Cookie lifetimes track the configured TTLs: 15-minute access token and
-    // the (absolute) session lifetime shared with the refresh token.
     const accessMaxAgeSeconds = authConfig.accessTtlMs / 1000;
     const sessionMaxAgeSeconds = authConfig.sessionTtlMs / 1000;
     expect(accessMaxAgeSeconds).toBe(900);
     expect(refresh).toBeDefined();
 
-    // Access cookie carries the 15-minute access-token lifetime.
     expect(access).toMatch(/HttpOnly/i);
     expect(access).toMatch(/SameSite=Lax/i);
     expect(access).toMatch(/Path=\//i);
     expect(access).toMatch(new RegExp(`Max-Age=${accessMaxAgeSeconds}\\b`, 'i'));
-    // Refresh cookie is scoped to /auth and carries the session lifetime.
     expect(refresh).toMatch(/HttpOnly/i);
     expect(refresh).toMatch(/Path=\/auth/i);
     expect(refresh).toMatch(
@@ -587,7 +569,6 @@ describe('POST /auth/login (e2e)', () => {
       where: { userId: user.id },
       include: { refreshTokens: true },
     });
-    // Registration created one session; login created its own.
     const loginSession = sessions.find(
       (session) => session.userAgent === 'kh-login-agent',
     );
@@ -595,7 +576,6 @@ describe('POST /auth/login (e2e)', () => {
     expect(loginSession!.revokedAt).toBeNull();
     expect(loginSession!.refreshTokens).toHaveLength(1);
 
-    // The session's absolute lifetime matches the configured session TTL.
     const expiresAt = loginSession!.expiresAt.getTime();
     expect(expiresAt).toBeGreaterThan(
       Date.now() + authConfig.sessionTtlMs - 60_000,
@@ -736,8 +716,6 @@ describe('POST /auth/login transaction rollback (e2e)', () => {
   const collidingHash = randomUUID();
 
   beforeAll(async () => {
-    // Force the refresh-token insert to violate its unique constraint, so the
-    // login transaction fails after the session row has been created.
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -773,7 +751,6 @@ describe('POST /auth/login transaction rollback (e2e)', () => {
       },
     });
 
-    // Seed a token that already owns the colliding hash.
     const ownerEmail = `owner-login-${randomUUID()}@example.test`;
     trackedEmails.add(ownerEmail);
     const owner = await prisma.user.create({
@@ -817,7 +794,6 @@ describe('POST /auth/login transaction rollback (e2e)', () => {
     expect(
       await prisma.authSession.findMany({ where: { userId: user.id } }),
     ).toHaveLength(0);
-    // The seeded owner's token is untouched by the rolled-back attempt.
     expect(
       await prisma.refreshToken.count({ where: { tokenHash: collidingHash } }),
     ).toBe(1);
@@ -963,7 +939,6 @@ describe('POST /auth/refresh and /auth/logout (e2e)', () => {
       session.expiresAt.getTime(),
     );
 
-    // The replacement cookie cannot outlive the successor refresh token.
     const refreshCookie = requireCookie(
       setCookies(response),
       REFRESH_TOKEN_COOKIE,
@@ -1026,21 +1001,16 @@ describe('POST /auth/refresh and /auth/logout (e2e)', () => {
     const replay = await refreshWith(jar).expect(401);
     expect(replay.body.message).toBe('Invalid or expired refresh token');
 
-    // The revocation is committed before the 401 reaches the client and is
-    // persisted in PostgreSQL.
     const session = await prisma.authSession.findFirstOrThrow({
       where: { userId },
     });
     expect(session.revokedAt).not.toBeNull();
 
-    // An access token issued before the replay (here, the one minted by the
-    // successful rotation) is rejected once the session is revoked.
     await request(app.getHttpServer())
       .post('/__test/protected')
       .set('Authorization', `Bearer ${rotated[ACCESS_TOKEN_COOKIE]}`)
       .expect(401);
 
-    // The original access token is likewise no longer usable.
     await request(app.getHttpServer())
       .post('/__test/protected')
       .set('Authorization', `Bearer ${jar[ACCESS_TOKEN_COOKIE]}`)
@@ -1126,12 +1096,10 @@ describe('POST /auth/refresh and /auth/logout (e2e)', () => {
       where: { userId },
       include: { refreshTokens: true },
     });
-    // The original token was consumed and exactly one successor created.
     expect(session.refreshTokens).toHaveLength(2);
     expect(
       session.refreshTokens.filter((token) => token.usedAt === null),
     ).toHaveLength(1);
-    // The losing requests detected a replay and revoked the session.
     expect(session.revokedAt).not.toBeNull();
   });
 
@@ -1140,9 +1108,6 @@ describe('POST /auth/refresh and /auth/logout (e2e)', () => {
     const originalAccess = jar[ACCESS_TOKEN_COOKIE];
     const originalRefresh = jar[REFRESH_TOKEN_COOKIE];
 
-    // Fire both against the same session. No ordering of the HTTP responses is
-    // assumed: whichever transaction commits second decides the final state,
-    // which must be revoked either way.
     const [refreshResponse, logoutResponse] = await Promise.all([
       refreshWith(jar),
       logoutWith(jar),
@@ -1156,10 +1121,8 @@ describe('POST /auth/refresh and /auth/logout (e2e)', () => {
       include: { refreshTokens: true },
     });
 
-    // Logout always wins the final state: the session ends revoked.
     expect(session.revokedAt).not.toBeNull();
 
-    // At most one successor is ever persisted, and it is never left usable.
     const successors = session.refreshTokens.filter(
       (token) => token.tokenHash !== sha256(originalRefresh),
     );
@@ -1167,19 +1130,15 @@ describe('POST /auth/refresh and /auth/logout (e2e)', () => {
     expect(successors.filter((token) => token.usedAt === null).length)
       .toBeLessThanOrEqual(1);
 
-    // No token minted before revocation survives it: the pre-race access token
-    // is rejected by a protected route.
     await request(app.getHttpServer())
       .post('/__test/protected')
       .set('Authorization', `Bearer ${originalAccess}`)
       .expect(401);
 
-    // The original refresh token cannot be replayed once the session is revoked.
     await refreshWith({ ...jar, [ACCESS_TOKEN_COOKIE]: originalAccess }).expect(
       401,
     );
 
-    // If the racing refresh won, its successor and access token are dead too.
     if (refreshResponse.status === 200) {
       const rotated = readSetCookies(refreshResponse);
       expect(rotated[REFRESH_TOKEN_COOKIE]).not.toBe(originalRefresh);
@@ -1326,8 +1285,6 @@ describe('browser-auth gate for refresh and logout (e2e)', () => {
     };
   }
 
-  // A disabled deployment issues no CSRF cookie; a client still holding cookie
-  // state presents a token signed with the configured secret.
   const cookiePair = (jar: CookieJar, token: string) => [
     ...cookieHeader(jar),
     `${CSRF_COOKIE}=${token}`,
@@ -1391,8 +1348,6 @@ describe('browser-auth gate for refresh and logout (e2e)', () => {
     expect(csrf).toMatch(/Path=\//i);
     expect(csrf).not.toMatch(/HttpOnly/i);
 
-    // Disabled browser auth means the refresh cookie is not trusted: the
-    // session must survive even though its cookies were cleared.
     const session = await prisma.authSession.findFirstOrThrow({
       where: { userId },
     });
@@ -1446,8 +1401,6 @@ describe('browser-auth gate for refresh and logout (e2e)', () => {
   it('refuses cookie-based refresh at the service gate when browser auth is disabled', async () => {
     const { userId, jar } = await registerUser();
 
-    // The bearer credential only bypasses the global CSRF guard here; the
-    // endpoint itself must ignore the cookie while browser auth is off.
     const refreshResponse = await request(app.getHttpServer())
       .post('/auth/refresh')
       .set('Authorization', 'Bearer guard-bypass')

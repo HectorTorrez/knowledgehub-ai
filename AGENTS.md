@@ -34,3 +34,15 @@ This section is project-specific and authoritative. It lives outside the Turbore
 - Never commit secrets or real environment credentials.
 - Explain architectural trade-offs before introducing significant complexity.
 - Do not scaffold unrelated features or proceed beyond the requested task.
+
+## Comments
+
+- Comments are banned by default. This codebase treats a comment as a red flag: agents reach for prose to justify a workaround, a bandaid, or an unhandled edge instead of fixing the root cause. Do not add one.
+- A comment that explains our own code is a confession that the code is not obvious. Make the code obvious instead: rename, extract a well-named function, encode the case in a type, or restructure so the behavior reads from the code. Then delete the comment.
+- Write zero narration, banner, or section-separator comments and never leave commented-out code.
+- A comment survives only when it records something we cannot change or express in code:
+  - the public API contract a type or endpoint exposes;
+  - non-obvious behavior forced by an external dependency, platform, vendor, or protocol;
+  - a linked issue or RFC, or a legal/license header.
+- Functional directives (`eslint-disable`, `@ts-nocheck`, `/// <reference>`) and generated-file headers are exempt. A suppression that masks a bug or a correctness/safety hazard is not exempt: remove it and fix the cause.
+- When a needed comment hides a workaround in our own code, the work is to remove the workaround, not to word the comment better.
