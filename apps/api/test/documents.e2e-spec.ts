@@ -6,6 +6,9 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { ACCESS_TOKEN_COOKIE } from '../src/auth/cookies.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { OBJECT_STORAGE } from '../src/storage/object-storage.port.js';
+import { MAX_UPLOAD_BYTES } from '../src/documents/upload-policy.js';
+import { FakeObjectStorage } from './support/fake-object-storage.js';
 
 const PASSWORD = 'correct horse battery staple';
 
@@ -37,6 +40,7 @@ function bearer(token: string): { Authorization: string } {
 describe('documents (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let storage: FakeObjectStorage;
   const trackedEmails = new Set<string>();
   const trackedOrganizationIds = new Set<string>();
 
@@ -100,10 +104,25 @@ describe('documents (e2e)', () => {
       .get(`/organizations/${organizationId}/documents/${documentId}`)
       .set(bearer(token));
 
+  const createUploadUrl = (
+    token: string,
+    organizationId: string,
+    documentId: string,
+    body: object,
+  ) =>
+    request(app.getHttpServer())
+      .post(`/organizations/${organizationId}/documents/${documentId}/upload-url`)
+      .set(bearer(token))
+      .send(body);
+
   beforeAll(async () => {
+    storage = new FakeObjectStorage();
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OBJECT_STORAGE)
+      .useValue(storage)
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());
@@ -138,6 +157,12 @@ describe('documents (e2e)', () => {
       .expect(401);
     await request(app.getHttpServer())
       .get(`/organizations/${organizationId}/documents/${documentId}`)
+      .expect(401);
+    await request(app.getHttpServer())
+      .post(
+        `/organizations/${organizationId}/documents/${documentId}/upload-url`,
+      )
+      .send({ contentType: 'application/pdf' })
       .expect(401);
   });
 
@@ -500,6 +525,238 @@ describe('documents (e2e)', () => {
       for (const malformed of ['not-a-uuid', '123', 'null']) {
         await getDocument(token, organizationId, malformed).expect(400);
       }
+    });
+  });
+
+  describe('upload url', () => {
+    const body = { contentType: 'application/pdf' };
+
+    const lastCall = () => storage.calls[storage.calls.length - 1];
+
+    beforeEach(() => {
+      storage.calls.length = 0;
+    });
+
+    it('returns a presigned PUT upload for a document in the organization', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Upload Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      const response = await createUploadUrl(
+        token,
+        organizationId,
+        documentId,
+        body,
+      ).expect(200);
+
+      expect(response.body).toEqual({
+        uploadUrl: expect.stringContaining('https://fake-object-storage.test/'),
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/pdf' },
+        expiresAt: expect.any(String),
+        maxSizeBytes: MAX_UPLOAD_BYTES,
+      });
+      expect(new Date(response.body.expiresAt).toISOString()).toBe(
+        response.body.expiresAt,
+      );
+      expect(Object.keys(response.body).sort()).toEqual(
+        ['expiresAt', 'headers', 'maxSizeBytes', 'method', 'uploadUrl'].sort(),
+      );
+    });
+
+    it('stores the fresh key while the document stays PENDING without verified file metadata', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Lifecycle Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(token, organizationId, documentId, {
+        ...body,
+        sizeBytes: 1024,
+      }).expect(200);
+
+      const document = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+      });
+
+      expect(document.status).toBe('PENDING');
+      expect(document.sizeBytes).toBeNull();
+      expect(document.contentType).toBeNull();
+      expect(document.originalFileName).toBeNull();
+      expect(document.storageKey).toBe(lastCall().key);
+      expect(document.storageKey).toMatch(
+        new RegExp(
+          `^organizations/${organizationId}/documents/${documentId}/`,
+        ),
+      );
+    });
+
+    it('generates a fresh key on every request', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Fresh Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(token, organizationId, documentId, body).expect(
+        200,
+      );
+      await createUploadUrl(token, organizationId, documentId, body).expect(
+        200,
+      );
+
+      expect(storage.calls).toHaveLength(2);
+      expect(storage.calls[0].key).not.toBe(storage.calls[1].key);
+    });
+
+    it('passes the configured upload TTL to the storage port', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Ttl Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(token, organizationId, documentId, body).expect(
+        200,
+      );
+
+      expect(lastCall().expiresInSeconds).toBe(900);
+    });
+
+    it('returns 404 when the document belongs to another organization and leaves it untouched', async () => {
+      const ownerA = await registerUser();
+      const ownerB = await registerUser();
+      const organizationA = await createOrganization(ownerA.token, 'Upload A');
+      const organizationB = await createOrganization(ownerB.token, 'Upload B');
+      const created = await createDocument(ownerA.token, organizationA, {
+        title: 'Secret',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(
+        ownerB.token,
+        organizationB,
+        documentId,
+        body,
+      ).expect(404);
+
+      const document = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+      });
+      expect(document.storageKey).toBeNull();
+      expect(storage.calls).toHaveLength(0);
+    });
+
+    it('returns 404 when the document does not exist in the organization', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Missing Upload');
+
+      await createUploadUrl(
+        token,
+        organizationId,
+        randomUUID(),
+        body,
+      ).expect(404);
+    });
+
+    it('returns 403 for an authenticated non-member and writes nothing', async () => {
+      const owner = await registerUser();
+      const outsider = await registerUser();
+      const organizationId = await createOrganization(owner.token, 'Guard U');
+      const created = await createDocument(owner.token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(
+        outsider.token,
+        organizationId,
+        documentId,
+        body,
+      ).expect(403);
+
+      const document = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+      });
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('rejects an unsupported content type, extra fields, and an over-cap size with 400', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Invalid Upload');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      const cases: object[] = [
+        { contentType: 'image/png' },
+        { contentType: 'application/pdf', documentId: randomUUID() },
+        { contentType: 'application/pdf', storageKey: 'organizations/x' },
+        { contentType: 'application/pdf', sizeBytes: MAX_UPLOAD_BYTES + 1 },
+        { contentType: 'application/pdf', sizeBytes: 0 },
+        {},
+      ];
+
+      for (const invalid of cases) {
+        await createUploadUrl(
+          token,
+          organizationId,
+          documentId,
+          invalid,
+        ).expect(400);
+      }
+
+      const document = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+      });
+      expect(document.storageKey).toBeNull();
+      expect(storage.calls).toHaveLength(0);
+    });
+
+    it('rejects malformed organization and document ids with 400', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Malformed Ids');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(token, 'not-a-uuid', documentId, body).expect(400);
+      await createUploadUrl(
+        token,
+        organizationId,
+        'not-a-uuid',
+        body,
+      ).expect(400);
+    });
+
+    it('exposes only the approved upload-url fields', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Fields Upload');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      const response = await createUploadUrl(
+        token,
+        organizationId,
+        documentId,
+        body,
+      ).expect(200);
+
+      expect(response.body).not.toHaveProperty('storageKey');
+      expect(Object.keys(response.body).sort()).toEqual(
+        ['expiresAt', 'headers', 'maxSizeBytes', 'method', 'uploadUrl'].sort(),
+      );
     });
   });
 });

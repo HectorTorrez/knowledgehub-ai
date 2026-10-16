@@ -13,6 +13,7 @@ import {
 import type {
   DocumentDetailResponse,
   DocumentListResponse,
+  DocumentUploadUrlResponse,
 } from '@knowledgehub/shared-types';
 import { SessionGuard } from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
@@ -25,6 +26,10 @@ import {
   createDocumentSchema,
   type CreateDocumentInput,
 } from './dto/create-document.schema.js';
+import {
+  createUploadUrlSchema,
+  type CreateUploadUrlInput,
+} from './dto/create-upload-url.schema.js';
 import { DocumentsService } from './documents.service.js';
 
 @Controller('organizations/:organizationId/documents')
@@ -57,6 +62,21 @@ export class DocumentsController {
     return this.documents.getDetail(
       requireOrganizationContext(request).organizationId,
       documentId,
+    );
+  }
+
+  @Post(':documentId/upload-url')
+  @HttpCode(HttpStatus.OK)
+  createUploadUrl(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Body(new ZodValidationPipe(createUploadUrlSchema))
+    body: CreateUploadUrlInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<DocumentUploadUrlResponse> {
+    return this.documents.createUploadUrl(
+      requireOrganizationContext(request),
+      documentId,
+      body,
     );
   }
 }

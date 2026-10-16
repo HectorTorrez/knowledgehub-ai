@@ -1,13 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   DocumentDetailResponse,
   DocumentListResponse,
   DocumentStatus,
   DocumentSummary,
+  DocumentUploadUrlResponse,
 } from '@knowledgehub/shared-types';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
+import {
+  OBJECT_STORAGE,
+  type ObjectStorage,
+} from '../storage/object-storage.port.js';
+import { StorageConfig } from '../storage/storage.config.js';
 import type { CreateDocumentInput } from './dto/create-document.schema.js';
+import type { CreateUploadUrlInput } from './dto/create-upload-url.schema.js';
+import { createDocumentStorageKey } from './upload-key.js';
+import { MAX_UPLOAD_BYTES } from './upload-policy.js';
 
 const DOCUMENT_PUBLIC_SELECT = {
   id: true,
@@ -46,7 +60,11 @@ function toDocumentSummary(document: DocumentProjection): DocumentSummary {
 
 @Injectable()
 export class DocumentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+    private readonly storageConfig: StorageConfig,
+  ) {}
 
   async create(
     context: OrganizationContext,
@@ -88,5 +106,47 @@ export class DocumentsService {
     }
 
     return { document: toDocumentSummary(document) };
+  }
+
+  async createUploadUrl(
+    context: OrganizationContext,
+    documentId: string,
+    input: CreateUploadUrlInput,
+  ): Promise<DocumentUploadUrlResponse> {
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, organizationId: context.organizationId },
+      select: { id: true },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (input.sizeBytes !== undefined && input.sizeBytes > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException(
+        `sizeBytes must not exceed ${MAX_UPLOAD_BYTES}`,
+      );
+    }
+
+    const key = createDocumentStorageKey(context.organizationId, documentId);
+
+    const upload = await this.storage.createPresignedUpload({
+      key,
+      contentType: input.contentType,
+      expiresInSeconds: this.storageConfig.uploadTtlSeconds,
+    });
+
+    await this.prisma.document.update({
+      where: { id: documentId },
+      data: { storageKey: key },
+    });
+
+    return {
+      uploadUrl: upload.url,
+      method: upload.method,
+      headers: upload.headers,
+      expiresAt: upload.expiresAt.toISOString(),
+      maxSizeBytes: MAX_UPLOAD_BYTES,
+    };
   }
 }

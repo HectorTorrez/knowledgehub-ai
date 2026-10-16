@@ -1,8 +1,12 @@
-import { NotFoundException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { StorageConfig } from '../storage/storage.config.js';
+import { FakeObjectStorage } from '../../test/support/fake-object-storage.js';
 import { DocumentsService } from './documents.service.js';
+import { MAX_UPLOAD_BYTES } from './upload-policy.js';
 
 type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
 
@@ -51,6 +55,16 @@ interface HarnessOptions {
   created?: DocumentRow;
   rows?: DocumentRow[];
   findFirst?: DocumentRow | null;
+  uploadTtlSeconds?: number;
+}
+
+function storageConfig(uploadTtlSeconds = 900): StorageConfig {
+  const config = {
+    getOrThrow: (key: string) =>
+      key === 'STORAGE_UPLOAD_TTL_SECONDS' ? uploadTtlSeconds : undefined,
+  } as unknown as ConfigService;
+
+  return new StorageConfig(config);
 }
 
 function createHarness(options: HarnessOptions = {}) {
@@ -61,15 +75,25 @@ function createHarness(options: HarnessOptions = {}) {
           options.created ?? documentRow(),
       ),
       findMany: vi.fn(async () => options.rows ?? []),
-      findFirst: vi.fn(async () =>
-        options.findFirst === undefined ? documentRow() : options.findFirst,
+      findFirst: vi.fn(
+        async (_args: { where: unknown; select?: unknown }) =>
+          options.findFirst === undefined ? documentRow() : options.findFirst,
+      ),
+      update: vi.fn(
+        async (_args: { where: unknown; data: Record<string, unknown> }) =>
+          options.created ?? documentRow(),
       ),
     },
   };
 
-  const service = new DocumentsService(prisma as unknown as PrismaService);
+  const storage = new FakeObjectStorage();
+  const service = new DocumentsService(
+    prisma as unknown as PrismaService,
+    storage,
+    storageConfig(options.uploadTtlSeconds),
+  );
 
-  return { service, prisma };
+  return { service, prisma, storage };
 }
 
 describe('DocumentsService.create', () => {
@@ -290,5 +314,160 @@ describe('DocumentsService.getDetail', () => {
     expect(serialized).not.toContain('uploadedById');
     expect(serialized).not.toContain('failureReason');
     expect(serialized).not.toContain('organizationId');
+  });
+});
+
+describe('DocumentsService.createUploadUrl', () => {
+  const input = { contentType: 'application/pdf' } as const;
+
+  it('looks the document up within the authorized organization', async () => {
+    const { service, prisma } = createHarness();
+
+    await service.createUploadUrl(organizationContext(), 'doc-1', input);
+
+    expect(prisma.document.findFirst).toHaveBeenCalledWith({
+      where: { id: 'doc-1', organizationId: 'org-1' },
+      select: { id: true },
+    });
+  });
+
+  it('returns a presigned PUT upload for the requested content type', async () => {
+    const { service } = createHarness();
+
+    const result = await service.createUploadUrl(
+      organizationContext(),
+      'doc-1',
+      input,
+    );
+
+    expect(result).toEqual({
+      uploadUrl: expect.stringContaining('https://fake-object-storage.test/'),
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/pdf' },
+      expiresAt: '2026-01-01T00:15:00.000Z',
+      maxSizeBytes: MAX_UPLOAD_BYTES,
+    });
+  });
+
+  it('returns 404 without touching storage or the document when it is not found', async () => {
+    const { service, prisma, storage } = createHarness({ findFirst: null });
+
+    await expect(
+      service.createUploadUrl(organizationContext(), 'doc-1', input),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(storage.calls).toHaveLength(0);
+    expect(prisma.document.update).not.toHaveBeenCalled();
+  });
+
+  it('scopes the lookup to the organization so cross-tenant ids are indistinguishable from missing ones', async () => {
+    const { service, prisma } = createHarness({ findFirst: null });
+
+    await expect(
+      service.createUploadUrl(organizationContext(), 'doc-1', input),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const args = prisma.document.findFirst.mock.calls[0][0];
+    expect(args.where).toEqual({ id: 'doc-1', organizationId: 'org-1' });
+  });
+
+  it('rejects a declared size above the policy cap without touching storage or the document', async () => {
+    const { service, prisma, storage } = createHarness();
+
+    await expect(
+      service.createUploadUrl(organizationContext(), 'doc-1', {
+        ...input,
+        sizeBytes: MAX_UPLOAD_BYTES + 1,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(storage.calls).toHaveLength(0);
+    expect(prisma.document.update).not.toHaveBeenCalled();
+  });
+
+  it('accepts a declared size exactly at the policy cap', async () => {
+    const { service, storage } = createHarness();
+
+    await service.createUploadUrl(organizationContext(), 'doc-1', {
+      ...input,
+      sizeBytes: MAX_UPLOAD_BYTES,
+    });
+
+    expect(storage.calls).toHaveLength(1);
+  });
+
+  it('persists only the fresh storage key, leaving lifecycle and file metadata untouched', async () => {
+    const { service, prisma, storage } = createHarness();
+
+    await service.createUploadUrl(organizationContext(), 'doc-1', {
+      ...input,
+      sizeBytes: 1024,
+    });
+
+    const key = storage.calls[0].key;
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 'doc-1' },
+      data: { storageKey: key },
+    });
+
+    const args = prisma.document.update.mock.calls[0][0];
+    expect(Object.keys(args.data)).toEqual(['storageKey']);
+  });
+
+  it('passes the configured upload TTL to the storage port', async () => {
+    const { service, storage } = createHarness({ uploadTtlSeconds: 120 });
+
+    await service.createUploadUrl(organizationContext(), 'doc-1', {
+      contentType: 'text/plain',
+    });
+
+    expect(storage.calls[0].expiresInSeconds).toBe(120);
+  });
+
+  it('generates a fresh key on every request', async () => {
+    const { service, storage } = createHarness();
+
+    await service.createUploadUrl(organizationContext(), 'doc-1', input);
+    await service.createUploadUrl(organizationContext(), 'doc-1', input);
+
+    expect(storage.calls).toHaveLength(2);
+    expect(storage.calls[0].key).not.toBe(storage.calls[1].key);
+    expect(storage.calls[0].key).toMatch(
+      /^organizations\/org-1\/documents\/doc-1\//,
+    );
+  });
+
+  it('requests the presigned URL before persisting the key', async () => {
+    const { service, prisma, storage } = createHarness();
+    const presign = vi.spyOn(storage, 'createPresignedUpload');
+
+    await service.createUploadUrl(organizationContext(), 'doc-1', input);
+
+    expect(presign.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.document.update.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('does not return a response when persisting the key fails', async () => {
+    const { service, prisma } = createHarness();
+    prisma.document.update.mockRejectedValueOnce(new Error('write failed'));
+
+    await expect(
+      service.createUploadUrl(organizationContext(), 'doc-1', input),
+    ).rejects.toThrow('write failed');
+  });
+
+  it('does not expose the raw storage key as a separate response field', async () => {
+    const { service } = createHarness();
+
+    const result = await service.createUploadUrl(
+      organizationContext(),
+      'doc-1',
+      input,
+    );
+
+    expect(Object.keys(result).sort()).toEqual(
+      ['expiresAt', 'headers', 'maxSizeBytes', 'method', 'uploadUrl'].sort(),
+    );
   });
 });
