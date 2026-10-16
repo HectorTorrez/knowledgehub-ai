@@ -326,12 +326,14 @@ follows `STORAGE_UPLOAD_TTL_SECONDS` (900 seconds by default).
 
 ### Upload-URL lifecycle and limitations
 
-Requesting a URL creates a fresh storage key of the form
+Requesting a URL creates a fresh staging key of the form
 `organizations/<organizationId>/documents/<documentId>/<random token>`,
-generates the presigned URL from it, and persists the key as the document's
-`storageKey`. Requesting another URL supersedes the previously persisted key:
-every request generates a distinct key, and only the newest one is recorded, so
-an upload sent to an older URL is not the object later phases will verify.
+generates the presigned URL from it, and records the key as the document's
+staging `uploadStorageKey`. Requesting another URL supersedes the previously
+recorded staging key: every request generates a distinct key, and only the newest
+one is recorded, so an upload sent to an older URL is not the object later phases
+will verify. The verified `storageKey` stays null until Phase 5.2B verification
+promotes the uploaded object to a server-controlled key.
 
 The presigned `PUT` is a direct browser-to-storage transfer that bypasses the
 API, so every value the client declares is untrusted:
@@ -342,7 +344,7 @@ API, so every value the client declares is untrusted:
   but the storage provider does not inspect the bytes, so the body's real type
   may differ from the declared one.
 
-A successful request therefore records only the storage key. The document stays
+A successful request therefore records only the staging key. The document stays
 `PENDING` and `originalFileName`, `contentType`, and `sizeBytes` remain `null`
 until Phase 5.2B reads the uploaded object and verifies its real size, type, and
 contents; only then can a document leave `PENDING`. Persisting the key does not

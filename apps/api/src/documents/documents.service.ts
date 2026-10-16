@@ -138,7 +138,7 @@ export class DocumentsService {
 
     await this.prisma.document.update({
       where: { id: documentId },
-      data: { storageKey: key },
+      data: { uploadStorageKey: key },
     });
 
     return {

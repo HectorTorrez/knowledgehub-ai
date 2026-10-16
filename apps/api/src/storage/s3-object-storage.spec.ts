@@ -1,7 +1,16 @@
 import type { S3Client } from '@aws-sdk/client-s3';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  CopyObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import type { ConfigService } from '@nestjs/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  ObjectStorageIntegrityError,
+  ObjectVersionMismatchError,
+} from './object-storage.port.js';
 import { S3ObjectStorage } from './s3-object-storage.js';
 import { StorageConfig } from './storage.config.js';
 
@@ -36,6 +45,25 @@ function createAdapter(
     client,
     adapter: new S3ObjectStorage(client, storageConfig(overrides)),
   };
+}
+
+function createSendingAdapter(overrides: Record<string, unknown> = {}) {
+  const send = vi.fn();
+  const client = { send } as unknown as S3Client;
+  return {
+    send,
+    adapter: new S3ObjectStorage(client, storageConfig(overrides)),
+  };
+}
+
+function awsError(name: string, httpStatusCode: number): Error {
+  return Object.assign(new Error(name), { name, $metadata: { httpStatusCode } });
+}
+
+function bodyOf(bytes: number[]): {
+  transformToByteArray: () => Promise<Uint8Array>;
+} {
+  return { transformToByteArray: async () => new Uint8Array(bytes) };
 }
 
 const input = {
@@ -124,6 +152,252 @@ describe('S3ObjectStorage.createPresignedUpload', () => {
 
     await expect(adapter.createPresignedUpload(input)).rejects.toThrow(
       'signing failed',
+    );
+  });
+});
+
+describe('S3ObjectStorage.inspectObject', () => {
+  it('issues a HeadObject for the configured bucket and key and maps the metadata', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({
+      ContentLength: 1024,
+      ContentType: 'application/pdf',
+      ETag: '"version-1"',
+    });
+
+    const result = await adapter.inspectObject(input.key);
+
+    expect(result).toEqual({
+      key: input.key,
+      sizeBytes: 1024,
+      contentType: 'application/pdf',
+      version: '"version-1"',
+    });
+
+    const command = send.mock.calls[0][0] as HeadObjectCommand;
+    expect(command).toBeInstanceOf(HeadObjectCommand);
+    expect(command.input).toEqual({
+      Bucket: 'knowledgehub-documents',
+      Key: input.key,
+    });
+  });
+
+  it('reports a missing content type as null', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({
+      ContentLength: 4,
+      ETag: '"version-1"',
+    });
+
+    const result = await adapter.inspectObject(input.key);
+
+    expect(result?.contentType).toBeNull();
+  });
+
+  it('returns null when the object does not exist', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockRejectedValue(awsError('NotFound', 404));
+
+    await expect(adapter.inspectObject(input.key)).resolves.toBeNull();
+  });
+
+  it('returns null when the object is reported only by status', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockRejectedValue(awsError('NoSuchKey', 404));
+
+    await expect(adapter.inspectObject(input.key)).resolves.toBeNull();
+  });
+
+  it('propagates an unrelated provider failure', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockRejectedValue(awsError('InternalError', 500));
+
+    await expect(adapter.inspectObject(input.key)).rejects.toThrow(
+      'InternalError',
+    );
+  });
+
+  it('fails closed when the provider returns no version', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ ContentLength: 10, ContentType: 'text/plain' });
+
+    await expect(adapter.inspectObject(input.key)).rejects.toBeInstanceOf(
+      ObjectStorageIntegrityError,
+    );
+  });
+
+  it('fails closed when the provider returns no size', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ ContentType: 'text/plain', ETag: '"version-1"' });
+
+    await expect(adapter.inspectObject(input.key)).rejects.toBeInstanceOf(
+      ObjectStorageIntegrityError,
+    );
+  });
+});
+
+describe('S3ObjectStorage.readObjectPrefix', () => {
+  const read = { key: input.key, maxBytes: 1024, version: '"version-1"' };
+
+  it('reads the prefix with a range and the version precondition', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ ETag: '"version-1"', Body: bodyOf([1, 2, 3]) });
+
+    const bytes = await adapter.readObjectPrefix(read);
+
+    expect(Array.from(bytes)).toEqual([1, 2, 3]);
+
+    const command = send.mock.calls[0][0] as GetObjectCommand;
+    expect(command).toBeInstanceOf(GetObjectCommand);
+    expect(command.input).toEqual({
+      Bucket: 'knowledgehub-documents',
+      Key: input.key,
+      Range: 'bytes=0-1023',
+      IfMatch: '"version-1"',
+    });
+  });
+
+  it('accepts a version that differs only by ETag quoting', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ ETag: 'version-1', Body: bodyOf([1]) });
+
+    const bytes = await adapter.readObjectPrefix(read);
+
+    expect(Array.from(bytes)).toEqual([1]);
+  });
+
+  it('fails when the object was overwritten before the read', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockRejectedValue(awsError('PreconditionFailed', 412));
+
+    await expect(adapter.readObjectPrefix(read)).rejects.toBeInstanceOf(
+      ObjectVersionMismatchError,
+    );
+  });
+
+  it('fails when the object was deleted before the read', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockRejectedValue(awsError('NoSuchKey', 404));
+
+    await expect(adapter.readObjectPrefix(read)).rejects.toBeInstanceOf(
+      ObjectVersionMismatchError,
+    );
+  });
+
+  it('fails when the provider ignores the precondition and returns other bytes', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ ETag: '"version-2"', Body: bodyOf([9]) });
+
+    await expect(adapter.readObjectPrefix(read)).rejects.toBeInstanceOf(
+      ObjectVersionMismatchError,
+    );
+  });
+
+  it('fails closed when the response carries no version', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ Body: bodyOf([1]) });
+
+    await expect(adapter.readObjectPrefix(read)).rejects.toBeInstanceOf(
+      ObjectStorageIntegrityError,
+    );
+  });
+
+  it('fails closed when the response carries no body', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ ETag: '"version-1"' });
+
+    await expect(adapter.readObjectPrefix(read)).rejects.toBeInstanceOf(
+      ObjectStorageIntegrityError,
+    );
+  });
+
+  it('rejects a non-positive prefix length before calling the provider', async () => {
+    const { adapter, send } = createSendingAdapter();
+
+    await expect(
+      adapter.readObjectPrefix({ ...read, maxBytes: 0 }),
+    ).rejects.toBeInstanceOf(RangeError);
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe('S3ObjectStorage.copyObject', () => {
+  const copy = {
+    sourceKey: 'organizations/org-1/documents/doc-1/2f1c',
+    destinationKey: 'organizations/org-1/documents/doc-1/verified/9a0b',
+    version: '"version-1"',
+    contentType: 'application/pdf',
+  };
+
+  it('copies within the bucket, binding the source version', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ CopyObjectResult: { ETag: '"version-1"' } });
+
+    await adapter.copyObject(copy);
+
+    const command = send.mock.calls[0][0] as CopyObjectCommand;
+    expect(command).toBeInstanceOf(CopyObjectCommand);
+    expect(command.input).toEqual({
+      Bucket: 'knowledgehub-documents',
+      Key: copy.destinationKey,
+      CopySource: 'knowledgehub-documents/organizations%2Forg-1%2Fdocuments%2Fdoc-1%2F2f1c',
+      CopySourceIfMatch: '"version-1"',
+      MetadataDirective: 'REPLACE',
+      ContentType: 'application/pdf',
+    });
+  });
+
+  it('stamps the verified content type instead of inheriting the source metadata', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ CopyObjectResult: { ETag: '"version-1"' } });
+
+    await adapter.copyObject({ ...copy, contentType: 'text/plain' });
+
+    const command = send.mock.calls[0][0] as CopyObjectCommand;
+    expect(command.input.MetadataDirective).toBe('REPLACE');
+    expect(command.input.ContentType).toBe('text/plain');
+  });
+
+  it('accepts a copied version that differs only by ETag quoting', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ CopyObjectResult: { ETag: 'version-1' } });
+
+    await expect(adapter.copyObject(copy)).resolves.toBeUndefined();
+  });
+
+  it('fails when the source was overwritten between the read and the copy', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockRejectedValue(awsError('PreconditionFailed', 412));
+
+    await expect(adapter.copyObject(copy)).rejects.toBeInstanceOf(
+      ObjectVersionMismatchError,
+    );
+  });
+
+  it('fails when the source no longer exists', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockRejectedValue(awsError('NoSuchKey', 404));
+
+    await expect(adapter.copyObject(copy)).rejects.toBeInstanceOf(
+      ObjectVersionMismatchError,
+    );
+  });
+
+  it('fails when the provider ignores the precondition and copies other bytes', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({ CopyObjectResult: { ETag: '"version-2"' } });
+
+    await expect(adapter.copyObject(copy)).rejects.toBeInstanceOf(
+      ObjectVersionMismatchError,
+    );
+  });
+
+  it('fails closed when the copy result carries no version', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValue({});
+
+    await expect(adapter.copyObject(copy)).rejects.toBeInstanceOf(
+      ObjectStorageIntegrityError,
     );
   });
 });

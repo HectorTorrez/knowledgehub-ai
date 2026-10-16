@@ -340,6 +340,7 @@ describe('documents (e2e)', () => {
 
       const serialized = JSON.stringify(response.body);
       expect(serialized).not.toContain('storageKey');
+      expect(serialized).not.toContain('uploadStorageKey');
       expect(serialized).not.toContain('uploadedById');
       expect(serialized).not.toContain('failureReason');
       expect(serialized).not.toContain('organizationId');
@@ -445,6 +446,7 @@ describe('documents (e2e)', () => {
 
       const serialized = JSON.stringify(response.body);
       expect(serialized).not.toContain('storageKey');
+      expect(serialized).not.toContain('uploadStorageKey');
       expect(serialized).not.toContain('uploadedById');
       expect(serialized).not.toContain('failureReason');
       expect(serialized).not.toContain('organizationId');
@@ -589,8 +591,9 @@ describe('documents (e2e)', () => {
       expect(document.sizeBytes).toBeNull();
       expect(document.contentType).toBeNull();
       expect(document.originalFileName).toBeNull();
-      expect(document.storageKey).toBe(lastCall().key);
-      expect(document.storageKey).toMatch(
+      expect(document.storageKey).toBeNull();
+      expect(document.uploadStorageKey).toBe(lastCall().key);
+      expect(document.uploadStorageKey).toMatch(
         new RegExp(
           `^organizations/${organizationId}/documents/${documentId}/`,
         ),
@@ -618,7 +621,60 @@ describe('documents (e2e)', () => {
       const document = await prisma.document.findUniqueOrThrow({
         where: { id: documentId },
       });
-      expect(document.storageKey).toBe(storage.calls[1].key);
+      expect(document.storageKey).toBeNull();
+      expect(document.uploadStorageKey).toBe(storage.calls[1].key);
+    });
+
+    it('supersedes the staging key on a retry after a previous upload attempt', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Retry Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(token, organizationId, documentId, body).expect(
+        200,
+      );
+      const firstKey = storage.calls[0].key;
+      storage.putObject(firstKey, '%PDF-1.4 first attempt', 'application/pdf');
+
+      await createUploadUrl(token, organizationId, documentId, body).expect(
+        200,
+      );
+
+      const document = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+      });
+      expect(document.uploadStorageKey).toBe(storage.calls[1].key);
+      expect(document.uploadStorageKey).not.toBe(firstKey);
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('never overwrites an existing verified storage key when a new upload URL is requested', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Verified Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      const verifiedKey = `organizations/${organizationId}/documents/${documentId}/verified/existing`;
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { storageKey: verifiedKey },
+      });
+
+      await createUploadUrl(token, organizationId, documentId, body).expect(
+        200,
+      );
+
+      const document = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+      });
+      expect(document.storageKey).toBe(verifiedKey);
+      expect(document.uploadStorageKey).toBe(storage.calls[0].key);
+      expect(document.uploadStorageKey).not.toBe(verifiedKey);
     });
 
     it('passes the configured upload TTL to the storage port', async () => {
@@ -656,7 +712,7 @@ describe('documents (e2e)', () => {
       const document = await prisma.document.findUniqueOrThrow({
         where: { id: documentId },
       });
-      expect(document.storageKey).toBeNull();
+      expect(document.uploadStorageKey).toBeNull();
       expect(storage.calls).toHaveLength(0);
     });
 
@@ -691,7 +747,7 @@ describe('documents (e2e)', () => {
       const document = await prisma.document.findUniqueOrThrow({
         where: { id: documentId },
       });
-      expect(document.storageKey).toBeNull();
+      expect(document.uploadStorageKey).toBeNull();
     });
 
     it('rejects an unsupported content type, extra fields, and an invalid size with 400', async () => {
@@ -706,6 +762,7 @@ describe('documents (e2e)', () => {
         { contentType: 'image/png' },
         { contentType: 'application/pdf', documentId: randomUUID() },
         { contentType: 'application/pdf', storageKey: 'organizations/x' },
+        { contentType: 'application/pdf', uploadStorageKey: 'organizations/x' },
         { contentType: 'application/pdf', sizeBytes: 0 },
         { contentType: 'application/pdf', sizeBytes: -1 },
         {},
@@ -723,7 +780,7 @@ describe('documents (e2e)', () => {
       const document = await prisma.document.findUniqueOrThrow({
         where: { id: documentId },
       });
-      expect(document.storageKey).toBeNull();
+      expect(document.uploadStorageKey).toBeNull();
       expect(storage.calls).toHaveLength(0);
     });
 
@@ -743,7 +800,7 @@ describe('documents (e2e)', () => {
       const document = await prisma.document.findUniqueOrThrow({
         where: { id: documentId },
       });
-      expect(document.storageKey).toBeNull();
+      expect(document.uploadStorageKey).toBeNull();
       expect(storage.calls).toHaveLength(0);
     });
 
@@ -821,6 +878,7 @@ describe('documents (e2e)', () => {
       ).expect(200);
 
       expect(response.body).not.toHaveProperty('storageKey');
+      expect(response.body).not.toHaveProperty('uploadStorageKey');
       expect(Object.keys(response.body).sort()).toEqual(
         ['expiresAt', 'headers', 'maxSizeBytes', 'method', 'uploadUrl'].sort(),
       );

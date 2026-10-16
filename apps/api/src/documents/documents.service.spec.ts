@@ -171,6 +171,7 @@ describe('DocumentsService.create', () => {
 
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('storageKey');
+    expect(serialized).not.toContain('uploadStorageKey');
     expect(serialized).not.toContain('uploadedById');
     expect(serialized).not.toContain('failureReason');
     expect(serialized).not.toContain('organizationId');
@@ -261,6 +262,7 @@ describe('DocumentsService.list', () => {
 
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('storageKey');
+    expect(serialized).not.toContain('uploadStorageKey');
     expect(serialized).not.toContain('uploadedById');
     expect(serialized).not.toContain('failureReason');
     expect(serialized).not.toContain('organizationId');
@@ -314,6 +316,7 @@ describe('DocumentsService.getDetail', () => {
 
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('storageKey');
+    expect(serialized).not.toContain('uploadStorageKey');
     expect(serialized).not.toContain('uploadedById');
     expect(serialized).not.toContain('failureReason');
     expect(serialized).not.toContain('organizationId');
@@ -399,7 +402,7 @@ describe('DocumentsService.createUploadUrl', () => {
     expect(storage.calls).toHaveLength(1);
   });
 
-  it('persists only the fresh storage key, leaving lifecycle and file metadata untouched', async () => {
+  it('persists only the fresh staging key, leaving lifecycle and file metadata untouched', async () => {
     const { service, prisma, storage } = createHarness();
 
     await service.createUploadUrl(organizationContext(), 'doc-1', {
@@ -410,11 +413,20 @@ describe('DocumentsService.createUploadUrl', () => {
     const key = storage.calls[0].key;
     expect(prisma.document.update).toHaveBeenCalledWith({
       where: { id: 'doc-1' },
-      data: { storageKey: key },
+      data: { uploadStorageKey: key },
     });
 
     const args = prisma.document.update.mock.calls[0][0];
-    expect(Object.keys(args.data)).toEqual(['storageKey']);
+    expect(Object.keys(args.data)).toEqual(['uploadStorageKey']);
+  });
+
+  it('never writes the verified storage key when issuing an upload URL', async () => {
+    const { service, prisma } = createHarness();
+
+    await service.createUploadUrl(organizationContext(), 'doc-1', input);
+
+    const args = prisma.document.update.mock.calls[0][0];
+    expect(args.data).not.toHaveProperty('storageKey');
   });
 
   it('passes the configured upload TTL to the storage port', async () => {
