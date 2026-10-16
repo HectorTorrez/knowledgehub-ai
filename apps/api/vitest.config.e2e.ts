@@ -8,5 +8,7 @@ export default defineConfig({
     setupFiles: ['./test/setup-env.ts'],
     include: ['**/*.e2e-spec.ts'],
     exclude: ['**/node_modules/**', '**/dist/**'],
+    // Claiming drains a global queue, so tests cannot share this database in parallel.
+    fileParallelism: false,
   },
 });
