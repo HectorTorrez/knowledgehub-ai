@@ -1,0 +1,5 @@
+export const MAX_EXTRACTABLE_BYTES = 25 * 1024 * 1024;
+
+export const MAX_EXTRACTED_CHARACTERS = 2_000_000;
+
+export const MAX_PDF_PAGES = 500;

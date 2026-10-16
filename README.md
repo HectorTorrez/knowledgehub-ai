@@ -477,19 +477,39 @@ verified object bound to its inspected version, and extracts text:
 - `text/plain` and `text/markdown` decode as strict UTF-8;
 - `application/pdf` extracts embedded text with `unpdf`.
 
-Publishing is fenced. The extracted text is written to `DocumentExtraction`,
-keyed by `[documentId, documentGeneration]`, by a single conditional write that
-revalidates — in the same transaction — the current lease id, an unexpired
-lease, the job's generation and storage key, and the document's organization,
-generation, storage key, and `PROCESSING` status. A stale execution therefore
-writes zero rows and its result is discarded; only the current lease holder can
-create the result, after which the job becomes `SUCCEEDED`.
+Extraction is bounded before its output is used: an object above 25 MiB is
+rejected without being read, and a PDF above 500 pages or text above 2,000,000
+characters is rejected after parsing. Those limits are deliberately far below the
+2 GB upload limit, but they are input-size bounds only: see the limitations
+below for what they do not guarantee.
+
+Publishing is fenced and completes the lifecycle. The extracted text is written
+to `DocumentExtraction`, keyed by `[documentId, documentGeneration]`, and in the
+same transaction the job becomes `SUCCEEDED` and the document moves
+`PROCESSING → READY`. That single conditional write revalidates the current lease
+id, an unexpired lease, the job's generation and storage key, and the document's
+organization, generation, storage key, and `PROCESSING` status. A stale
+execution writes zero rows and its result is discarded; only the current lease
+holder can create the result, and only a successful processing run can move a
+document to `READY`.
+
+Failures are classified rather than blanket-retried. An unsupported content
+type, an unparseable document, an exceeded size/page/character limit, a missing
+verified object, or a storage-integrity violation is **permanent**: the job
+becomes `FAILED` and the document becomes `FAILED` with `failureKind =
+PROCESSING` in the same transaction. A storage or database outage, a worker
+crash, or any error the worker cannot classify is **retryable**: the job returns
+to `QUEUED` with `nextAttemptAt = now() + 2s · 2^(attempt-1)` capped at 60
+seconds, reusing the same row. `attempt` is incremented at claim, and a job with
+`attempt >= maxAttempts` (5) that fails again — or whose lease expires while
+exhausted — becomes terminal `FAILED`, and its document is failed too.
 
 Leases last 60 seconds and are renewed while a job runs. Renewal matches the job
-and lease ids and refuses to revive an expired lease. Processing deliberately
-implements no retries, backoff, or failure transitions of its own: if a job
-fails or its worker dies, the lease expires and the existing recovery sweep
-requeues it until its attempts are exhausted.
+and lease ids and refuses to revive an expired lease. If a worker dies, its lease
+expires and the recovery sweep requeues the job (or, when attempts are exhausted,
+fails it and its document). Every terminal write is bounded by the job's
+generation and verified key, so an old job can never change the status of a newer
+document generation.
 
 ### Response contract
 
@@ -502,18 +522,29 @@ verified values and `originalFileName` is the client's declared name, if
 supplied. `failureReason` and `failureKind` are `null` unless the document
 failed; `failureKind` is `VERIFICATION` for an upload that failed verification
 and `PROCESSING` for a verified document whose processing failed, and
-`failureReason` then holds only the sanitized vocabulary. Persistence-only fields
-— `uploadStorageKey`, `storageKey`, and `uploadedById` — are never returned.
+`failureReason` then holds only the sanitized vocabulary. A processing failure's
+`failureReason` is one of `CONTENT_UNSUPPORTED`, `CONTENT_CORRUPT`,
+`CONTENT_TOO_LARGE`, `VERIFIED_OBJECT_MISSING`, `STORAGE_INTEGRITY_VIOLATION`,
+or `PROCESSING_FAILED`; it never carries an exception message, SQL text, or a
+storage key, all of which stay in the job's internal `lastError` and logs.
+Persistence-only fields — `uploadStorageKey`, `storageKey`, and `uploadedById` —
+are never returned.
 
 ### Limitations
 
 - **Processing is extraction-only.** `upload-complete` confirms and promotes the
   object and, atomically, queues a durable processing job for that generation.
-  The worker extracts the document's text into `DocumentExtraction` and marks the
-  job `SUCCEEDED`, but it does not yet chunk, embed, or process that text, and it
-  does not move the document out of `PROCESSING`: the `PROCESSING → READY`
-  transition and the sanitized processing-failure state are deferred. A document
-  in `PROCESSING` is therefore not evidence that extraction succeeded.
+  The worker extracts the document's text into `DocumentExtraction` and, on
+  success, moves the document `PROCESSING → READY`; it does not yet chunk or embed
+  that text, and there is no retrieval API over it. A document in `PROCESSING` is
+  still being worked on, not evidence that extraction succeeded.
+- **PDF parsing is not sandboxed.** Extraction enforces deterministic size,
+  page, and character limits, but the parser still runs synchronously in the API
+  process. There is no execution-time or memory limit (a JavaScript timer cannot
+  stop synchronous parsing) and no process or container isolation, so a hostile
+  PDF can still exhaust CPU or memory. Untrusted production uploads at scale must
+  run the parser in an isolated process with enforceable resource limits; that
+  work is deferred.
 - **Orphaned objects are not cleaned up.** A failed or superseded promotion can
   leave a staging or verified object with no document referencing it, and there
   is no deletion or garbage collection yet. An object's existence alone is

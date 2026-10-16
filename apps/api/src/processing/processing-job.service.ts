@@ -4,6 +4,11 @@ import {
   LEASE_EXPIRED_ATTEMPTS_EXHAUSTED,
   PROCESSING_LEASE_DURATION_SECONDS,
 } from './processing-lease.policy.js';
+import { processingRetryDelayMs } from './processing-retry.policy.js';
+import type {
+  ProcessingFailure,
+  ProcessingFailureReason,
+} from './processing-failure.js';
 
 export interface ClaimedProcessingJob {
   id: string;
@@ -48,6 +53,18 @@ interface ExistsRow {
 interface IdRow {
   id: string;
 }
+
+interface JobAttemptRow {
+  id: string;
+  attempt: number;
+  maxAttempts: number;
+}
+
+interface FailedCountRow {
+  failed: number;
+}
+
+const PROCESSING_FAILED_REASON: ProcessingFailureReason = 'PROCESSING_FAILED';
 
 @Injectable()
 export class ProcessingJobService {
@@ -102,21 +119,45 @@ export class ProcessingJobService {
           AND attempt < "maxAttempts"
       `;
 
-      const failed = await tx.$executeRaw`
-        UPDATE "DocumentProcessingJob"
-        SET state = 'FAILED',
-            "leaseId" = NULL,
-            "leaseExpiresAt" = NULL,
-            "claimedBy" = NULL,
-            "lastError" = ${LEASE_EXPIRED_ATTEMPTS_EXHAUSTED},
-            "finishedAt" = now(),
-            "updatedAt" = now()
-        WHERE state = 'CLAIMED'
-          AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" < now())
-          AND attempt >= "maxAttempts"
+      const failedRows = await tx.$queryRaw<FailedCountRow[]>`
+        WITH expired AS (
+          SELECT id, "documentId", "organizationId", "documentGeneration"
+          FROM "DocumentProcessingJob"
+          WHERE state = 'CLAIMED'
+            AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" < now())
+            AND attempt >= "maxAttempts"
+        ),
+        failed AS (
+          UPDATE "DocumentProcessingJob" AS j
+          SET state = 'FAILED',
+              "leaseId" = NULL,
+              "leaseExpiresAt" = NULL,
+              "claimedBy" = NULL,
+              "lastError" = ${LEASE_EXPIRED_ATTEMPTS_EXHAUSTED},
+              "finishedAt" = now(),
+              "updatedAt" = now()
+          FROM expired AS e
+          WHERE j.id = e.id
+            AND j.state = 'CLAIMED'
+          RETURNING j.id
+        ),
+        failed_documents AS (
+          UPDATE "Document" AS d
+          SET status = 'FAILED',
+              "failureReason" = ${PROCESSING_FAILED_REASON},
+              "failureKind" = 'PROCESSING',
+              "updatedAt" = now()
+          FROM expired AS e
+          WHERE d.id = e."documentId"
+            AND d."organizationId" = e."organizationId"
+            AND d."generation" = e."documentGeneration"
+            AND d.status = 'PROCESSING'
+          RETURNING d.id
+        )
+        SELECT (SELECT count(*) FROM failed)::int AS failed
       `;
 
-      return { recovered, failed };
+      return { recovered, failed: failedRows[0]?.failed ?? 0 };
     });
   }
 
@@ -185,6 +226,109 @@ export class ProcessingJobService {
           `Processing job ${ownership.jobId} changed while publishing its extraction`,
         );
       }
+
+      const readied = await tx.$executeRaw`
+        UPDATE "Document" AS d
+        SET status = 'READY',
+            "failureReason" = NULL,
+            "failureKind" = NULL,
+            "updatedAt" = now()
+        FROM "DocumentProcessingJob" AS j
+        WHERE j.id = ${ownership.jobId}::uuid
+          AND d.id = j."documentId"
+          AND d."organizationId" = j."organizationId"
+          AND d."generation" = j."documentGeneration"
+          AND d."storageKey" = j."verifiedStorageKey"
+          AND d.status = 'PROCESSING'
+      `;
+
+      if (readied === 0) {
+        throw new Error(
+          `Document for processing job ${ownership.jobId} changed while publishing its extraction`,
+        );
+      }
+
+      return true;
+    });
+  }
+
+  async recordFailure(
+    ownership: ProcessingOwnership,
+    failure: ProcessingFailure,
+  ): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const claimedRows = await tx.$queryRaw<JobAttemptRow[]>`
+        SELECT id, attempt, "maxAttempts"
+        FROM "DocumentProcessingJob"
+        WHERE id = ${ownership.jobId}::uuid
+          AND state = 'CLAIMED'
+          AND "leaseId" = ${ownership.leaseId}::uuid
+          AND "leaseExpiresAt" > now()
+          AND "organizationId" = ${ownership.organizationId}::uuid
+          AND "documentGeneration" = ${ownership.documentGeneration}
+          AND "verifiedStorageKey" = ${ownership.verifiedStorageKey}
+        FOR UPDATE
+      `;
+
+      const job = claimedRows[0];
+      if (!job) {
+        return false;
+      }
+
+      const exhausted = job.attempt >= job.maxAttempts;
+      const terminal = failure.category === 'permanent' || exhausted;
+
+      if (!terminal) {
+        const delayMs = processingRetryDelayMs(job.attempt);
+
+        await tx.$executeRaw`
+          UPDATE "DocumentProcessingJob"
+          SET state = 'QUEUED',
+              "leaseId" = NULL,
+              "leaseExpiresAt" = NULL,
+              "claimedBy" = NULL,
+              "lastError" = ${failure.detail},
+              "nextAttemptAt" = now() + (${delayMs}::double precision * interval '1 millisecond'),
+              "updatedAt" = now()
+          WHERE id = ${ownership.jobId}::uuid
+            AND state = 'CLAIMED'
+            AND "leaseId" = ${ownership.leaseId}::uuid
+        `;
+
+        return true;
+      }
+
+      const reason: ProcessingFailureReason =
+        failure.category === 'permanent' ? failure.reason : PROCESSING_FAILED_REASON;
+
+      await tx.$executeRaw`
+        UPDATE "DocumentProcessingJob"
+        SET state = 'FAILED',
+            "leaseId" = NULL,
+            "leaseExpiresAt" = NULL,
+            "claimedBy" = NULL,
+            "lastError" = ${failure.detail},
+            "finishedAt" = now(),
+            "updatedAt" = now()
+        WHERE id = ${ownership.jobId}::uuid
+          AND state = 'CLAIMED'
+          AND "leaseId" = ${ownership.leaseId}::uuid
+      `;
+
+      await tx.$executeRaw`
+        UPDATE "Document" AS d
+        SET status = 'FAILED',
+            "failureReason" = ${reason},
+            "failureKind" = 'PROCESSING',
+            "updatedAt" = now()
+        FROM "DocumentProcessingJob" AS j
+        WHERE j.id = ${ownership.jobId}::uuid
+          AND d.id = j."documentId"
+          AND d."organizationId" = j."organizationId"
+          AND d."generation" = j."documentGeneration"
+          AND d."storageKey" = j."verifiedStorageKey"
+          AND d.status = 'PROCESSING'
+      `;
 
       return true;
     });

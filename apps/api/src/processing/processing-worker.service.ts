@@ -10,8 +10,16 @@ import {
   OBJECT_STORAGE,
   type ObjectStorage,
 } from '../storage/object-storage.port.js';
-import { DocumentTextExtractor } from './document-text-extractor.js';
+import {
+  DocumentResourceLimitError,
+  DocumentTextExtractor,
+} from './document-text-extractor.js';
 import { ProcessingConfig } from './processing.config.js';
+import {
+  classifyProcessingFailure,
+  ProcessingFailureError,
+} from './processing-failure.js';
+import { MAX_EXTRACTABLE_BYTES } from './processing-limits.policy.js';
 import {
   ProcessingJobService,
   type ClaimedProcessingJob,
@@ -102,13 +110,36 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
 
       await this.jobs.publishExtraction(ownershipOf(job), extracted);
     } catch (error) {
-      this.logger.warn(
-        `Processing job ${job.id} failed; it is retried after its lease expires`,
-        error,
-      );
+      await this.recordFailure(job, error);
     } finally {
       lease.stop();
     }
+  }
+
+  private async recordFailure(
+    job: ClaimedProcessingJob,
+    error: unknown,
+  ): Promise<void> {
+    const failure = classifyProcessingFailure(error);
+
+    try {
+      await this.jobs.recordFailure(ownershipOf(job), failure);
+    } catch (recordError) {
+      this.logger.error(
+        `Could not record the failure of processing job ${job.id}; recovery will retry it`,
+        recordError,
+      );
+      return;
+    }
+
+    if (failure.category === 'permanent') {
+      this.logger.warn(
+        `Processing job ${job.id} failed permanently (${failure.reason})`,
+      );
+      return;
+    }
+
+    this.logger.warn(`Processing job ${job.id} failed and will be retried`);
   }
 
   private async extract(
@@ -116,12 +147,24 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
     lease: LeaseGuard,
   ): Promise<ExtractionResult | null> {
     if (!job.contentType) {
-      throw new Error(`Processing job ${job.id} has no verified content type`);
+      throw new ProcessingFailureError(
+        'CONTENT_UNSUPPORTED',
+        `Processing job ${job.id} has no verified content type`,
+      );
     }
 
     const metadata = await this.storage.inspectObject(job.verifiedStorageKey);
     if (!metadata) {
-      throw new Error(`Verified object for job ${job.id} was not found`);
+      throw new ProcessingFailureError(
+        'VERIFIED_OBJECT_MISSING',
+        `Verified object for job ${job.id} was not found`,
+      );
+    }
+
+    if (metadata.sizeBytes > MAX_EXTRACTABLE_BYTES) {
+      throw new DocumentResourceLimitError(
+        'The document exceeds the extraction size limit',
+      );
     }
 
     const bytes = await this.storage.readObject({

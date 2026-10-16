@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ObjectMetadata, ObjectStorage } from '../storage/object-storage.port.js';
-import { DocumentTextExtractor } from './document-text-extractor.js';
+import {
+  DocumentTextExtractor,
+  UnsupportedDocumentTypeError,
+} from './document-text-extractor.js';
 import { ProcessingConfig } from './processing.config.js';
 import {
   ProcessingJobService,
@@ -32,6 +35,7 @@ function createWorker(overrides?: {
     claimNextDueJob: vi.fn(async () => null as ClaimedProcessingJob | null),
     renewLease: vi.fn(async () => true),
     publishExtraction: vi.fn(async () => true),
+    recordFailure: vi.fn(async () => true),
   };
   const extractor = {
     extract: vi.fn(async () => ({ content: 'Hello world', characterCount: 11 })),
@@ -63,6 +67,14 @@ function createWorker(overrides?: {
 
   return { worker, jobs, extractor, config, storage };
 }
+
+const OWNERSHIP = {
+  jobId: JOB.id,
+  leaseId: JOB.leaseId,
+  organizationId: JOB.organizationId,
+  documentGeneration: JOB.documentGeneration,
+  verifiedStorageKey: JOB.verifiedStorageKey,
+};
 
 describe('ProcessingWorkerService', () => {
   describe('runOnce', () => {
@@ -100,16 +112,11 @@ describe('ProcessingWorkerService', () => {
         contentType: 'text/plain',
         bytes: BYTES,
       });
-      expect(jobs.publishExtraction).toHaveBeenCalledWith(
-        {
-          jobId: JOB.id,
-          leaseId: JOB.leaseId,
-          organizationId: JOB.organizationId,
-          documentGeneration: JOB.documentGeneration,
-          verifiedStorageKey: JOB.verifiedStorageKey,
-        },
-        { content: 'Hello world', characterCount: 11 },
-      );
+      expect(jobs.publishExtraction).toHaveBeenCalledWith(OWNERSHIP, {
+        content: 'Hello world',
+        characterCount: 11,
+      });
+      expect(jobs.recordFailure).not.toHaveBeenCalled();
     });
 
     it('does not publish after losing its lease during extraction', async () => {
@@ -126,14 +133,49 @@ describe('ProcessingWorkerService', () => {
 
       expect(jobs.renewLease).toHaveBeenCalled();
       expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).not.toHaveBeenCalled();
     });
 
-    it('leaves the job for recovery when the verified object is missing', async () => {
+    it('records a permanent failure when the verified object is missing', async () => {
       const { worker, jobs, storage } = createWorker();
       storage.inspectObject.mockResolvedValueOnce(null);
 
       await expect(worker.processJob(JOB)).resolves.toBeUndefined();
       expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).toHaveBeenCalledWith(OWNERSHIP, {
+        category: 'permanent',
+        reason: 'VERIFIED_OBJECT_MISSING',
+        detail: expect.any(String),
+      });
+    });
+
+    it('records a permanent failure for an unsupported document type', async () => {
+      const { worker, jobs, extractor } = createWorker();
+      extractor.extract.mockRejectedValueOnce(
+        new UnsupportedDocumentTypeError('application/octet-stream'),
+      );
+
+      await worker.processJob(JOB);
+
+      expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).toHaveBeenCalledWith(OWNERSHIP, {
+        category: 'permanent',
+        reason: 'CONTENT_UNSUPPORTED',
+        detail: expect.any(String),
+      });
+    });
+
+    it('records a retryable failure for an unclassified extraction error', async () => {
+      const { worker, jobs, extractor } = createWorker();
+      extractor.extract.mockRejectedValueOnce(new Error('parse failed'));
+
+      await expect(worker.processJob(JOB)).resolves.toBeUndefined();
+      expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).toHaveBeenCalledWith(OWNERSHIP, {
+        category: 'transient',
+        reason: 'PROCESSING_FAILED',
+        detail: 'Error',
+      });
     });
 
     it('discards the result when the fenced publish rejects it', async () => {
@@ -142,14 +184,26 @@ describe('ProcessingWorkerService', () => {
 
       await expect(worker.processJob(JOB)).resolves.toBeUndefined();
       expect(jobs.publishExtraction).toHaveBeenCalledTimes(1);
+      expect(jobs.recordFailure).not.toHaveBeenCalled();
     });
 
-    it('does not throw when extraction fails', async () => {
-      const { worker, jobs, extractor } = createWorker();
-      extractor.extract.mockRejectedValueOnce(new Error('parse failed'));
+    it('refuses to extract an object above the size limit without reading it', async () => {
+      const { worker, jobs, storage } = createWorker();
+      storage.inspectObject.mockResolvedValueOnce({
+        key: JOB.verifiedStorageKey,
+        sizeBytes: 25 * 1024 * 1024 + 1,
+        contentType: 'text/plain',
+        version: 'version-1',
+      });
 
-      await expect(worker.processJob(JOB)).resolves.toBeUndefined();
-      expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      await worker.processJob(JOB);
+
+      expect(storage.readObject).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).toHaveBeenCalledWith(OWNERSHIP, {
+        category: 'permanent',
+        reason: 'CONTENT_TOO_LARGE',
+        detail: expect.any(String),
+      });
     });
   });
 });

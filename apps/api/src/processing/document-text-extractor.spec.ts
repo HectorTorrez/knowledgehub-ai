@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { createMinimalPdf } from '../../test/support/minimal-pdf.js';
 import {
   DocumentExtractionError,
+  DocumentResourceLimitError,
   DocumentTextExtractor,
   UnsupportedDocumentTypeError,
 } from './document-text-extractor.js';
+import {
+  MAX_EXTRACTABLE_BYTES,
+  MAX_EXTRACTED_CHARACTERS,
+} from './processing-limits.policy.js';
 
 const encoder = new TextEncoder();
 const extractor = new DocumentTextExtractor();
@@ -67,5 +72,21 @@ describe('DocumentTextExtractor', () => {
     await expect(
       extractor.extract({ contentType: 'application/pdf', bytes }),
     ).rejects.toBeInstanceOf(DocumentExtractionError);
+  });
+
+  it('rejects a document above the extraction size limit before parsing', async () => {
+    const bytes = new Uint8Array(MAX_EXTRACTABLE_BYTES + 1);
+
+    await expect(
+      extractor.extract({ contentType: 'application/pdf', bytes }),
+    ).rejects.toBeInstanceOf(DocumentResourceLimitError);
+  });
+
+  it('rejects text above the extracted character limit', async () => {
+    const bytes = encoder.encode('a'.repeat(MAX_EXTRACTED_CHARACTERS + 1));
+
+    await expect(
+      extractor.extract({ contentType: 'text/plain', bytes }),
+    ).rejects.toBeInstanceOf(DocumentResourceLimitError);
   });
 });
