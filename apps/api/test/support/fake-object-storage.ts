@@ -32,6 +32,9 @@ function versionOf(bytes: Uint8Array): string {
 export class FakeObjectStorage implements ObjectStorage {
   readonly calls: RecordedPresignedUpload[] = [];
   onPresign: (() => Promise<void> | void) | null = null;
+  onInspectObject: ((key: string) => void) | null = null;
+  onReadObjectPrefix: ((input: ReadObjectPrefixInput) => void) | null = null;
+  onCopyObject: ((input: CopyObjectInput) => void) | null = null;
   private readonly objects = new Map<string, StoredObject>();
 
   putObject(
@@ -82,12 +85,16 @@ export class FakeObjectStorage implements ObjectStorage {
       return null;
     }
 
-    return {
+    const metadata: ObjectMetadata = {
       key,
       sizeBytes: object.bytes.byteLength,
       contentType: object.contentType,
       version: object.version,
     };
+
+    this.onInspectObject?.(key);
+
+    return metadata;
   }
 
   async readObjectPrefix(input: ReadObjectPrefixInput): Promise<Uint8Array> {
@@ -100,10 +107,15 @@ export class FakeObjectStorage implements ObjectStorage {
       throw new ObjectVersionMismatchError();
     }
 
-    return object.bytes.slice(0, input.maxBytes);
+    const prefix = object.bytes.slice(0, input.maxBytes);
+    this.onReadObjectPrefix?.(input);
+
+    return prefix;
   }
 
   async copyObject(input: CopyObjectInput): Promise<void> {
+    this.onCopyObject?.(input);
+
     const source = this.objects.get(input.sourceKey);
     if (!source || source.version !== input.version) {
       throw new ObjectVersionMismatchError();

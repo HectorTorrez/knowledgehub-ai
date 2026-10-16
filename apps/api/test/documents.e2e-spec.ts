@@ -115,6 +115,41 @@ describe('documents (e2e)', () => {
       .set(bearer(token))
       .send(body);
 
+  const completeUpload = (
+    token: string,
+    organizationId: string,
+    documentId: string,
+    body: object = {},
+  ) =>
+    request(app.getHttpServer())
+      .post(
+        `/organizations/${organizationId}/documents/${documentId}/upload-complete`,
+      )
+      .set(bearer(token))
+      .send(body);
+
+  const loadDocument = (documentId: string) =>
+    prisma.document.findUniqueOrThrow({ where: { id: documentId } });
+
+  const uploadUrlAndObject = async (
+    token: string,
+    organizationId: string,
+    documentId: string,
+    contentType: string,
+    bytes: Uint8Array | string,
+    objectContentType: string | null = contentType,
+  ): Promise<string> => {
+    await createUploadUrl(token, organizationId, documentId, {
+      contentType,
+    }).expect(200);
+
+    const document = await loadDocument(documentId);
+    const key = document.uploadStorageKey as string;
+    storage.putObject(key, bytes, objectContentType);
+
+    return key;
+  };
+
   beforeAll(async () => {
     storage = new FakeObjectStorage();
     const moduleRef = await Test.createTestingModule({
@@ -164,6 +199,12 @@ describe('documents (e2e)', () => {
       )
       .send({ contentType: 'application/pdf' })
       .expect(401);
+    await request(app.getHttpServer())
+      .post(
+        `/organizations/${organizationId}/documents/${documentId}/upload-complete`,
+      )
+      .send({})
+      .expect(401);
   });
 
   describe('create', () => {
@@ -183,6 +224,7 @@ describe('documents (e2e)', () => {
           originalFileName: null,
           contentType: null,
           sizeBytes: null,
+          failureReason: null,
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
         },
@@ -329,6 +371,7 @@ describe('documents (e2e)', () => {
         [
           'contentType',
           'createdAt',
+          'failureReason',
           'id',
           'originalFileName',
           'sizeBytes',
@@ -342,7 +385,6 @@ describe('documents (e2e)', () => {
       expect(serialized).not.toContain('storageKey');
       expect(serialized).not.toContain('uploadStorageKey');
       expect(serialized).not.toContain('uploadedById');
-      expect(serialized).not.toContain('failureReason');
       expect(serialized).not.toContain('organizationId');
     });
   });
@@ -435,6 +477,7 @@ describe('documents (e2e)', () => {
         [
           'contentType',
           'createdAt',
+          'failureReason',
           'id',
           'originalFileName',
           'sizeBytes',
@@ -448,7 +491,6 @@ describe('documents (e2e)', () => {
       expect(serialized).not.toContain('storageKey');
       expect(serialized).not.toContain('uploadStorageKey');
       expect(serialized).not.toContain('uploadedById');
-      expect(serialized).not.toContain('failureReason');
       expect(serialized).not.toContain('organizationId');
     });
   });
@@ -477,6 +519,7 @@ describe('documents (e2e)', () => {
           originalFileName: null,
           contentType: null,
           sizeBytes: null,
+          failureReason: null,
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
         },
@@ -592,6 +635,7 @@ describe('documents (e2e)', () => {
       expect(document.contentType).toBeNull();
       expect(document.originalFileName).toBeNull();
       expect(document.storageKey).toBeNull();
+      expect(document.expectedContentType).toBe('application/pdf');
       expect(document.uploadStorageKey).toBe(lastCall().key);
       expect(document.uploadStorageKey).toMatch(
         new RegExp(
@@ -675,6 +719,50 @@ describe('documents (e2e)', () => {
       expect(document.storageKey).toBe(verifiedKey);
       expect(document.uploadStorageKey).toBe(storage.calls[0].key);
       expect(document.uploadStorageKey).not.toBe(verifiedKey);
+    });
+
+    it('rejects an upload URL for a document that has already started processing, leaving it untouched', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Closed Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      const verifiedKey = `organizations/${organizationId}/documents/${documentId}/verified/existing`;
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { status: 'PROCESSING', storageKey: verifiedKey },
+      });
+
+      await createUploadUrl(token, organizationId, documentId, body).expect(
+        409,
+      );
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PROCESSING');
+      expect(document.storageKey).toBe(verifiedKey);
+      expect(storage.calls).toHaveLength(0);
+    });
+
+    it('rejects an upload URL for a READY document with 409', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Ready Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { status: 'READY' },
+      });
+
+      await createUploadUrl(token, organizationId, documentId, body).expect(
+        409,
+      );
+
+      expect(storage.calls).toHaveLength(0);
     });
 
     it('passes the configured upload TTL to the storage port', async () => {
@@ -882,6 +970,562 @@ describe('documents (e2e)', () => {
       expect(Object.keys(response.body).sort()).toEqual(
         ['expiresAt', 'headers', 'maxSizeBytes', 'method', 'uploadUrl'].sort(),
       );
+    });
+  });
+
+  describe('upload complete', () => {
+    const pdfBytes = '%PDF-1.7\nverified body';
+    const encoder = new TextEncoder();
+
+    const originalInspectObject = (key: string) =>
+      FakeObjectStorage.prototype.inspectObject.call(storage, key);
+
+    const setupDocument = async (name: string) => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, name);
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+
+      return {
+        token,
+        organizationId,
+        documentId: created.body.document.id as string,
+      };
+    };
+
+    beforeEach(() => {
+      storage.calls.length = 0;
+      storage.onPresign = null;
+      storage.onInspectObject = null;
+      storage.onReadObjectPrefix = null;
+      storage.onCopyObject = null;
+      delete (storage as unknown as Record<string, unknown>).inspectObject;
+      delete (storage as unknown as Record<string, unknown>)
+        .readObjectPrefix;
+      delete (storage as unknown as Record<string, unknown>).copyObject;
+    });
+
+    it('verifies a valid upload, promotes it and transitions to PROCESSING', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Verify Org',
+      );
+      const stagingKey = await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      const response = await completeUpload(token, organizationId, documentId, {
+        originalFileName: '  report.pdf  ',
+      }).expect(200);
+
+      expect(response.body.document).toEqual({
+        id: documentId,
+        title: 'Report',
+        status: 'PROCESSING',
+        originalFileName: 'report.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: encoder.encode(pdfBytes).byteLength,
+        failureReason: null,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+      });
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PROCESSING');
+      expect(document.uploadStorageKey).toBe(stagingKey);
+      expect(document.expectedContentType).toBe('application/pdf');
+      expect(document.failureReason).toBeNull();
+      expect(document.storageKey).not.toBeNull();
+      expect(document.storageKey).not.toBe(stagingKey);
+      expect(document.storageKey).toMatch(
+        new RegExp(`^organizations/${organizationId}/documents/${documentId}/verified/`),
+      );
+
+      const promoted = await storage.inspectObject(
+        document.storageKey as string,
+      );
+      const promotedBytes = await storage.readObjectPrefix({
+        key: document.storageKey as string,
+        maxBytes: 1024,
+        version: promoted?.version ?? '',
+      });
+      expect(new TextDecoder().decode(promotedBytes)).toBe(pdfBytes);
+    });
+
+    it('accepts a request with no body', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'No Body Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      await request(app.getHttpServer())
+        .post(
+          `/organizations/${organizationId}/documents/${documentId}/upload-complete`,
+        )
+        .set(bearer(token))
+        .expect(200);
+    });
+
+    it('keeps the verified bytes when a reused staging URL overwrites the staging object', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Reuse Org',
+      );
+      const stagingKey = await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      await completeUpload(token, organizationId, documentId).expect(200);
+      const verified = await loadDocument(documentId);
+      const verifiedKey = verified.storageKey as string;
+      const verifiedSize = verified.sizeBytes;
+
+      storage.putObject(stagingKey, '%PDF-1.7 different bytes', 'application/pdf');
+
+      const reloaded = await loadDocument(documentId);
+      expect(reloaded.storageKey).toBe(verifiedKey);
+      expect(reloaded.sizeBytes).toBe(verifiedSize);
+
+      const promoted = await storage.inspectObject(verifiedKey);
+      const bytes = await storage.readObjectPrefix({
+        key: verifiedKey,
+        maxBytes: 1024,
+        version: promoted?.version ?? '',
+      });
+      expect(new TextDecoder().decode(bytes)).toBe(pdfBytes);
+    });
+
+    it('rejects with 409 when the staging object changes mid-verification and promotes nothing', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Race Org',
+      );
+      const stagingKey = await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      storage.onReadObjectPrefix = () => {
+        storage.putObject(stagingKey, '%PDF-1.7 replaced', 'application/pdf');
+      };
+
+      await completeUpload(token, organizationId, documentId).expect(409);
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('rejects with 409 without changing state when the object was never uploaded', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Absent Org',
+      );
+      await createUploadUrl(token, organizationId, documentId, {
+        contentType: 'application/pdf',
+      }).expect(200);
+
+      await completeUpload(token, organizationId, documentId).expect(409);
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('rejects with 409 when no upload URL was ever requested', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Never Uploaded Org',
+      );
+
+      await completeUpload(token, organizationId, documentId).expect(409);
+
+      const document = await loadDocument(documentId);
+      expect(document.uploadStorageKey).toBeNull();
+      expect(document.status).toBe('PENDING');
+    });
+
+    it('fails the document for a zero-byte object with EMPTY_OBJECT', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Empty Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        new Uint8Array(),
+      );
+
+      const response = await completeUpload(token, organizationId, documentId)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.document.status).toBe('FAILED');
+          expect(body.document.failureReason).toBe('EMPTY_OBJECT');
+        });
+
+      expect(response.body.document).not.toHaveProperty('storageKey');
+      const document = await loadDocument(documentId);
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('fails the document for an oversized object with SIZE_LIMIT_EXCEEDED', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Oversize Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+      storage.inspectObject = async (key) => ({
+        key,
+        sizeBytes: MAX_UPLOAD_BYTES + 1,
+        contentType: 'application/pdf',
+        version: 'version-1',
+      });
+
+      await completeUpload(token, organizationId, documentId)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.document.failureReason).toBe('SIZE_LIMIT_EXCEEDED');
+        });
+
+      expect((await loadDocument(documentId)).status).toBe('FAILED');
+    });
+
+    it('fails the document for a disallowed stored type with CONTENT_TYPE_NOT_ALLOWED', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Disallowed Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+        'image/png',
+      );
+
+      await completeUpload(token, organizationId, documentId)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.document.failureReason).toBe('CONTENT_TYPE_NOT_ALLOWED');
+        });
+    });
+
+    it('fails the document for a mismatched stored type with CONTENT_TYPE_MISMATCH', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Mismatch Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        'plain text body',
+        'text/plain',
+      );
+
+      await completeUpload(token, organizationId, documentId)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.document.failureReason).toBe('CONTENT_TYPE_MISMATCH');
+        });
+    });
+
+    it('fails the document for bytes that do not match the signed type with SIGNATURE_MISMATCH', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Signature Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        'not actually a pdf',
+      );
+
+      const response = await completeUpload(token, organizationId, documentId)
+        .expect(200);
+
+      expect(response.body.document.failureReason).toBe('SIGNATURE_MISMATCH');
+      expect(JSON.stringify(response.body)).not.toContain('organizations/');
+    });
+
+    it('rejects with 409 when a newer upload URL superseded the staged one', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Superseded Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+      await createUploadUrl(token, organizationId, documentId, {
+        contentType: 'application/pdf',
+      }).expect(200);
+
+      await completeUpload(token, organizationId, documentId).expect(409);
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('lets one of two concurrent completions win and leaves the document PROCESSING', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Concurrent Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      const responses = await Promise.all([
+        completeUpload(token, organizationId, documentId),
+        completeUpload(token, organizationId, documentId),
+      ]);
+
+      expect(responses.map((response) => response.status)).toEqual([200, 200]);
+      expect((await loadDocument(documentId)).status).toBe('PROCESSING');
+    });
+
+    it('short-circuits a repeat completion after PROCESSING without touching storage', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Idempotent Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+      await completeUpload(token, organizationId, documentId).expect(200);
+      const first = await loadDocument(documentId);
+
+      storage.onInspectObject = () => {
+        throw new Error('completion must not inspect a PROCESSING document');
+      };
+      storage.onReadObjectPrefix = () => {
+        throw new Error('completion must not read a PROCESSING document');
+      };
+      storage.onCopyObject = () => {
+        throw new Error('completion must not copy for a PROCESSING document');
+      };
+
+      const response = await completeUpload(token, organizationId, documentId)
+        .expect(200);
+
+      expect(response.body.document.status).toBe('PROCESSING');
+      expect(response.body.document.updatedAt).toBe(
+        first.updatedAt.toISOString(),
+      );
+    });
+
+    it('retries a failed verification with a fresh upload and reaches PROCESSING', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Retry Complete Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        'not a pdf',
+      );
+
+      await completeUpload(token, organizationId, documentId).expect(200);
+      expect((await loadDocument(documentId)).status).toBe('FAILED');
+
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      const response = await completeUpload(token, organizationId, documentId, {
+        originalFileName: 'report.pdf',
+      }).expect(200);
+
+      expect(response.body.document.status).toBe('PROCESSING');
+      expect(response.body.document.originalFileName).toBe('report.pdf');
+      expect(response.body.document.failureReason).toBeNull();
+    });
+
+    it('maps a transient storage failure to 503 without changing state', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Transient Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+      storage.inspectObject = async () => {
+        throw new Error('storage exploded');
+      };
+
+      await completeUpload(token, organizationId, documentId).expect(503);
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('does not transition when the promoted destination fails its integrity check', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Promotion Check Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+      storage.inspectObject = async (key) =>
+        key.includes('/verified/') ? null : originalInspectObject(key);
+
+      await completeUpload(token, organizationId, documentId).expect(503);
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('returns 403 for a non-member and writes nothing', async () => {
+      const owner = await registerUser();
+      const outsider = await registerUser();
+      const organizationId = await createOrganization(
+        owner.token,
+        'Complete Guard Org',
+      );
+      const created = await createDocument(owner.token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+      await uploadUrlAndObject(
+        owner.token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      await completeUpload(
+        outsider.token,
+        organizationId,
+        documentId,
+      ).expect(403);
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('returns 404 for a document in another organization and leaves it untouched', async () => {
+      const ownerA = await registerUser();
+      const ownerB = await registerUser();
+      const organizationA = await createOrganization(ownerA.token, 'Complete A');
+      const organizationB = await createOrganization(ownerB.token, 'Complete B');
+      const created = await createDocument(ownerA.token, organizationA, {
+        title: 'Secret',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+      await uploadUrlAndObject(
+        ownerA.token,
+        organizationA,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      await completeUpload(
+        ownerB.token,
+        organizationB,
+        documentId,
+      ).expect(404);
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.storageKey).toBeNull();
+    });
+
+    it('returns 404 for a document that does not exist', async () => {
+      const { token, organizationId } = await setupDocument('Missing Complete');
+
+      await completeUpload(token, organizationId, randomUUID()).expect(404);
+    });
+
+    it('rejects malformed organization and document ids with 400', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Malformed Complete',
+      );
+
+      await completeUpload(token, 'not-a-uuid', documentId).expect(400);
+      await completeUpload(token, organizationId, 'not-a-uuid').expect(400);
+    });
+
+    it('rejects invalid and unexpected body fields with 400 and writes nothing', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Invalid Complete',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      const invalidBodies: object[] = [
+        { originalFileName: '' },
+        { originalFileName: '   ' },
+        { originalFileName: 'a'.repeat(256) },
+        { originalFileName: 'report\u0000.pdf' },
+        { originalFileName: 123 },
+        { sizeBytes: 1024 },
+        { contentType: 'application/pdf' },
+        { status: 'PROCESSING' },
+        { storageKey: 'organizations/org-1/documents/doc-1/verified/x' },
+        { uploadStorageKey: 'organizations/org-1/documents/doc-1/x' },
+      ];
+
+      for (const body of invalidBodies) {
+        await completeUpload(token, organizationId, documentId, body).expect(
+          400,
+        );
+      }
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.storageKey).toBeNull();
     });
   });
 });

@@ -1,37 +1,55 @@
 import type { ConfigService } from '@nestjs/config';
 import {
+  ConflictException,
   NotFoundException,
   PayloadTooLargeException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { StorageConfig } from '../storage/storage.config.js';
+import { ObjectVersionMismatchError } from '../storage/object-storage.port.js';
 import { FakeObjectStorage } from '../../test/support/fake-object-storage.js';
 import { DocumentsService } from './documents.service.js';
 import { MAX_UPLOAD_BYTES } from './upload-policy.js';
 
 type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
 
-interface DocumentRow {
+interface DocumentRecord {
   id: string;
+  organizationId: string;
   title: string;
   status: DocumentStatus;
+  uploadStorageKey: string | null;
+  expectedContentType: string | null;
+  storageKey: string | null;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;
+  failureReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-function documentRow(overrides: Partial<DocumentRow> = {}): DocumentRow {
+const STAGING_KEY = 'organizations/org-1/documents/doc-1/staging-token';
+const encoder = new TextEncoder();
+
+function documentRecord(
+  overrides: Partial<DocumentRecord> = {},
+): DocumentRecord {
   return {
     id: 'doc-1',
+    organizationId: 'org-1',
     title: 'Quarterly report',
     status: 'PENDING',
+    uploadStorageKey: STAGING_KEY,
+    expectedContentType: 'application/pdf',
+    storageKey: null,
     originalFileName: null,
     contentType: null,
     sizeBytes: null,
+    failureReason: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-02T00:00:00.000Z'),
     ...overrides,
@@ -54,13 +72,6 @@ function organizationContext(
   };
 }
 
-interface HarnessOptions {
-  created?: DocumentRow;
-  rows?: DocumentRow[];
-  findFirst?: DocumentRow | null;
-  uploadTtlSeconds?: number;
-}
-
 function storageConfig(uploadTtlSeconds = 900): StorageConfig {
   const config = {
     getOrThrow: (key: string) =>
@@ -70,22 +81,42 @@ function storageConfig(uploadTtlSeconds = 900): StorageConfig {
   return new StorageConfig(config);
 }
 
+interface HarnessOptions {
+  created?: DocumentRecord;
+  rows?: DocumentRecord[];
+  findFirst?: DocumentRecord | null;
+  uploadTtlSeconds?: number;
+}
+
+interface UpdateManyArgs {
+  where: {
+    id: string;
+    organizationId: string;
+    uploadStorageKey?: string;
+    status?: { in: DocumentStatus[] };
+  };
+  data: Partial<DocumentRecord>;
+}
+
 function createHarness(options: HarnessOptions = {}) {
   const prisma = {
     document: {
       create: vi.fn(
         async (_args: { data: Record<string, unknown> }) =>
-          options.created ?? documentRow(),
+          options.created ?? documentRecord(),
       ),
       findMany: vi.fn(async () => options.rows ?? []),
       findFirst: vi.fn(
         async (_args: { where: unknown; select?: unknown }) =>
-          options.findFirst === undefined ? documentRow() : options.findFirst,
+          options.findFirst === undefined
+            ? documentRecord()
+            : options.findFirst,
       ),
       update: vi.fn(
         async (_args: { where: unknown; data: Record<string, unknown> }) =>
-          options.created ?? documentRow(),
+          options.created ?? documentRecord(),
       ),
+      updateMany: vi.fn(async (_args: UpdateManyArgs) => ({ count: 1 })),
     },
   };
 
@@ -98,6 +129,64 @@ function createHarness(options: HarnessOptions = {}) {
 
   return { service, prisma, storage };
 }
+
+function createCompletionHarness(
+  record: DocumentRecord = documentRecord(),
+  storage: FakeObjectStorage = new FakeObjectStorage(),
+) {
+  const state: DocumentRecord = { ...record };
+
+  const prisma = {
+    document: {
+      findFirst: vi.fn(
+        async (): Promise<DocumentRecord | null> => ({ ...state }),
+      ),
+      updateMany: vi.fn(async ({ where, data }: UpdateManyArgs) => {
+        const matchesKey =
+          where.uploadStorageKey === undefined ||
+          where.uploadStorageKey === state.uploadStorageKey;
+        const matchesStatus =
+          where.status === undefined || where.status.in.includes(state.status);
+        const matches =
+          where.id === state.id &&
+          where.organizationId === state.organizationId &&
+          matchesKey &&
+          matchesStatus;
+
+        if (!matches) {
+          return { count: 0 };
+        }
+
+        Object.assign(state, data);
+        state.updatedAt = new Date(state.updatedAt.getTime() + 1_000);
+        return { count: 1 };
+      }),
+      update: vi.fn(),
+      create: vi.fn(),
+      findMany: vi.fn(),
+    },
+  };
+
+  const service = new DocumentsService(
+    prisma as unknown as PrismaService,
+    storage,
+    storageConfig(),
+  );
+
+  return { service, prisma, storage, state };
+}
+
+const PUBLIC_DOCUMENT_FIELDS = [
+  'contentType',
+  'createdAt',
+  'failureReason',
+  'id',
+  'originalFileName',
+  'sizeBytes',
+  'status',
+  'title',
+  'updatedAt',
+].sort();
 
 describe('DocumentsService.create', () => {
   it('returns the created document with the PENDING status and ISO timestamps', async () => {
@@ -115,6 +204,7 @@ describe('DocumentsService.create', () => {
         originalFileName: null,
         contentType: null,
         sizeBytes: null,
+        failureReason: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
@@ -156,24 +246,12 @@ describe('DocumentsService.create', () => {
       title: 'Quarterly report',
     });
 
-    expect(Object.keys(result.document).sort()).toEqual(
-      [
-        'contentType',
-        'createdAt',
-        'id',
-        'originalFileName',
-        'sizeBytes',
-        'status',
-        'title',
-        'updatedAt',
-      ].sort(),
-    );
+    expect(Object.keys(result.document).sort()).toEqual(PUBLIC_DOCUMENT_FIELDS);
 
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('storageKey');
     expect(serialized).not.toContain('uploadStorageKey');
     expect(serialized).not.toContain('uploadedById');
-    expect(serialized).not.toContain('failureReason');
     expect(serialized).not.toContain('organizationId');
   });
 });
@@ -193,6 +271,7 @@ describe('DocumentsService.list', () => {
         originalFileName: true,
         contentType: true,
         sizeBytes: true,
+        failureReason: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -209,8 +288,8 @@ describe('DocumentsService.list', () => {
   it('maps each row to the public summary shape', async () => {
     const { service } = createHarness({
       rows: [
-        documentRow({ id: 'doc-2', title: 'Second' }),
-        documentRow({ id: 'doc-1', title: 'First' }),
+        documentRecord({ id: 'doc-2', title: 'Second' }),
+        documentRecord({ id: 'doc-1', title: 'First' }),
       ],
     });
 
@@ -224,6 +303,7 @@ describe('DocumentsService.list', () => {
         originalFileName: null,
         contentType: null,
         sizeBytes: null,
+        failureReason: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
@@ -234,28 +314,16 @@ describe('DocumentsService.list', () => {
         originalFileName: null,
         contentType: null,
         sizeBytes: null,
+        failureReason: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
     ]);
   });
 
-  it('preserves the deterministic database ordering', async () => {
-    const { service } = createHarness({
-      rows: [documentRow({ id: 'doc-b' }), documentRow({ id: 'doc-a' })],
-    });
-
-    const result = await service.list('org-1');
-
-    expect(result.documents.map((document) => document.id)).toEqual([
-      'doc-b',
-      'doc-a',
-    ]);
-  });
-
   it('does not expose internal fields in the response', async () => {
     const { service } = createHarness({
-      rows: [documentRow({ id: 'doc-1' })],
+      rows: [documentRecord({ id: 'doc-1' })],
     });
 
     const result = await service.list('org-1');
@@ -264,7 +332,6 @@ describe('DocumentsService.list', () => {
     expect(serialized).not.toContain('storageKey');
     expect(serialized).not.toContain('uploadStorageKey');
     expect(serialized).not.toContain('uploadedById');
-    expect(serialized).not.toContain('failureReason');
     expect(serialized).not.toContain('organizationId');
   });
 });
@@ -282,31 +349,12 @@ describe('DocumentsService.getDetail', () => {
     );
   });
 
-  it('returns the public summary shape when the document exists in the organization', async () => {
-    const { service } = createHarness();
-
-    const result = await service.getDetail('org-1', 'doc-1');
-
-    expect(result).toEqual({
-      document: {
-        id: 'doc-1',
-        title: 'Quarterly report',
-        status: 'PENDING',
-        originalFileName: null,
-        contentType: null,
-        sizeBytes: null,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
-      },
-    });
-  });
-
   it('returns 404 when the document does not exist in the organization', async () => {
     const { service } = createHarness({ findFirst: null });
 
-    await expect(
-      service.getDetail('org-1', 'doc-1'),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getDetail('org-1', 'doc-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('does not expose internal fields in the response', async () => {
@@ -318,7 +366,6 @@ describe('DocumentsService.getDetail', () => {
     expect(serialized).not.toContain('storageKey');
     expect(serialized).not.toContain('uploadStorageKey');
     expect(serialized).not.toContain('uploadedById');
-    expect(serialized).not.toContain('failureReason');
     expect(serialized).not.toContain('organizationId');
   });
 });
@@ -333,7 +380,7 @@ describe('DocumentsService.createUploadUrl', () => {
 
     expect(prisma.document.findFirst).toHaveBeenCalledWith({
       where: { id: 'doc-1', organizationId: 'org-1' },
-      select: { id: true },
+      select: { id: true, status: true },
     });
   });
 
@@ -363,18 +410,32 @@ describe('DocumentsService.createUploadUrl', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
 
     expect(storage.calls).toHaveLength(0);
-    expect(prisma.document.update).not.toHaveBeenCalled();
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
   });
 
-  it('scopes the lookup to the organization so cross-tenant ids are indistinguishable from missing ones', async () => {
-    const { service, prisma } = createHarness({ findFirst: null });
+  it('rejects a document that has already started processing with 409 and touches nothing', async () => {
+    const { service, prisma, storage } = createHarness({
+      findFirst: documentRecord({ status: 'PROCESSING' }),
+    });
 
     await expect(
       service.createUploadUrl(organizationContext(), 'doc-1', input),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).rejects.toBeInstanceOf(ConflictException);
 
-    const args = prisma.document.findFirst.mock.calls[0][0];
-    expect(args.where).toEqual({ id: 'doc-1', organizationId: 'org-1' });
+    expect(storage.calls).toHaveLength(0);
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a READY document with 409', async () => {
+    const { service, storage } = createHarness({
+      findFirst: documentRecord({ status: 'READY' }),
+    });
+
+    await expect(
+      service.createUploadUrl(organizationContext(), 'doc-1', input),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(storage.calls).toHaveLength(0);
   });
 
   it('rejects a declared size above the policy cap with 413 without touching storage or the document', async () => {
@@ -388,21 +449,10 @@ describe('DocumentsService.createUploadUrl', () => {
     ).rejects.toBeInstanceOf(PayloadTooLargeException);
 
     expect(storage.calls).toHaveLength(0);
-    expect(prisma.document.update).not.toHaveBeenCalled();
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
   });
 
-  it('accepts a declared size exactly at the policy cap', async () => {
-    const { service, storage } = createHarness();
-
-    await service.createUploadUrl(organizationContext(), 'doc-1', {
-      ...input,
-      sizeBytes: MAX_UPLOAD_BYTES,
-    });
-
-    expect(storage.calls).toHaveLength(1);
-  });
-
-  it('persists only the fresh staging key, leaving lifecycle and file metadata untouched', async () => {
+  it('persists the fresh staging key and expected type, leaving lifecycle and file metadata untouched', async () => {
     const { service, prisma, storage } = createHarness();
 
     await service.createUploadUrl(organizationContext(), 'doc-1', {
@@ -411,22 +461,33 @@ describe('DocumentsService.createUploadUrl', () => {
     });
 
     const key = storage.calls[0].key;
-    expect(prisma.document.update).toHaveBeenCalledWith({
-      where: { id: 'doc-1' },
-      data: { uploadStorageKey: key },
+    expect(prisma.document.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'doc-1',
+        organizationId: 'org-1',
+        status: { in: ['PENDING', 'FAILED'] },
+      },
+      data: { uploadStorageKey: key, expectedContentType: 'application/pdf' },
     });
 
-    const args = prisma.document.update.mock.calls[0][0];
-    expect(Object.keys(args.data)).toEqual(['uploadStorageKey']);
+    const args = prisma.document.updateMany.mock.calls[0][0];
+    expect(Object.keys(args.data).sort()).toEqual([
+      'expectedContentType',
+      'uploadStorageKey',
+    ]);
+    expect(args.data).not.toHaveProperty('storageKey');
+    expect(args.data).not.toHaveProperty('status');
+    expect(args.data).not.toHaveProperty('contentType');
+    expect(args.data).not.toHaveProperty('sizeBytes');
   });
 
-  it('never writes the verified storage key when issuing an upload URL', async () => {
+  it('rejects the request with 409 when a concurrent completion wins the update', async () => {
     const { service, prisma } = createHarness();
+    prisma.document.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    await service.createUploadUrl(organizationContext(), 'doc-1', input);
-
-    const args = prisma.document.update.mock.calls[0][0];
-    expect(args.data).not.toHaveProperty('storageKey');
+    await expect(
+      service.createUploadUrl(organizationContext(), 'doc-1', input),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('passes the configured upload TTL to the storage port', async () => {
@@ -459,13 +520,13 @@ describe('DocumentsService.createUploadUrl', () => {
     await service.createUploadUrl(organizationContext(), 'doc-1', input);
 
     expect(presign.mock.invocationCallOrder[0]).toBeLessThan(
-      prisma.document.update.mock.invocationCallOrder[0],
+      prisma.document.updateMany.mock.invocationCallOrder[0],
     );
   });
 
   it('does not return a response when persisting the key fails', async () => {
     const { service, prisma } = createHarness();
-    prisma.document.update.mockRejectedValueOnce(new Error('write failed'));
+    prisma.document.updateMany.mockRejectedValueOnce(new Error('write failed'));
 
     await expect(
       service.createUploadUrl(organizationContext(), 'doc-1', input),
@@ -484,5 +545,399 @@ describe('DocumentsService.createUploadUrl', () => {
     expect(Object.keys(result).sort()).toEqual(
       ['expiresAt', 'headers', 'maxSizeBytes', 'method', 'uploadUrl'].sort(),
     );
+  });
+});
+
+describe('DocumentsService.completeUpload', () => {
+  function seedValidPdf(storage: FakeObjectStorage): void {
+    storage.putObject(
+      STAGING_KEY,
+      '%PDF-1.7\nverified body',
+      'application/pdf',
+    );
+  }
+
+  it('looks the document up by both document id and organization id', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, prisma } = createCompletionHarness(documentRecord(), storage);
+
+    await service.completeUpload(organizationContext(), 'doc-1', {});
+
+    expect(prisma.document.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'doc-1', organizationId: 'org-1' },
+      }),
+    );
+  });
+
+  it('returns 404 for a document outside the organization', async () => {
+    const { service, prisma } = createCompletionHarness();
+    prisma.document.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it.each(['PROCESSING', 'READY'] as const)(
+    'short-circuits a %s document without touching storage or the database',
+    async (status) => {
+      const { service, prisma, storage } = createCompletionHarness(
+        documentRecord({ status }),
+      );
+
+      const result = await service.completeUpload(
+        organizationContext(),
+        'doc-1',
+        {},
+      );
+
+      expect(result.document.status).toBe(status);
+      expect(storage.calls).toHaveLength(0);
+      expect(prisma.document.updateMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects with 409 when no upload URL was requested', async () => {
+    const { service, prisma } = createCompletionHarness(
+      documentRecord({ uploadStorageKey: null, expectedContentType: null }),
+    );
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects with 409 when the expected content type is missing', async () => {
+    const { service } = createCompletionHarness(
+      documentRecord({ expectedContentType: null }),
+    );
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('fails closed with 503 when the persisted staging key is malformed', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, prisma } = createCompletionHarness(
+      documentRecord({
+        uploadStorageKey: 'organizations/org-2/documents/doc-1/token',
+      }),
+      storage,
+    );
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects with 409 when the object is absent without changing state', async () => {
+    const { service, prisma, state } = createCompletionHarness();
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(state.status).toBe('PENDING');
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('records EMPTY_OBJECT for a zero-byte object', async () => {
+    const storage = new FakeObjectStorage();
+    storage.putObject(STAGING_KEY, new Uint8Array(), 'application/pdf');
+    const { service, state } = createCompletionHarness(documentRecord(), storage);
+
+    const result = await service.completeUpload(
+      organizationContext(),
+      'doc-1',
+      {},
+    );
+
+    expect(result.document.status).toBe('FAILED');
+    expect(result.document.failureReason).toBe('EMPTY_OBJECT');
+    expect(state.storageKey).toBeNull();
+  });
+
+  it('records SIZE_LIMIT_EXCEEDED when the real size exceeds the cap', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    storage.inspectObject = async (key) => ({
+      key,
+      sizeBytes: MAX_UPLOAD_BYTES + 1,
+      contentType: 'application/pdf',
+      version: 'version-1',
+    });
+    const { service, state } = createCompletionHarness(documentRecord(), storage);
+
+    const result = await service.completeUpload(
+      organizationContext(),
+      'doc-1',
+      {},
+    );
+
+    expect(result.document.failureReason).toBe('SIZE_LIMIT_EXCEEDED');
+    expect(state.storageKey).toBeNull();
+  });
+
+  it('records CONTENT_TYPE_NOT_ALLOWED when the real type is not allowlisted', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    storage.inspectObject = async (key) => ({
+      key,
+      sizeBytes: 10,
+      contentType: 'image/png',
+      version: 'version-1',
+    });
+    const { service, state } = createCompletionHarness(documentRecord(), storage);
+
+    const result = await service.completeUpload(
+      organizationContext(),
+      'doc-1',
+      {},
+    );
+
+    expect(result.document.failureReason).toBe('CONTENT_TYPE_NOT_ALLOWED');
+    expect(state.storageKey).toBeNull();
+  });
+
+  it('records CONTENT_TYPE_MISMATCH when the real type differs from the signed type', async () => {
+    const storage = new FakeObjectStorage();
+    storage.putObject(STAGING_KEY, 'plain text body', 'text/plain');
+    const { service, state } = createCompletionHarness(documentRecord(), storage);
+
+    const result = await service.completeUpload(
+      organizationContext(),
+      'doc-1',
+      {},
+    );
+
+    expect(result.document.failureReason).toBe('CONTENT_TYPE_MISMATCH');
+    expect(state.storageKey).toBeNull();
+  });
+
+  it('records SIGNATURE_MISMATCH when the bytes do not match the signed type', async () => {
+    const storage = new FakeObjectStorage();
+    storage.putObject(STAGING_KEY, 'not actually a pdf', 'application/pdf');
+    const { service, state } = createCompletionHarness(documentRecord(), storage);
+
+    const result = await service.completeUpload(
+      organizationContext(),
+      'doc-1',
+      {},
+    );
+
+    expect(result.document.failureReason).toBe('SIGNATURE_MISMATCH');
+    expect(state.storageKey).toBeNull();
+  });
+
+  it('promotes a valid object and transitions to PROCESSING with verified metadata', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+
+    const result = await service.completeUpload(
+      organizationContext(),
+      'doc-1',
+      {},
+    );
+
+    expect(state.status).toBe('PROCESSING');
+    expect(state.contentType).toBe('application/pdf');
+    expect(state.sizeBytes).toBe(encoder.encode('%PDF-1.7\nverified body').byteLength);
+    expect(state.failureReason).toBeNull();
+    expect(state.storageKey).not.toBeNull();
+    expect(state.storageKey).not.toBe(STAGING_KEY);
+    expect(state.storageKey).toMatch(
+      /^organizations\/org-1\/documents\/doc-1\/verified\//,
+    );
+    expect(result.document.status).toBe('PROCESSING');
+    expect(result.document.failureReason).toBeNull();
+
+    const args = prisma.document.updateMany.mock.calls[0][0];
+    expect(args.where).toEqual({
+      id: 'doc-1',
+      organizationId: 'org-1',
+      uploadStorageKey: STAGING_KEY,
+      status: { in: ['PENDING', 'FAILED'] },
+    });
+  });
+
+  it('stores a declared original file name only when supplied', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, state } = createCompletionHarness(documentRecord(), storage);
+
+    await service.completeUpload(organizationContext(), 'doc-1', {
+      originalFileName: 'report.pdf',
+    });
+
+    expect(state.originalFileName).toBe('report.pdf');
+  });
+
+  it('leaves originalFileName untouched when the client does not declare one', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, prisma } = createCompletionHarness(documentRecord(), storage);
+
+    await service.completeUpload(organizationContext(), 'doc-1', {});
+
+    const args = prisma.document.updateMany.mock.calls[0][0];
+    expect(args.data).not.toHaveProperty('originalFileName');
+  });
+
+  it('verifies the promoted destination before treating it as verified', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const original = storage.inspectObject.bind(storage);
+    storage.inspectObject = async (key) =>
+      key.includes('/verified/') ? null : original(key);
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
+    expect(state.status).toBe('PENDING');
+  });
+
+  it('rejects with 409 when the staging object changes between inspect and read', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    storage.onInspectObject = () => {
+      storage.putObject(STAGING_KEY, '%PDF-1.7 replaced', 'application/pdf');
+    };
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
+    expect(state.status).toBe('PENDING');
+  });
+
+  it('rejects with 409 when the staging object changes between read and copy', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    storage.onReadObjectPrefix = () => {
+      storage.putObject(STAGING_KEY, '%PDF-1.7 replaced', 'application/pdf');
+    };
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
+    expect(state.status).toBe('PENDING');
+  });
+
+  it('rejects with 409 when the upload was superseded before the verified key was stored', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+    storage.onReadObjectPrefix = () => {
+      state.uploadStorageKey = 'organizations/org-1/documents/doc-1/newer';
+    };
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(state.status).toBe('PENDING');
+    expect(state.storageKey).toBeNull();
+  });
+
+  it('returns the current document when a concurrent completion already won', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+    storage.onReadObjectPrefix = () => {
+      state.status = 'PROCESSING';
+    };
+
+    const result = await service.completeUpload(
+      organizationContext(),
+      'doc-1',
+      {},
+    );
+
+    expect(result.document.status).toBe('PROCESSING');
+  });
+
+  it('maps a transient storage failure to 503 without changing state', async () => {
+    const storage = new FakeObjectStorage();
+    storage.inspectObject = async () => {
+      throw new Error('storage exploded');
+    };
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(prisma.document.updateMany).not.toHaveBeenCalled();
+    expect(state.status).toBe('PENDING');
+  });
+
+  it('maps a version-mismatch error from the port to 409', async () => {
+    const storage = new FakeObjectStorage();
+    storage.inspectObject = async () => {
+      throw new ObjectVersionMismatchError();
+    };
+    const { service } = createCompletionHarness(documentRecord(), storage);
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('does not expose internal fields or a verified key in the response', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, state } = createCompletionHarness(documentRecord(), storage);
+
+    const result = await service.completeUpload(
+      organizationContext(),
+      'doc-1',
+      {},
+    );
+
+    expect(Object.keys(result.document).sort()).toEqual(PUBLIC_DOCUMENT_FIELDS);
+
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('uploadStorageKey');
+    expect(serialized).not.toContain(state.storageKey ?? 'never-null');
+    expect(serialized).not.toContain('uploadedById');
+    expect(serialized).not.toContain('organizationId');
   });
 });

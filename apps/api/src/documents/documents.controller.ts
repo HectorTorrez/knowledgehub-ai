@@ -27,6 +27,10 @@ import {
   type CreateDocumentInput,
 } from './dto/create-document.schema.js';
 import {
+  completeUploadSchema,
+  type CompleteUploadInput,
+} from './dto/complete-upload.schema.js';
+import {
   createUploadUrlSchema,
   type CreateUploadUrlInput,
 } from './dto/create-upload-url.schema.js';
@@ -74,6 +78,21 @@ export class DocumentsController {
     @Req() request: OrganizationRequest,
   ): Promise<DocumentUploadUrlResponse> {
     return this.documents.createUploadUrl(
+      requireOrganizationContext(request),
+      documentId,
+      body,
+    );
+  }
+
+  @Post(':documentId/upload-complete')
+  @HttpCode(HttpStatus.OK)
+  completeUpload(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Body(new ZodValidationPipe(completeUploadSchema))
+    body: CompleteUploadInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<DocumentDetailResponse> {
+    return this.documents.completeUpload(
       requireOrganizationContext(request),
       documentId,
       body,
