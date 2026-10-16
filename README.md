@@ -111,8 +111,27 @@ Object storage credentials here are local development values from the ignored
 root `.env`. They are **not** suitable for production, which uses Cloudflare R2
 with its own credentials. Successful initialization proves the bucket and CORS
 policy were applied; it does not prove a browser can upload with a presigned
-URL, which is validated once the upload endpoint exists (see
-[Limitations](#limitations)).
+URL (see [Limitations](#limitations)).
+
+The Compose services read these variables from the root `.env`:
+
+| Variable                | Purpose                                            | Default                  |
+| ----------------------- | -------------------------------------------------- | ------------------------ |
+| `MINIO_ROOT_USER`       | MinIO root user, reused as `STORAGE_ACCESS_KEY_ID` | required                 |
+| `MINIO_ROOT_PASSWORD`   | MinIO root password, reused as the secret key      | required                 |
+| `MINIO_API_PORT`        | Host port for the S3-compatible API                | `9000`                   |
+| `MINIO_CONSOLE_PORT`    | Host port for the MinIO web console                | `9001`                   |
+| `STORAGE_BUCKET`        | Bucket the initializer creates and applies CORS to | `knowledgehub-documents` |
+| `STORAGE_CORS_ORIGIN`   | Frontend origin allowed to `PUT` to the bucket     | `http://localhost:3000`  |
+
+`apps/api/.env` holds the API's own storage settings, which must match the
+MinIO service: `STORAGE_BUCKET`, `STORAGE_ENDPOINT`
+(`http://127.0.0.1:9000`), `STORAGE_REGION`, `STORAGE_FORCE_PATH_STYLE`
+(`true` for MinIO), `STORAGE_UPLOAD_TTL_SECONDS` (presigned-URL lifetime),
+`STORAGE_ACCESS_KEY_ID` and `STORAGE_SECRET_ACCESS_KEY`. Keep
+`STORAGE_ACCESS_KEY_ID` equal to `MINIO_ROOT_USER` and
+`STORAGE_SECRET_ACCESS_KEY` equal to `MINIO_ROOT_PASSWORD`. The API fails to
+start if any of these is missing.
 
 ## Development
 
@@ -121,9 +140,9 @@ pnpm dev        # starts the API (watch) and the web app together
 ```
 
 `pnpm dev` only starts the applications; it never touches the database's or
-storage's contents. Run `pnpm db:up` and `pnpm db:migrate` first. Run
-`pnpm storage:up` once a feature uses object storage (uploads are not
-implemented yet).
+storage's contents. Run `pnpm db:up` and `pnpm db:migrate` first, then
+`pnpm storage:up`: the upload endpoint issues presigned URLs against the local
+MinIO bucket.
 
 Quality gates:
 
@@ -244,8 +263,9 @@ Failed requests use the `ApiErrorResponse` shape `{ statusCode, message, error? 
 ## Documents
 
 Documents are files registered within a single organization. This section
-covers metadata registration only; uploads and processing are not implemented
-yet (see [Limitations](#limitations)).
+covers metadata registration and upload-URL issuance; verifying an uploaded
+object and processing it are not implemented yet (see
+[Limitations](#limitations)).
 
 Every document endpoint requires an authenticated session and membership in the
 organization named in the route. Authentication and membership work exactly as
@@ -258,6 +278,7 @@ an unauthenticated request returns `401`, an authenticated non-member returns
 POST /organizations/:organizationId/documents
 GET  /organizations/:organizationId/documents
 GET  /organizations/:organizationId/documents/:documentId
+POST /organizations/:organizationId/documents/:documentId/upload-url
 ```
 
 Any organization member — `OWNER` or `MEMBER` — may create, list, and read
@@ -283,6 +304,51 @@ Returns `{ document }` (`DocumentDetailResponse`). The document is looked up by
 both id and organization, so a document that exists only in another
 organization returns `404`.
 
+### POST /organizations/:organizationId/documents/:documentId/upload-url → 200
+
+Any organization member may request an upload URL for a document in the
+organization. The document is looked up by id and organization, so a document
+that exists only in another organization — or does not exist — returns `404`.
+Body `{ "contentType": string, "sizeBytes"?: number }`:
+
+- `contentType` must be one of `application/pdf`, `text/plain`, or
+  `text/markdown`; anything else returns `400`.
+- `sizeBytes` is optional, must be a positive integer, and must not exceed
+  `2_000_000_000` (the policy cap). A value above the cap returns `413 Payload
+  Too Large`; a non-integer, zero, or negative value returns `400`.
+- Unknown body fields return `400`.
+
+Returns exactly `{ uploadUrl, method, headers, expiresAt, maxSizeBytes }`
+(`DocumentUploadUrlResponse`): the presigned `PUT` URL, the `PUT` method, the
+`Content-Type` header to send with the upload, the URL expiry as an ISO-8601
+string, and the maximum accepted size. No storage key is returned. `expiresAt`
+follows `STORAGE_UPLOAD_TTL_SECONDS` (900 seconds by default).
+
+### Upload-URL lifecycle and limitations
+
+Requesting a URL creates a fresh storage key of the form
+`organizations/<organizationId>/documents/<documentId>/<random token>`,
+generates the presigned URL from it, and persists the key as the document's
+`storageKey`. Requesting another URL supersedes the previously persisted key:
+every request generates a distinct key, and only the newest one is recorded, so
+an upload sent to an older URL is not the object later phases will verify.
+
+The presigned `PUT` is a direct browser-to-storage transfer that bypasses the
+API, so every value the client declares is untrusted:
+
+- `sizeBytes` is only a declared maximum. A presigned `PUT` cannot enforce a
+  request-body size, so the client may upload more (or less) than it declared.
+- `contentType` is signed into the URL and sent as the `Content-Type` header,
+  but the storage provider does not inspect the bytes, so the body's real type
+  may differ from the declared one.
+
+A successful request therefore records only the storage key. The document stays
+`PENDING` and `originalFileName`, `contentType`, and `sizeBytes` remain `null`
+until Phase 5.2B reads the uploaded object and verifies its real size, type, and
+contents; only then can a document leave `PENDING`. Persisting the key does not
+mean an object exists — the URL may never be used. If persisting the key fails
+after the URL is generated, the request fails and the URL is not returned.
+
 ### Response contract
 
 `DocumentSummary` exposes only `id`, `title`, `status`, `originalFileName`,
@@ -294,14 +360,12 @@ until an upload is confirmed. Persistence-only fields — `storageKey`,
 
 ### Limitations
 
-- **Uploads and processing are not implemented yet.** The only status a
-  document can reach today is `PENDING`; `PROCESSING`, `READY`, and `FAILED`
-  describe the pipeline that a later phase adds.
+- **Uploads are issued but not verified.** `POST …/upload-url` hands out a
+  presigned `PUT`, but nothing confirms the object was uploaded. The only status
+  a document can reach today is `PENDING`; Phase 5.2B adds verification and the
+  `PROCESSING`, `READY`, and `FAILED` pipeline.
 - **Listing is unpaginated.** `GET …/documents` returns every document in the
   organization in one response. Pagination is deferred; large organizations
   will need it.
-- **Uploads are not wired to storage yet.** An S3-compatible adapter
-  (Cloudflare R2 in production, MinIO locally) and its configuration exist, but
-  no endpoint issues presigned uploads, so no document can leave `PENDING`.
 - **Documents cannot be deleted or renamed** in this increment.
 
