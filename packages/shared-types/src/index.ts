@@ -179,3 +179,16 @@ export interface DocumentDetailResponse {
 export interface CreateDocumentRequest {
   title: string;
 }
+
+export interface DocumentUploadUrlRequest {
+  contentType: string;
+  sizeBytes?: number;
+}
+
+export interface DocumentUploadUrlResponse {
+  uploadUrl: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  expiresAt: string;
+  maxSizeBytes: number;
+}
