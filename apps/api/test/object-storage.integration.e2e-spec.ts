@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
@@ -7,6 +7,14 @@ import { S3ObjectStorage } from '../src/storage/s3-object-storage.js';
 import { StorageConfig } from '../src/storage/storage.config.js';
 
 const runIntegration = process.env.STORAGE_INTEGRATION === 'true';
+
+function normalizeVersion(version: string): string {
+  return version.replace(/^W\//, '').replace(/^"|"$/g, '');
+}
+
+function contentEtag(value: string): string {
+  return createHash('md5').update(value).digest('hex');
+}
 
 function integrationConfig(): StorageConfig {
   const values: Record<string, unknown> = {
@@ -76,6 +84,7 @@ describe.runIf(runIntegration)(
       expect(inspected).not.toBeNull();
       expect(inspected?.sizeBytes).toBe(new TextEncoder().encode(source).byteLength);
       expect(inspected?.contentType).toBe('application/pdf');
+      expect(normalizeVersion(inspected?.version ?? '')).toBe(contentEtag(source));
 
       const prefix = await storage.readObjectPrefix({
         key: sourceKey,
@@ -94,6 +103,9 @@ describe.runIf(runIntegration)(
       const promoted = await storage.inspectObject(verifiedKey);
       expect(promoted?.sizeBytes).toBe(inspected?.sizeBytes);
       expect(promoted?.contentType).toBe('application/pdf');
+      expect(normalizeVersion(promoted?.version ?? '')).toBe(
+        contentEtag(source),
+      );
 
       const promotedBytes = await storage.readObjectPrefix({
         key: verifiedKey,
