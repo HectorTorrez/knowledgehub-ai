@@ -156,6 +156,24 @@ pnpm build
 The Prisma client is generated into `apps/api/src/generated/prisma` (git-ignored)
 and is recreated automatically before `dev`, `build`, `check-types`, and `test`.
 
+The API's end-to-end suite runs against the local PostgreSQL instance:
+
+```bash
+pnpm db:up
+pnpm --filter @knowledgehub/api test:e2e
+```
+
+To additionally exercise the real object-storage adapter against local MinIO
+(presigned upload, version-bound read, and promotion), start MinIO and opt in:
+
+```bash
+pnpm storage:up
+STORAGE_INTEGRATION=true pnpm --filter @knowledgehub/api test:e2e
+```
+
+The integration check is skipped unless `STORAGE_INTEGRATION=true`, so the
+default suite needs no running object storage.
+
 ## Authentication
 
 The `auth` module owns the credential lifecycle:
@@ -263,8 +281,8 @@ Failed requests use the `ApiErrorResponse` shape `{ statusCode, message, error? 
 ## Documents
 
 Documents are files registered within a single organization. This section
-covers metadata registration and upload-URL issuance; verifying an uploaded
-object and processing it are not implemented yet (see
+covers metadata registration, upload-URL issuance, and upload verification.
+Extracting and processing contents are not implemented yet (see
 [Limitations](#limitations)).
 
 Every document endpoint requires an authenticated session and membership in the
@@ -279,11 +297,12 @@ POST /organizations/:organizationId/documents
 GET  /organizations/:organizationId/documents
 GET  /organizations/:organizationId/documents/:documentId
 POST /organizations/:organizationId/documents/:documentId/upload-url
+POST /organizations/:organizationId/documents/:documentId/upload-complete
 ```
 
-Any organization member — `OWNER` or `MEMBER` — may create, list, and read
-documents. A document belongs to its organization, not to the user who
-registered it: the uploader is recorded for provenance only and never scopes
+Any organization member — `OWNER` or `MEMBER` — may create, list, read, upload,
+and complete documents. A document belongs to its organization, not to the user
+who registered it: the uploader is recorded for provenance only and never scopes
 access.
 
 ### POST /organizations/:organizationId/documents → 201
@@ -324,16 +343,19 @@ Returns exactly `{ uploadUrl, method, headers, expiresAt, maxSizeBytes }`
 string, and the maximum accepted size. No storage key is returned. `expiresAt`
 follows `STORAGE_UPLOAD_TTL_SECONDS` (900 seconds by default).
 
-### Upload-URL lifecycle and limitations
+A URL can only be requested while the document is `PENDING` or `FAILED`. A
+`PROCESSING` or `READY` document returns `409`: once the verified bytes exist,
+issuing another upload URL would only create a pointless orphaned staging
+object, so the lifecycle is closed.
 
 Requesting a URL creates a fresh staging key of the form
 `organizations/<organizationId>/documents/<documentId>/<random token>`,
 generates the presigned URL from it, and records the key as the document's
-staging `uploadStorageKey`. Requesting another URL supersedes the previously
-recorded staging key: every request generates a distinct key, and only the newest
-one is recorded, so an upload sent to an older URL is not the object later phases
-will verify. The verified `storageKey` stays null until Phase 5.2B verification
-promotes the uploaded object to a server-controlled key.
+staging `uploadStorageKey` together with the requested `contentType` as
+`expectedContentType`. Requesting another URL supersedes the previously recorded
+staging key: every request generates a distinct key, and only the newest one is
+recorded, so an upload sent to an older URL is not the object completion
+verifies. The verified `storageKey` is never touched here.
 
 The presigned `PUT` is a direct browser-to-storage transfer that bypasses the
 API, so every value the client declares is untrusted:
@@ -344,28 +366,119 @@ API, so every value the client declares is untrusted:
   but the storage provider does not inspect the bytes, so the body's real type
   may differ from the declared one.
 
-A successful request therefore records only the staging key. The document stays
-`PENDING` and `originalFileName`, `contentType`, and `sizeBytes` remain `null`
-until Phase 5.2B reads the uploaded object and verifies its real size, type, and
-contents; only then can a document leave `PENDING`. Persisting the key does not
-mean an object exists — the URL may never be used. If persisting the key fails
-after the URL is generated, the request fails and the URL is not returned.
+Persisting the key does not mean an object exists — the URL may never be used.
+If persisting the key fails after the URL is generated, the request fails and
+the URL is not returned.
+
+### POST /organizations/:organizationId/documents/:documentId/upload-complete → 200
+
+Reports that the client finished uploading and asks the API to verify the
+object. The document is looked up by id and organization, so a document that
+exists only in another organization — or does not exist — returns `404`.
+
+Body is optional: `{ "originalFileName"?: string }` (trimmed, 1–255 characters,
+no control characters; unknown fields return `400`). `originalFileName` is the
+only client-supplied value and is **declared display metadata only** — it is
+never used to decide anything about the object. The client cannot send
+`contentType`, `sizeBytes`, `status`, or any storage key.
+
+Completion never inspects or promotes a client-chosen key. It always reads the
+staging `uploadStorageKey` the API itself persisted, then:
+
+1. inspects the staging object and reads a bounded byte prefix from the same
+   object version;
+2. checks the real size (`0 < size ≤ 2_000_000_000`), that the real content type
+   is allowlisted and matches `expectedContentType`, and that the bytes carry the
+   type's signature;
+3. copies the verified bytes to a fresh server-controlled key
+   (`organizations/<organizationId>/documents/<documentId>/verified/<random
+   token>`) and confirms the promoted object;
+4. only then transitions the document atomically to `PROCESSING`, recording the
+   **verified** content type and size and clearing any previous failure reason.
+
+Both a successful and a definitive-failure outcome return `200 { document }`
+(`DocumentDetailResponse`); the document's `status` is the source of truth.
+
+| Condition | Code | State change |
+| --- | --- | --- |
+| Verified, valid object, promoted | `200` | `PENDING`/`FAILED` → `PROCESSING` |
+| Definitive policy violation | `200` (`status: FAILED`) | → `FAILED` with a sanitized reason |
+| No upload URL requested yet | `409` | none |
+| Object absent at the staging key | `409` | none |
+| Object changed during verification | `409` | none (retriable) |
+| Upload superseded by a newer URL | `409` | none (retriable) |
+| Already `PROCESSING`/`READY` | `200` | none (idempotent) |
+| Transient storage failure | `503` | none (retriable) |
+| Not a member / not authenticated / malformed | `403` / `401` / `400` | none |
+
+A definitive failure stores one of a fixed vocabulary of reasons in
+`failureReason`: `EMPTY_OBJECT`, `SIZE_LIMIT_EXCEEDED`,
+`CONTENT_TYPE_NOT_ALLOWED`, `CONTENT_TYPE_MISMATCH`, or `SIGNATURE_MISMATCH`.
+Missing objects, version changes, supersession, and transient faults never set a
+reason or change the status. Repeating completion on a `PROCESSING` or `READY`
+document is a pure no-op: no inspection, promotion, metadata rewrite, key
+change, or enqueue.
+
+### Staging keys versus verified keys
+
+Two keys, two trust levels, two columns:
+
+- `uploadStorageKey` is the **staging** key. It is the only key a presigned
+  `PUT` can write, it is client-writable and untrusted, and nothing downstream
+  reads it.
+- `storageKey` is the **verified** key. It is server-controlled, never signed
+  and never returned to a client, written only by promoting a staging object
+  during verification, and it is the key every later phase will read.
+
+Inspection, the prefix read, and the copy are all bound to a single object
+version, so the promoted bytes are provably the bytes that were checked even if
+the client overwrites the staging object mid-flight. Once written, the verified
+object is immutable for our purposes: a reused (still-valid) presigned URL can
+overwrite only the staging object, which `storageKey` no longer references.
+
+Because the promoted object is written before the database row is updated, a
+failed or racing database write can leave an **orphaned verified object** with
+no document pointing at it. The object's existence is never treated as proof
+that a document was accepted — the conditional database update is what accepts
+it — and cleaning up orphaned staging and verified objects is not implemented
+yet (see [Limitations](#limitations)).
+
+### What verification checks — and what it does not
+
+- **Size** is the object's real size, bounded by the policy cap.
+- **Content type** is the stored `Content-Type`, which must be allowlisted and
+  match the type the URL was signed for.
+- **Signature** is a bounded structural check only: a PDF must contain `%PDF-`
+  within its first 1024 bytes, and text must decode as strict UTF-8 with no NUL
+  byte.
+- It does **not** prove the file is a valid, safe, or parseable document. The
+  PDF magic-byte check is not PDF validation, and decoding text as UTF-8 is
+  structural, not semantic. Antivirus scanning and content sanitization are out
+  of scope.
 
 ### Response contract
 
 `DocumentSummary` exposes only `id`, `title`, `status`, `originalFileName`,
-`contentType`, `sizeBytes`, `createdAt`, and `updatedAt`. The processing
-`status` is one of `PENDING`, `PROCESSING`, `READY`, or `FAILED`. The file
-metadata fields (`originalFileName`, `contentType`, `sizeBytes`) are `null`
-until an upload is confirmed. Persistence-only fields — `storageKey`,
-`uploadedById`, and `failureReason` — are never returned.
+`contentType`, `sizeBytes`, `failureReason`, `createdAt`, and `updatedAt`. The
+processing `status` is one of `PENDING`, `PROCESSING`, `READY`, or `FAILED`.
+`originalFileName`, `contentType`, and `sizeBytes` are `null` until an upload is
+verified; after verification `contentType` and `sizeBytes` are the verified
+values and `originalFileName` is the client's declared name, if supplied.
+`failureReason` is `null` unless a verification attempt definitively failed, and
+then holds only the sanitized vocabulary above. Persistence-only fields —
+`uploadStorageKey`, `storageKey`, and `uploadedById` — are never returned.
 
 ### Limitations
 
-- **Uploads are issued but not verified.** `POST …/upload-url` hands out a
-  presigned `PUT`, but nothing confirms the object was uploaded. The only status
-  a document can reach today is `PENDING`; Phase 5.2B adds verification and the
-  `PROCESSING`, `READY`, and `FAILED` pipeline.
+- **Verification stops at `PROCESSING`.** `upload-complete` confirms and
+  promotes the object and transitions the document, but nothing extracts,
+  chunks, embeds, or processes it, so a document never reaches `READY`.
+- **Orphaned objects are not cleaned up.** A failed or superseded promotion can
+  leave a staging or verified object with no document referencing it, and there
+  is no deletion or garbage collection yet. An object's existence alone is
+  never proof that a document was accepted.
+- **The PDF signature check is not validation.** It only confirms the `%PDF-`
+  header; it does not establish that the file is a valid or safe PDF.
 - **Listing is unpaginated.** `GET …/documents` returns every document in the
   organization in one response. Pagination is deferred; large organizations
   will need it.

@@ -1,8 +1,10 @@
 import {
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
   PayloadTooLargeException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type {
   DocumentDetailResponse,
@@ -15,13 +17,27 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import {
   OBJECT_STORAGE,
+  ObjectVersionMismatchError,
   type ObjectStorage,
 } from '../storage/object-storage.port.js';
 import { StorageConfig } from '../storage/storage.config.js';
+import type { CompleteUploadInput } from './dto/complete-upload.schema.js';
 import type { CreateDocumentInput } from './dto/create-document.schema.js';
 import type { CreateUploadUrlInput } from './dto/create-upload-url.schema.js';
-import { createDocumentStorageKey } from './upload-key.js';
-import { MAX_UPLOAD_BYTES } from './upload-policy.js';
+import {
+  createDocumentStorageKey,
+  createVerifiedStorageKey,
+  isDocumentStagingKey,
+} from './upload-key.js';
+import {
+  MAX_UPLOAD_BYTES,
+  SIGNATURE_PREFIX_BYTES,
+  type UploadFailureReason,
+} from './upload-policy.js';
+import {
+  evaluateUploadMetadata,
+  evaluateUploadSignature,
+} from './verification-policy.js';
 
 const DOCUMENT_PUBLIC_SELECT = {
   id: true,
@@ -30,9 +46,12 @@ const DOCUMENT_PUBLIC_SELECT = {
   originalFileName: true,
   contentType: true,
   sizeBytes: true,
+  failureReason: true,
   createdAt: true,
   updatedAt: true,
 } as const;
+
+const VERIFIABLE_STATUSES = ['PENDING', 'FAILED'] as const;
 
 interface DocumentProjection {
   id: string;
@@ -41,6 +60,7 @@ interface DocumentProjection {
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;
+  failureReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,9 +73,18 @@ function toDocumentSummary(document: DocumentProjection): DocumentSummary {
     originalFileName: document.originalFileName,
     contentType: document.contentType,
     sizeBytes: document.sizeBytes,
+    failureReason: document.failureReason,
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
   };
+}
+
+function isProcessing(status: DocumentStatus): boolean {
+  return status === 'PROCESSING' || status === 'READY';
+}
+
+function normalizeObjectVersion(version: string): string {
+  return version.replace(/^W\//, '').replace(/^"|"$/g, '');
 }
 
 @Injectable()
@@ -96,6 +125,248 @@ export class DocumentsService {
     organizationId: string,
     documentId: string,
   ): Promise<DocumentDetailResponse> {
+    return this.readDocument(organizationId, documentId);
+  }
+
+  async createUploadUrl(
+    context: OrganizationContext,
+    documentId: string,
+    input: CreateUploadUrlInput,
+  ): Promise<DocumentUploadUrlResponse> {
+    const organizationId = context.organizationId;
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, organizationId },
+      select: { id: true, status: true },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (isProcessing(document.status)) {
+      throw new ConflictException(
+        'Upload URLs cannot be issued once processing has started',
+      );
+    }
+
+    if (input.sizeBytes !== undefined && input.sizeBytes > MAX_UPLOAD_BYTES) {
+      throw new PayloadTooLargeException(
+        `sizeBytes must not exceed ${MAX_UPLOAD_BYTES}`,
+      );
+    }
+
+    const key = createDocumentStorageKey(organizationId, documentId);
+
+    const upload = await this.storage.createPresignedUpload({
+      key,
+      contentType: input.contentType,
+      expiresInSeconds: this.storageConfig.uploadTtlSeconds,
+    });
+
+    const updated = await this.prisma.document.updateMany({
+      where: {
+        id: documentId,
+        organizationId,
+        status: { in: [...VERIFIABLE_STATUSES] },
+      },
+      data: { uploadStorageKey: key, expectedContentType: input.contentType },
+    });
+
+    if (updated.count === 0) {
+      throw new ConflictException(
+        'Upload URLs cannot be issued once processing has started',
+      );
+    }
+
+    return {
+      uploadUrl: upload.url,
+      method: upload.method,
+      headers: upload.headers,
+      expiresAt: upload.expiresAt.toISOString(),
+      maxSizeBytes: MAX_UPLOAD_BYTES,
+    };
+  }
+
+  async completeUpload(
+    context: OrganizationContext,
+    documentId: string,
+    input: CompleteUploadInput,
+  ): Promise<DocumentDetailResponse> {
+    const organizationId = context.organizationId;
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, organizationId },
+      select: {
+        id: true,
+        status: true,
+        uploadStorageKey: true,
+        expectedContentType: true,
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (isProcessing(document.status)) {
+      return this.readDocument(organizationId, documentId);
+    }
+
+    const stagingKey = document.uploadStorageKey;
+    const expectedContentType = document.expectedContentType;
+
+    if (!stagingKey || !expectedContentType) {
+      throw new ConflictException(
+        'No upload is awaiting verification for this document',
+      );
+    }
+
+    if (!isDocumentStagingKey(stagingKey, organizationId, documentId)) {
+      throw new ServiceUnavailableException(
+        'The document upload key is not valid for this document',
+      );
+    }
+
+    const inspected = await this.runStorage(() =>
+      this.storage.inspectObject(stagingKey),
+    );
+
+    if (!inspected) {
+      throw new ConflictException(
+        'The uploaded object was not found for this document',
+      );
+    }
+
+    const metadataFailure = evaluateUploadMetadata(
+      { sizeBytes: inspected.sizeBytes, contentType: inspected.contentType },
+      expectedContentType,
+    );
+
+    if (metadataFailure) {
+      return this.recordVerificationFailure(
+        organizationId,
+        documentId,
+        stagingKey,
+        metadataFailure,
+      );
+    }
+
+    const prefix = await this.runStorage(() =>
+      this.storage.readObjectPrefix({
+        key: stagingKey,
+        maxBytes: SIGNATURE_PREFIX_BYTES,
+        version: inspected.version,
+      }),
+    );
+
+    const signatureFailure = evaluateUploadSignature(
+      expectedContentType,
+      prefix,
+    );
+
+    if (signatureFailure) {
+      return this.recordVerificationFailure(
+        organizationId,
+        documentId,
+        stagingKey,
+        signatureFailure,
+      );
+    }
+
+    const verifiedKey = createVerifiedStorageKey(organizationId, documentId);
+
+    await this.runStorage(() =>
+      this.storage.copyObject({
+        sourceKey: stagingKey,
+        destinationKey: verifiedKey,
+        version: inspected.version,
+        contentType: expectedContentType,
+      }),
+    );
+
+    const promoted = await this.runStorage(() =>
+      this.storage.inspectObject(verifiedKey),
+    );
+
+    if (
+      !promoted ||
+      promoted.sizeBytes !== inspected.sizeBytes ||
+      promoted.contentType !== expectedContentType ||
+      normalizeObjectVersion(promoted.version) !==
+        normalizeObjectVersion(inspected.version)
+    ) {
+      throw new ServiceUnavailableException(
+        'The promoted object did not pass its integrity check',
+      );
+    }
+
+    const updated = await this.prisma.document.updateMany({
+      where: {
+        id: documentId,
+        organizationId,
+        uploadStorageKey: stagingKey,
+        status: { in: [...VERIFIABLE_STATUSES] },
+      },
+      data: {
+        storageKey: verifiedKey,
+        status: 'PROCESSING',
+        contentType: promoted.contentType,
+        sizeBytes: promoted.sizeBytes,
+        failureReason: null,
+        ...(input.originalFileName !== undefined
+          ? { originalFileName: input.originalFileName }
+          : {}),
+      },
+    });
+
+    if (updated.count === 0) {
+      return this.resolveSupersededCompletion(organizationId, documentId);
+    }
+
+    return this.readDocument(organizationId, documentId);
+  }
+
+  private async recordVerificationFailure(
+    organizationId: string,
+    documentId: string,
+    stagingKey: string,
+    reason: UploadFailureReason,
+  ): Promise<DocumentDetailResponse> {
+    const updated = await this.prisma.document.updateMany({
+      where: {
+        id: documentId,
+        organizationId,
+        uploadStorageKey: stagingKey,
+        status: { in: [...VERIFIABLE_STATUSES] },
+      },
+      data: { status: 'FAILED', failureReason: reason },
+    });
+
+    if (updated.count === 0) {
+      return this.resolveSupersededCompletion(organizationId, documentId);
+    }
+
+    return this.readDocument(organizationId, documentId);
+  }
+
+  private async resolveSupersededCompletion(
+    organizationId: string,
+    documentId: string,
+  ): Promise<DocumentDetailResponse> {
+    const current = await this.readDocument(organizationId, documentId);
+
+    if (isProcessing(current.document.status)) {
+      return current;
+    }
+
+    throw new ConflictException(
+      'The upload was superseded by a newer upload before it could be verified',
+    );
+  }
+
+  private async readDocument(
+    organizationId: string,
+    documentId: string,
+  ): Promise<DocumentDetailResponse> {
     const document = await this.prisma.document.findFirst({
       where: { id: documentId, organizationId },
       select: DOCUMENT_PUBLIC_SELECT,
@@ -108,45 +379,18 @@ export class DocumentsService {
     return { document: toDocumentSummary(document) };
   }
 
-  async createUploadUrl(
-    context: OrganizationContext,
-    documentId: string,
-    input: CreateUploadUrlInput,
-  ): Promise<DocumentUploadUrlResponse> {
-    const document = await this.prisma.document.findFirst({
-      where: { id: documentId, organizationId: context.organizationId },
-      select: { id: true },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    if (input.sizeBytes !== undefined && input.sizeBytes > MAX_UPLOAD_BYTES) {
-      throw new PayloadTooLargeException(
-        `sizeBytes must not exceed ${MAX_UPLOAD_BYTES}`,
+  private async runStorage<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof ObjectVersionMismatchError) {
+        throw new ConflictException(
+          'The uploaded object changed during verification',
+        );
+      }
+      throw new ServiceUnavailableException(
+        'Object storage is temporarily unavailable',
       );
     }
-
-    const key = createDocumentStorageKey(context.organizationId, documentId);
-
-    const upload = await this.storage.createPresignedUpload({
-      key,
-      contentType: input.contentType,
-      expiresInSeconds: this.storageConfig.uploadTtlSeconds,
-    });
-
-    await this.prisma.document.update({
-      where: { id: documentId },
-      data: { uploadStorageKey: key },
-    });
-
-    return {
-      uploadUrl: upload.url,
-      method: upload.method,
-      headers: upload.headers,
-      expiresAt: upload.expiresAt.toISOString(),
-      maxSizeBytes: MAX_UPLOAD_BYTES,
-    };
   }
 }

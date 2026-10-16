@@ -143,9 +143,10 @@ export type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
 /**
  * Public view of a document. Carries metadata only: file coordinates
  * (`originalFileName`, `contentType`, `sizeBytes`) are null until an upload is
- * confirmed, and persistence-only fields (`storageKey`, `uploadedById`,
- * `failureReason`) are deliberately absent — this is the only document shape
- * the API may return.
+ * verified, and persistence-only fields (`storageKey`, `uploadStorageKey`,
+ * `uploadedById`) are deliberately absent — this is the only document shape
+ * the API may return. `failureReason` is a sanitized, fixed-vocabulary string
+ * populated only when an upload fails verification.
  */
 export interface DocumentSummary {
   id: string;
@@ -154,6 +155,7 @@ export interface DocumentSummary {
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;
+  failureReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -191,4 +193,17 @@ export interface DocumentUploadUrlResponse {
   headers: Record<string, string>;
   expiresAt: string;
   maxSizeBytes: number;
+}
+
+/**
+ * Request body of
+ * `POST /organizations/:organizationId/documents/:documentId/upload-complete`.
+ *
+ * The client reports that it finished uploading and may declare a display name.
+ * `originalFileName` is the only acceptable field and is treated as unverified
+ * declared metadata: verified `contentType`, `sizeBytes`, `status`, and the
+ * storage keys are all server-derived and absent from this contract.
+ */
+export interface DocumentUploadCompleteRequest {
+  originalFileName?: string;
 }

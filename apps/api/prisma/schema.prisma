@@ -177,6 +177,11 @@ model Document {
   /// so it is never processed.
   uploadStorageKey String?
 
+  /// Content type the most recent upload URL was signed for. Verification
+  /// compares the stored object's real type against it; null until a URL is
+  /// issued (and for rows migrated from before verification existed).
+  expectedContentType String?
+
   /// Server-controlled key of the verified object. Set only after verification
   /// promotes the staging object; never handed to a client. Not exposed through
   /// the public API.
