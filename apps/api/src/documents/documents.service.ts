@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type {
   DocumentDetailResponse,
+  DocumentFailureKind,
   DocumentListResponse,
   DocumentStatus,
   DocumentSummary,
@@ -47,6 +48,7 @@ const DOCUMENT_PUBLIC_SELECT = {
   contentType: true,
   sizeBytes: true,
   failureReason: true,
+  failureKind: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -61,6 +63,7 @@ interface DocumentProjection {
   contentType: string | null;
   sizeBytes: number | null;
   failureReason: string | null;
+  failureKind: DocumentFailureKind | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,6 +77,7 @@ function toDocumentSummary(document: DocumentProjection): DocumentSummary {
     contentType: document.contentType,
     sizeBytes: document.sizeBytes,
     failureReason: document.failureReason,
+    failureKind: document.failureKind,
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
   };
@@ -312,6 +316,7 @@ export class DocumentsService {
         contentType: promoted.contentType,
         sizeBytes: promoted.sizeBytes,
         failureReason: null,
+        failureKind: null,
         ...(input.originalFileName !== undefined
           ? { originalFileName: input.originalFileName }
           : {}),
@@ -338,7 +343,11 @@ export class DocumentsService {
         uploadStorageKey: stagingKey,
         status: { in: [...VERIFIABLE_STATUSES] },
       },
-      data: { status: 'FAILED', failureReason: reason },
+      data: {
+        status: 'FAILED',
+        failureReason: reason,
+        failureKind: 'VERIFICATION',
+      },
     });
 
     if (updated.count === 0) {

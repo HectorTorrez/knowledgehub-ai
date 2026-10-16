@@ -42,7 +42,8 @@ Thumbs.db
 # Local tool state
 .hubble/
 
-# Local planning notes (not committed)
+# Local design and planning notes (not committed)
+docs/
 sprint*.md
 
 # Turborepo cache

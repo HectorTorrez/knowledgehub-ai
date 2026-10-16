@@ -225,6 +225,7 @@ describe('documents (e2e)', () => {
           contentType: null,
           sizeBytes: null,
           failureReason: null,
+          failureKind: null,
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
         },
@@ -371,6 +372,7 @@ describe('documents (e2e)', () => {
         [
           'contentType',
           'createdAt',
+          'failureKind',
           'failureReason',
           'id',
           'originalFileName',
@@ -477,6 +479,7 @@ describe('documents (e2e)', () => {
         [
           'contentType',
           'createdAt',
+          'failureKind',
           'failureReason',
           'id',
           'originalFileName',
@@ -520,6 +523,7 @@ describe('documents (e2e)', () => {
           contentType: null,
           sizeBytes: null,
           failureReason: null,
+          failureKind: null,
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
         },
@@ -1030,6 +1034,7 @@ describe('documents (e2e)', () => {
         contentType: 'application/pdf',
         sizeBytes: encoder.encode(pdfBytes).byteLength,
         failureReason: null,
+        failureKind: null,
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
       });
@@ -1039,6 +1044,7 @@ describe('documents (e2e)', () => {
       expect(document.uploadStorageKey).toBe(stagingKey);
       expect(document.expectedContentType).toBe('application/pdf');
       expect(document.failureReason).toBeNull();
+      expect(document.failureKind).toBeNull();
       expect(document.storageKey).not.toBeNull();
       expect(document.storageKey).not.toBe(stagingKey);
       expect(document.storageKey).toMatch(
@@ -1175,11 +1181,13 @@ describe('documents (e2e)', () => {
         .expect(({ body }) => {
           expect(body.document.status).toBe('FAILED');
           expect(body.document.failureReason).toBe('EMPTY_OBJECT');
+          expect(body.document.failureKind).toBe('VERIFICATION');
         });
 
       expect(response.body.document).not.toHaveProperty('storageKey');
       const document = await loadDocument(documentId);
       expect(document.storageKey).toBeNull();
+      expect(document.failureKind).toBe('VERIFICATION');
     });
 
     it('fails the document for an oversized object with SIZE_LIMIT_EXCEEDED', async () => {
@@ -1204,6 +1212,7 @@ describe('documents (e2e)', () => {
         .expect(200)
         .expect(({ body }) => {
           expect(body.document.failureReason).toBe('SIZE_LIMIT_EXCEEDED');
+          expect(body.document.failureKind).toBe('VERIFICATION');
         });
 
       expect((await loadDocument(documentId)).status).toBe('FAILED');
@@ -1226,6 +1235,7 @@ describe('documents (e2e)', () => {
         .expect(200)
         .expect(({ body }) => {
           expect(body.document.failureReason).toBe('CONTENT_TYPE_NOT_ALLOWED');
+          expect(body.document.failureKind).toBe('VERIFICATION');
         });
     });
 
@@ -1246,6 +1256,7 @@ describe('documents (e2e)', () => {
         .expect(200)
         .expect(({ body }) => {
           expect(body.document.failureReason).toBe('CONTENT_TYPE_MISMATCH');
+          expect(body.document.failureKind).toBe('VERIFICATION');
         });
     });
 
@@ -1265,6 +1276,7 @@ describe('documents (e2e)', () => {
         .expect(200);
 
       expect(response.body.document.failureReason).toBe('SIGNATURE_MISMATCH');
+      expect(response.body.document.failureKind).toBe('VERIFICATION');
       expect(JSON.stringify(response.body)).not.toContain('organizations/');
     });
 
@@ -1374,6 +1386,7 @@ describe('documents (e2e)', () => {
       expect(response.body.document.status).toBe('PROCESSING');
       expect(response.body.document.originalFileName).toBe('report.pdf');
       expect(response.body.document.failureReason).toBeNull();
+      expect(response.body.document.failureKind).toBeNull();
     });
 
     it('maps a transient storage failure to 503 without changing state', async () => {

@@ -5,9 +5,10 @@
 // by `prisma.config.ts`, both reading `DATABASE_URL`.
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "esm"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "esm"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -148,6 +149,22 @@ enum DocumentStatus {
   FAILED
 }
 
+/// Which stage a FAILED document failed in. Null unless `status` is FAILED.
+enum DocumentFailureKind {
+  VERIFICATION
+  PROCESSING
+}
+
+/// Queue state of a durable document processing job. QUEUED and CLAIMED are
+/// active (a document in PROCESSING has exactly one); SUCCEEDED and FAILED are
+/// terminal.
+enum ProcessingJobState {
+  QUEUED
+  CLAIMED
+  SUCCEEDED
+  FAILED
+}
+
 /// A file registered within a single organization.
 ///
 /// OWNERSHIP — a document belongs to its organization, not to the user who
@@ -172,6 +189,10 @@ model Document {
 
   status DocumentStatus @default(PENDING)
 
+  /// Increments exactly once per successful verification. It is the immutable
+  /// processing identity of the verified bytes and what a processing job targets.
+  generation Int @default(0)
+
   /// Client-writable staging key for the most recently issued upload URL. Each
   /// new upload URL supersedes it. The client can overwrite the object it names,
   /// so it is never processed.
@@ -184,7 +205,7 @@ model Document {
 
   /// Server-controlled key of the verified object. Set only after verification
   /// promotes the staging object; never handed to a client. Not exposed through
-  /// the public API.
+  /// the public API. Later phases read this key, not `uploadStorageKey`.
   storageKey String?
 
   originalFileName String?
@@ -194,9 +215,57 @@ model Document {
   /// Sanitized reason populated only when `status` is FAILED.
   failureReason String?
 
+  /// Which stage produced `failureReason`. Null unless `status` is FAILED.
+  failureKind DocumentFailureKind?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  processingJobs DocumentProcessingJob[]
+
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
+}
+
+/// Durable unit of document processing work, created atomically with the
+/// verification that promotes a document to PROCESSING.
+///
+/// IDENTITY — a job targets exactly one verified generation: `documentGeneration`
+/// plus the `verifiedStorageKey` snapshot. It never switches objects.
+///
+/// CLAIMS — `leaseId` is minted fresh on every claim and is the authority for the
+/// claiming worker's writes; a reclaimed job gets a new `leaseId`, so a stalled
+/// worker cannot publish after losing its lease.
+model DocumentProcessingJob {
+  id String @id @default(uuid()) @db.Uuid
+
+  documentId String   @db.Uuid
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  organizationId String @db.Uuid
+
+  documentGeneration Int
+  verifiedStorageKey String
+
+  state ProcessingJobState @default(QUEUED)
+
+  attempt       Int      @default(0)
+  maxAttempts   Int
+  nextAttemptAt DateTime @default(now())
+
+  leaseId        String?   @db.Uuid
+  leaseExpiresAt DateTime?
+  claimedBy      String?
+
+  /// Sanitized internal detail for operators. Never part of the public API.
+  lastError String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  finishedAt DateTime?
+
+  @@unique([documentId], where: raw("state IN ('QUEUED', 'CLAIMED')"))
+  @@index([nextAttemptAt, id], where: raw("state = 'QUEUED'"))
+  @@index([documentId, documentGeneration])
+  @@index([organizationId, state])
 }

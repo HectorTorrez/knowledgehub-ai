@@ -15,6 +15,7 @@ import { DocumentsService } from './documents.service.js';
 import { MAX_UPLOAD_BYTES } from './upload-policy.js';
 
 type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
+type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
 
 interface DocumentRecord {
   id: string;
@@ -28,6 +29,7 @@ interface DocumentRecord {
   contentType: string | null;
   sizeBytes: number | null;
   failureReason: string | null;
+  failureKind: DocumentFailureKind | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +52,7 @@ function documentRecord(
     contentType: null,
     sizeBytes: null,
     failureReason: null,
+    failureKind: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-02T00:00:00.000Z'),
     ...overrides,
@@ -179,6 +182,7 @@ function createCompletionHarness(
 const PUBLIC_DOCUMENT_FIELDS = [
   'contentType',
   'createdAt',
+  'failureKind',
   'failureReason',
   'id',
   'originalFileName',
@@ -205,6 +209,7 @@ describe('DocumentsService.create', () => {
         contentType: null,
         sizeBytes: null,
         failureReason: null,
+        failureKind: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
@@ -272,6 +277,7 @@ describe('DocumentsService.list', () => {
         contentType: true,
         sizeBytes: true,
         failureReason: true,
+        failureKind: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -304,6 +310,7 @@ describe('DocumentsService.list', () => {
         contentType: null,
         sizeBytes: null,
         failureReason: null,
+        failureKind: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
@@ -315,6 +322,7 @@ describe('DocumentsService.list', () => {
         contentType: null,
         sizeBytes: null,
         failureReason: null,
+        failureKind: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
@@ -652,7 +660,10 @@ describe('DocumentsService.completeUpload', () => {
   it('records EMPTY_OBJECT for a zero-byte object', async () => {
     const storage = new FakeObjectStorage();
     storage.putObject(STAGING_KEY, new Uint8Array(), 'application/pdf');
-    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     const result = await service.completeUpload(
       organizationContext(),
@@ -662,7 +673,13 @@ describe('DocumentsService.completeUpload', () => {
 
     expect(result.document.status).toBe('FAILED');
     expect(result.document.failureReason).toBe('EMPTY_OBJECT');
+    expect(result.document.failureKind).toBe('VERIFICATION');
     expect(state.storageKey).toBeNull();
+    expect(prisma.document.updateMany.mock.calls[0][0].data).toMatchObject({
+      status: 'FAILED',
+      failureReason: 'EMPTY_OBJECT',
+      failureKind: 'VERIFICATION',
+    });
   });
 
   it('records SIZE_LIMIT_EXCEEDED when the real size exceeds the cap', async () => {
@@ -683,6 +700,7 @@ describe('DocumentsService.completeUpload', () => {
     );
 
     expect(result.document.failureReason).toBe('SIZE_LIMIT_EXCEEDED');
+    expect(result.document.failureKind).toBe('VERIFICATION');
     expect(state.storageKey).toBeNull();
   });
 
@@ -704,6 +722,7 @@ describe('DocumentsService.completeUpload', () => {
     );
 
     expect(result.document.failureReason).toBe('CONTENT_TYPE_NOT_ALLOWED');
+    expect(result.document.failureKind).toBe('VERIFICATION');
     expect(state.storageKey).toBeNull();
   });
 
@@ -719,6 +738,7 @@ describe('DocumentsService.completeUpload', () => {
     );
 
     expect(result.document.failureReason).toBe('CONTENT_TYPE_MISMATCH');
+    expect(result.document.failureKind).toBe('VERIFICATION');
     expect(state.storageKey).toBeNull();
   });
 
@@ -734,6 +754,7 @@ describe('DocumentsService.completeUpload', () => {
     );
 
     expect(result.document.failureReason).toBe('SIGNATURE_MISMATCH');
+    expect(result.document.failureKind).toBe('VERIFICATION');
     expect(state.storageKey).toBeNull();
   });
 
@@ -755,6 +776,7 @@ describe('DocumentsService.completeUpload', () => {
     expect(state.contentType).toBe('application/pdf');
     expect(state.sizeBytes).toBe(encoder.encode('%PDF-1.7\nverified body').byteLength);
     expect(state.failureReason).toBeNull();
+    expect(state.failureKind).toBeNull();
     expect(state.storageKey).not.toBeNull();
     expect(state.storageKey).not.toBe(STAGING_KEY);
     expect(state.storageKey).toMatch(
@@ -762,6 +784,7 @@ describe('DocumentsService.completeUpload', () => {
     );
     expect(result.document.status).toBe('PROCESSING');
     expect(result.document.failureReason).toBeNull();
+    expect(result.document.failureKind).toBeNull();
 
     const args = prisma.document.updateMany.mock.calls[0][0];
     expect(args.where).toEqual({
@@ -769,6 +792,11 @@ describe('DocumentsService.completeUpload', () => {
       organizationId: 'org-1',
       uploadStorageKey: STAGING_KEY,
       status: { in: ['PENDING', 'FAILED'] },
+    });
+    expect(args.data).toMatchObject({
+      status: 'PROCESSING',
+      failureReason: null,
+      failureKind: null,
     });
   });
 

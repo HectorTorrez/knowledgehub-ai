@@ -135,10 +135,19 @@ export interface UpdateMemberRoleResponse {
 
 /**
  * Processing lifecycle of a document. `PENDING` means registered but not yet
- * uploaded or processed; the remaining states describe the processing pipeline,
- * which is not implemented yet, so every document currently stays `PENDING`.
+ * verified; `PROCESSING` means the uploaded bytes are verified and promoted to
+ * server-controlled storage and a durable processing job exists; `READY` means
+ * the processing pipeline completed; `FAILED` means it failed (see
+ * `DocumentFailureKind`).
  */
 export type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
+
+/**
+ * Which stage a `FAILED` document failed in: `VERIFICATION` for an upload that
+ * failed the storage verification boundary, `PROCESSING` for a verified document
+ * whose processing failed. Null unless `status` is `FAILED`.
+ */
+export type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
 
 /**
  * Public view of a document. Carries metadata only: file coordinates
@@ -146,7 +155,9 @@ export type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
  * verified, and persistence-only fields (`storageKey`, `uploadStorageKey`,
  * `uploadedById`) are deliberately absent — this is the only document shape
  * the API may return. `failureReason` is a sanitized, fixed-vocabulary string
- * populated only when an upload fails verification.
+ * populated only when a document fails; `failureKind` says whether it was an
+ * upload-verification failure or a processing failure. Neither carries internal
+ * diagnostics.
  */
 export interface DocumentSummary {
   id: string;
@@ -156,6 +167,7 @@ export interface DocumentSummary {
   contentType: string | null;
   sizeBytes: number | null;
   failureReason: string | null;
+  failureKind: DocumentFailureKind | null;
   createdAt: string;
   updatedAt: string;
 }

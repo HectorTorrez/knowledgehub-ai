@@ -412,12 +412,12 @@ Both a successful and a definitive-failure outcome return `200 { document }`
 | Not a member / not authenticated / malformed | `403` / `401` / `400` | none |
 
 A definitive failure stores one of a fixed vocabulary of reasons in
-`failureReason`: `EMPTY_OBJECT`, `SIZE_LIMIT_EXCEEDED`,
-`CONTENT_TYPE_NOT_ALLOWED`, `CONTENT_TYPE_MISMATCH`, or `SIGNATURE_MISMATCH`.
-Missing objects, version changes, supersession, and transient faults never set a
-reason or change the status. Repeating completion on a `PROCESSING` or `READY`
-document is a pure no-op: no inspection, promotion, metadata rewrite, key
-change, or enqueue.
+`failureReason` and sets `failureKind` to `VERIFICATION`: `EMPTY_OBJECT`,
+`SIZE_LIMIT_EXCEEDED`, `CONTENT_TYPE_NOT_ALLOWED`, `CONTENT_TYPE_MISMATCH`, or
+`SIGNATURE_MISMATCH`. Missing objects, version changes, supersession, and
+transient faults never set a reason or change the status. Repeating completion on
+a `PROCESSING` or `READY` document is a pure no-op: no inspection, promotion,
+metadata rewrite, key change, or enqueue.
 
 ### Staging keys versus verified keys
 
@@ -459,14 +459,16 @@ yet (see [Limitations](#limitations)).
 ### Response contract
 
 `DocumentSummary` exposes only `id`, `title`, `status`, `originalFileName`,
-`contentType`, `sizeBytes`, `failureReason`, `createdAt`, and `updatedAt`. The
-processing `status` is one of `PENDING`, `PROCESSING`, `READY`, or `FAILED`.
-`originalFileName`, `contentType`, and `sizeBytes` are `null` until an upload is
-verified; after verification `contentType` and `sizeBytes` are the verified
-values and `originalFileName` is the client's declared name, if supplied.
-`failureReason` is `null` unless a verification attempt definitively failed, and
-then holds only the sanitized vocabulary above. Persistence-only fields —
-`uploadStorageKey`, `storageKey`, and `uploadedById` — are never returned.
+`contentType`, `sizeBytes`, `failureReason`, `failureKind`, `createdAt`, and
+`updatedAt`. The processing `status` is one of `PENDING`, `PROCESSING`, `READY`,
+or `FAILED`. `originalFileName`, `contentType`, and `sizeBytes` are `null` until
+an upload is verified; after verification `contentType` and `sizeBytes` are the
+verified values and `originalFileName` is the client's declared name, if
+supplied. `failureReason` and `failureKind` are `null` unless the document
+failed; `failureKind` is `VERIFICATION` for an upload that failed verification
+and `PROCESSING` for a verified document whose processing failed, and
+`failureReason` then holds only the sanitized vocabulary. Persistence-only fields
+— `uploadStorageKey`, `storageKey`, and `uploadedById` — are never returned.
 
 ### Limitations
 
