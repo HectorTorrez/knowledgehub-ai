@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
@@ -119,6 +120,7 @@ function targetMembershipRow(
 }
 
 interface HarnessOptions {
+  transactionError?: unknown;
   membershipCreateFails?: boolean;
   membershipCreateError?: unknown;
   memberships?: MembershipWithOrganization[];
@@ -187,10 +189,17 @@ function createHarness(options: HarnessOptions = {}) {
   const calls: string[] = [];
 
   const tx = {
-    $queryRaw: vi.fn(async () => {
-      calls.push('lock-organization');
-      return options.lockRows ?? [{ id: 'org-1' }];
-    }),
+    $queryRaw: vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const sql = strings.join('');
+        if (sql.includes('set_config')) {
+          calls.push('bound-lock-wait');
+          return [{ set_config: values[0] }];
+        }
+        calls.push('lock-organization');
+        return options.lockRows ?? [{ id: 'org-1' }];
+      },
+    ),
     organization: {
       create: vi.fn(async ({ data }: { data: { name: string } }) => {
         const organization = organizationRecord(
@@ -273,6 +282,9 @@ function createHarness(options: HarnessOptions = {}) {
     },
     $transaction: vi.fn(
       async (callback: (client: typeof tx) => Promise<unknown>) => {
+        if (options.transactionError !== undefined) {
+          throw options.transactionError;
+        }
         const organizationSnapshot = [...organizations];
         const membershipSnapshot = [...memberships];
         try {
@@ -649,18 +661,31 @@ describe('OrganizationsService.addMember', () => {
       email: 'new-user@example.test',
     });
 
-    expect(calls).toEqual(['lock-organization', 'read-actor-membership']);
+    expect(calls).toEqual([
+      'bound-lock-wait',
+      'lock-organization',
+      'read-actor-membership',
+    ]);
   });
 
-  it('locks the organization through a parameterized FOR UPDATE query', async () => {
+  it('bounds the lock wait before the parameterized FOR UPDATE query', async () => {
     const { service, tx } = createHarness();
 
     await service.addMember(organizationContext(), {
       email: 'new-user@example.test',
     });
 
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
-    const [strings, organizationId] = tx.$queryRaw.mock.calls[0] as unknown as [
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+
+    const [setConfigStrings, lockTimeout] = tx.$queryRaw.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      string,
+    ];
+    expect(setConfigStrings.join('')).toContain('set_config');
+    expect(setConfigStrings.join('')).toContain('lock_timeout');
+    expect(lockTimeout).toBe('1000ms');
+
+    const [strings, organizationId] = tx.$queryRaw.mock.calls[1] as unknown as [
       TemplateStringsArray,
       string,
     ];
@@ -678,7 +703,7 @@ describe('OrganizationsService.addMember', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
 
-    expect(calls).toEqual(['lock-organization']);
+    expect(calls).toEqual(['bound-lock-wait', 'lock-organization']);
     expect(tx.membership.create).not.toHaveBeenCalled();
     expect(memberships).toHaveLength(0);
   });
@@ -946,6 +971,7 @@ describe('OrganizationsService.updateMemberRole', () => {
     expect(tx.membership.update).not.toHaveBeenCalled();
     expect(tx.membership.count).not.toHaveBeenCalled();
     expect(calls).toEqual([
+      'bound-lock-wait',
       'lock-organization',
       'read-actor-membership',
       'read-target-membership',
@@ -977,6 +1003,7 @@ describe('OrganizationsService.updateMemberRole', () => {
     });
 
     expect(calls).toEqual([
+      'bound-lock-wait',
       'lock-organization',
       'read-actor-membership',
       'read-target-membership',
@@ -993,8 +1020,8 @@ describe('OrganizationsService.updateMemberRole', () => {
       role: 'OWNER',
     });
 
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
-    const [strings, organizationId] = tx.$queryRaw.mock.calls[0] as unknown as [
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    const [strings, organizationId] = tx.$queryRaw.mock.calls[1] as unknown as [
       TemplateStringsArray,
       string,
     ];
@@ -1015,7 +1042,7 @@ describe('OrganizationsService.updateMemberRole', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
 
-    expect(calls).toEqual(['lock-organization']);
+    expect(calls).toEqual(['bound-lock-wait', 'lock-organization']);
     expect(tx.membership.update).not.toHaveBeenCalled();
   });
 
@@ -1053,7 +1080,11 @@ describe('OrganizationsService.updateMemberRole', () => {
 
     expect(error).toBeInstanceOf(ForbiddenException);
     expect((error as Error).message).toContain('change member roles');
-    expect(calls).toEqual(['lock-organization', 'read-actor-membership']);
+    expect(calls).toEqual([
+      'bound-lock-wait',
+      'lock-organization',
+      'read-actor-membership',
+    ]);
     expect(tx.membership.update).not.toHaveBeenCalled();
   });
 
@@ -1158,6 +1189,7 @@ describe('OrganizationsService.removeMember', () => {
     await service.removeMember(organizationContext(), TARGET_USER_ID);
 
     expect(calls).toEqual([
+      'bound-lock-wait',
       'lock-organization',
       'read-actor-membership',
       'read-target-membership',
@@ -1172,8 +1204,8 @@ describe('OrganizationsService.removeMember', () => {
 
     await service.removeMember(organizationContext(), TARGET_USER_ID);
 
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
-    const [strings, organizationId] = tx.$queryRaw.mock.calls[0] as unknown as [
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    const [strings, organizationId] = tx.$queryRaw.mock.calls[1] as unknown as [
       TemplateStringsArray,
       string,
     ];
@@ -1192,7 +1224,7 @@ describe('OrganizationsService.removeMember', () => {
       service.removeMember(organizationContext(), TARGET_USER_ID),
     ).rejects.toBeInstanceOf(NotFoundException);
 
-    expect(calls).toEqual(['lock-organization']);
+    expect(calls).toEqual(['bound-lock-wait', 'lock-organization']);
     expect(tx.membership.delete).not.toHaveBeenCalled();
   });
 
@@ -1226,7 +1258,11 @@ describe('OrganizationsService.removeMember', () => {
 
     expect(error).toBeInstanceOf(ForbiddenException);
     expect((error as Error).message).toContain('remove members');
-    expect(calls).toEqual(['lock-organization', 'read-actor-membership']);
+    expect(calls).toEqual([
+      'bound-lock-wait',
+      'lock-organization',
+      'read-actor-membership',
+    ]);
     expect(tx.membership.delete).not.toHaveBeenCalled();
   });
 
@@ -1308,5 +1344,147 @@ describe('OrganizationsService.removeMember', () => {
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(tx.membership.delete).not.toHaveBeenCalled();
+  });
+});
+
+function adapterError(
+  code: string,
+  meta?: Record<string, unknown>,
+): unknown {
+  return new Prisma.PrismaClientKnownRequestError('adapter error', {
+    code,
+    clientVersion: 'test',
+    meta,
+  });
+}
+
+const lockTimeoutError = () =>
+  adapterError('P2010', {
+    driverAdapterError: {
+      cause: { kind: 'postgres', code: '55P03', originalCode: '55P03' },
+    },
+  });
+
+const deadlockError = () =>
+  adapterError('P2010', {
+    driverAdapterError: { cause: { kind: 'TransactionWriteConflict' } },
+  });
+
+const executionTimeoutError = () =>
+  adapterError('P2028', { operation: 'query', timeout: 2000, timeTaken: 4800 });
+
+const unrecognizedTransactionError = () =>
+  new Prisma.PrismaClientKnownRequestError(
+    'Transaction not found. Transaction ID is invalid.',
+    { code: 'P2028', clientVersion: 'test', meta: {} },
+  );
+
+describe('OrganizationsService transient transaction mapping', () => {
+  it('maps an interactive transaction timeout on addMember to 503', async () => {
+    const { service, tx } = createHarness({
+      transactionError: executionTimeoutError(),
+    });
+
+    const error = await service
+      .addMember(organizationContext(), { email: 'new-user@example.test' })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as ServiceUnavailableException).getStatus()).toBe(503);
+    expect(tx.membership.create).not.toHaveBeenCalled();
+  });
+
+  it('maps a PostgreSQL lock timeout on updateMemberRole to 503', async () => {
+    const { service } = createHarness({ transactionError: lockTimeoutError() });
+
+    const error = await service
+      .updateMemberRole(organizationContext(), TARGET_USER_ID, { role: 'OWNER' })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('maps a deadlock on removeMember to 503', async () => {
+    const { service } = createHarness({ transactionError: deadlockError() });
+
+    const error = await service
+      .removeMember(organizationContext(), TARGET_USER_ID)
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('does not rewrite an unrecognized P2028 into 503', async () => {
+    const original = unrecognizedTransactionError();
+    const { service } = createHarness({ transactionError: original });
+
+    const error = await service
+      .updateMemberRole(organizationContext(), TARGET_USER_ID, { role: 'OWNER' })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBe(original);
+    expect(error).not.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('does not rewrite unrelated exceptions', async () => {
+    const original = new Error('boom');
+    const { service } = createHarness({ transactionError: original });
+
+    const error = await service
+      .removeMember(organizationContext(), TARGET_USER_ID)
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBe(original);
+  });
+
+  it('still reports a duplicate membership as 409 when the transaction rejects with it', async () => {
+    const { service } = createHarness({
+      transactionError: membershipUniqueError(),
+    });
+
+    const error = await service
+      .addMember(organizationContext(), { email: 'new-user@example.test' })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect(error).not.toBeInstanceOf(ServiceUnavailableException);
+  });
+});
+
+describe('OrganizationsService lock wait bounding', () => {
+  type Transaction = ReturnType<typeof createHarness>['tx'];
+
+  function expectLockWaitBounded(tx: Transaction): void {
+    const [strings, lockTimeout] = tx.$queryRaw.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      string,
+    ];
+    const statement = strings.join('');
+    expect(statement).toContain('set_config');
+    expect(statement).toContain('lock_timeout');
+    expect(statement).toContain('true');
+    expect(lockTimeout).toBe('1000ms');
+  }
+
+  it('bounds the lock wait before locking for every membership mutation', async () => {
+    const add = createHarness();
+    await add.service.addMember(organizationContext(), {
+      email: 'new-user@example.test',
+    });
+    expectLockWaitBounded(add.tx);
+
+    const update = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+    await update.service.updateMemberRole(organizationContext(), TARGET_USER_ID, {
+      role: 'OWNER',
+    });
+    expectLockWaitBounded(update.tx);
+
+    const remove = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+    await remove.service.removeMember(organizationContext(), TARGET_USER_ID);
+    expectLockWaitBounded(remove.tx);
   });
 });

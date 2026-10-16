@@ -106,3 +106,91 @@ Tokens are issued as `HttpOnly` cookies (with bearer tokens supported as an
 alternative) and refresh tokens rotate on every use. Configure lifetimes, cookie
 behavior, browser auth, and CSRF through `apps/api/.env`; see
 `apps/api/.env.example` for the full list.
+
+## Organizations and membership
+
+Every organization endpoint requires an authenticated session: send the access
+token as `Authorization: Bearer <token>` or as the `HttpOnly` access cookie.
+Unauthenticated requests return `401`. Responses follow the
+`@knowledgehub/shared-types` contracts and never expose persistence-only fields.
+
+```
+POST   /organizations
+GET    /organizations
+GET    /organizations/:organizationId
+GET    /organizations/:organizationId/members
+POST   /organizations/:organizationId/members
+PATCH  /organizations/:organizationId/members/:userId
+DELETE /organizations/:organizationId/members/:userId
+```
+
+Tenant routes (`/:organizationId` and below) additionally require membership in
+that organization. Membership is read from the database on every request, so a
+revoked membership stops working immediately. A caller who is not a member — or
+an id that does not exist — gets `403`, which deliberately does not reveal
+whether the organization exists; a malformed `:organizationId` or `:userId`
+gets `400`.
+
+### POST /organizations → 201
+
+Body `{ "name": string }` (trimmed, 1–100 characters; unknown fields are
+rejected with `400`). The caller is created as the organization's `OWNER`.
+Returns `{ organization }` (`OrganizationDetailResponse`).
+
+### GET /organizations → 200
+
+Returns `{ organizations }` (`OrganizationListResponse`): only the
+organizations the caller belongs to, each carrying the caller's role, ordered by
+creation time then id.
+
+### GET /organizations/:organizationId → 200
+
+Returns `{ organization }` (`OrganizationDetailResponse`) with the caller's role.
+
+### GET /organizations/:organizationId/members → 200
+
+Any member (OWNER or MEMBER) may call this. Returns `{ members }`
+(`MemberListResponse`), ordered by join date then user id.
+
+### POST /organizations/:organizationId/members → 201
+
+OWNER only; a MEMBER gets `403`. Body `{ "email": string }`, normalized the same
+way as registration. The existing user is added as a `MEMBER`; the response is
+`{ member }` (`AddMemberResponse`). Returns `404` when no user has that email and
+`409` when the user is already a member.
+
+### PATCH /organizations/:organizationId/members/:userId → 200
+
+OWNER only. Body `{ "role": "OWNER" | "MEMBER" }`. Returns `{ member }`
+(`UpdateMemberRoleResponse`). Returns `404` when the target is not a member of
+this organization and `409` when the change would leave the organization without
+an owner.
+
+### DELETE /organizations/:organizationId/members/:userId → 204
+
+OWNER only. Responds `204 No Content` with an empty body. Returns `404` when the
+target is not a member and `409` when removing the target would leave the
+organization without an owner.
+
+### Ownership and contention
+
+Every organization must keep at least one `OWNER`. This is an
+application-enforced invariant, not a database constraint or trigger: each
+membership mutation locks the organization row (`SELECT ... FOR UPDATE`),
+revalidates the caller's `OWNER` role inside the transaction, then reads or
+changes memberships. The invariant is documented on the `Organization` model in
+`apps/api/prisma/schema.prisma`.
+
+Membership mutations run with explicit transaction limits (2000 ms to acquire a
+pooled connection, 5000 ms once the transaction has started). Immediately before
+locking the organization row, each mutation sets a transaction-local PostgreSQL
+`lock_timeout` of 1000 ms (`set_config('lock_timeout', '1000ms', true)`); the
+setting reverts when the transaction ends and never leaks to the pooled
+connection. A contended lock wait therefore fails as a PostgreSQL lock timeout
+(`55P03`) within about a second instead of occupying a pooled connection until
+the holder finishes. Reliably recognised transaction-contention or timeout
+failures — a PostgreSQL lock timeout (`55P03`), a deadlock or serialization
+failure (`40P01` / `40001`), or an interactive-transaction timeout — return `503
+Service Unavailable`. The API does not retry mutations automatically.
+
+Failed requests use the `ApiErrorResponse` shape `{ statusCode, message, error? }`.

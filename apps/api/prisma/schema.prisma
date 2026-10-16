@@ -97,6 +97,14 @@ enum MembershipRole {
 
 /// A tenant. Identity is modeled separately (see `User`): an organization is
 /// joined through memberships rather than embedded on the user.
+///
+/// INVARIANT — every organization must retain at least one OWNER membership.
+/// This is enforced by application logic in `OrganizationsService`, not by a
+/// database constraint, so it is only as strong as the writes that respect it:
+/// every membership mutation that can reduce the owner count must acquire the
+/// organization row with `SELECT ... FOR UPDATE` before it reads or changes
+/// memberships, and must revalidate the actor's OWNER role inside that same
+/// transaction.
 model Organization {
   id String @id @default(uuid()) @db.Uuid
 

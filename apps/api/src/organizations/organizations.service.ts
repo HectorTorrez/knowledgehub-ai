@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type {
   AddMemberResponse,
@@ -16,6 +17,7 @@ import type {
 } from '@knowledgehub/shared-types';
 import { MembershipRole, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { isTransientTransactionFailure } from '../prisma/transient-transaction-errors.js';
 import { normalizeEmail } from '../users/email.js';
 import type { AddMemberInput } from './dto/add-member.schema.js';
 import type { CreateOrganizationInput } from './dto/create-organization.schema.js';
@@ -28,6 +30,8 @@ import type {
 const MEMBERSHIP_USER_ORGANIZATION_CONSTRAINT =
   'Membership_userId_organizationId_key';
 
+const ORGANIZATION_LOCK_TIMEOUT = '1000ms';
+
 /**
  * READ COMMITTED is PostgreSQL's default and is what the organization-row lock
  * protocol relies on: a `FOR UPDATE` that blocks behind another transaction
@@ -36,6 +40,8 @@ const MEMBERSHIP_USER_ORGANIZATION_CONSTRAINT =
  */
 const MEMBERSHIP_MUTATION_TRANSACTION = {
   isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+  maxWait: 2_000,
+  timeout: 5_000,
 } as const;
 
 const MEMBER_PROJECTION = {
@@ -54,6 +60,10 @@ export async function lockOrganization(
   tx: Prisma.TransactionClient,
   organizationId: string,
 ): Promise<void> {
+  await tx.$queryRaw`
+    SELECT set_config('lock_timeout', ${ORGANIZATION_LOCK_TIMEOUT}, true)
+  `;
+
   const locked = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE
   `;
@@ -86,6 +96,21 @@ export async function requireOwner(
 @Injectable()
 export class OrganizationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private runMembershipTransaction<T>(
+    work: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma
+      .$transaction(work, MEMBERSHIP_MUTATION_TRANSACTION)
+      .catch((error: unknown) => {
+        if (isTransientTransactionFailure(error)) {
+          throw new ServiceUnavailableException(
+            'The organization is temporarily unavailable; retry the request.',
+          );
+        }
+        throw error;
+      });
+  }
 
   async create(
     userId: string,
@@ -154,7 +179,7 @@ export class OrganizationsService {
     const email = normalizeEmail(input.email);
 
     try {
-      const member = await this.prisma.$transaction(async (tx) => {
+      const member = await this.runMembershipTransaction(async (tx) => {
         await lockOrganization(tx, context.organizationId);
         await requireOwner(tx, context, 'add members');
 
@@ -188,7 +213,7 @@ export class OrganizationsService {
           createdAt: membership.createdAt,
           user,
         });
-      }, MEMBERSHIP_MUTATION_TRANSACTION);
+      });
 
       return { member };
     } catch (error) {
@@ -206,7 +231,7 @@ export class OrganizationsService {
     targetUserId: string,
     input: UpdateMemberRoleInput,
   ): Promise<UpdateMemberRoleResponse> {
-    const member = await this.prisma.$transaction(async (tx) => {
+    const member = await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
       await requireOwner(tx, context, 'change member roles');
 
@@ -258,7 +283,7 @@ export class OrganizationsService {
       });
 
       return toOrganizationMember(updated);
-    }, MEMBERSHIP_MUTATION_TRANSACTION);
+    });
 
     return { member };
   }
@@ -267,7 +292,7 @@ export class OrganizationsService {
     context: OrganizationContext,
     targetUserId: string,
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
       await requireOwner(tx, context, 'remove members');
 
@@ -308,7 +333,7 @@ export class OrganizationsService {
           },
         },
       });
-    }, MEMBERSHIP_MUTATION_TRANSACTION);
+    });
   }
 }
 
