@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -102,6 +103,26 @@ export class OrganizationTenantController {
       requireOrganizationContext(request),
       userId,
       body,
+    );
+  }
+
+  /**
+   * Removes a member from the organization. The target is the route `userId`,
+   * validated as a UUID so a malformed id is a `400` before it reaches the
+   * database, and the organization is read from the guarded context. The
+   * class-level guards prove membership only; the service revalidates the
+   * caller's OWNER role inside the writing transaction and enforces the
+   * last-owner invariant. A successful removal is `204 No Content`.
+   */
+  @Delete(':organizationId/members/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeMember(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Req() request: OrganizationRequest,
+  ): Promise<void> {
+    await this.organizations.removeMember(
+      requireOrganizationContext(request),
+      userId,
     );
   }
 }

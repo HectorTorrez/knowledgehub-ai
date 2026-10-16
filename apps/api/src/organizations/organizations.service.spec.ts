@@ -258,6 +258,12 @@ function createHarness(options: HarnessOptions = {}) {
           return { ...base, role: data.role };
         },
       ),
+      delete: vi.fn(async () => {
+        calls.push('delete-membership');
+        return (
+          options.targetMembership ?? targetMembershipRow('target-user', 'MEMBER')
+        );
+      }),
     },
     user: {
       findUnique: vi.fn(
@@ -1130,5 +1136,190 @@ describe('OrganizationsService.updateMemberRole', () => {
       'role',
       'createdAt',
     ]);
+  });
+});
+
+describe('OrganizationsService.removeMember', () => {
+  it('removes a MEMBER scoped to the context organization and route user', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await expect(
+      service.removeMember(organizationContext(), TARGET_USER_ID),
+    ).resolves.toBeUndefined();
+
+    expect(tx.membership.delete).toHaveBeenCalledTimes(1);
+    expect(tx.membership.delete).toHaveBeenCalledWith({
+      where: {
+        userId_organizationId: {
+          userId: TARGET_USER_ID,
+          organizationId: 'org-1',
+        },
+      },
+    });
+    // Removing a MEMBER cannot change the owner count, so it is never read.
+    expect(tx.membership.count).not.toHaveBeenCalled();
+  });
+
+  it('acquires the organization lock before reading the actor and the target', async () => {
+    const { service, calls } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await service.removeMember(organizationContext(), TARGET_USER_ID);
+
+    expect(calls).toEqual([
+      'lock-organization',
+      'read-actor-membership',
+      'read-target-membership',
+      'delete-membership',
+    ]);
+  });
+
+  it('locks the organization through a parameterized FOR UPDATE query', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await service.removeMember(organizationContext(), TARGET_USER_ID);
+
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    const [strings, organizationId] = tx.$queryRaw.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      string,
+    ];
+    expect(strings.join('')).toContain('FROM "Organization"');
+    expect(strings.join('')).toContain('FOR UPDATE');
+    expect(organizationId).toBe('org-1');
+  });
+
+  it('fails with 404 without reading the actor or deleting when the organization row is missing', async () => {
+    const { service, tx, calls } = createHarness({
+      lockRows: [],
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await expect(
+      service.removeMember(organizationContext(), TARGET_USER_ID),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(calls).toEqual(['lock-organization']);
+    expect(tx.membership.delete).not.toHaveBeenCalled();
+  });
+
+  it('revalidates the OWNER role on the transaction client', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await service.removeMember(organizationContext(), TARGET_USER_ID);
+
+    expect(tx.membership.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_organizationId: {
+          userId: 'owner-1',
+          organizationId: 'org-1',
+        },
+      },
+      select: { role: true },
+    });
+  });
+
+  it('rejects with 403 when the transaction re-read shows a non-owner, before touching the target', async () => {
+    const { service, tx, calls } = createHarness({
+      actorMembership: { role: 'MEMBER' },
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    const error = await service
+      .removeMember(organizationContext('OWNER'), TARGET_USER_ID)
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ForbiddenException);
+    expect((error as Error).message).toContain('remove members');
+    expect(calls).toEqual(['lock-organization', 'read-actor-membership']);
+    expect(tx.membership.delete).not.toHaveBeenCalled();
+  });
+
+  it('rejects with 403 when the actor membership no longer exists', async () => {
+    const { service, tx } = createHarness({
+      actorMembership: null,
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
+    });
+
+    await expect(
+      service.removeMember(organizationContext('OWNER'), TARGET_USER_ID),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(tx.membership.delete).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the target is not a member of the organization', async () => {
+    const { service, tx } = createHarness({ targetMembership: null });
+
+    await expect(
+      service.removeMember(organizationContext(), TARGET_USER_ID),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(tx.membership.count).not.toHaveBeenCalled();
+    expect(tx.membership.delete).not.toHaveBeenCalled();
+  });
+
+  it('removes an OWNER when another owner remains', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'OWNER'),
+      ownerCount: 2,
+    });
+
+    await service.removeMember(organizationContext(), TARGET_USER_ID);
+
+    expect(tx.membership.count).toHaveBeenCalledWith({
+      where: { organizationId: 'org-1', role: 'OWNER' },
+    });
+    expect(tx.membership.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows an owner to remove themselves while another owner remains', async () => {
+    // The actor is owner-1, and the target is that same user.
+    const { service, tx } = createHarness({ ownerCount: 2 });
+
+    await service.removeMember(organizationContext(), ACTOR_USER_ID);
+
+    expect(tx.membership.delete).toHaveBeenCalledWith({
+      where: {
+        userId_organizationId: {
+          userId: ACTOR_USER_ID,
+          organizationId: 'org-1',
+        },
+      },
+    });
+  });
+
+  it('returns 409 when removing the last owner would leave no owner', async () => {
+    const { service, tx } = createHarness({
+      targetMembership: targetMembershipRow(TARGET_USER_ID, 'OWNER'),
+      ownerCount: 1,
+    });
+
+    const error = await service
+      .removeMember(organizationContext(), TARGET_USER_ID)
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as Error).message).toBe(
+      'Organization must have at least one owner',
+    );
+    expect(tx.membership.delete).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when an owner removes themselves as the last owner', async () => {
+    const { service, tx } = createHarness({ ownerCount: 1 });
+
+    await expect(
+      service.removeMember(organizationContext(), ACTOR_USER_ID),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(tx.membership.delete).not.toHaveBeenCalled();
   });
 });

@@ -1249,4 +1249,289 @@ describe('organizations (e2e)', () => {
       ).toBe(1);
     });
   });
+
+  describe('remove member', () => {
+    const removeMember = (
+      token: string,
+      organizationId: string,
+      userId: string,
+    ) =>
+      request(app.getHttpServer())
+        .delete(`/organizations/${organizationId}/members/${userId}`)
+        .set(bearer(token));
+
+    const createOwnedOrganization = async (token: string) => {
+      const created = await createOrganization(token, {
+        name: 'Remove Member Org',
+      }).expect(201);
+      const organizationId = created.body.organization.id as string;
+      trackedOrganizationIds.add(organizationId);
+      return organizationId;
+    };
+
+    const findMembership = (userId: string, organizationId: string) =>
+      prisma.membership.findUniqueOrThrow({
+        where: { userId_organizationId: { userId, organizationId } },
+      });
+
+    const countMembership = (userId: string, organizationId: string) =>
+      prisma.membership.count({ where: { userId, organizationId } });
+
+    it('rejects unauthenticated requests with 401', async () => {
+      await request(app.getHttpServer())
+        .delete(`/organizations/${randomUUID()}/members/${randomUUID()}`)
+        .expect(401);
+    });
+
+    it('rejects an authenticated non-member with 403', async () => {
+      const owner = await registerUser();
+      const outsider = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await removeMember(outsider.token, organizationId, owner.userId).expect(
+        403,
+      );
+
+      expect(await countMembership(owner.userId, organizationId)).toBe(1);
+    });
+
+    it('rejects a non-owner member with 403, even when removing themselves', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      await removeMember(member.token, organizationId, member.userId).expect(
+        403,
+      );
+
+      expect(await countMembership(member.userId, organizationId)).toBe(1);
+    });
+
+    it('lets an OWNER remove a MEMBER with 204 and an empty body', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      const response = await removeMember(
+        owner.token,
+        organizationId,
+        member.userId,
+      ).expect(204);
+
+      expect(response.text).toBe('');
+      expect(await countMembership(member.userId, organizationId)).toBe(0);
+      // The actor and their own membership are untouched.
+      expect((await findMembership(owner.userId, organizationId)).role).toBe(
+        'OWNER',
+      );
+    });
+
+    it('lets an OWNER remove another OWNER when an owner remains', async () => {
+      const owner = await registerUser();
+      const secondOwner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(secondOwner.userId, organizationId, 'OWNER');
+
+      await removeMember(owner.token, organizationId, secondOwner.userId).expect(
+        204,
+      );
+
+      expect(await countMembership(secondOwner.userId, organizationId)).toBe(0);
+      expect(
+        await prisma.membership.count({
+          where: { organizationId, role: 'OWNER' },
+        }),
+      ).toBe(1);
+    });
+
+    it('lets an owner remove themselves when another owner remains', async () => {
+      const owner = await registerUser();
+      const secondOwner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(secondOwner.userId, organizationId, 'OWNER');
+
+      await removeMember(owner.token, organizationId, owner.userId).expect(204);
+
+      expect(await countMembership(owner.userId, organizationId)).toBe(0);
+      expect((await findMembership(secondOwner.userId, organizationId)).role).toBe(
+        'OWNER',
+      );
+    });
+
+    it('returns 409 when removing the last owner would leave no owner', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(member.userId, organizationId, 'MEMBER');
+
+      await removeMember(owner.token, organizationId, owner.userId).expect(409);
+
+      expect((await findMembership(owner.userId, organizationId)).role).toBe(
+        'OWNER',
+      );
+      // The removal was rejected atomically; the member is still present.
+      expect(await countMembership(member.userId, organizationId)).toBe(1);
+    });
+
+    it('returns 404 when the target is not a member of the organization', async () => {
+      const owner = await registerUser();
+      const outsider = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await removeMember(owner.token, organizationId, outsider.userId).expect(
+        404,
+      );
+
+      expect(await countMembership(outsider.userId, organizationId)).toBe(0);
+    });
+
+    it('returns 404 when the target belongs only to another organization', async () => {
+      const ownerA = await registerUser();
+      const ownerB = await registerUser();
+      const organizationA = await createOwnedOrganization(ownerA.token);
+      const organizationB = await createOwnedOrganization(ownerB.token);
+
+      await removeMember(ownerA.token, organizationA, ownerB.userId).expect(404);
+
+      // The other tenant's membership is untouched.
+      expect((await findMembership(ownerB.userId, organizationB)).role).toBe(
+        'OWNER',
+      );
+    });
+
+    it('rejects a malformed target user id with 400', async () => {
+      const owner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      for (const malformed of ['not-a-uuid', '123', 'null']) {
+        await request(app.getHttpServer())
+          .delete(`/organizations/${organizationId}/members/${malformed}`)
+          .set(bearer(owner.token))
+          .expect(400);
+      }
+    });
+
+    it('authorizes on the membership role re-read, not the request guard alone', async () => {
+      const owner = await registerUser();
+      const target = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(target.userId, organizationId, 'MEMBER');
+
+      // The guard lets any member through; demote the actor after the
+      // membership was established, so only a transactional role check denies.
+      await prisma.membership.update({
+        where: {
+          userId_organizationId: { userId: owner.userId, organizationId },
+        },
+        data: { role: 'MEMBER' },
+      });
+
+      await removeMember(owner.token, organizationId, target.userId).expect(403);
+
+      expect(await countMembership(target.userId, organizationId)).toBe(1);
+    });
+
+    it('serializes concurrent owner removals and never leaves the organization ownerless', async () => {
+      const owner = await registerUser();
+      const secondOwner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(secondOwner.userId, organizationId, 'OWNER');
+
+      const locked = deferred();
+      const release = deferred();
+
+      // Hold the organization lock so both removals block before either can
+      // re-read the actor role or the owner count.
+      const holder = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
+        locked.resolve();
+        await release.promise;
+      });
+
+      try {
+        await locked.promise;
+
+        // Each owner removes themselves. Without serialization both could read
+        // two owners and both delete, leaving the organization ownerless.
+        const removeSelf = removeMember(
+          owner.token,
+          organizationId,
+          owner.userId,
+        ).then((response) => response);
+        const removeOtherSelf = removeMember(
+          secondOwner.token,
+          organizationId,
+          secondOwner.userId,
+        ).then((response) => response);
+
+        await waitForOrganizationLockWaiter(prisma, 2);
+        release.resolve();
+
+        const [first, second] = await Promise.all([removeSelf, removeOtherSelf]);
+        expect([first.status, second.status].sort()).toEqual([204, 409]);
+      } finally {
+        release.resolve();
+        await holder.catch(() => undefined);
+      }
+
+      expect(
+        await prisma.membership.count({
+          where: { organizationId, role: 'OWNER' },
+        }),
+      ).toBe(1);
+    });
+
+    it('serializes concurrent mutual owner removals so one is denied', async () => {
+      const owner = await registerUser();
+      const secondOwner = await registerUser();
+      const organizationId = await createOwnedOrganization(owner.token);
+      await addMembership(secondOwner.userId, organizationId, 'OWNER');
+
+      const locked = deferred();
+      const release = deferred();
+
+      const holder = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
+        locked.resolve();
+        await release.promise;
+      });
+
+      try {
+        await locked.promise;
+
+        // Each owner removes the other. The winner deletes the loser's
+        // membership, so the loser's transactional OWNER re-read then fails.
+        const removeSecond = removeMember(
+          owner.token,
+          organizationId,
+          secondOwner.userId,
+        ).then((response) => response);
+        const removeOwner = removeMember(
+          secondOwner.token,
+          organizationId,
+          owner.userId,
+        ).then((response) => response);
+
+        await waitForOrganizationLockWaiter(prisma, 2);
+        release.resolve();
+
+        const [first, second] = await Promise.all([
+          removeSecond,
+          removeOwner,
+        ]);
+        expect([first.status, second.status].sort()).toEqual([204, 403]);
+      } finally {
+        release.resolve();
+        await holder.catch(() => undefined);
+      }
+
+      expect(
+        await prisma.membership.count({
+          where: { organizationId, role: 'OWNER' },
+        }),
+      ).toBe(1);
+    });
+  });
 });

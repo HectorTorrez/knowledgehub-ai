@@ -367,6 +367,73 @@ export class OrganizationsService {
 
     return { member };
   }
+
+  /**
+   * Removes a member from the authorized organization.
+   *
+   * As with {@link addMember} and {@link updateMemberRole}, the transaction
+   * first acquires the organization-row lock (see {@link lockOrganization}) and
+   * only then revalidates the actor's OWNER role, so a concurrent demotion
+   * cannot authorize the removal from a stale read. The lock additionally makes
+   * the "last owner" invariant below safe: the owner count and the delete happen
+   * under the same lock, so two concurrent owner removals cannot each observe
+   * two owners and both commit.
+   *
+   * The target comes from the route as a `userId` and is resolved through the
+   * compound `(userId, organizationId)` membership key, so a user who is not a
+   * member (including a member of another tenant) is a `404`, never a delete.
+   * Removing an owner when they are the organization's only owner is a `409`, so
+   * an organization can never be left ownerless. An owner may therefore remove
+   * themselves only while another owner remains. Success is a `204`, so this
+   * method returns no body to map.
+   */
+  async removeMember(
+    context: OrganizationContext,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await lockOrganization(tx, context.organizationId);
+      await requireOwner(tx, context, 'remove members');
+
+      const target = await tx.membership.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: targetUserId,
+            organizationId: context.organizationId,
+          },
+        },
+        select: { role: true },
+      });
+
+      if (!target) {
+        throw new NotFoundException('Member not found');
+      }
+
+      if (target.role === MembershipRole.OWNER) {
+        const ownerCount = await tx.membership.count({
+          where: {
+            organizationId: context.organizationId,
+            role: MembershipRole.OWNER,
+          },
+        });
+
+        if (ownerCount <= 1) {
+          throw new ConflictException(
+            'Organization must have at least one owner',
+          );
+        }
+      }
+
+      await tx.membership.delete({
+        where: {
+          userId_organizationId: {
+            userId: targetUserId,
+            organizationId: context.organizationId,
+          },
+        },
+      });
+    }, MEMBERSHIP_MUTATION_TRANSACTION);
+  }
 }
 
 /** Maps a persisted organization plus the caller's role to the public shape. */
