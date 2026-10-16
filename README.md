@@ -393,8 +393,11 @@ staging `uploadStorageKey` the API itself persisted, then:
 3. copies the verified bytes to a fresh server-controlled key
    (`organizations/<organizationId>/documents/<documentId>/verified/<random
    token>`) and confirms the promoted object;
-4. only then transitions the document atomically to `PROCESSING`, recording the
-   **verified** content type and size and clearing any previous failure reason.
+4. only then, in a single database transaction, transitions the document
+   atomically to `PROCESSING`, increments its processing `generation` exactly
+   once, records the **verified** content type and size, clears any previous
+   failure reason, and creates the durable processing job for that exact
+   generation and verified key.
 
 Both a successful and a definitive-failure outcome return `200 { document }`
 (`DocumentDetailResponse`); the document's `status` is the source of truth.
@@ -473,8 +476,9 @@ and `PROCESSING` for a verified document whose processing failed, and
 ### Limitations
 
 - **Verification stops at `PROCESSING`.** `upload-complete` confirms and
-  promotes the object and transitions the document, but nothing extracts,
-  chunks, embeds, or processes it, so a document never reaches `READY`.
+  promotes the object and, atomically, queues a durable processing job for that
+  generation. No worker consumes the queue yet, so nothing extracts, chunks,
+  embeds, or processes the document and it never reaches `READY`.
 - **Orphaned objects are not cleaned up.** A failed or superseded promotion can
   leave a staging or verified object with no document referencing it, and there
   is no deletion or garbage collection yet. An object's existence alone is

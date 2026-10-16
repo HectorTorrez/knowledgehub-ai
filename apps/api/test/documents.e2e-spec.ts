@@ -8,6 +8,7 @@ import { ACCESS_TOKEN_COOKIE } from '../src/auth/cookies.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { OBJECT_STORAGE } from '../src/storage/object-storage.port.js';
 import { MAX_UPLOAD_BYTES } from '../src/documents/upload-policy.js';
+import { PROCESSING_MAX_ATTEMPTS } from '../src/documents/processing-policy.js';
 import { FakeObjectStorage } from './support/fake-object-storage.js';
 
 const PASSWORD = 'correct horse battery staple';
@@ -130,6 +131,12 @@ describe('documents (e2e)', () => {
 
   const loadDocument = (documentId: string) =>
     prisma.document.findUniqueOrThrow({ where: { id: documentId } });
+
+  const loadJobs = (documentId: string) =>
+    prisma.documentProcessingJob.findMany({
+      where: { documentId },
+      orderBy: { createdAt: 'asc' },
+    });
 
   const uploadUrlAndObject = async (
     token: string,
@@ -1060,6 +1067,17 @@ describe('documents (e2e)', () => {
         version: promoted?.version ?? '',
       });
       expect(new TextDecoder().decode(promotedBytes)).toBe(pdfBytes);
+
+      expect(document.generation).toBe(1);
+      const jobs = await loadJobs(documentId);
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0]).toMatchObject({
+        state: 'QUEUED',
+        attempt: 0,
+        documentGeneration: 1,
+        verifiedStorageKey: document.storageKey,
+        organizationId,
+      });
     });
 
     it('accepts a request with no body', async () => {
@@ -1188,6 +1206,8 @@ describe('documents (e2e)', () => {
       const document = await loadDocument(documentId);
       expect(document.storageKey).toBeNull();
       expect(document.failureKind).toBe('VERIFICATION');
+      expect(document.generation).toBe(0);
+      expect(await loadJobs(documentId)).toHaveLength(0);
     });
 
     it('fails the document for an oversized object with SIZE_LIMIT_EXCEEDED', async () => {
@@ -1320,7 +1340,48 @@ describe('documents (e2e)', () => {
       ]);
 
       expect(responses.map((response) => response.status)).toEqual([200, 200]);
-      expect((await loadDocument(documentId)).status).toBe('PROCESSING');
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PROCESSING');
+      expect(document.generation).toBe(1);
+      expect(await loadJobs(documentId)).toHaveLength(1);
+    });
+
+    it('rolls back the transition and generation when the job insert fails', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'Rollback Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        'application/pdf',
+        pdfBytes,
+      );
+
+      await prisma.documentProcessingJob.create({
+        data: {
+          documentId,
+          organizationId,
+          documentGeneration: 0,
+          verifiedStorageKey: 'organizations/pre-existing/verified',
+          state: 'QUEUED',
+          attempt: 0,
+          maxAttempts: PROCESSING_MAX_ATTEMPTS,
+        },
+      });
+
+      await completeUpload(token, organizationId, documentId).expect(500);
+
+      const document = await loadDocument(documentId);
+      expect(document.status).toBe('PENDING');
+      expect(document.generation).toBe(0);
+      expect(document.storageKey).toBeNull();
+
+      const jobs = await loadJobs(documentId);
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0].verifiedStorageKey).toBe(
+        'organizations/pre-existing/verified',
+      );
     });
 
     it('short-circuits a repeat completion after PROCESSING without touching storage', async () => {
@@ -1354,6 +1415,8 @@ describe('documents (e2e)', () => {
       expect(response.body.document.updatedAt).toBe(
         first.updatedAt.toISOString(),
       );
+      expect((await loadDocument(documentId)).generation).toBe(1);
+      expect(await loadJobs(documentId)).toHaveLength(1);
     });
 
     it('retries a failed verification with a fresh upload and reaches PROCESSING', async () => {
@@ -1369,7 +1432,10 @@ describe('documents (e2e)', () => {
       );
 
       await completeUpload(token, organizationId, documentId).expect(200);
-      expect((await loadDocument(documentId)).status).toBe('FAILED');
+      const failed = await loadDocument(documentId);
+      expect(failed.status).toBe('FAILED');
+      expect(failed.generation).toBe(0);
+      expect(await loadJobs(documentId)).toHaveLength(0);
 
       await uploadUrlAndObject(
         token,
@@ -1387,6 +1453,12 @@ describe('documents (e2e)', () => {
       expect(response.body.document.originalFileName).toBe('report.pdf');
       expect(response.body.document.failureReason).toBeNull();
       expect(response.body.document.failureKind).toBeNull();
+
+      const document = await loadDocument(documentId);
+      expect(document.generation).toBe(1);
+      const jobs = await loadJobs(documentId);
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0].documentGeneration).toBe(1);
     });
 
     it('maps a transient storage failure to 503 without changing state', async () => {

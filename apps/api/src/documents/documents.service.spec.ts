@@ -22,6 +22,7 @@ interface DocumentRecord {
   organizationId: string;
   title: string;
   status: DocumentStatus;
+  generation: number;
   uploadStorageKey: string | null;
   expectedContentType: string | null;
   storageKey: string | null;
@@ -45,6 +46,7 @@ function documentRecord(
     organizationId: 'org-1',
     title: 'Quarterly report',
     status: 'PENDING',
+    generation: 0,
     uploadStorageKey: STAGING_KEY,
     expectedContentType: 'application/pdf',
     storageKey: null,
@@ -98,7 +100,28 @@ interface UpdateManyArgs {
     uploadStorageKey?: string;
     status?: { in: DocumentStatus[] };
   };
-  data: Partial<DocumentRecord>;
+  data: Record<string, unknown>;
+}
+
+function isIncrement(value: unknown): value is { increment: number } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'increment' in value &&
+    typeof (value as { increment: unknown }).increment === 'number'
+  );
+}
+
+function applyUpdate(
+  state: DocumentRecord,
+  data: Record<string, unknown>,
+): void {
+  const target = state as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(data)) {
+    target[key] = isIncrement(value)
+      ? (target[key] as number) + value.increment
+      : value;
+  }
 }
 
 function createHarness(options: HarnessOptions = {}) {
@@ -144,6 +167,9 @@ function createCompletionHarness(
       findFirst: vi.fn(
         async (): Promise<DocumentRecord | null> => ({ ...state }),
       ),
+      findFirstOrThrow: vi.fn(
+        async (): Promise<DocumentRecord | null> => ({ ...state }),
+      ),
       updateMany: vi.fn(async ({ where, data }: UpdateManyArgs) => {
         const matchesKey =
           where.uploadStorageKey === undefined ||
@@ -160,7 +186,7 @@ function createCompletionHarness(
           return { count: 0 };
         }
 
-        Object.assign(state, data);
+        applyUpdate(state, data);
         state.updatedAt = new Date(state.updatedAt.getTime() + 1_000);
         return { count: 1 };
       }),
@@ -168,6 +194,20 @@ function createCompletionHarness(
       create: vi.fn(),
       findMany: vi.fn(),
     },
+    documentProcessingJob: {
+      create: vi.fn(async (_args: { data: Record<string, unknown> }) => ({})),
+    },
+    $transaction: vi.fn(
+      async (callback: (tx: unknown) => Promise<unknown>) => {
+        const snapshot: DocumentRecord = { ...state };
+        try {
+          return await callback(prisma);
+        } catch (error) {
+          Object.assign(state, snapshot);
+          throw error;
+        }
+      },
+    ),
   };
 
   const service = new DocumentsService(
@@ -176,7 +216,12 @@ function createCompletionHarness(
     storageConfig(),
   );
 
-  return { service, prisma, storage, state };
+  return {
+    service,
+    prisma,
+    storage,
+    state,
+  };
 }
 
 const PUBLIC_DOCUMENT_FIELDS = [
@@ -603,7 +648,9 @@ describe('DocumentsService.completeUpload', () => {
 
       expect(result.document.status).toBe(status);
       expect(storage.calls).toHaveLength(0);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.document.updateMany).not.toHaveBeenCalled();
+      expect(prisma.documentProcessingJob.create).not.toHaveBeenCalled();
     },
   );
 
@@ -797,7 +844,80 @@ describe('DocumentsService.completeUpload', () => {
       status: 'PROCESSING',
       failureReason: null,
       failureKind: null,
+      generation: { increment: 1 },
     });
+
+    expect(state.generation).toBe(1);
+    expect(prisma.documentProcessingJob.create).toHaveBeenCalledTimes(1);
+    expect(prisma.documentProcessingJob.create.mock.calls[0][0].data).toMatchObject(
+      {
+        documentId: 'doc-1',
+        organizationId: 'org-1',
+        documentGeneration: 1,
+        verifiedStorageKey: state.storageKey,
+        state: 'QUEUED',
+        attempt: 0,
+      },
+    );
+  });
+
+  it('enqueues the next generation after a verification failure', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord({
+        status: 'FAILED',
+        generation: 1,
+        failureReason: 'SIGNATURE_MISMATCH',
+        failureKind: 'VERIFICATION',
+      }),
+      storage,
+    );
+
+    await service.completeUpload(organizationContext(), 'doc-1', {});
+
+    expect(state.generation).toBe(2);
+    expect(prisma.documentProcessingJob.create).toHaveBeenCalledTimes(1);
+    expect(
+      prisma.documentProcessingJob.create.mock.calls[0][0].data,
+    ).toMatchObject({ documentGeneration: 2 });
+  });
+
+  it('rolls back the transition and generation when job creation fails', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+    prisma.documentProcessingJob.create.mockRejectedValueOnce(
+      new Error('job insert failed'),
+    );
+
+    await expect(
+      service.completeUpload(organizationContext(), 'doc-1', {}),
+    ).rejects.toThrow('job insert failed');
+
+    expect(state.status).toBe('PENDING');
+    expect(state.generation).toBe(0);
+    expect(state.storageKey).toBeNull();
+    expect(state.contentType).toBeNull();
+    expect(state.sizeBytes).toBeNull();
+  });
+
+  it('does not create a job for a verification failure', async () => {
+    const storage = new FakeObjectStorage();
+    storage.putObject(STAGING_KEY, 'not actually a pdf', 'application/pdf');
+    const { service, prisma, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
+
+    await service.completeUpload(organizationContext(), 'doc-1', {});
+
+    expect(state.status).toBe('FAILED');
+    expect(state.generation).toBe(0);
+    expect(prisma.documentProcessingJob.create).not.toHaveBeenCalled();
   });
 
   it('stores a declared original file name only when supplied', async () => {
@@ -902,7 +1022,7 @@ describe('DocumentsService.completeUpload', () => {
   it('returns the current document when a concurrent completion already won', async () => {
     const storage = new FakeObjectStorage();
     seedValidPdf(storage);
-    const { service, state } = createCompletionHarness(
+    const { service, prisma, state } = createCompletionHarness(
       documentRecord(),
       storage,
     );
@@ -917,6 +1037,7 @@ describe('DocumentsService.completeUpload', () => {
     );
 
     expect(result.document.status).toBe('PROCESSING');
+    expect(prisma.documentProcessingJob.create).not.toHaveBeenCalled();
   });
 
   it('maps a transient storage failure to 503 without changing state', async () => {

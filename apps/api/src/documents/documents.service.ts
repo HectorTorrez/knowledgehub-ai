@@ -25,6 +25,7 @@ import { StorageConfig } from '../storage/storage.config.js';
 import type { CompleteUploadInput } from './dto/complete-upload.schema.js';
 import type { CreateDocumentInput } from './dto/create-document.schema.js';
 import type { CreateUploadUrlInput } from './dto/create-upload-url.schema.js';
+import { PROCESSING_MAX_ATTEMPTS } from './processing-policy.js';
 import {
   createDocumentStorageKey,
   createVerifiedStorageKey,
@@ -303,27 +304,53 @@ export class DocumentsService {
       );
     }
 
-    const updated = await this.prisma.document.updateMany({
-      where: {
-        id: documentId,
-        organizationId,
-        uploadStorageKey: stagingKey,
-        status: { in: [...VERIFIABLE_STATUSES] },
-      },
-      data: {
-        storageKey: verifiedKey,
-        status: 'PROCESSING',
-        contentType: promoted.contentType,
-        sizeBytes: promoted.sizeBytes,
-        failureReason: null,
-        failureKind: null,
-        ...(input.originalFileName !== undefined
-          ? { originalFileName: input.originalFileName }
-          : {}),
-      },
+    const enqueued = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.document.updateMany({
+        where: {
+          id: documentId,
+          organizationId,
+          uploadStorageKey: stagingKey,
+          status: { in: [...VERIFIABLE_STATUSES] },
+        },
+        data: {
+          storageKey: verifiedKey,
+          status: 'PROCESSING',
+          generation: { increment: 1 },
+          contentType: promoted.contentType,
+          sizeBytes: promoted.sizeBytes,
+          failureReason: null,
+          failureKind: null,
+          ...(input.originalFileName !== undefined
+            ? { originalFileName: input.originalFileName }
+            : {}),
+        },
+      });
+
+      if (updated.count === 0) {
+        return false;
+      }
+
+      const transitioned = await tx.document.findFirstOrThrow({
+        where: { id: documentId, organizationId },
+        select: { generation: true },
+      });
+
+      await tx.documentProcessingJob.create({
+        data: {
+          documentId,
+          organizationId,
+          documentGeneration: transitioned.generation,
+          verifiedStorageKey: verifiedKey,
+          state: 'QUEUED',
+          attempt: 0,
+          maxAttempts: PROCESSING_MAX_ATTEMPTS,
+        },
+      });
+
+      return true;
     });
 
-    if (updated.count === 0) {
+    if (!enqueued) {
       return this.resolveSupersededCompletion(organizationId, documentId);
     }
 
