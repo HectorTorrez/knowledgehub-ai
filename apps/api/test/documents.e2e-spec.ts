@@ -535,6 +535,7 @@ describe('documents (e2e)', () => {
 
     beforeEach(() => {
       storage.calls.length = 0;
+      storage.onPresign = null;
     });
 
     it('returns a presigned PUT upload for a document in the organization', async () => {
@@ -596,7 +597,7 @@ describe('documents (e2e)', () => {
       );
     });
 
-    it('generates a fresh key on every request', async () => {
+    it('generates a fresh key on every request and replaces the persisted key', async () => {
       const { token } = await registerUser();
       const organizationId = await createOrganization(token, 'Fresh Org');
       const created = await createDocument(token, organizationId, {
@@ -613,6 +614,11 @@ describe('documents (e2e)', () => {
 
       expect(storage.calls).toHaveLength(2);
       expect(storage.calls[0].key).not.toBe(storage.calls[1].key);
+
+      const document = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+      });
+      expect(document.storageKey).toBe(storage.calls[1].key);
     });
 
     it('passes the configured upload TTL to the storage port', async () => {
@@ -688,7 +694,7 @@ describe('documents (e2e)', () => {
       expect(document.storageKey).toBeNull();
     });
 
-    it('rejects an unsupported content type, extra fields, and an over-cap size with 400', async () => {
+    it('rejects an unsupported content type, extra fields, and an invalid size with 400', async () => {
       const { token } = await registerUser();
       const organizationId = await createOrganization(token, 'Invalid Upload');
       const created = await createDocument(token, organizationId, {
@@ -700,8 +706,8 @@ describe('documents (e2e)', () => {
         { contentType: 'image/png' },
         { contentType: 'application/pdf', documentId: randomUUID() },
         { contentType: 'application/pdf', storageKey: 'organizations/x' },
-        { contentType: 'application/pdf', sizeBytes: MAX_UPLOAD_BYTES + 1 },
         { contentType: 'application/pdf', sizeBytes: 0 },
+        { contentType: 'application/pdf', sizeBytes: -1 },
         {},
       ];
 
@@ -719,6 +725,67 @@ describe('documents (e2e)', () => {
       });
       expect(document.storageKey).toBeNull();
       expect(storage.calls).toHaveLength(0);
+    });
+
+    it('rejects a declared size above the policy cap with 413 and writes nothing', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Too Large Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(token, organizationId, documentId, {
+        contentType: 'application/pdf',
+        sizeBytes: MAX_UPLOAD_BYTES + 1,
+      }).expect(413);
+
+      const document = await prisma.document.findUniqueOrThrow({
+        where: { id: documentId },
+      });
+      expect(document.storageKey).toBeNull();
+      expect(storage.calls).toHaveLength(0);
+    });
+
+    it('accepts a declared size exactly at the policy cap', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Cap Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(token, organizationId, documentId, {
+        contentType: 'application/pdf',
+        sizeBytes: MAX_UPLOAD_BYTES,
+      }).expect(200);
+    });
+
+    it('does not return the presigned URL when persisting the key fails', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Write Fail Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      storage.onPresign = async () => {
+        await prisma.document.delete({ where: { id: documentId } });
+      };
+
+      const response = await createUploadUrl(
+        token,
+        organizationId,
+        documentId,
+        body,
+      );
+
+      expect(storage.calls).toHaveLength(1);
+      expect(response.status).not.toBe(200);
+      expect(response.body).not.toHaveProperty('uploadUrl');
+      expect(JSON.stringify(response.body)).not.toContain(
+        'fake-object-storage.test',
+      );
     });
 
     it('rejects malformed organization and document ids with 400', async () => {

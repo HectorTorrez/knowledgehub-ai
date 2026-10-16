@@ -16,6 +16,7 @@ export interface RecordedPresignedUpload {
 
 export class FakeObjectStorage implements ObjectStorage {
   readonly calls: RecordedPresignedUpload[] = [];
+  onPresign: (() => Promise<void> | void) | null = null;
 
   async createPresignedUpload(
     input: PresignedUploadInput,
@@ -30,6 +31,10 @@ export class FakeObjectStorage implements ObjectStorage {
       expiresInSeconds: input.expiresInSeconds,
       expiresAt,
     });
+
+    if (this.onPresign) {
+      await this.onPresign();
+    }
 
     return {
       url: `https://fake-object-storage.test/${input.key}`,
