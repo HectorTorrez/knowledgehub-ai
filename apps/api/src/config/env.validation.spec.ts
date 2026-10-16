@@ -6,6 +6,13 @@ const validEnv = {
   JWT_ACCESS_SECRET: 'a'.repeat(32),
 };
 
+const validStorageEnv = {
+  STORAGE_BUCKET: 'knowledgehub-documents',
+  STORAGE_ENDPOINT: 'http://127.0.0.1:9000',
+  STORAGE_ACCESS_KEY_ID: 'a'.repeat(32),
+  STORAGE_SECRET_ACCESS_KEY: 'b'.repeat(32),
+};
+
 describe('validateEnv', () => {
   it('applies safe defaults when optional values are absent', () => {
     const env = validateEnv({ ...validEnv });
@@ -19,6 +26,13 @@ describe('validateEnv', () => {
     expect(env.COOKIE_SECURE).toBeUndefined();
     expect(env.BROWSER_AUTH_ENABLED).toBe('false');
     expect(env.CSRF_SECRET).toBeUndefined();
+    expect(env.STORAGE_REGION).toBe('auto');
+    expect(env.STORAGE_FORCE_PATH_STYLE).toBe('false');
+    expect(env.STORAGE_UPLOAD_TTL_SECONDS).toBe(900);
+    expect(env.STORAGE_BUCKET).toBeUndefined();
+    expect(env.STORAGE_ENDPOINT).toBeUndefined();
+    expect(env.STORAGE_ACCESS_KEY_ID).toBeUndefined();
+    expect(env.STORAGE_SECRET_ACCESS_KEY).toBeUndefined();
   });
 
   it('coerces numeric strings', () => {
@@ -30,6 +44,18 @@ describe('validateEnv', () => {
 
     expect(env.PORT).toBe(4321);
     expect(env.REFRESH_TOKEN_TTL_DAYS).toBe(7);
+  });
+
+  it('coerces a storage upload TTL supplied as a string', () => {
+    const env = validateEnv({ ...validEnv, STORAGE_UPLOAD_TTL_SECONDS: '120' });
+
+    expect(env.STORAGE_UPLOAD_TTL_SECONDS).toBe(120);
+  });
+
+  it('accepts an explicit storage path-style override', () => {
+    const env = validateEnv({ ...validEnv, STORAGE_FORCE_PATH_STYLE: 'true' });
+
+    expect(env.STORAGE_FORCE_PATH_STYLE).toBe('true');
   });
 
   it('rejects a missing DATABASE_URL', () => {
@@ -75,7 +101,11 @@ describe('validateEnv', () => {
   });
 
   it('defaults browser authentication off and does not require a CSRF secret', () => {
-    const env = validateEnv({ ...validEnv, NODE_ENV: 'production' });
+    const env = validateEnv({
+      ...validEnv,
+      ...validStorageEnv,
+      NODE_ENV: 'production',
+    });
 
     expect(env.BROWSER_AUTH_ENABLED).toBe('false');
     expect(env.CSRF_SECRET).toBeUndefined();
@@ -85,6 +115,7 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({
         ...validEnv,
+        ...validStorageEnv,
         NODE_ENV: 'production',
         BROWSER_AUTH_ENABLED: 'true',
       }),
@@ -104,6 +135,7 @@ describe('validateEnv', () => {
   it('accepts browser authentication when a strong CSRF secret is present', () => {
     const env = validateEnv({
       ...validEnv,
+      ...validStorageEnv,
       NODE_ENV: 'production',
       BROWSER_AUTH_ENABLED: 'true',
       CSRF_SECRET: 'c'.repeat(32),
@@ -111,5 +143,84 @@ describe('validateEnv', () => {
 
     expect(env.BROWSER_AUTH_ENABLED).toBe('true');
     expect(env.CSRF_SECRET).toBe('c'.repeat(32));
+  });
+
+  it('requires the storage block in production', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, NODE_ENV: 'production' }),
+    ).toThrow(/STORAGE_BUCKET/);
+  });
+
+  it('accepts a complete storage block in production', () => {
+    const env = validateEnv({
+      ...validEnv,
+      ...validStorageEnv,
+      NODE_ENV: 'production',
+    });
+
+    expect(env.STORAGE_BUCKET).toBe('knowledgehub-documents');
+    expect(env.STORAGE_ENDPOINT).toBe('http://127.0.0.1:9000');
+  });
+
+  it('accepts a provider-shaped storage access key shorter than 32 characters', () => {
+    const env = validateEnv({
+      ...validEnv,
+      STORAGE_ACCESS_KEY_ID: 'a'.repeat(20),
+    });
+
+    expect(env.STORAGE_ACCESS_KEY_ID).toBe('a'.repeat(20));
+  });
+
+  it('rejects an empty storage access key', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_ACCESS_KEY_ID: '' }),
+    ).toThrow(/STORAGE_ACCESS_KEY_ID/);
+  });
+
+  it('rejects a storage secret access key shorter than 32 characters', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_SECRET_ACCESS_KEY: 'b'.repeat(31) }),
+    ).toThrow(/STORAGE_SECRET_ACCESS_KEY/);
+  });
+
+  it('rejects a malformed storage endpoint', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_ENDPOINT: 'not-a-url' }),
+    ).toThrow(/STORAGE_ENDPOINT/);
+  });
+
+  it('rejects a storage endpoint that is not http or https', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_ENDPOINT: 'file:///tmp/storage' }),
+    ).toThrow(/STORAGE_ENDPOINT/);
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_ENDPOINT: 'ftp://storage.test' }),
+    ).toThrow(/STORAGE_ENDPOINT/);
+  });
+
+  it('accepts an https storage endpoint', () => {
+    const env = validateEnv({
+      ...validEnv,
+      STORAGE_ENDPOINT: 'https://accountid.r2.cloudflarestorage.com',
+    });
+
+    expect(env.STORAGE_ENDPOINT).toBe(
+      'https://accountid.r2.cloudflarestorage.com',
+    );
+  });
+
+  it('rejects an invalid storage path-style value', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_FORCE_PATH_STYLE: 'yes' }),
+    ).toThrow(/STORAGE_FORCE_PATH_STYLE/);
+  });
+
+  it('rejects an invalid storage upload TTL', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_UPLOAD_TTL_SECONDS: '0' }),
+    ).toThrow(/STORAGE_UPLOAD_TTL_SECONDS/);
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_UPLOAD_TTL_SECONDS: 'soon' }),
+    ).toThrow(/STORAGE_UPLOAD_TTL_SECONDS/);
   });
 });
