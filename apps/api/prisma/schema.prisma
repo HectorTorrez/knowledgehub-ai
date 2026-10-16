@@ -156,9 +156,9 @@ enum DocumentStatus {
 /// write is scoped by `organizationId`, which is why the organization relation
 /// cascades but the uploader relation does not.
 ///
-/// The file coordinates (`storageKey`, `originalFileName`, `contentType`,
-/// `sizeBytes`) stay null until an upload is confirmed; they are populated by
-/// the object-storage upload flow, not at registration.
+/// The file coordinates (`originalFileName`, `contentType`, `sizeBytes`) and the
+/// verified `storageKey` stay null until an upload is verified. Only
+/// `uploadStorageKey` is set when a presigned upload URL is issued.
 model Document {
   id String @id @default(uuid()) @db.Uuid
 
@@ -172,8 +172,14 @@ model Document {
 
   status DocumentStatus @default(PENDING)
 
-  /// Object-storage location; null until an upload is confirmed. Never exposed
-  /// through the public API.
+  /// Client-writable staging key for the most recently issued upload URL. Each
+  /// new upload URL supersedes it. The client can overwrite the object it names,
+  /// so it is never processed.
+  uploadStorageKey String?
+
+  /// Server-controlled key of the verified object. Set only after verification
+  /// promotes the staging object; never handed to a client. Not exposed through
+  /// the public API.
   storageKey String?
 
   originalFileName String?
