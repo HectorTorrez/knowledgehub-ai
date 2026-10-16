@@ -1,8 +1,8 @@
 import {
-  BadRequestException,
   Inject,
   Injectable,
   NotFoundException,
+  PayloadTooLargeException,
 } from '@nestjs/common';
 import type {
   DocumentDetailResponse,
@@ -123,7 +123,7 @@ export class DocumentsService {
     }
 
     if (input.sizeBytes !== undefined && input.sizeBytes > MAX_UPLOAD_BYTES) {
-      throw new BadRequestException(
+      throw new PayloadTooLargeException(
         `sizeBytes must not exceed ${MAX_UPLOAD_BYTES}`,
       );
     }

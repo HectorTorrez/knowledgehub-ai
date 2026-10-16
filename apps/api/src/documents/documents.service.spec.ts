@@ -1,5 +1,8 @@
 import type { ConfigService } from '@nestjs/config';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  NotFoundException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -371,7 +374,7 @@ describe('DocumentsService.createUploadUrl', () => {
     expect(args.where).toEqual({ id: 'doc-1', organizationId: 'org-1' });
   });
 
-  it('rejects a declared size above the policy cap without touching storage or the document', async () => {
+  it('rejects a declared size above the policy cap with 413 without touching storage or the document', async () => {
     const { service, prisma, storage } = createHarness();
 
     await expect(
@@ -379,7 +382,7 @@ describe('DocumentsService.createUploadUrl', () => {
         ...input,
         sizeBytes: MAX_UPLOAD_BYTES + 1,
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(PayloadTooLargeException);
 
     expect(storage.calls).toHaveLength(0);
     expect(prisma.document.update).not.toHaveBeenCalled();
