@@ -1,4 +1,4 @@
-import { resolveUrl } from '~/lib/api/client';
+import { resolveUrl } from '~/lib/api/url';
 import { buildCsrfHeaders } from '~/lib/api/csrf';
 import { ApiError, NETWORK_ERROR_STATUS, toApiError } from '~/lib/api/errors';
 

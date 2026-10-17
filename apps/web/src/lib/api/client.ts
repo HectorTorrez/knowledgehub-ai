@@ -1,6 +1,9 @@
-import { API_BASE_URL } from '~/lib/config';
-import { buildCsrfHeaders } from './csrf';
+import { refreshCoordinator } from '~/lib/auth/refresh';
+import { buildCsrfHeaders, isUnsafeMethod, readCsrfToken } from './csrf';
 import { ApiError, NETWORK_ERROR_STATUS, toApiError } from './errors';
+import { resolveUrl } from './url';
+
+export { resolveUrl };
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -9,32 +12,65 @@ export interface ApiFetchOptions {
   body?: unknown;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  authRecovery?: boolean;
 }
 
 const JSON_CONTENT_TYPE = 'application/json';
-
-const RELATIVE_PATH_MESSAGE =
-  'API paths must be relative to the API origin and start with a single "/", for example "/health".';
-
-export function resolveUrl(path: string): string {
-  if (!path.startsWith('/') || path.startsWith('//')) {
-    throw new Error(RELATIVE_PATH_MESSAGE);
-  }
-
-  const url = new URL(path, API_BASE_URL);
-
-  if (url.origin !== API_BASE_URL) {
-    throw new Error(RELATIVE_PATH_MESSAGE);
-  }
-
-  return url.toString();
-}
+const UNAUTHORIZED_STATUS = 401;
+const FORBIDDEN_STATUS = 403;
 
 export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<T> {
   const method = options.method ?? 'GET';
+  const url = resolveUrl(path);
+  const csrfTokenUsed = isUnsafeMethod(method) ? readCsrfToken() : undefined;
+
+  let response = await send(url, method, options);
+
+  if (options.authRecovery === true) {
+    response = await applyRecovery(url, method, options, csrfTokenUsed, response);
+  }
+
+  return readResponse<T>(response);
+}
+
+async function applyRecovery(
+  url: string,
+  method: HttpMethod,
+  options: ApiFetchOptions,
+  csrfTokenUsed: string | undefined,
+  response: Response,
+): Promise<Response> {
+  if (response.status === UNAUTHORIZED_STATUS) {
+    const outcome = await refreshCoordinator.refresh({ signal: options.signal });
+
+    if (outcome.status === 'refreshed' || outcome.status === 'already-valid') {
+      return send(url, method, { ...options, authRecovery: false });
+    }
+
+    return response;
+  }
+
+  if (response.status === FORBIDDEN_STATUS && isUnsafeMethod(method)) {
+    const currentToken = readCsrfToken();
+
+    if (currentToken !== undefined && currentToken !== csrfTokenUsed) {
+      return send(url, method, { ...options, authRecovery: false });
+    }
+
+    return response;
+  }
+
+  return response;
+}
+
+async function send(
+  url: string,
+  method: HttpMethod,
+  options: ApiFetchOptions,
+): Promise<Response> {
   const headers: Record<string, string> = {
     Accept: JSON_CONTENT_TYPE,
     ...buildCsrfHeaders(method),
@@ -47,11 +83,8 @@ export async function apiFetch<T>(
     body = JSON.stringify(options.body);
   }
 
-  const url = resolveUrl(path);
-
-  let response: Response;
   try {
-    response = await fetch(url, {
+    return await fetch(url, {
       method,
       headers,
       body,
@@ -69,8 +102,6 @@ export async function apiFetch<T>(
       cause: error,
     });
   }
-
-  return readResponse<T>(response);
 }
 
 async function readResponse<T>(response: Response): Promise<T> {
