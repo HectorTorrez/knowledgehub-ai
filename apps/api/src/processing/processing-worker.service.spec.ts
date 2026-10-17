@@ -144,6 +144,54 @@ describe('ProcessingWorkerService', () => {
       expect(jobs.recordFailure).not.toHaveBeenCalled();
     });
 
+    it('fails permanently when the extracted pages yield no chunks', async () => {
+      const { worker, jobs, extractor, chunks } = createWorker();
+      extractor.extract.mockResolvedValueOnce({
+        pages: [
+          { pageNumber: 1, content: ' \n\t ' },
+          { pageNumber: 2, content: '' },
+        ],
+        pageCount: 2,
+        characterCount: 4,
+      });
+
+      await worker.processJob(JOB);
+
+      expect(chunks.replaceForGeneration).not.toHaveBeenCalled();
+      expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).toHaveBeenCalledWith(OWNERSHIP, {
+        category: 'permanent',
+        reason: 'NO_EXTRACTABLE_TEXT',
+        detail:
+          'ProcessingFailureError: Processing job job-1 produced no extractable text',
+      });
+    });
+
+    it('still embeds a document when only some pages are blank', async () => {
+      const { worker, jobs, extractor, chunks } = createWorker();
+      extractor.extract.mockResolvedValueOnce({
+        pages: [
+          { pageNumber: 1, content: '   ' },
+          { pageNumber: 2, content: 'Visible' },
+        ],
+        pageCount: 2,
+        characterCount: 10,
+      });
+
+      await worker.processJob(JOB);
+
+      expect(chunks.replaceForGeneration).toHaveBeenCalledWith(OWNERSHIP, [
+        {
+          pageNumber: 2,
+          chunkIndex: 0,
+          content: 'Visible',
+          characterCount: 7,
+        },
+      ]);
+      expect(jobs.publishExtraction).toHaveBeenCalled();
+      expect(jobs.recordFailure).not.toHaveBeenCalled();
+    });
+
     it('never readies the document when the generation is no longer owned', async () => {
       const { worker, jobs, chunks } = createWorker();
       chunks.replaceForGeneration.mockResolvedValueOnce(false);

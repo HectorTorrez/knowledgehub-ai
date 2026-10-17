@@ -505,8 +505,9 @@ document can only reach `READY` once its current generation's chunks are stored.
 
 Failures are classified rather than blanket-retried. An unsupported content
 type, an unparseable document, an exceeded size/page/character limit, a document
-that exceeds the chunk budget, a missing verified object, a storage-integrity
-violation, or an embedding request the provider rejects as invalid is
+that exceeds the chunk budget, a document with no extractable text, a missing
+verified object, a storage-integrity violation, or an embedding request the
+provider rejects as invalid is
 **permanent**: the job becomes `FAILED` and the document becomes `FAILED` with
 `failureKind = PROCESSING` in the same transaction. A storage or database outage,
 an embedding provider that is rate-limited or unreachable, a malformed embedding
@@ -537,9 +538,10 @@ failed; `failureKind` is `VERIFICATION` for an upload that failed verification
 and `PROCESSING` for a verified document whose processing failed, and
 `failureReason` then holds only the sanitized vocabulary. A processing failure's
 `failureReason` is one of `CONTENT_UNSUPPORTED`, `CONTENT_CORRUPT`,
-`CONTENT_TOO_LARGE`, `VERIFIED_OBJECT_MISSING`, `STORAGE_INTEGRITY_VIOLATION`,
-or `PROCESSING_FAILED`; it never carries an exception message, SQL text, or a
-storage key, all of which stay in the job's internal `lastError` and logs.
+`NO_EXTRACTABLE_TEXT`, `CONTENT_TOO_LARGE`, `VERIFIED_OBJECT_MISSING`,
+`STORAGE_INTEGRITY_VIOLATION`, or `PROCESSING_FAILED`; it never carries an
+exception message, SQL text, or a storage key, all of which stay in the job's
+internal `lastError` and logs.
 Persistence-only fields — `uploadStorageKey`, `storageKey`, and `uploadedById` —
 are never returned.
 
@@ -548,8 +550,9 @@ are never returned.
 - **`READY` now means ingested.** Processing extracts the text, splits it into
   page-scoped chunks, embeds each chunk, and only then marks the document
   `READY`. A document in `PROCESSING` is still being worked on. A document whose
-  text yields no chunks (for example a PDF with no extractable text layer) still
-  reaches `READY` with zero chunks and therefore matches no query. Vector search
+  text yields no chunks, such as a scanned PDF with no extractable text layer,
+  fails permanently with `NO_EXTRACTABLE_TEXT` and is excluded from retrieval.
+  OCR is not part of this pipeline. Vector search
   is currently exact: the HNSW index is deliberately deferred until retrieval
   performance is measured.
 - **Retrieval is a service, not an endpoint.** `RetrievalService` ranks chunks by

@@ -67,6 +67,21 @@ describe('classifyProcessingFailure', () => {
     ).toBe('transient');
   });
 
+  it('treats a document with no extractable text as a permanent failure', () => {
+    const failure = classifyProcessingFailure(
+      new ProcessingFailureError(
+        'NO_EXTRACTABLE_TEXT',
+        'Processing job job-1 produced no extractable text',
+      ),
+    );
+
+    expect(failure.category).toBe('permanent');
+    expect(failure.reason).toBe('NO_EXTRACTABLE_TEXT');
+    expect(failure.detail).toBe(
+      'ProcessingFailureError: Processing job job-1 produced no extractable text',
+    );
+  });
+
   it('treats an unparseable document as a permanent failure', () => {
     const failure = classifyProcessingFailure(
       new DocumentExtractionError('The PDF could not be parsed'),

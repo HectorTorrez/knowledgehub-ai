@@ -112,10 +112,15 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
       }
 
       const ownership = ownershipOf(job);
-      const stored = await this.chunks.replaceForGeneration(
-        ownership,
-        chunkPages(extracted.pages),
-      );
+      const drafts = chunkPages(extracted.pages);
+      if (drafts.length === 0) {
+        throw new ProcessingFailureError(
+          'NO_EXTRACTABLE_TEXT',
+          `Processing job ${job.id} produced no extractable text`,
+        );
+      }
+
+      const stored = await this.chunks.replaceForGeneration(ownership, drafts);
       if (!stored || lease.lost) {
         return;
       }

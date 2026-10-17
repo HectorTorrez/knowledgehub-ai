@@ -17,6 +17,7 @@ import { OBJECT_STORAGE } from '../src/storage/object-storage.port.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { FakeObjectStorage } from './support/fake-object-storage.js';
 import { FakeEmbeddingProvider, deterministicVector } from './support/fake-embedding-provider.js';
+import { createMinimalPdf } from './support/minimal-pdf.js';
 
 const encoder = new TextEncoder();
 
@@ -430,6 +431,76 @@ describe('document processing worker (e2e)', () => {
     expect(failed.failureKind).toBe('PROCESSING');
     expect(failed.failureReason).toBe('CONTENT_UNSUPPORTED');
   });
+
+  it.each([
+    {
+      label: 'empty plain text',
+      contentType: 'text/plain',
+      bytes: encoder.encode(''),
+    },
+    {
+      label: 'whitespace-only plain text',
+      contentType: 'text/plain',
+      bytes: encoder.encode(' \n\t '),
+    },
+    {
+      label: 'unicode-whitespace plain text',
+      contentType: 'text/plain',
+      bytes: encoder.encode('\u00a0\u2003'),
+    },
+    {
+      label: 'empty markdown',
+      contentType: 'text/markdown',
+      bytes: encoder.encode(''),
+    },
+    {
+      label: 'whitespace-only markdown',
+      contentType: 'text/markdown',
+      bytes: encoder.encode(' \n\t '),
+    },
+    {
+      label: 'a PDF with no text',
+      contentType: 'application/pdf',
+      bytes: createMinimalPdf(''),
+    },
+    {
+      label: 'a PDF whose only text is whitespace',
+      contentType: 'application/pdf',
+      bytes: createMinimalPdf('   '),
+    },
+  ])(
+    'fails permanently without embedding when the document is $label',
+    async ({ contentType, bytes }) => {
+      const { document, job } = await seedJob({ contentType, bytes });
+      const claimed = await jobs.claimNextDueJob('worker-a');
+      let embedCalls = 0;
+      embeddings.embedImpl = async (texts) => {
+        embedCalls += 1;
+        return texts.map((_, index) => deterministicVector(index + 1));
+      };
+
+      await worker.processJob(claimed!);
+
+      expect(embedCalls).toBe(0);
+      expect(await loadExtractions(document.id)).toHaveLength(0);
+      expect(await loadChunks(document.id)).toHaveLength(0);
+
+      const failedJob = await loadJob(job.id);
+      expect(failedJob.state).toBe('FAILED');
+      expect(failedJob.attempt).toBe(1);
+      expect(failedJob.lastError).toBe(
+        'ProcessingFailureError: Processing job ' +
+          job.id +
+          ' produced no extractable text',
+      );
+      expect(failedJob.lastError).not.toContain(job.verifiedStorageKey);
+
+      const failed = await loadDocument(document.id);
+      expect(failed.status).toBe('FAILED');
+      expect(failed.failureKind).toBe('PROCESSING');
+      expect(failed.failureReason).toBe('NO_EXTRACTABLE_TEXT');
+    },
+  );
 
   it('schedules a retry with backoff on a transient failure and succeeds on the next attempt', async () => {
     const { document, job } = await seedJob();
