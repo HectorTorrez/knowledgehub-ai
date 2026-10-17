@@ -15,13 +15,14 @@ const encoder = new TextEncoder();
 const extractor = new DocumentTextExtractor();
 
 describe('DocumentTextExtractor', () => {
-  it('decodes plain text byte-for-byte', async () => {
+  it('decodes plain text byte-for-byte as a single page', async () => {
     const bytes = encoder.encode('Hello\nplain text');
 
     await expect(
       extractor.extract({ contentType: 'text/plain', bytes }),
     ).resolves.toEqual({
-      content: 'Hello\nplain text',
+      pages: [{ pageNumber: 1, content: 'Hello\nplain text' }],
+      pageCount: 1,
       characterCount: 16,
     });
   });
@@ -32,7 +33,8 @@ describe('DocumentTextExtractor', () => {
     await expect(
       extractor.extract({ contentType: 'text/markdown', bytes }),
     ).resolves.toEqual({
-      content: '# Title\n\n- item',
+      pages: [{ pageNumber: 1, content: '# Title\n\n- item' }],
+      pageCount: 1,
       characterCount: 15,
     });
   });
@@ -54,7 +56,7 @@ describe('DocumentTextExtractor', () => {
     ).rejects.toBeInstanceOf(UnsupportedDocumentTypeError);
   });
 
-  it('extracts embedded text from a PDF', async () => {
+  it('extracts embedded text from a PDF into page-attributed output', async () => {
     const bytes = createMinimalPdf('Hello KnowledgeHub PDF');
 
     const extracted = await extractor.extract({
@@ -62,8 +64,13 @@ describe('DocumentTextExtractor', () => {
       bytes,
     });
 
-    expect(extracted.content).toContain('Hello KnowledgeHub PDF');
-    expect(extracted.characterCount).toBe(extracted.content.length);
+    expect(extracted.pageCount).toBe(1);
+    expect(extracted.pages).toHaveLength(1);
+    expect(extracted.pages[0]?.pageNumber).toBe(1);
+    expect(extracted.pages[0]?.content).toContain('Hello KnowledgeHub PDF');
+    expect(extracted.characterCount).toBe(
+      extracted.pages.reduce((total, page) => total + page.content.length, 0),
+    );
   });
 
   it('rejects a PDF that cannot be parsed', async () => {

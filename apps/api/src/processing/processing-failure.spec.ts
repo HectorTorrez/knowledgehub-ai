@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ChunkLimitExceededError } from './chunking.policy.js';
 import {
   DocumentExtractionError,
   DocumentResourceLimitError,
@@ -27,6 +28,13 @@ describe('classifyProcessingFailure', () => {
     const failure = classifyProcessingFailure(
       new DocumentResourceLimitError('too many pages'),
     );
+
+    expect(failure.category).toBe('permanent');
+    expect(failure.reason).toBe('CONTENT_TOO_LARGE');
+  });
+
+  it('treats a chunk-budget violation as a permanent failure', () => {
+    const failure = classifyProcessingFailure(new ChunkLimitExceededError());
 
     expect(failure.category).toBe('permanent');
     expect(failure.reason).toBe('CONTENT_TOO_LARGE');

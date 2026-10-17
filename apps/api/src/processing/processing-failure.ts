@@ -1,4 +1,5 @@
 import { isTransientTransactionFailure } from '../prisma/transient-transaction-errors.js';
+import { ChunkLimitExceededError } from './chunking.policy.js';
 import {
   DocumentExtractionError,
   DocumentResourceLimitError,
@@ -65,6 +66,10 @@ export function classifyProcessingFailure(error: unknown): ProcessingFailure {
   }
 
   if (error instanceof DocumentResourceLimitError) {
+    return permanent('CONTENT_TOO_LARGE', `${error.name}: ${error.message}`);
+  }
+
+  if (error instanceof ChunkLimitExceededError) {
     return permanent('CONTENT_TOO_LARGE', `${error.name}: ${error.message}`);
   }
 

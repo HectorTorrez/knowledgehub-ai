@@ -223,6 +223,7 @@ model Document {
 
   processingJobs DocumentProcessingJob[]
   extractions    DocumentExtraction[]
+  chunks         DocumentChunk[]
 
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
@@ -278,6 +279,10 @@ model DocumentProcessingJob {
 /// overwrite an accepted result. The publishing write revalidates the current
 /// job lease and the document generation in the same transaction, so only the
 /// current lease holder can create the row.
+///
+/// `pages` preserves the page boundary of the source document
+/// (`[{ pageNumber, content }, …]`) so later phases can attribute a chunk to the
+/// page it came from; `characterCount` is the total across pages.
 model DocumentExtraction {
   id String @id @default(uuid()) @db.Uuid
 
@@ -289,7 +294,8 @@ model DocumentExtraction {
   documentGeneration Int
   verifiedStorageKey String
 
-  content        String
+  pages          Json
+  pageCount      Int
   characterCount Int
 
   createdAt DateTime @default(now())
@@ -297,4 +303,37 @@ model DocumentExtraction {
 
   @@unique([documentId, documentGeneration])
   @@index([organizationId])
+}
+
+/// A contiguous slice of one page's extracted text, addressed by document
+/// generation, produced by the chunking phase.
+///
+/// IDENTITY — [documentId, documentGeneration, chunkIndex] is unique, so a retry
+/// of a generation replaces its chunks rather than appending duplicates, and a
+/// stale execution can only ever touch its own generation.
+model DocumentChunk {
+  id String @id @default(uuid()) @db.Uuid
+
+  documentId String   @db.Uuid
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  organizationId String @db.Uuid
+
+  documentGeneration Int
+
+  /// 1-based page the chunk was taken from. A chunk never spans two pages.
+  pageNumber Int
+
+  /// 0-based order of the chunk within its generation.
+  chunkIndex Int
+
+  content        String
+  characterCount Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([documentId, documentGeneration, chunkIndex])
+  @@index([organizationId])
+  @@index([documentId, documentGeneration])
 }

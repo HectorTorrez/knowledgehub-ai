@@ -96,6 +96,15 @@ describe('document processing worker (e2e)', () => {
   const loadExtractions = (documentId: string) =>
     prisma.documentExtraction.findMany({ where: { documentId } });
 
+  const pagesOf = (extraction: { pages: unknown }) =>
+    extraction.pages as { pageNumber: number; content: string }[];
+
+  const resultFor = (content: string) => ({
+    pages: [{ pageNumber: 1, content }],
+    pageCount: 1,
+    characterCount: content.length,
+  });
+
   const expireLease = (jobId: string) =>
     prisma.documentProcessingJob.update({
       where: { id: jobId },
@@ -143,7 +152,10 @@ describe('document processing worker (e2e)', () => {
 
     const extractions = await loadExtractions(document.id);
     expect(extractions).toHaveLength(1);
-    expect(extractions[0]?.content).toBe('Hello worker');
+    expect(pagesOf(extractions[0]!)).toEqual([
+      { pageNumber: 1, content: 'Hello worker' },
+    ]);
+    expect(extractions[0]?.pageCount).toBe(1);
     expect(extractions[0]?.characterCount).toBe(bytes.byteLength);
     expect(extractions[0]?.documentGeneration).toBe(1);
     expect(extractions[0]?.verifiedStorageKey).toBe(job.verifiedStorageKey);
@@ -173,17 +185,16 @@ describe('document processing worker (e2e)', () => {
     expect(second?.leaseId).not.toBe(first?.leaseId);
 
     expect(
-      await jobs.publishExtraction(ownershipOf(first!), {
-        content: 'stale result',
-        characterCount: 12,
-      }),
+      await jobs.publishExtraction(ownershipOf(first!), resultFor('stale result')),
     ).toBe(false);
 
     await worker.processJob(second!);
 
     const extractions = await loadExtractions(document.id);
     expect(extractions).toHaveLength(1);
-    expect(extractions[0]?.content).toBe('Hello worker');
+    expect(pagesOf(extractions[0]!)).toEqual([
+      { pageNumber: 1, content: 'Hello worker' },
+    ]);
 
     expect((await loadJob(job.id)).state).toBe('SUCCEEDED');
     expect((await loadDocument(document.id)).status).toBe('READY');
@@ -206,7 +217,7 @@ describe('document processing worker (e2e)', () => {
     const { document, job } = await seedJob();
     const claimed = await jobs.claimNextDueJob('worker-a');
     const ownership = ownershipOf(claimed!);
-    const result = { content: 'result', characterCount: 6 };
+    const result = resultFor('result');
 
     expect(
       await jobs.publishExtraction(
@@ -259,10 +270,7 @@ describe('document processing worker (e2e)', () => {
 
     try {
       await expect(
-        jobs.publishExtraction(ownership, {
-          content: 'text',
-          characterCount: 4,
-        }),
+        jobs.publishExtraction(ownership, resultFor('text')),
       ).rejects.toThrow();
     } finally {
       await prisma.$executeRawUnsafe(
@@ -412,10 +420,7 @@ describe('document processing worker (e2e)', () => {
     });
 
     expect(
-      await jobs.publishExtraction(ownership, {
-        content: 'stale',
-        characterCount: 5,
-      }),
+      await jobs.publishExtraction(ownership, resultFor('stale')),
     ).toBe(false);
     await jobs.recordFailure(ownership, {
       category: 'permanent',
@@ -445,10 +450,7 @@ describe('document processing worker (e2e)', () => {
     };
 
     expect(
-      await jobs.publishExtraction(ownership, {
-        content: 'again',
-        characterCount: 5,
-      }),
+      await jobs.publishExtraction(ownership, resultFor('again')),
     ).toBe(false);
     expect(
       await jobs.recordFailure(ownership, {

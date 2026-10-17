@@ -475,7 +475,8 @@ Each iteration the worker recovers expired leases, claims one due job atomically
 verified object bound to its inspected version, and extracts text:
 
 - `text/plain` and `text/markdown` decode as strict UTF-8;
-- `application/pdf` extracts embedded text with `unpdf`.
+- `application/pdf` extracts embedded text with `unpdf`, preserving the page each
+  passage came from.
 
 Extraction is bounded before its output is used: an object above 25 MiB is
 rejected without being read, and a PDF above 500 pages or text above 2,000,000
@@ -483,9 +484,11 @@ characters is rejected after parsing. Those limits are deliberately far below th
 2 GB upload limit, but they are input-size bounds only: see the limitations
 below for what they do not guarantee.
 
-Publishing is fenced and completes the lifecycle. The extracted text is written
-to `DocumentExtraction`, keyed by `[documentId, documentGeneration]`, and in the
-same transaction the job becomes `SUCCEEDED` and the document moves
+Publishing is fenced and completes the lifecycle. The page-attributed extracted
+text is written to `DocumentExtraction` as an array of `{ pageNumber, content }`
+pages (plus `pageCount` and `characterCount`), keyed by
+`[documentId, documentGeneration]`, and in the same transaction the job becomes
+`SUCCEEDED` and the document moves
 `PROCESSING → READY`. That single conditional write revalidates the current lease
 id, an unexpired lease, the job's generation and storage key, and the document's
 organization, generation, storage key, and `PROCESSING` status. A stale
@@ -534,10 +537,13 @@ are never returned.
 
 - **Processing is extraction-only.** `upload-complete` confirms and promotes the
   object and, atomically, queues a durable processing job for that generation.
-  The worker extracts the document's text into `DocumentExtraction` and, on
-  success, moves the document `PROCESSING → READY`; it does not yet chunk or embed
-  that text, and there is no retrieval API over it. A document in `PROCESSING` is
-  still being worked on, not evidence that extraction succeeded.
+  The worker extracts the document's text into `DocumentExtraction` as
+  page-attributed pages and, on success, moves the document
+  `PROCESSING → READY`; it does not yet chunk or embed that text, and there is no
+  retrieval API over it. A document in `PROCESSING` is still being worked on, not
+  evidence that extraction succeeded. Chunking, embeddings, and retrieval are
+  designed in `docs/KH-6-design.md` and are not implemented yet; `DocumentChunk`
+  exists as an empty table.
 - **PDF parsing is not sandboxed.** Extraction enforces deterministic size,
   page, and character limits, but the parser still runs synchronously in the API
   process. There is no execution-time or memory limit (a JavaScript timer cannot

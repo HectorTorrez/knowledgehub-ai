@@ -38,7 +38,11 @@ function createWorker(overrides?: {
     recordFailure: vi.fn(async () => true),
   };
   const extractor = {
-    extract: vi.fn(async () => ({ content: 'Hello world', characterCount: 11 })),
+    extract: vi.fn(async () => ({
+      pages: [{ pageNumber: 1, content: 'Hello world' }],
+      pageCount: 1,
+      characterCount: 11,
+    })),
   };
   const config = {
     workerEnabled: false,
@@ -113,7 +117,8 @@ describe('ProcessingWorkerService', () => {
         bytes: BYTES,
       });
       expect(jobs.publishExtraction).toHaveBeenCalledWith(OWNERSHIP, {
-        content: 'Hello world',
+        pages: [{ pageNumber: 1, content: 'Hello world' }],
+        pageCount: 1,
         characterCount: 11,
       });
       expect(jobs.recordFailure).not.toHaveBeenCalled();
@@ -126,7 +131,11 @@ describe('ProcessingWorkerService', () => {
       jobs.renewLease.mockResolvedValue(false);
       extractor.extract.mockImplementation(async () => {
         await new Promise((resolve) => setTimeout(resolve, 20));
-        return { content: 'Hello world', characterCount: 11 };
+        return {
+          pages: [{ pageNumber: 1, content: 'Hello world' }],
+          pageCount: 1,
+          characterCount: 11,
+        };
       });
 
       await worker.processJob(JOB);

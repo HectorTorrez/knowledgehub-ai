@@ -185,7 +185,11 @@ describe('ProcessingJobService', () => {
   });
 
   describe('publishExtraction', () => {
-    const result = { content: 'extracted text', characterCount: 14 };
+    const result = {
+      pages: [{ pageNumber: 1, content: 'extracted text' }],
+      pageCount: 1,
+      characterCount: 14,
+    };
 
     it('inserts the result, completes the job, and readies the document in one transaction', async () => {
       const { service, transaction, executeCalls } = transactionHarness({
@@ -201,6 +205,9 @@ describe('ProcessingJobService', () => {
 
       const [insert, complete, ready] = executeCalls;
       expect(sqlOf(insert!)).toContain('INSERT INTO "DocumentExtraction"');
+      expect(sqlOf(insert!)).toContain('"pages"');
+      expect(sqlOf(insert!)).toContain('"pageCount"');
+      expect(insert!.values).toContain(JSON.stringify(result.pages));
       expect(insert!.values).toContain(OWNERSHIP.leaseId);
       expect(sqlOf(complete!)).toContain("state = 'SUCCEEDED'");
       expect(sqlOf(ready!)).toContain("status = 'READY'");

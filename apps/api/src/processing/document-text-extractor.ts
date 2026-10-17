@@ -10,8 +10,14 @@ export interface ExtractionInput {
   bytes: Uint8Array;
 }
 
-export interface ExtractedText {
+export interface ExtractedPage {
+  pageNumber: number;
   content: string;
+}
+
+export interface ExtractedText {
+  pages: ExtractedPage[];
+  pageCount: number;
   characterCount: number;
 }
 
@@ -50,27 +56,36 @@ export class DocumentTextExtractor {
       );
     }
 
-    const content =
+    const pages =
       contentType === 'application/pdf'
-        ? await this.extractPdf(bytes)
-        : this.extractPlainText(contentType, bytes);
+        ? await this.extractPdfPages(bytes)
+        : this.extractPlainTextPages(contentType, bytes);
 
-    if (content.length > MAX_EXTRACTED_CHARACTERS) {
+    const characterCount = pages.reduce(
+      (total, page) => total + page.content.length,
+      0,
+    );
+
+    if (characterCount > MAX_EXTRACTED_CHARACTERS) {
       throw new DocumentResourceLimitError(
         'The extracted text exceeds the character limit',
       );
     }
 
-    return { content, characterCount: content.length };
+    return { pages, pageCount: pages.length, characterCount };
   }
 
-  private extractPlainText(contentType: string, bytes: Uint8Array): string {
+  private extractPlainTextPages(
+    contentType: string,
+    bytes: Uint8Array,
+  ): ExtractedPage[] {
     if (!(PLAIN_TEXT_CONTENT_TYPES as readonly string[]).includes(contentType)) {
       throw new UnsupportedDocumentTypeError(contentType);
     }
 
     try {
-      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      const content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      return [{ pageNumber: 1, content }];
     } catch (error) {
       throw new DocumentExtractionError('The document is not valid UTF-8', {
         cause: error,
@@ -78,11 +93,11 @@ export class DocumentTextExtractor {
     }
   }
 
-  private async extractPdf(bytes: Uint8Array): Promise<string> {
+  private async extractPdfPages(bytes: Uint8Array): Promise<ExtractedPage[]> {
     try {
       const { extractText } = await import('unpdf');
       const { text, totalPages } = await extractText(bytes, {
-        mergePages: true,
+        mergePages: false,
       });
 
       if (totalPages > MAX_PDF_PAGES) {
@@ -91,7 +106,12 @@ export class DocumentTextExtractor {
         );
       }
 
-      return text;
+      const pageTexts = Array.isArray(text) ? text : [text];
+
+      return pageTexts.map((content, index) => ({
+        pageNumber: index + 1,
+        content,
+      }));
     } catch (error) {
       if (error instanceof DocumentResourceLimitError) {
         throw error;

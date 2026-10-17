@@ -41,8 +41,14 @@ export interface ProcessingOwnership {
   verifiedStorageKey: string;
 }
 
-export interface ExtractionResult {
+export interface ExtractedPage {
+  pageNumber: number;
   content: string;
+}
+
+export interface ExtractionResult {
+  pages: ExtractedPage[];
+  pageCount: number;
   characterCount: number;
 }
 
@@ -184,10 +190,11 @@ export class ProcessingJobService {
       const inserted = await tx.$executeRaw`
         INSERT INTO "DocumentExtraction"
           ("id", "documentId", "organizationId", "documentGeneration",
-           "verifiedStorageKey", "content", "characterCount", "createdAt", "updatedAt")
+           "verifiedStorageKey", "pages", "pageCount", "characterCount", "createdAt", "updatedAt")
         SELECT gen_random_uuid(), j."documentId", j."organizationId",
                j."documentGeneration", j."verifiedStorageKey",
-               ${result.content}, ${result.characterCount}, now(), now()
+               ${JSON.stringify(result.pages)}::jsonb, ${result.pageCount},
+               ${result.characterCount}, now(), now()
         FROM "DocumentProcessingJob" AS j
         JOIN "Document" AS d ON d.id = j."documentId"
         WHERE j.id = ${ownership.jobId}::uuid
