@@ -219,3 +219,48 @@ export interface DocumentUploadUrlResponse {
 export interface DocumentUploadCompleteRequest {
   originalFileName?: string;
 }
+
+/**
+ * Request body of `POST /organizations/:organizationId/answers`.
+ *
+ * Only the question is accepted. The organization comes from the route and the
+ * caller's identity from the session, so no organization id, document id, or
+ * retrieval option is part of this contract.
+ */
+export interface AnswerRequest {
+  question: string;
+}
+
+/**
+ * One retrieved source an answer cites. `marker` is the number used inside the
+ * answer text, so a client can render the marker without renumbering. `excerpt`
+ * is derived from the cited chunk on the server, never from model output.
+ */
+export interface AnswerCitation {
+  marker: number;
+  documentId: string;
+  documentTitle: string;
+  pageNumber: number;
+  chunkIndex: number;
+  excerpt: string;
+}
+
+/**
+ * Response body of `POST /organizations/:organizationId/answers`.
+ *
+ * `answered` carries a grounded answer whose citation markers all resolve to
+ * returned citations. `insufficient_evidence` is a successful outcome for a
+ * question the retrieved sources cannot answer; it carries no answer prose and
+ * no citations.
+ */
+export type AnswerResponse =
+  | {
+      status: 'answered';
+      answer: string;
+      citations: AnswerCitation[];
+    }
+  | {
+      status: 'insufficient_evidence';
+      answer: null;
+      citations: AnswerCitation[];
+    };
