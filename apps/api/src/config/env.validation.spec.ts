@@ -39,6 +39,9 @@ describe('validateEnv', () => {
     expect(env.EMBEDDING_DIMENSIONS).toBe(1536);
     expect(env.EMBEDDING_BATCH_SIZE).toBe(64);
     expect(env.EMBEDDING_TIMEOUT_MS).toBe(30000);
+    expect(env.ANSWER_MODEL).toBe('gpt-4.1-mini');
+    expect(env.ANSWER_TIMEOUT_MS).toBe(30000);
+    expect(env.ANSWER_MAX_OUTPUT_TOKENS).toBe(700);
   });
 
   it('coerces numeric strings', () => {
@@ -274,5 +277,40 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ ...validEnv, EMBEDDING_BATCH_SIZE: 'many' }),
     ).toThrow(/EMBEDDING_BATCH_SIZE/);
+  });
+
+  it('coerces answer numeric strings', () => {
+    const env = validateEnv({
+      ...validEnv,
+      ANSWER_TIMEOUT_MS: '45000',
+      ANSWER_MAX_OUTPUT_TOKENS: '1024',
+    });
+
+    expect(env.ANSWER_TIMEOUT_MS).toBe(45000);
+    expect(env.ANSWER_MAX_OUTPUT_TOKENS).toBe(1024);
+  });
+
+  it('rejects an empty answer model', () => {
+    expect(() => validateEnv({ ...validEnv, ANSWER_MODEL: '' })).toThrow(
+      /ANSWER_MODEL/,
+    );
+  });
+
+  it('rejects an invalid answer timeout', () => {
+    expect(() => validateEnv({ ...validEnv, ANSWER_TIMEOUT_MS: '0' })).toThrow(
+      /ANSWER_TIMEOUT_MS/,
+    );
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWER_TIMEOUT_MS: 'soon' }),
+    ).toThrow(/ANSWER_TIMEOUT_MS/);
+  });
+
+  it('rejects answer output tokens outside the supported range', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWER_MAX_OUTPUT_TOKENS: '0' }),
+    ).toThrow(/ANSWER_MAX_OUTPUT_TOKENS/);
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWER_MAX_OUTPUT_TOKENS: '4097' }),
+    ).toThrow(/ANSWER_MAX_OUTPUT_TOKENS/);
   });
 });

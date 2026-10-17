@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import {
+  DEFAULT_ANSWER_MAX_OUTPUT_TOKENS,
+  DEFAULT_ANSWER_MODEL,
+  DEFAULT_ANSWER_TIMEOUT_MS,
+  MAX_ANSWER_OUTPUT_TOKENS,
+} from '../answers/answer-policy.js';
+import {
   DEFAULT_EMBEDDING_BATCH_SIZE,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_EMBEDDING_TIMEOUT_MS,
@@ -107,6 +113,19 @@ const envObjectSchema = z.object({
     .int()
     .positive()
     .default(DEFAULT_EMBEDDING_TIMEOUT_MS),
+
+  ANSWER_MODEL: z.string().min(1).default(DEFAULT_ANSWER_MODEL),
+  ANSWER_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_ANSWER_TIMEOUT_MS),
+  ANSWER_MAX_OUTPUT_TOKENS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_ANSWER_OUTPUT_TOKENS)
+    .default(DEFAULT_ANSWER_MAX_OUTPUT_TOKENS),
 });
 
 const PRODUCTION_STORAGE_KEYS = [

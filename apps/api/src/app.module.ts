@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AnswersModule } from './answers/answers.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { validateEnv } from './config/env.validation.js';
 import { DocumentsModule } from './documents/documents.module.js';
@@ -21,6 +22,7 @@ import { RetrievalModule } from './retrieval/retrieval.module.js';
     ProcessingModule,
     EmbeddingsModule,
     RetrievalModule,
+    AnswersModule,
   ],
 })
 export class AppModule {}
