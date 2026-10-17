@@ -5,10 +5,17 @@ export interface HealthResponse {
   timestamp: string;
 }
 
-/** Generic error shape returned by the API for failed requests. */
+/**
+ * Generic error shape returned by the API for failed requests.
+ *
+ * `message` is a single string for most failures. It is an array of field-level
+ * messages when request validation fails, because Nest's `BadRequestException`
+ * is thrown with the list of Zod issues. `error` is the HTTP status text, and is
+ * present for the built-in Nest exceptions.
+ */
 export interface ApiErrorResponse {
   statusCode: number;
-  message: string;
+  message: string | string[];
   error?: string;
 }
 
