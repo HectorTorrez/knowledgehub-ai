@@ -58,6 +58,15 @@ export interface RefreshResponse {
   user: PublicUser;
 }
 
+/**
+ * Response body of `GET /auth/session`. A read-only check of the current
+ * cookie-backed session: it returns the profile for a live session and never
+ * rotates tokens or issues cookies.
+ */
+export interface SessionResponse {
+  user: PublicUser;
+}
+
 /** A user's role within an organization. */
 export type OrganizationRole = 'OWNER' | 'MEMBER';
 

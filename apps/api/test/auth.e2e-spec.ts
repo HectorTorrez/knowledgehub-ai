@@ -1426,3 +1426,154 @@ describe('browser-auth gate for refresh and logout (e2e)', () => {
     expect(requireCookie(cleared, CSRF_COOKIE)).toMatch(/Path=\//i);
   });
 });
+
+describe('GET /auth/session (e2e)', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let authConfig: AuthConfig;
+  const trackedEmails = new Set<string>();
+
+  const getSession = (cookies: string[]) =>
+    request(app.getHttpServer()).get('/auth/session').set('Cookie', cookies);
+
+  async function registerUser(): Promise<{
+    userId: string;
+    email: string;
+    jar: CookieJar;
+  }> {
+    const body = validBody();
+    trackedEmails.add(body.email);
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send(body)
+      .expect(201);
+
+    return {
+      userId: response.body.user.id as string,
+      email: body.email,
+      jar: readSetCookies(response),
+    };
+  }
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleRef.createNestApplication();
+    app.use(cookieParser());
+    await app.init();
+    prisma = app.get(PrismaService);
+    authConfig = app.get(AuthConfig);
+  });
+
+  afterAll(async () => {
+    if (trackedEmails.size > 0) {
+      await prisma.user.deleteMany({
+        where: { email: { in: [...trackedEmails] } },
+      });
+    }
+    await app.close();
+  });
+
+  it('returns the public profile for a live session without rotating tokens', async () => {
+    const { userId, email, jar } = await registerUser();
+    const before = await prisma.authSession.findFirstOrThrow({
+      where: { userId },
+      include: { refreshTokens: true },
+    });
+
+    const response = await getSession(cookieHeader(jar)).expect(200);
+
+    expect(response.body).toEqual({
+      user: {
+        id: userId,
+        email,
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+      },
+    });
+
+    const bodyText = JSON.stringify(response.body);
+    expect(bodyText).not.toContain('passwordHash');
+    expect(bodyText).not.toContain(jar[ACCESS_TOKEN_COOKIE]);
+    expect(bodyText).not.toContain(jar[REFRESH_TOKEN_COOKIE]);
+    expect(setCookies(response)).toHaveLength(0);
+
+    const after = await prisma.authSession.findFirstOrThrow({
+      where: { id: before.id },
+      include: { refreshTokens: true },
+    });
+    expect(after.revokedAt).toBeNull();
+    expect(after.lastUsedAt).toEqual(before.lastUsedAt);
+    expect(after.refreshTokens).toHaveLength(before.refreshTokens.length);
+    expect(after.refreshTokens.every((token) => token.usedAt === null)).toBe(
+      true,
+    );
+  });
+
+  it('rejects a request without an access credential', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/auth/session')
+      .expect(401);
+
+    expect(response.body.message).toBe('Authentication required');
+  });
+
+  it('rejects an invalid access token', async () => {
+    const response = await getSession([
+      `${ACCESS_TOKEN_COOKIE}=not-a-valid-token`,
+    ]).expect(401);
+
+    expect(response.body.message).toBe('Invalid or expired access token');
+  });
+
+  it('rejects an expired access token', async () => {
+    const { userId } = await registerUser();
+    const session = await prisma.authSession.findFirstOrThrow({
+      where: { userId },
+    });
+    const expired = await new JwtService({}).signAsync(
+      { sub: userId, sid: session.id },
+      { secret: authConfig.accessSecret, expiresIn: -10 },
+    );
+
+    const response = await getSession([
+      `${ACCESS_TOKEN_COOKIE}=${expired}`,
+    ]).expect(401);
+
+    expect(response.body.message).toBe('Invalid or expired access token');
+  });
+
+  it('rejects a revoked session', async () => {
+    const { userId, jar } = await registerUser();
+    const session = await prisma.authSession.findFirstOrThrow({
+      where: { userId },
+    });
+    await prisma.authSession.update({
+      where: { id: session.id },
+      data: { revokedAt: new Date() },
+    });
+
+    const response = await getSession(cookieHeader(jar)).expect(401);
+
+    expect(response.body.message).toBe('Session is no longer active');
+  });
+
+  it('rejects an expired session', async () => {
+    const { userId, jar } = await registerUser();
+    const session = await prisma.authSession.findFirstOrThrow({
+      where: { userId },
+    });
+    await prisma.authSession.update({
+      where: { id: session.id },
+      data: { expiresAt: new Date(Date.now() - 1_000) },
+    });
+
+    const response = await getSession(cookieHeader(jar)).expect(401);
+
+    expect(response.body.message).toBe('Session is no longer active');
+  });
+});

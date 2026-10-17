@@ -1,16 +1,20 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
   Req,
   Res,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import type {
   LoginResponse,
   RefreshResponse,
   RegisterResponse,
+  SessionResponse,
 } from '@knowledgehub/shared-types';
 import type { Request, Response } from 'express';
 import { AuthConfig } from './auth.config.js';
@@ -32,6 +36,10 @@ import {
 } from './csrf.js';
 import { loginSchema, type LoginInput } from './dto/login.schema.js';
 import { registerSchema, type RegisterInput } from './dto/register.schema.js';
+import {
+  SessionGuard,
+  type AuthenticatedRequest,
+} from './session.guard.js';
 import { ZodValidationPipe } from './zod-validation.pipe.js';
 
 @Controller('auth')
@@ -73,6 +81,26 @@ export class AuthController {
     this.issueAuthCookies(response, result);
 
     return { user: result.user };
+  }
+
+  /**
+   * Read-only check of the current cookie-backed session: returns the public
+   * profile for a live session. It never rotates tokens or issues cookies.
+   */
+  @Get('session')
+  @UseGuards(SessionGuard)
+  async session(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<SessionResponse> {
+    const auth = request.auth;
+
+    if (!auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    const user = await this.auth.getSessionUser(auth.userId);
+
+    return { user };
   }
 
   /**

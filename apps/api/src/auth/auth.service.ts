@@ -257,6 +257,16 @@ export class AuthService {
     };
   }
 
+  async getSessionUser(userId: string): Promise<PublicUser> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new UnauthorizedException('Session is no longer active');
+    }
+
+    return toPublicUser(user);
+  }
+
   async logout(rawRefreshToken: string | undefined): Promise<void> {
     if (!this.authConfig.browserAuthEnabled || !rawRefreshToken) {
       return;

@@ -189,9 +189,15 @@ The `auth` module owns the credential lifecycle:
 ```
 POST /auth/register   { email, password, firstName, lastName }  -> 201 { user }
 POST /auth/login      { email, password }                       -> 200 { user }
+GET  /auth/session                                              -> 200 { user } | 401
 POST /auth/refresh                                              -> 200 { user }
 POST /auth/logout                                               -> 204
 ```
+
+`GET /auth/session` is a read-only check of the current cookie-backed session.
+It returns the authenticated user's public profile, never rotates tokens or
+issues cookies, and returns `401` for a missing, invalid, expired, or revoked
+session.
 
 Tokens are issued as `HttpOnly` cookies (with bearer tokens supported as an
 alternative) and refresh tokens rotate on every use. Configure lifetimes, cookie
