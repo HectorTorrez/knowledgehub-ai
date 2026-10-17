@@ -1,14 +1,22 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
+import { OrganizationsModule } from '../organizations/organizations.module.js';
+import { RetrievalModule } from '../retrieval/retrieval.module.js';
 import { AnswerConfig } from './answer.config.js';
 import {
   ANSWER_PROVIDER,
   type AnswerProvider,
 } from './answer-provider.port.js';
+import { AnswersController } from './answers.controller.js';
+import { AnswersService } from './answers.service.js';
 import { OpenAiAnswerProvider } from './openai-answer-provider.js';
 
 @Module({
+  imports: [AuthModule, OrganizationsModule, RetrievalModule],
+  controllers: [AnswersController],
   providers: [
     AnswerConfig,
+    AnswersService,
     {
       provide: ANSWER_PROVIDER,
       inject: [AnswerConfig],

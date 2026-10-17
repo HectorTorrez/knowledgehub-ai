@@ -42,6 +42,10 @@ describe('validateEnv', () => {
     expect(env.ANSWER_MODEL).toBe('gpt-4.1-mini');
     expect(env.ANSWER_TIMEOUT_MS).toBe(30000);
     expect(env.ANSWER_MAX_OUTPUT_TOKENS).toBe(700);
+    expect(env.ANSWERS_ENABLED).toBe('false');
+    expect(env.ANSWER_MAX_SOURCES).toBe(8);
+    expect(env.ANSWER_CONTEXT_MAX_CHARS).toBe(24000);
+    expect(env.ANSWER_MIN_SIMILARITY).toBe(0.2);
   });
 
   it('coerces numeric strings', () => {
@@ -262,6 +266,64 @@ describe('validateEnv', () => {
         OPENAI_API_KEY: 'sk-test',
       }).OPENAI_API_KEY,
     ).toBe('sk-test');
+  });
+
+  it('requires an OpenAI key only when answer generation is enabled', () => {
+    expect(
+      validateEnv({ ...validEnv, ANSWERS_ENABLED: 'false' }).OPENAI_API_KEY,
+    ).toBeUndefined();
+
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWERS_ENABLED: 'true' }),
+    ).toThrow(/OPENAI_API_KEY/);
+
+    expect(
+      validateEnv({
+        ...validEnv,
+        ANSWERS_ENABLED: 'true',
+        OPENAI_API_KEY: 'sk-test',
+      }).OPENAI_API_KEY,
+    ).toBe('sk-test');
+  });
+
+  it('coerces answer budget strings', () => {
+    const env = validateEnv({
+      ...validEnv,
+      ANSWER_MAX_SOURCES: '12',
+      ANSWER_CONTEXT_MAX_CHARS: '50000',
+      ANSWER_MIN_SIMILARITY: '0.35',
+    });
+
+    expect(env.ANSWER_MAX_SOURCES).toBe(12);
+    expect(env.ANSWER_CONTEXT_MAX_CHARS).toBe(50000);
+    expect(env.ANSWER_MIN_SIMILARITY).toBe(0.35);
+  });
+
+  it('rejects answer budgets outside their supported ranges', () => {
+    expect(() => validateEnv({ ...validEnv, ANSWER_MAX_SOURCES: '0' })).toThrow(
+      /ANSWER_MAX_SOURCES/,
+    );
+    expect(() => validateEnv({ ...validEnv, ANSWER_MAX_SOURCES: '21' })).toThrow(
+      /ANSWER_MAX_SOURCES/,
+    );
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWER_CONTEXT_MAX_CHARS: '999' }),
+    ).toThrow(/ANSWER_CONTEXT_MAX_CHARS/);
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWER_CONTEXT_MAX_CHARS: '100001' }),
+    ).toThrow(/ANSWER_CONTEXT_MAX_CHARS/);
+    expect(() => validateEnv({ ...validEnv, ANSWER_MIN_SIMILARITY: '-0.1' })).toThrow(
+      /ANSWER_MIN_SIMILARITY/,
+    );
+    expect(() => validateEnv({ ...validEnv, ANSWER_MIN_SIMILARITY: '1.1' })).toThrow(
+      /ANSWER_MIN_SIMILARITY/,
+    );
+  });
+
+  it('rejects a non-boolean answers enabled flag', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWERS_ENABLED: 'yes' }),
+    ).toThrow(/ANSWERS_ENABLED/);
   });
 
   it('rejects a malformed OpenAI base URL', () => {

@@ -1,9 +1,15 @@
 import { z } from 'zod';
 import {
+  DEFAULT_ANSWER_CONTEXT_MAX_CHARS,
   DEFAULT_ANSWER_MAX_OUTPUT_TOKENS,
+  DEFAULT_ANSWER_MAX_SOURCES,
+  DEFAULT_ANSWER_MIN_SIMILARITY,
   DEFAULT_ANSWER_MODEL,
   DEFAULT_ANSWER_TIMEOUT_MS,
+  MAX_ANSWER_CONTEXT_MAX_CHARS,
   MAX_ANSWER_OUTPUT_TOKENS,
+  MAX_ANSWER_SOURCES,
+  MIN_ANSWER_CONTEXT_MAX_CHARS,
 } from '../answers/answer-policy.js';
 import {
   DEFAULT_EMBEDDING_BATCH_SIZE,
@@ -126,6 +132,24 @@ const envObjectSchema = z.object({
     .min(1)
     .max(MAX_ANSWER_OUTPUT_TOKENS)
     .default(DEFAULT_ANSWER_MAX_OUTPUT_TOKENS),
+  ANSWERS_ENABLED: z.enum(['true', 'false']).default('false'),
+  ANSWER_MAX_SOURCES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_ANSWER_SOURCES)
+    .default(DEFAULT_ANSWER_MAX_SOURCES),
+  ANSWER_CONTEXT_MAX_CHARS: z.coerce
+    .number()
+    .int()
+    .min(MIN_ANSWER_CONTEXT_MAX_CHARS)
+    .max(MAX_ANSWER_CONTEXT_MAX_CHARS)
+    .default(DEFAULT_ANSWER_CONTEXT_MAX_CHARS),
+  ANSWER_MIN_SIMILARITY: z.coerce
+    .number()
+    .min(0)
+    .max(1)
+    .default(DEFAULT_ANSWER_MIN_SIMILARITY),
 });
 
 const PRODUCTION_STORAGE_KEYS = [
@@ -160,6 +184,14 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: ['OPENAI_API_KEY'],
       message: 'OPENAI_API_KEY is required when the processing worker is enabled',
+    });
+  }
+
+  if (env.ANSWERS_ENABLED === 'true' && env.OPENAI_API_KEY === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['OPENAI_API_KEY'],
+      message: 'OPENAI_API_KEY is required when answer generation is enabled',
     });
   }
 
