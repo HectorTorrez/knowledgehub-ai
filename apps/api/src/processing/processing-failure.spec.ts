@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ChunkLimitExceededError } from './chunking.policy.js';
 import {
+  EmbeddingRejectedError,
+  EmbeddingResponseError,
+  EmbeddingUnavailableError,
+} from '../embeddings/embedding-provider.port.js';
+import {
   DocumentExtractionError,
   DocumentResourceLimitError,
   UnsupportedDocumentTypeError,
@@ -38,6 +43,28 @@ describe('classifyProcessingFailure', () => {
 
     expect(failure.category).toBe('permanent');
     expect(failure.reason).toBe('CONTENT_TOO_LARGE');
+  });
+
+  it('treats a rejected embedding request as a permanent failure', () => {
+    const failure = classifyProcessingFailure(
+      new EmbeddingRejectedError('The embedding provider rejected the request'),
+    );
+
+    expect(failure.category).toBe('permanent');
+    expect(failure.reason).toBe('PROCESSING_FAILED');
+  });
+
+  it('treats an unavailable embedding provider as a retryable failure', () => {
+    expect(
+      classifyProcessingFailure(
+        new EmbeddingUnavailableError('The embedding provider is unavailable'),
+      ).category,
+    ).toBe('transient');
+
+    expect(
+      classifyProcessingFailure(new EmbeddingResponseError('malformed'))
+        .category,
+    ).toBe('transient');
   });
 
   it('treats an unparseable document as a permanent failure', () => {

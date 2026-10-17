@@ -1,5 +1,6 @@
 import { isTransientTransactionFailure } from '../prisma/transient-transaction-errors.js';
 import { ChunkLimitExceededError } from './chunking.policy.js';
+import { EmbeddingRejectedError } from '../embeddings/embedding-provider.port.js';
 import {
   DocumentExtractionError,
   DocumentResourceLimitError,
@@ -85,6 +86,10 @@ export function classifyProcessingFailure(error: unknown): ProcessingFailure {
       'STORAGE_INTEGRITY_VIOLATION',
       `${error.name}: ${error.message}`,
     );
+  }
+
+  if (error instanceof EmbeddingRejectedError) {
+    return permanent('PROCESSING_FAILED', `${error.name}: ${error.message}`);
   }
 
   if (isTransientTransactionFailure(error)) {

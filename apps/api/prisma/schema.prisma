@@ -330,6 +330,12 @@ model DocumentChunk {
   content        String
   characterCount Int
 
+  /// 1536-dimensional embedding from `EMBEDDING_MODEL` (OpenAI
+  /// `text-embedding-3-small`). Declared `Unsupported` because Prisma has no
+  /// vector type: it is excluded from the generated client and read or written
+  /// only through raw SQL. The database enforces NOT NULL and the dimension.
+  embedding Unsupported("vector(1536)")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

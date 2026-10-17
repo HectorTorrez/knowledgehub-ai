@@ -2,7 +2,7 @@ name: knowledgehub
 
 services:
   postgres:
-    image: postgres:17.6-alpine
+    image: pgvector/pgvector:pg17
     container_name: knowledgehub-postgres
     restart: unless-stopped
     environment:

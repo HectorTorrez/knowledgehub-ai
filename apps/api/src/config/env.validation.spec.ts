@@ -33,6 +33,12 @@ describe('validateEnv', () => {
     expect(env.STORAGE_ENDPOINT).toBeUndefined();
     expect(env.STORAGE_ACCESS_KEY_ID).toBeUndefined();
     expect(env.STORAGE_SECRET_ACCESS_KEY).toBeUndefined();
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+    expect(env.OPENAI_BASE_URL).toBe('https://api.openai.com/v1');
+    expect(env.EMBEDDING_MODEL).toBe('text-embedding-3-small');
+    expect(env.EMBEDDING_DIMENSIONS).toBe(1536);
+    expect(env.EMBEDDING_BATCH_SIZE).toBe(64);
+    expect(env.EMBEDDING_TIMEOUT_MS).toBe(30000);
   });
 
   it('coerces numeric strings', () => {
@@ -222,5 +228,51 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ ...validEnv, STORAGE_UPLOAD_TTL_SECONDS: 'soon' }),
     ).toThrow(/STORAGE_UPLOAD_TTL_SECONDS/);
+  });
+
+  it('rejects embedding dimensions that disagree with the stored vector column', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, EMBEDDING_DIMENSIONS: '3072' }),
+    ).toThrow(/EMBEDDING_DIMENSIONS/);
+  });
+
+  it('accepts the fixed embedding dimensions explicitly', () => {
+    const env = validateEnv({ ...validEnv, EMBEDDING_DIMENSIONS: '1536' });
+
+    expect(env.EMBEDDING_DIMENSIONS).toBe(1536);
+  });
+
+  it('requires an OpenAI key only when the processing worker is enabled', () => {
+    expect(
+      validateEnv({ ...validEnv, PROCESSING_WORKER_ENABLED: 'false' })
+        .OPENAI_API_KEY,
+    ).toBeUndefined();
+
+    expect(() =>
+      validateEnv({ ...validEnv, PROCESSING_WORKER_ENABLED: 'true' }),
+    ).toThrow(/OPENAI_API_KEY/);
+
+    expect(
+      validateEnv({
+        ...validEnv,
+        PROCESSING_WORKER_ENABLED: 'true',
+        OPENAI_API_KEY: 'sk-test',
+      }).OPENAI_API_KEY,
+    ).toBe('sk-test');
+  });
+
+  it('rejects a malformed OpenAI base URL', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, OPENAI_BASE_URL: 'not-a-url' }),
+    ).toThrow(/OPENAI_BASE_URL/);
+  });
+
+  it('rejects an invalid embedding batch size', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, EMBEDDING_BATCH_SIZE: '0' }),
+    ).toThrow(/EMBEDDING_BATCH_SIZE/);
+    expect(() =>
+      validateEnv({ ...validEnv, EMBEDDING_BATCH_SIZE: 'many' }),
+    ).toThrow(/EMBEDDING_BATCH_SIZE/);
   });
 });

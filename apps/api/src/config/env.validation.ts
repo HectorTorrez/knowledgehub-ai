@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import {
+  DEFAULT_EMBEDDING_BATCH_SIZE,
+  DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_EMBEDDING_TIMEOUT_MS,
+  DEFAULT_OPENAI_BASE_URL,
+  EMBEDDING_VECTOR_DIMENSIONS,
+} from '../embeddings/embedding-policy.js';
 
 const envObjectSchema = z.object({
   NODE_ENV: z
@@ -80,6 +87,26 @@ const envObjectSchema = z.object({
     .int()
     .positive()
     .default(30000),
+
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  OPENAI_BASE_URL: z.string().url().default(DEFAULT_OPENAI_BASE_URL),
+  EMBEDDING_MODEL: z.string().min(1).default(DEFAULT_EMBEDDING_MODEL),
+  EMBEDDING_DIMENSIONS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(EMBEDDING_VECTOR_DIMENSIONS),
+  EMBEDDING_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(2048)
+    .default(DEFAULT_EMBEDDING_BATCH_SIZE),
+  EMBEDDING_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_EMBEDDING_TIMEOUT_MS),
 });
 
 const PRODUCTION_STORAGE_KEYS = [
@@ -95,6 +122,25 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: ['CSRF_SECRET'],
       message: 'CSRF_SECRET is required when BROWSER_AUTH_ENABLED is true',
+    });
+  }
+
+  if (env.EMBEDDING_DIMENSIONS !== EMBEDDING_VECTOR_DIMENSIONS) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['EMBEDDING_DIMENSIONS'],
+      message: `EMBEDDING_DIMENSIONS must equal the stored vector dimension (${EMBEDDING_VECTOR_DIMENSIONS})`,
+    });
+  }
+
+  if (
+    env.PROCESSING_WORKER_ENABLED === 'true' &&
+    env.OPENAI_API_KEY === undefined
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['OPENAI_API_KEY'],
+      message: 'OPENAI_API_KEY is required when the processing worker is enabled',
     });
   }
 
