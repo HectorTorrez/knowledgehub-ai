@@ -8,6 +8,7 @@ import { HealthModule } from './health/health.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProcessingModule } from './processing/processing.module.js';
+import { RetrievalModule } from './retrieval/retrieval.module.js';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ProcessingModule } from './processing/processing.module.js';
     DocumentsModule,
     ProcessingModule,
     EmbeddingsModule,
+    RetrievalModule,
   ],
 })
 export class AppModule {}
