@@ -484,24 +484,34 @@ characters is rejected after parsing. Those limits are deliberately far below th
 2 GB upload limit, but they are input-size bounds only: see the limitations
 below for what they do not guarantee.
 
-Publishing is fenced and completes the lifecycle. The page-attributed extracted
+Ingestion is fenced and completes the lifecycle. The page-attributed extracted
 text is written to `DocumentExtraction` as an array of `{ pageNumber, content }`
 pages (plus `pageCount` and `characterCount`), keyed by
-`[documentId, documentGeneration]`, and in the same transaction the job becomes
-`SUCCEEDED` and the document moves
-`PROCESSING → READY`. That single conditional write revalidates the current lease
-id, an unexpired lease, the job's generation and storage key, and the document's
-organization, generation, storage key, and `PROCESSING` status. A stale
-execution writes zero rows and its result is discarded; only the current lease
-holder can create the result, and only a successful processing run can move a
-document to `READY`.
+`[documentId, documentGeneration]`. Before that, the same generation is chunked
+and embedded: page-scoped chunks are stored in `DocumentChunk` with a
+1536-dimension `pgvector` embedding per chunk. Chunk writes replace the
+generation and clear older generations of the same document, so a retry never
+appends duplicates.
+
+The worker only advances the document after its chunks are stored. It calls
+`DocumentChunkStore.replaceForGeneration` — embedding happens outside any
+transaction, and the write revalidates the lease, generation, and `PROCESSING`
+status under locks — and then `ProcessingJobService.publishExtraction` inserts
+the extraction and sets the job `SUCCEEDED` and the document `READY` under the
+same predicates (lease id, an unexpired lease, the job's generation and storage
+key, and the document's organization, generation, storage key, and `PROCESSING`
+status). A stale execution writes zero rows and its result is discarded, and a
+document can only reach `READY` once its current generation's chunks are stored.
 
 Failures are classified rather than blanket-retried. An unsupported content
-type, an unparseable document, an exceeded size/page/character limit, a missing
-verified object, or a storage-integrity violation is **permanent**: the job
-becomes `FAILED` and the document becomes `FAILED` with `failureKind =
-PROCESSING` in the same transaction. A storage or database outage, a worker
-crash, or any error the worker cannot classify is **retryable**: the job returns
+type, an unparseable document, an exceeded size/page/character limit, a document
+that exceeds the chunk budget, a missing verified object, a storage-integrity
+violation, or an embedding request the provider rejects as invalid is
+**permanent**: the job becomes `FAILED` and the document becomes `FAILED` with
+`failureKind = PROCESSING` in the same transaction. A storage or database outage,
+an embedding provider that is rate-limited or unreachable, a malformed embedding
+response, a worker crash, or any error the worker cannot classify is
+**retryable**: the job returns
 to `QUEUED` with `nextAttemptAt = now() + 2s · 2^(attempt-1)` capped at 60
 seconds, reusing the same row. `attempt` is incremented at claim, and a job with
 `attempt >= maxAttempts` (5) that fails again — or whose lease expires while
@@ -535,15 +545,22 @@ are never returned.
 
 ### Limitations
 
-- **Processing is extraction-only.** `upload-complete` confirms and promotes the
-  object and, atomically, queues a durable processing job for that generation.
-  The worker extracts the document's text into `DocumentExtraction` as
-  page-attributed pages and, on success, moves the document
-  `PROCESSING → READY`; it does not yet chunk or embed that text, and there is no
-  retrieval API over it. A document in `PROCESSING` is still being worked on, not
-  evidence that extraction succeeded. Chunking, embeddings, and retrieval are
-  designed in `docs/KH-6-design.md` and are not implemented yet; `DocumentChunk`
-  exists as an empty table.
+- **`READY` now means ingested.** Processing extracts the text, splits it into
+  page-scoped chunks, embeds each chunk, and only then marks the document
+  `READY`. A document in `PROCESSING` is still being worked on. A document whose
+  text yields no chunks (for example a PDF with no extractable text layer) still
+  reaches `READY` with zero chunks and therefore matches no query. Vector search
+  is currently exact: the HNSW index is deliberately deferred until retrieval
+  performance is measured.
+- **Retrieval is a service, not an endpoint.** `RetrievalService` ranks chunks by
+  embedding similarity, scoped to the organization and to the document's current
+  generation, but no HTTP route exposes it yet.
+- **Document text leaves the deployment for embedding.** Chunk text is sent to
+  the configured provider (OpenAI `text-embedding-3-small` by default), and a
+  search query is embedded the same way. `OPENAI_API_KEY` is required whenever
+  `PROCESSING_WORKER_ENABLED=true`; `EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS`
+  must agree with the stored `vector(1536)` column, and a mismatch fails at
+  startup.
 - **PDF parsing is not sandboxed.** Extraction enforces deterministic size,
   page, and character limits, but the parser still runs synchronously in the API
   process. There is no execution-time or memory limit (a JavaScript timer cannot

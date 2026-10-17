@@ -149,7 +149,7 @@ export class DocumentChunkStore {
       DELETE FROM "DocumentChunk"
       WHERE "documentId" = ${owned.documentId}::uuid
         AND "organizationId" = ${owned.organizationId}::uuid
-        AND "documentGeneration" = ${owned.documentGeneration}
+        AND "documentGeneration" <= ${owned.documentGeneration}
     `;
 
     for (const [index, chunk] of chunks.entries()) {

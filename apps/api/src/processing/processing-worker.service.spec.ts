@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ObjectMetadata, ObjectStorage } from '../storage/object-storage.port.js';
 import {
+  EmbeddingRejectedError,
+  EmbeddingUnavailableError,
+} from '../embeddings/embedding-provider.port.js';
+import {
   DocumentTextExtractor,
   UnsupportedDocumentTypeError,
 } from './document-text-extractor.js';
@@ -9,6 +13,7 @@ import {
   ProcessingJobService,
   type ClaimedProcessingJob,
 } from './processing-job.service.js';
+import { DocumentChunkStore } from './document-chunk.store.js';
 import { ProcessingWorkerService } from './processing-worker.service.js';
 
 const JOB: ClaimedProcessingJob = {
@@ -44,6 +49,9 @@ function createWorker(overrides?: {
       characterCount: 11,
     })),
   };
+  const chunks = {
+    replaceForGeneration: vi.fn(async () => true),
+  };
   const config = {
     workerEnabled: false,
     pollIntervalMs: 1_000,
@@ -65,12 +73,17 @@ function createWorker(overrides?: {
   const worker = new ProcessingWorkerService(
     jobs as unknown as ProcessingJobService,
     extractor as unknown as DocumentTextExtractor,
+    chunks as unknown as DocumentChunkStore,
     config as unknown as ProcessingConfig,
     storage as unknown as ObjectStorage,
   );
 
-  return { worker, jobs, extractor, config, storage };
+  return { worker, jobs, extractor, chunks, config, storage };
 }
+
+const OWNED_CHUNKS = [
+  { pageNumber: 1, chunkIndex: 0, content: 'Hello world', characterCount: 11 },
+];
 
 const OWNERSHIP = {
   jobId: JOB.id,
@@ -100,8 +113,8 @@ describe('ProcessingWorkerService', () => {
   });
 
   describe('processJob', () => {
-    it('reads the verified object and publishes the extraction it owns', async () => {
-      const { worker, jobs, extractor, storage } = createWorker();
+    it('chunks, embeds, and only then marks the document ready', async () => {
+      const { worker, jobs, extractor, chunks, storage } = createWorker();
 
       await worker.processJob(JOB);
 
@@ -116,16 +129,65 @@ describe('ProcessingWorkerService', () => {
         contentType: 'text/plain',
         bytes: BYTES,
       });
+      expect(chunks.replaceForGeneration).toHaveBeenCalledWith(
+        OWNERSHIP,
+        OWNED_CHUNKS,
+      );
       expect(jobs.publishExtraction).toHaveBeenCalledWith(OWNERSHIP, {
         pages: [{ pageNumber: 1, content: 'Hello world' }],
         pageCount: 1,
         characterCount: 11,
       });
+      expect(
+        chunks.replaceForGeneration.mock.invocationCallOrder[0],
+      ).toBeLessThan(jobs.publishExtraction.mock.invocationCallOrder[0]!);
       expect(jobs.recordFailure).not.toHaveBeenCalled();
     });
 
+    it('never readies the document when the generation is no longer owned', async () => {
+      const { worker, jobs, chunks } = createWorker();
+      chunks.replaceForGeneration.mockResolvedValueOnce(false);
+
+      await worker.processJob(JOB);
+
+      expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).not.toHaveBeenCalled();
+    });
+
+    it('records a retryable failure when the embedding provider is unavailable', async () => {
+      const { worker, jobs, chunks } = createWorker();
+      chunks.replaceForGeneration.mockRejectedValueOnce(
+        new EmbeddingUnavailableError('unavailable'),
+      );
+
+      await expect(worker.processJob(JOB)).resolves.toBeUndefined();
+
+      expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).toHaveBeenCalledWith(OWNERSHIP, {
+        category: 'transient',
+        reason: 'PROCESSING_FAILED',
+        detail: 'EmbeddingUnavailableError',
+      });
+    });
+
+    it('records a permanent failure when a chunk is rejected for embedding', async () => {
+      const { worker, jobs, chunks } = createWorker();
+      chunks.replaceForGeneration.mockRejectedValueOnce(
+        new EmbeddingRejectedError('rejected'),
+      );
+
+      await worker.processJob(JOB);
+
+      expect(jobs.publishExtraction).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).toHaveBeenCalledWith(OWNERSHIP, {
+        category: 'permanent',
+        reason: 'PROCESSING_FAILED',
+        detail: 'EmbeddingRejectedError: rejected',
+      });
+    });
+
     it('does not publish after losing its lease during extraction', async () => {
-      const { worker, jobs, extractor } = createWorker({
+      const { worker, jobs, extractor, chunks } = createWorker({
         renewalIntervalMs: 1,
       });
       jobs.renewLease.mockResolvedValue(false);
@@ -141,6 +203,7 @@ describe('ProcessingWorkerService', () => {
       await worker.processJob(JOB);
 
       expect(jobs.renewLease).toHaveBeenCalled();
+      expect(chunks.replaceForGeneration).not.toHaveBeenCalled();
       expect(jobs.publishExtraction).not.toHaveBeenCalled();
       expect(jobs.recordFailure).not.toHaveBeenCalled();
     });

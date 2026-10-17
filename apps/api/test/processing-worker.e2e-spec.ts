@@ -4,6 +4,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { PROCESSING_MAX_ATTEMPTS } from '../src/documents/processing-policy.js';
 import {
+  EMBEDDING_PROVIDER,
+  EmbeddingUnavailableError,
+} from '../src/embeddings/embedding-provider.port.js';
+import {
   ProcessingJobService,
   type ClaimedProcessingJob,
   type ProcessingOwnership,
@@ -12,6 +16,7 @@ import { ProcessingWorkerService } from '../src/processing/processing-worker.ser
 import { OBJECT_STORAGE } from '../src/storage/object-storage.port.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { FakeObjectStorage } from './support/fake-object-storage.js';
+import { FakeEmbeddingProvider, deterministicVector } from './support/fake-embedding-provider.js';
 
 const encoder = new TextEncoder();
 
@@ -38,6 +43,7 @@ describe('document processing worker (e2e)', () => {
   let jobs: ProcessingJobService;
   let worker: ProcessingWorkerService;
   let storage: FakeObjectStorage;
+  let embeddings: FakeEmbeddingProvider;
   const trackedOrganizationIds = new Set<string>();
 
   const seedJob = async (options: SeedOptions = {}) => {
@@ -96,6 +102,12 @@ describe('document processing worker (e2e)', () => {
   const loadExtractions = (documentId: string) =>
     prisma.documentExtraction.findMany({ where: { documentId } });
 
+  const loadChunks = (documentId: string) =>
+    prisma.documentChunk.findMany({
+      where: { documentId },
+      orderBy: { chunkIndex: 'asc' },
+    });
+
   const pagesOf = (extraction: { pages: unknown }) =>
     extraction.pages as { pageNumber: number; content: string }[];
 
@@ -119,11 +131,14 @@ describe('document processing worker (e2e)', () => {
 
   beforeAll(async () => {
     storage = new FakeObjectStorage();
+    embeddings = new FakeEmbeddingProvider();
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(OBJECT_STORAGE)
       .useValue(storage)
+      .overrideProvider(EMBEDDING_PROVIDER)
+      .useValue(embeddings)
       .compile();
 
     prisma = moduleRef.get(PrismaService);
@@ -133,6 +148,8 @@ describe('document processing worker (e2e)', () => {
 
   afterEach(async () => {
     storage.onInspectObject = null;
+    embeddings.embedImpl = async (texts) =>
+      texts.map((_, index) => deterministicVector(index + 1));
     if (trackedOrganizationIds.size > 0) {
       await prisma.organization.deleteMany({
         where: { id: { in: [...trackedOrganizationIds] } },
@@ -160,6 +177,14 @@ describe('document processing worker (e2e)', () => {
     expect(extractions[0]?.documentGeneration).toBe(1);
     expect(extractions[0]?.verifiedStorageKey).toBe(job.verifiedStorageKey);
 
+    const chunks = await loadChunks(document.id);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]?.content).toBe('Hello worker');
+    expect(chunks[0]?.chunkIndex).toBe(0);
+    expect(chunks[0]?.pageNumber).toBe(1);
+    expect(chunks[0]?.documentGeneration).toBe(1);
+    expect(chunks[0]?.organizationId).toBe(document.organizationId);
+
     const row = await loadJob(job.id);
     expect(row.state).toBe('SUCCEEDED');
     expect(row.leaseId).toBeNull();
@@ -169,6 +194,58 @@ describe('document processing worker (e2e)', () => {
     expect(updatedDocument.status).toBe('READY');
     expect(updatedDocument.failureReason).toBeNull();
     expect(updatedDocument.failureKind).toBeNull();
+  });
+
+  it('never readies a document whose embeddings cannot be produced', async () => {
+    const { document, job } = await seedJob();
+    embeddings.embedImpl = async () => {
+      throw new EmbeddingUnavailableError('provider unavailable');
+    };
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    expect(await loadExtractions(document.id)).toHaveLength(0);
+    expect(await loadChunks(document.id)).toHaveLength(0);
+
+    const row = await loadJob(job.id);
+    expect(row.state).toBe('QUEUED');
+    expect(row.attempt).toBe(1);
+
+    const updated = await loadDocument(document.id);
+    expect(updated.status).toBe('PROCESSING');
+    expect(updated.failureReason).toBeNull();
+  });
+
+  it("removes an older generation's chunks when a newer generation is ingested", async () => {
+    const { organization, document } = await seedJob();
+
+    await worker.runOnce();
+    expect(await loadChunks(document.id)).toHaveLength(1);
+
+    const newerKey = `organizations/${organization.id}/documents/${document.id}/verified/${randomUUID()}`;
+    storage.putObject(newerKey, encoder.encode('Newer generation'), 'text/plain');
+    await prisma.document.update({
+      where: { id: document.id },
+      data: { generation: 2, status: 'PROCESSING', storageKey: newerKey },
+    });
+    await prisma.documentProcessingJob.create({
+      data: {
+        documentId: document.id,
+        organizationId: organization.id,
+        documentGeneration: 2,
+        verifiedStorageKey: newerKey,
+        attempt: 0,
+        maxAttempts: PROCESSING_MAX_ATTEMPTS,
+        nextAttemptAt: new Date(Date.now() - 1_000),
+      },
+    });
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    const chunks = await loadChunks(document.id);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]?.documentGeneration).toBe(2);
+    expect(chunks[0]?.content).toBe('Newer generation');
   });
 
   it('never lets a stale execution publish over a newer lease', async () => {

@@ -14,6 +14,8 @@ import {
   DocumentResourceLimitError,
   DocumentTextExtractor,
 } from './document-text-extractor.js';
+import { DocumentChunkStore } from './document-chunk.store.js';
+import { chunkPages } from './chunking.policy.js';
 import { ProcessingConfig } from './processing.config.js';
 import {
   classifyProcessingFailure,
@@ -55,6 +57,7 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly jobs: ProcessingJobService,
     private readonly extractor: DocumentTextExtractor,
+    private readonly chunks: DocumentChunkStore,
     private readonly config: ProcessingConfig,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
@@ -108,7 +111,16 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      await this.jobs.publishExtraction(ownershipOf(job), extracted);
+      const ownership = ownershipOf(job);
+      const stored = await this.chunks.replaceForGeneration(
+        ownership,
+        chunkPages(extracted.pages),
+      );
+      if (!stored || lease.lost) {
+        return;
+      }
+
+      await this.jobs.publishExtraction(ownership, extracted);
     } catch (error) {
       await this.recordFailure(job, error);
     } finally {

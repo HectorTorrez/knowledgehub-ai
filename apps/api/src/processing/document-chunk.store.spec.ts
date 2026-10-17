@@ -121,6 +121,7 @@ describe('DocumentChunkStore', () => {
     expect(executeCalls).toHaveLength(3);
     const [remove, first, second] = executeCalls;
     expect(sqlOf(remove!)).toContain('DELETE FROM "DocumentChunk"');
+    expect(sqlOf(remove!)).toContain('"documentGeneration" <= ');
     expect(remove!.values).toEqual([
       OWNED.documentId,
       OWNED.organizationId,
