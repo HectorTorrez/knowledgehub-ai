@@ -33,8 +33,11 @@ export class AnswersController {
     body: AnswerQuestionInput,
     @Req() request: OrganizationRequest,
   ): Promise<AnswerResponse> {
+    const context = requireOrganizationContext(request);
+
     return this.answers.answer(
-      requireOrganizationContext(request).organizationId,
+      context.organizationId,
+      context.userId,
       body.question,
     );
   }

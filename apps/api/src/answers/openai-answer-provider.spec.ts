@@ -3,6 +3,7 @@ import {
   AnswerRejectedError,
   AnswerResponseError,
   AnswerUnavailableError,
+  type AnswerGeneration,
   type AnswerProvider,
 } from './answer-provider.port.js';
 import type { AnswerPrompt } from './answer-prompt.js';
@@ -12,6 +13,7 @@ import {
   type OpenAiAnswerProviderOptions,
   OpenAiAnswerProvider,
   parseAnswerResponse,
+  parseAnswerUsage,
 } from './openai-answer-provider.js';
 
 const API_KEY = 'test-key';
@@ -51,9 +53,7 @@ function createProvider(
   });
 }
 
-function generate(
-  provider: AnswerProvider,
-): Promise<unknown> {
+function generate(provider: AnswerProvider): Promise<AnswerGeneration> {
   return provider.generate(PROMPT, { maxOutputTokens: MAX_OUTPUT_TOKENS });
 }
 
@@ -90,6 +90,27 @@ describe('parseAnswerResponse', () => {
   });
 });
 
+describe('parseAnswerUsage', () => {
+  it('reads prompt and completion tokens from the envelope', () => {
+    expect(
+      parseAnswerUsage({
+        choices: [{ message: { content: '{}' } }],
+        usage: { prompt_tokens: 12, completion_tokens: 34 },
+      }),
+    ).toEqual({ inputTokens: 12, outputTokens: 34 });
+  });
+
+  it('returns null counts when usage is missing or malformed', () => {
+    expect(parseAnswerUsage({ choices: [] })).toEqual({
+      inputTokens: null,
+      outputTokens: null,
+    });
+    expect(
+      parseAnswerUsage({ usage: { prompt_tokens: 'many', completion_tokens: -1 } }),
+    ).toEqual({ inputTokens: null, outputTokens: null });
+  });
+});
+
 describe('OpenAiAnswerProvider', () => {
   it('sends the model, prompt, output limit, JSON schema, and authorization', async () => {
     const fetchImpl = vi.fn<AnswerFetch>(async () =>
@@ -97,8 +118,8 @@ describe('OpenAiAnswerProvider', () => {
     );
 
     await expect(generate(createProvider(fetchImpl))).resolves.toEqual({
-      status: 'answered',
-      answer: 'Alpha [1].',
+      draft: { status: 'answered', answer: 'Alpha [1].' },
+      usage: { inputTokens: null, outputTokens: null },
     });
 
     const [url, init] = fetchImpl.mock.calls[0]!;
@@ -133,6 +154,22 @@ describe('OpenAiAnswerProvider', () => {
     });
   });
 
+  it('returns usage metadata alongside the untrusted draft', async () => {
+    const fetchImpl = vi.fn<AnswerFetch>(async () =>
+      response(200, {
+        choices: [
+          { message: { role: 'assistant', content: '{"status":"answered","answer":"Alpha [1]."}' } },
+        ],
+        usage: { prompt_tokens: 120, completion_tokens: 8 },
+      }),
+    );
+
+    await expect(generate(createProvider(fetchImpl))).resolves.toEqual({
+      draft: { status: 'answered', answer: 'Alpha [1].' },
+      usage: { inputTokens: 120, outputTokens: 8 },
+    });
+  });
+
   it('returns a refusal draft unchanged', async () => {
     const fetchImpl = vi.fn<AnswerFetch>(async () =>
       response(
@@ -142,8 +179,8 @@ describe('OpenAiAnswerProvider', () => {
     );
 
     await expect(generate(createProvider(fetchImpl))).resolves.toEqual({
-      status: 'insufficient_evidence',
-      answer: null,
+      draft: { status: 'insufficient_evidence', answer: null },
+      usage: { inputTokens: null, outputTokens: null },
     });
   });
 

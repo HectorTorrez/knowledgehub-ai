@@ -23,6 +23,8 @@
     "test:cov": "vitest run --coverage",
     "pretest:e2e": "prisma generate",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+    "pretest:answers:eval": "prisma generate",
+    "test:answers:eval": "ANSWERS_EVAL=true vitest run --config ./vitest.config.answers-eval.ts",
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "prisma:validate": "prisma validate",

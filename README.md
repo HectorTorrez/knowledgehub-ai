@@ -178,6 +178,10 @@ STORAGE_INTEGRATION=true pnpm --filter @knowledgehub/api test:e2e
 The integration check is skipped unless `STORAGE_INTEGRATION=true`, so the
 default suite needs no running object storage.
 
+The grounded-answer evaluation is also opt-in. It is excluded from `pnpm test`
+and `pnpm test:e2e`, requires a real provider key, and is documented under
+[Evaluation](#evaluation).
+
 ## Authentication
 
 The `auth` module owns the credential lifecycle:
@@ -555,15 +559,17 @@ are never returned.
   OCR is not part of this pipeline. Vector search
   is currently exact: the HNSW index is deliberately deferred until retrieval
   performance is measured.
-- **Retrieval is a service, not an endpoint.** `RetrievalService` ranks chunks by
-  embedding similarity, scoped to the organization and to the document's current
-  generation, but no HTTP route exposes it yet.
+- **Retrieval is a service, not a standalone endpoint.** `RetrievalService`
+  ranks chunks by embedding similarity, scoped to the organization and to the
+  document's current generation. The
+  [grounded-answers endpoint](#grounded-answers) consumes it directly; there is
+  still no public search route.
 - **Document text leaves the deployment for embedding.** Chunk text is sent to
   the configured provider (OpenAI `text-embedding-3-small` by default), and a
   search query is embedded the same way. `OPENAI_API_KEY` is required whenever
-  `PROCESSING_WORKER_ENABLED=true`; `EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS`
-  must agree with the stored `vector(1536)` column, and a mismatch fails at
-  startup.
+  `PROCESSING_WORKER_ENABLED=true` or `ANSWERS_ENABLED=true`;
+  `EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS` must agree with the stored
+  `vector(1536)` column, and a mismatch fails at startup.
 - **PDF parsing is not sandboxed.** Extraction enforces deterministic size,
   page, and character limits, but the parser still runs synchronously in the API
   process. There is no execution-time or memory limit (a JavaScript timer cannot
@@ -581,4 +587,217 @@ are never returned.
   organization in one response. Pagination is deferred; large organizations
   will need it.
 - **Documents cannot be deleted or renamed** in this increment.
+
+## Grounded answers
+
+`POST /organizations/:organizationId/answers` answers a question from the
+organization's ingested documents and attributes every claim to a source
+document and page. Retrieval, context assembly, the provider call, and citation
+validation happen inside the API; the client receives only the validated answer.
+
+```
+POST /organizations/:organizationId/answers
+```
+
+The endpoint requires an authenticated session and membership in the
+organization named in the route, exactly like the document endpoints:
+unauthenticated requests return `401`, authenticated non-members return `403`
+(without revealing whether the organization exists), and a malformed
+`:organizationId` returns `400`. The organization comes only from the route: the
+body cannot select documents, filters, or another organization.
+
+### Feature flag
+
+Answer generation is **disabled by default**. With `ANSWERS_ENABLED=false` the
+application starts without an answer-provider credential and the endpoint
+returns `503` without retrieving passages or calling a provider. Set
+`ANSWERS_ENABLED=true` to enable it; startup then fails fast unless
+`OPENAI_API_KEY` is present and the answer configuration is valid. There is no
+silent fallback to another provider or model.
+
+### Request and response
+
+Body (strict; unknown fields return `400`):
+
+```json
+{ "question": "How are document processing retries bounded?" }
+```
+
+`question` is trimmed and must be 1–2,000 characters. Only the question is
+accepted.
+
+`200` — answered:
+
+```json
+{
+  "status": "answered",
+  "answer": "Retries are bounded by the job's attempt budget [1].",
+  "citations": [
+    {
+      "marker": 1,
+      "documentId": "…",
+      "documentTitle": "Architecture Notes",
+      "pageNumber": 2,
+      "chunkIndex": 4,
+      "excerpt": "Processing retries are bounded by maxAttempts…"
+    }
+  ]
+}
+```
+
+- `citations` contains only the sources the answer actually referenced, in
+  ascending marker order.
+- `marker` is the number used in the answer text, so the client can render it
+  without renumbering.
+- `excerpt` is derived from the retrieved chunk on the server and truncated to
+  300 characters; it is never model-supplied text.
+- No vectors, storage keys, generations, similarity scores, prompts, or provider
+  metadata are returned.
+
+`200` — insufficient evidence:
+
+```json
+{ "status": "insufficient_evidence", "answer": null, "citations": [] }
+```
+
+`insufficient_evidence` is a successful outcome, not an HTTP error. It is
+returned when retrieval yields no usable passage (no provider call is made) or
+when the model declines to answer from the supplied sources. The refusal carries
+no model-written prose; the client owns the user-facing message.
+
+### Configuration
+
+Answer settings live in `apps/api/.env`; see `apps/api/.env.example`.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `ANSWERS_ENABLED` | `false` | Mounts answer generation. Requires `OPENAI_API_KEY` when `true`. |
+| `ANSWER_MODEL` | `gpt-4.1-mini` | Completion model. |
+| `ANSWER_TIMEOUT_MS` | `30000` | Timeout for one completion. |
+| `ANSWER_MAX_OUTPUT_TOKENS` | `700` | Completion cap (1–4,096). |
+| `ANSWER_MAX_SOURCES` | `8` | Maximum retrieved passages (1–20). |
+| `ANSWER_CONTEXT_MAX_CHARS` | `24000` | Assembled-context character budget (1,000–100,000). |
+| `ANSWER_MIN_SIMILARITY` | `0.2` | Cosine-similarity floor (0–1). |
+
+`OPENAI_API_KEY` and `OPENAI_BASE_URL` are shared with embeddings; answer
+generation never uses a separate account or provider. The model is
+configuration-only: switching models is an environment change, not a code
+change.
+
+### Errors
+
+| Condition | Status | Body message |
+| --- | --- | --- |
+| Blank/oversized question, unknown field | `400` | validation detail |
+| Missing/expired session | `401` | `Authentication required` |
+| Not a member of the organization | `403` | `You are not a member of this organization` |
+| Answer generation disabled | `503` | Answer generation is not enabled |
+| Embedding or answer provider unavailable/timeout | `503` | The answer service is temporarily unavailable |
+| Retrieval provider rejected or returned malformed data | `502` | The retrieval provider returned an unusable response |
+| Answer provider rejected or returned malformed data | `502` | The answer provider returned an unusable response |
+| Answer with invalid or missing citations | `502` | The answer could not be grounded |
+| Unexpected failure | `500` | `Internal server error` |
+
+The `502` messages are fixed strings; provider details and error classes stay in
+operator logs. The distinction is operational: `503` means "try again later";
+`502` means the upstream returned something unusable. No in-request retry is
+performed; the client decides whether to retry a `503`.
+
+### Data egress and security
+
+- **The question and selected passages leave the deployment.** The question is
+  sent to the configured embedding provider, and the retrieved passages plus the
+  question are sent to the configured completion provider (the same OpenAI
+  account and base URL used for embeddings).
+- **Retrieved text is untrusted.** The system prompt frames sources as quoted
+  data and escapes delimiters, and citations are validated. This reduces prompt
+  injection but does not eliminate it: a hostile document can still influence
+  tone or content within the supplied context.
+- **Tenant isolation.** The organization comes from the route and membership
+  guard; retrieval filters by organization, `READY` status, and the document's
+  current generation. The model never receives organization ids, user identity,
+  or storage coordinates.
+- **No persistence.** Questions and answers are not stored, so this increment
+  adds no retention surface.
+- **Privacy-conscious logging.** One structured line is emitted per request with
+  organization id, user id, status, model, source count, prompt characters,
+  citation count, duration, and token usage, plus an error class name on
+  failure. Questions, answers, passage text, credentials, and raw provider
+  payloads are never logged.
+
+### Evaluation
+
+The evaluation is **opt-in and isolated** from the unit and E2E suites. It runs
+the real configured answer and embedding providers against a fixed corpus; it
+never substitutes fakes.
+
+```bash
+pnpm db:up
+pnpm db:migrate
+cd apps/api
+OPENAI_API_KEY=sk-... ANSWERS_ENABLED=true pnpm test:answers:eval
+```
+
+Prerequisites:
+
+- Local PostgreSQL with migrations applied.
+- A real `OPENAI_API_KEY` exported in the process environment. The evaluation
+  must not use the test setup's placeholder key; the harness refuses to start
+  otherwise. `apps/api/.env` alone is not enough, because the test setup
+  pre-populates the placeholder before the app loads.
+- `ANSWERS_ENABLED=true`.
+
+The harness seeds a synthetic corpus of five documents / twelve pages with real
+embeddings and asks eight human-labeled questions: two single-source, two
+multi-source, two plausible distractors, and two unanswerable. It sweeps
+`ANSWER_MIN_SIMILARITY` over `0.2`, `0.35`, and `0.5`, applying each value to the
+runtime configuration before running the full question set.
+
+Reported per question and in aggregate:
+
+- citation precision and recall against the expected document/page set;
+- exact-match rate;
+- grounding hit against human-labeled supporting pages;
+- structural integrity;
+- refusal accuracy on unanswerable questions;
+- false-refusal rate on answerable questions;
+- latency p50/p95 and token usage;
+- every individual failure (false refusal, unanswerable question answered,
+  missing citations, structural violation).
+
+**Hard gates:** structural integrity must be `1.0` and refusal accuracy on
+unanswerable questions must be `1.0`. The complete report is printed before the
+hard gates are asserted. Every other metric is a diagnostic target, not a
+release-blocking threshold. Threshold selection must consider the whole
+trade-off, not citation recall alone.
+
+The current eight-question corpus is an **initial smoke evaluation, not proof of
+production reliability**. Live evaluation results are pending; no metrics have
+been recorded yet. The default similarity floor stays at `0.2` until live
+evidence justifies changing it.
+
+### Citation validity versus factual entailment
+
+The server validates **citation integrity**, not factual correctness. For an
+answered response it requires at least one marker, requires every marker to
+resolve to a retrieved source, and rejects malformed or unknown markers with
+`502`. It does not check that the cited passage supports the sentence.
+
+An answer can therefore be structurally valid and still wrong. Automated
+entailment checking is not implemented. The evaluation reports a grounding hit
+against human-labeled supporting pages, but that is evidence for review, not
+proof of entailment; human review remains necessary.
+
+### Limitations
+
+- **No conversation persistence or history.** Requests are stateless; a page
+  refresh loses the answer.
+- **No streaming.** One completed JSON body is returned; typical latency is one
+  embedding call plus one completion.
+- **No rate limiting or per-tenant quota.**
+- **No automated entailment evaluation.**
+- **The similarity floor is a heuristic** and is model- and corpus-dependent.
+- **Prompt injection through documents is reduced, not eliminated.**
+- **No answer caching and no repair/retry** when model output is invalid; such
+  output fails closed.
 

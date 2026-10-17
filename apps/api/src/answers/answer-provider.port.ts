@@ -6,11 +6,21 @@ export interface AnswerGenerationOptions {
   maxOutputTokens: number;
 }
 
+export interface AnswerUsage {
+  inputTokens: number | null;
+  outputTokens: number | null;
+}
+
+export interface AnswerGeneration {
+  draft: unknown;
+  usage: AnswerUsage;
+}
+
 export interface AnswerProvider {
   generate(
     prompt: AnswerPrompt,
     options: AnswerGenerationOptions,
-  ): Promise<unknown>;
+  ): Promise<AnswerGeneration>;
 }
 
 export type AnswerRejectionSource = 'configuration' | 'request';

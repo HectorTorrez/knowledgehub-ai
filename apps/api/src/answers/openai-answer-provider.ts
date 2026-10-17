@@ -1,9 +1,11 @@
 import {
+  type AnswerGeneration,
   type AnswerGenerationOptions,
   type AnswerProvider,
   AnswerRejectedError,
   AnswerResponseError,
   AnswerUnavailableError,
+  type AnswerUsage,
 } from './answer-provider.port.js';
 import type { AnswerPrompt } from './answer-prompt.js';
 
@@ -89,6 +91,23 @@ export function parseAnswerResponse(payload: unknown): unknown {
   }
 }
 
+function parseTokenCount(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+    ? value
+    : null;
+}
+
+export function parseAnswerUsage(payload: unknown): AnswerUsage {
+  if (!isRecord(payload) || !isRecord(payload.usage)) {
+    return { inputTokens: null, outputTokens: null };
+  }
+
+  return {
+    inputTokens: parseTokenCount(payload.usage.prompt_tokens),
+    outputTokens: parseTokenCount(payload.usage.completion_tokens),
+  };
+}
+
 export class OpenAiAnswerProvider implements AnswerProvider {
   private readonly fetch: AnswerFetch;
 
@@ -99,7 +118,7 @@ export class OpenAiAnswerProvider implements AnswerProvider {
   async generate(
     prompt: AnswerPrompt,
     options: AnswerGenerationOptions,
-  ): Promise<unknown> {
+  ): Promise<AnswerGeneration> {
     const response = await this.send(prompt, options);
 
     if (!response.ok) {
@@ -116,7 +135,10 @@ export class OpenAiAnswerProvider implements AnswerProvider {
       );
     }
 
-    return parseAnswerResponse(payload);
+    return {
+      draft: parseAnswerResponse(payload),
+      usage: parseAnswerUsage(payload),
+    };
   }
 
   private async send(

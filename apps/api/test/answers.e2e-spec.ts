@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
+import { Logger, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
@@ -55,6 +55,13 @@ function cookieValue(cookies: string[], name: string): string {
 
 function bearer(token: string): { Authorization: string } {
   return { Authorization: `Bearer ${token}` };
+}
+
+function draft(value: unknown) {
+  return {
+    draft: value,
+    usage: { inputTokens: null, outputTokens: null },
+  };
 }
 
 interface SeedChunk {
@@ -210,10 +217,8 @@ describe('answers (e2e)', () => {
   beforeEach(() => {
     embedImpl = async () => [basis(0)];
     answerProvider.calls.length = 0;
-    answerProvider.generateImpl = async () => ({
-      status: 'answered',
-      answer: 'Default [1].',
-    });
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'answered', answer: 'Default [1].' });
   });
 
   afterEach(async () => {
@@ -223,6 +228,8 @@ describe('answers (e2e)', () => {
       });
       trackedOrganizationIds.clear();
     }
+
+    vi.restoreAllMocks();
   });
 
   afterAll(async () => {
@@ -282,10 +289,11 @@ describe('answers (e2e)', () => {
       { title: 'Architecture Notes', pageNumber: 2, chunkIndex: 4 },
     );
 
-    answerProvider.generateImpl = async () => ({
-      status: 'answered',
-      answer: 'Retries are bounded by maxAttempts [1].',
-    });
+    answerProvider.generateImpl = async () =>
+      draft({
+        status: 'answered',
+        answer: 'Retries are bounded by maxAttempts [1].',
+      });
 
     const response = await ask(token, organizationId, {
       question: 'How are retries bounded?',
@@ -360,10 +368,8 @@ describe('answers (e2e)', () => {
     const organizationId = await createOrganization(token, 'Decline Org');
     await seedReadyChunk(organizationId, 'some passage');
 
-    answerProvider.generateImpl = async () => ({
-      status: 'insufficient_evidence',
-      answer: null,
-    });
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'insufficient_evidence', answer: null });
 
     const response = await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -420,10 +426,8 @@ describe('answers (e2e)', () => {
     const organizationId = await createOrganization(token, 'Citation Org');
     await seedReadyChunk(organizationId, 'some passage');
 
-    answerProvider.generateImpl = async () => ({
-      status: 'answered',
-      answer: 'Ungrounded claim [9].',
-    });
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'answered', answer: 'Ungrounded claim [9].' });
 
     const response = await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -432,12 +436,70 @@ describe('answers (e2e)', () => {
     expect(JSON.stringify(response.body)).not.toContain('Ungrounded claim');
   });
 
+  it.each([
+    ['a comma-separated group', 'Malformed [1,2].'],
+    ['a range', 'Malformed [1-3].'],
+    ['an unclosed marker', 'Malformed [1.'],
+  ])(
+    'maps %s to 502 and discards the answer',
+    async (_label, answer) => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Malformed Org');
+      await seedReadyChunk(organizationId, 'some passage');
+
+      answerProvider.generateImpl = async () =>
+        draft({ status: 'answered', answer });
+
+      const response = await ask(token, organizationId, {
+        question: 'What is alpha?',
+      }).expect(502);
+
+      expect(JSON.stringify(response.body)).not.toContain('Malformed');
+    },
+  );
+
+  it('maps an answered response with zero citations to 502 and discards the answer', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'No Citation Org');
+    await seedReadyChunk(organizationId, 'some passage');
+
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'answered', answer: 'A claim with no marker.' });
+
+    const response = await ask(token, organizationId, {
+      question: 'What is alpha?',
+    }).expect(502);
+
+    expect(JSON.stringify(response.body)).not.toContain(
+      'A claim with no marker',
+    );
+  });
+
+  it('maps an insufficient-evidence response carrying prose to 502', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Prose Refusal Org');
+    await seedReadyChunk(organizationId, 'some passage');
+
+    answerProvider.generateImpl = async () =>
+      draft({
+        status: 'insufficient_evidence',
+        answer: 'I cannot answer that.',
+      });
+
+    const response = await ask(token, organizationId, {
+      question: 'What is alpha?',
+    }).expect(502);
+
+    expect(response.body).not.toHaveProperty('answer');
+    expect(JSON.stringify(response.body)).not.toContain('I cannot answer');
+  });
+
   it('maps unusable provider output to 502', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Unusable Org');
     await seedReadyChunk(organizationId, 'some passage');
 
-    answerProvider.generateImpl = async () => ({ status: 'answered' });
+    answerProvider.generateImpl = async () => draft({ status: 'answered' });
 
     await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -494,10 +556,8 @@ describe('answers (e2e)', () => {
       'BETA_OTHER_TENANT_SECRET_PASSAGE',
     );
 
-    answerProvider.generateImpl = async () => ({
-      status: 'answered',
-      answer: 'Alpha only [1].',
-    });
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'answered', answer: 'Alpha only [1].' });
 
     const response = await ask(owner.token, organizationId, {
       question: 'What is alpha?',
@@ -546,10 +606,8 @@ describe('answers (e2e)', () => {
       status: 'PENDING',
     });
 
-    answerProvider.generateImpl = async () => ({
-      status: 'answered',
-      answer: 'Current only [1].',
-    });
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'answered', answer: 'Current only [1].' });
 
     await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -560,5 +618,32 @@ describe('answers (e2e)', () => {
     expect(prompt.user).toContain('CURRENT_GENERATION_PASSAGE');
     expect(prompt.user).not.toContain('OBSOLETE_GENERATION_PASSAGE');
     expect(prompt.user).not.toContain('PENDING_DOCUMENT_PASSAGE');
+  });
+
+  it('logs one line per request without question, passage, or answer content', async () => {
+    const log = vi.spyOn(Logger.prototype, 'log');
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Log Org');
+    await seedReadyChunk(organizationId, 'PASSAGE_SECRET_MARKER');
+
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'answered', answer: 'ANSWER_SECRET_MARKER [1].' });
+
+    await ask(token, organizationId, {
+      question: 'QUESTION_SECRET_MARKER?',
+    }).expect(200);
+
+    expect(log).toHaveBeenCalledTimes(1);
+    const serialized = JSON.stringify(
+      log.mock.calls.map((call) => call[0]),
+    );
+    expect(serialized).not.toContain('QUESTION_SECRET_MARKER');
+    expect(serialized).not.toContain('PASSAGE_SECRET_MARKER');
+    expect(serialized).not.toContain('ANSWER_SECRET_MARKER');
+    expect(log.mock.calls[0]![0]).toMatchObject({
+      status: 'answered',
+      sourceCount: 1,
+      citationCount: 1,
+    });
   });
 });

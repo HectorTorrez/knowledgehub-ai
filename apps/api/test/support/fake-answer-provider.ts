@@ -1,4 +1,5 @@
 import type {
+  AnswerGeneration,
   AnswerGenerationOptions,
   AnswerProvider,
 } from '../../src/answers/answer-provider.port.js';
@@ -11,14 +12,14 @@ export class FakeAnswerProvider implements AnswerProvider {
   }> = [];
 
   generateImpl: AnswerProvider['generate'] = async () => ({
-    status: 'answered',
-    answer: 'Default [1].',
+    draft: { status: 'answered', answer: 'Default [1].' },
+    usage: { inputTokens: null, outputTokens: null },
   });
 
   generate(
     prompt: AnswerPrompt,
     options: AnswerGenerationOptions,
-  ): Promise<unknown> {
+  ): Promise<AnswerGeneration> {
     this.calls.push({ prompt, options });
     return this.generateImpl(prompt, options);
   }
