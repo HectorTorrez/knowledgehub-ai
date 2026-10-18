@@ -5,7 +5,6 @@ import { useSession } from '~/hooks/use-auth';
 import { useWebMcpTool } from '~/hooks/use-webmcp-tool';
 import { documentsApi } from '~/lib/api/documents';
 import { organizationsApi } from '~/lib/api/organizations';
-import { queryKeys } from '~/lib/api/query-keys';
 import { sessionQuery } from '~/lib/auth/session';
 import {
   buildDocumentsTool,
@@ -48,22 +47,10 @@ export function useWebMcpTools(): void {
     () => ({
       loadSession: () => queryClient.fetchQuery(sessionQuery),
       loadOrganizations: async (options) =>
-        (
-          await queryClient.fetchQuery({
-            queryKey: queryKeys.organizations.list(),
-            queryFn: ({ signal }) =>
-              organizationsApi.list({ signal: options?.signal ?? signal }),
-          })
-        ).organizations,
+        (await organizationsApi.list({ signal: options?.signal })).organizations,
       loadDocuments: async (organizationId, options) =>
         (
-          await queryClient.fetchQuery({
-            queryKey: queryKeys.organizations.documents.list(organizationId),
-            queryFn: ({ signal }) =>
-              documentsApi.list(organizationId, {
-                signal: options?.signal ?? signal,
-              }),
-          })
+          await documentsApi.list(organizationId, { signal: options?.signal })
         ).documents,
       getActiveOrganizationId: () =>
         readActiveOrganizationId(router.state.matches),
