@@ -317,6 +317,18 @@ Rate limits are enforced in the API process and are per-instance; the tenant
 quota is the durable cost-control boundary. All limits are configuration, not
 code: see `apps/api/.env.example` for `RATE_LIMIT_*` and `QUOTA_ANSWER_DAILY`.
 
+## Observability
+
+Every request is logged as a single structured line carrying a `requestId`
+(also returned as the `X-Request-Id` response header), the method, path, status,
+duration, and — when the request was authenticated — the user and organization
+ids. Bodies, query strings, headers, and cookies are never logged.
+
+Set `METRICS_ENABLED=true` to expose `GET /metrics` in Prometheus text format
+(request counts and durations by method and status). The endpoint returns `503`
+while disabled and carries only counters, never request content; keep it
+network-isolated in production.
+
 ## Documents
 
 Documents are files registered within a single organization. This section
