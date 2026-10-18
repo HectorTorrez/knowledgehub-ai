@@ -329,6 +329,7 @@ export interface DocumentUploadCompleteRequest {
  */
 export interface AnswerRequest {
   question: string;
+  stream?: boolean;
 }
 
 /**
@@ -364,6 +365,17 @@ export type AnswerResponse =
       answer: null;
       citations: AnswerCitation[];
     };
+
+/**
+ * One event in the streamed answer response (`application/x-ndjson`). A stream
+ * emits a leading `status`, zero or more `delta` chunks of the validated answer
+ * prose, and a trailing `citations` event. The answer is still fully validated
+ * before streaming begins; streaming never leaks unvalidated provider output.
+ */
+export type AnswerStreamEvent =
+  | { type: 'status'; status: AnswerResponse['status'] }
+  | { type: 'delta'; text: string }
+  | { type: 'citations'; citations: AnswerCitation[] };
 
 /**
  * Row in the persisted answer history. Carries the question and outcome without
