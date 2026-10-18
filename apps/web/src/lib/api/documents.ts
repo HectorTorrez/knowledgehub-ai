@@ -7,15 +7,20 @@ import type {
   DocumentUploadUrlResponse,
 } from '@knowledgehub/shared-types';
 import { apiFetch } from './client';
+import type { RequestOptions } from './organizations';
 
 function documentsPath(organizationId: string): string {
   return `/organizations/${organizationId}/documents`;
 }
 
 export const documentsApi = {
-  list(organizationId: string): Promise<DocumentListResponse> {
+  list(
+    organizationId: string,
+    options: RequestOptions = {},
+  ): Promise<DocumentListResponse> {
     return apiFetch<DocumentListResponse>(documentsPath(organizationId), {
       authRecovery: true,
+      signal: options.signal,
     });
   },
 

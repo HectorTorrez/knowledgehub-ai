@@ -12,10 +12,15 @@ import { apiFetch } from './client';
 
 const ORGANIZATIONS_PATH = '/organizations';
 
+export interface RequestOptions {
+  signal?: AbortSignal;
+}
+
 export const organizationsApi = {
-  list(): Promise<OrganizationListResponse> {
+  list(options: RequestOptions = {}): Promise<OrganizationListResponse> {
     return apiFetch<OrganizationListResponse>(ORGANIZATIONS_PATH, {
       authRecovery: true,
+      signal: options.signal,
     });
   },
 

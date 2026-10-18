@@ -3,12 +3,15 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { ErrorNotice } from '~/components/route-states';
 import { useLogout, useSession } from '~/hooks/use-auth';
+import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const session = useSession();
   const signOut = useLogout();
   const navigate = useNavigate();
   const [signOutError, setSignOutError] = useState<unknown>(null);
+
+  useWebMcpTools();
 
   const user =
     session.data?.status === 'authenticated' ? session.data.user : undefined;
