@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   CopyObjectCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -225,5 +226,11 @@ export class S3ObjectStorage implements ObjectStorage {
       }
       throw error;
     }
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }),
+    );
   }
 }

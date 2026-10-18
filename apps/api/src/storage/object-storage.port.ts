@@ -72,4 +72,5 @@ export interface ObjectStorage {
   readObjectPrefix(input: ReadObjectPrefixInput): Promise<Uint8Array>;
   readObject(input: ReadObjectInput): Promise<Uint8Array>;
   copyObject(input: CopyObjectInput): Promise<void>;
+  deleteObject(key: string): Promise<void>;
 }

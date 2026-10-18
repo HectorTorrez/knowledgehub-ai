@@ -1,17 +1,9 @@
 import { z } from 'zod';
-
-const TITLE_MAX_LENGTH = 200;
+import { documentTitleSchema } from './document-title.schema.js';
 
 export const createDocumentSchema = z
   .object({
-    title: z
-      .string()
-      .trim()
-      .min(1, 'title is required')
-      .max(
-        TITLE_MAX_LENGTH,
-        `title must be at most ${TITLE_MAX_LENGTH} characters`,
-      ),
+    title: documentTitleSchema,
   })
   .strict();
 
