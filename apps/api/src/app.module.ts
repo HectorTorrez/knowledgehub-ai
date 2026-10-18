@@ -6,6 +6,7 @@ import { validateEnv } from './config/env.validation.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { EmbeddingsModule } from './embeddings/embeddings.module.js';
 import { HealthModule } from './health/health.module.js';
+import { MetricsModule } from './metrics/metrics.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProcessingModule } from './processing/processing.module.js';
@@ -27,6 +28,7 @@ import { SearchModule } from './search/search.module.js';
     RetrievalModule,
     SearchModule,
     AnswersModule,
+    MetricsModule,
   ],
 })
 export class AppModule {}

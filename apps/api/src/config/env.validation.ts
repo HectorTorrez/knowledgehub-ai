@@ -172,6 +172,8 @@ const envObjectSchema = z.object({
     .positive()
     .default(20),
   QUOTA_ANSWER_DAILY: z.coerce.number().int().positive().default(1000),
+
+  METRICS_ENABLED: z.enum(['true', 'false']).default('false'),
 });
 
 const PRODUCTION_STORAGE_KEYS = [
