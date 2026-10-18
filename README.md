@@ -586,11 +586,6 @@ are never returned.
   OCR is not part of this pipeline. Vector search
   is currently exact: the HNSW index is deliberately deferred until retrieval
   performance is measured.
-- **Retrieval is a service, not a standalone endpoint.** `RetrievalService`
-  ranks chunks by embedding similarity, scoped to the organization and to the
-  document's current generation. The
-  [grounded-answers endpoint](#grounded-answers) consumes it directly; there is
-  still no public search route.
 - **Document text leaves the deployment for embedding.** Chunk text is sent to
   the configured provider (OpenAI `text-embedding-3-small` by default), and a
   search query is embedded the same way. `OPENAI_API_KEY` is required whenever
@@ -611,6 +606,21 @@ are never returned.
   accepted.
 - **The PDF signature check is not validation.** It only confirms the `%PDF-`
   header; it does not establish that the file is a valid or safe PDF.
+
+## Search
+
+`GET /organizations/:organizationId/search?q=<text>&limit=<n>` ranks an
+organization's ready document chunks by embedding similarity to the query and
+returns `{ results }` (`SearchResponse`), each result carrying the source
+document id and title, the page number, the matching chunk's text as `excerpt`,
+and a `score` (cosine similarity, higher is closer). `q` is required (trimmed,
+1–2000 characters); `limit` defaults to 10 and caps at 50. Like the document
+endpoints, it requires an authenticated session and membership: `401`
+unauthenticated, `403` non-member, `400` for a malformed `:organizationId` or
+blank query.
+
+Search consumes the same retrieval pipeline as grounded answers but returns the
+matched passages directly, with no model completion.
 
 ## Grounded answers
 

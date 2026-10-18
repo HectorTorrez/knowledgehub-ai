@@ -84,6 +84,17 @@ export const documentTitleSchema = z.object({
     ),
 });
 
+export const searchQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(1, 'Enter a search query.')
+    .max(
+      QUESTION_MAX_LENGTH,
+      `Search queries must be at most ${QUESTION_MAX_LENGTH} characters.`,
+    ),
+});
+
 export type LoginForm = z.infer<typeof loginFormSchema>;
 export type RegisterForm = z.infer<typeof registerFormSchema>;
 export type OrganizationNameForm = z.infer<typeof organizationNameSchema>;
