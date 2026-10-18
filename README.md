@@ -697,6 +697,13 @@ Body (strict; unknown fields return `400`):
 `question` is trimmed and must be 1–2,000 characters. Only the question is
 accepted.
 
+An optional `stream` boolean selects a streamed response
+(`application/x-ndjson`) instead of the single JSON body: a `status` event, one
+or more `delta` events carrying chunks of the validated answer, and a trailing
+`citations` event. The answer is still fully validated before streaming begins;
+streaming never emits unvalidated provider output and does not reduce the
+embedding-plus-completion latency.
+
 `200` — answered:
 
 ```json
@@ -864,8 +871,10 @@ proof of entailment; human review remains necessary.
 - **Answers are persisted, not conversational.** History stores each answered
   question and its outcome, but a follow-up question cannot reference a prior
   answer — each request is independent.
-- **No streaming.** One completed JSON body is returned; typical latency is one
-  embedding call plus one completion.
+- **Streaming is post-validation.** The streamed response renders the validated
+  answer progressively but still waits for the full completion, so it improves
+  perceived latency, not total latency. Streaming never emits unvalidated
+  provider output.
 - **No rate limiting or per-tenant quota.**
 - **No automated entailment evaluation.**
 - **The similarity floor is a heuristic** and is model- and corpus-dependent.

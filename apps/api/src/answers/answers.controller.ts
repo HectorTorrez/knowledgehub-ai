@@ -10,6 +10,7 @@ import {
   Post,
   Query,
   Req,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import type {
@@ -25,6 +26,7 @@ import {
   requireOrganizationContext,
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
+import { toAnswerNdjsonStream } from './answer-stream.js';
 import {
   answerQuestionSchema,
   type AnswerQuestionInput,
@@ -44,18 +46,24 @@ export class AnswersController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimitGuard)
   @RateLimit('answerUser', 'answerTenant')
-  answer(
+  async answer(
     @Body(new ZodValidationPipe(answerQuestionSchema))
     body: AnswerQuestionInput,
     @Req() request: OrganizationRequest,
-  ): Promise<AnswerResponse> {
+  ): Promise<AnswerResponse | StreamableFile> {
     const context = requireOrganizationContext(request);
 
-    return this.answers.answer(
+    const result = await this.answers.answer(
       context.organizationId,
       context.userId,
       body.question,
     );
+
+    if (body.stream) {
+      return toAnswerNdjsonStream(result);
+    }
+
+    return result;
   }
 
   @Get()

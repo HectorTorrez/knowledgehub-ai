@@ -11,6 +11,7 @@ export const answerQuestionSchema = z
         MAX_ANSWER_QUESTION_CHARS,
         `question must be at most ${MAX_ANSWER_QUESTION_CHARS} characters`,
       ),
+    stream: z.boolean('stream must be a boolean').optional(),
   })
   .strict();
 
