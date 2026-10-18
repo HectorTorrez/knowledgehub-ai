@@ -1,7 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { ArrowRight, Building2, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { ErrorNotice, RouteMessage } from '~/components/route-states';
+import { EmptyState } from '~/components/empty-state';
+import { PageHeader } from '~/components/page-header';
+import { ErrorNotice } from '~/components/route-states';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '~/components/ui/dialog';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import { Skeleton } from '~/components/ui/skeleton';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { organizationNameSchema } from '~/lib/validation';
@@ -14,6 +39,7 @@ function OrganizationsPage() {
   const client = useQueryClient();
   const [name, setName] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const organizations = useQuery({
     queryKey: queryKeys.organizations.list(),
@@ -41,76 +67,127 @@ function OrganizationsPage() {
     try {
       await create.mutateAsync(result.data.name);
       setName('');
+      setCreateOpen(false);
     } catch {
       return;
     }
   }
 
-  return (
-    <div className="space-y-8">
-      <section>
-        <h1 className="text-2xl font-semibold">Organizations</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Organizations you belong to. Documents and answers are scoped to one
-          organization at a time.
-        </p>
-      </section>
+  const hasOrganizations =
+    organizations.data !== undefined && organizations.data.organizations.length > 0;
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Your organizations</h2>
-        {organizations.isPending ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+  return (
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <div className="space-y-8">
+        <PageHeader
+          title="Organizations"
+          description="Documents and answers are kept separate for each organization."
+          action={
+            <DialogTrigger asChild>
+              <Button>
+                <Plus />
+                New organization
+              </Button>
+            </DialogTrigger>
+          }
+        />
+
+        {organizations.isError ? (
+          <ErrorNotice error={organizations.error} />
         ) : null}
-        {organizations.isError ? <ErrorNotice error={organizations.error} /> : null}
-        {organizations.data && organizations.data.organizations.length === 0 ? (
-          <RouteMessage
+
+        {organizations.isPending ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-32 rounded-xl" />
+            ))}
+          </div>
+        ) : null}
+
+        {!organizations.isPending && !hasOrganizations ? (
+          <EmptyState
+            icon={Building2}
             title="No organizations yet"
-            description="Create your first organization to start uploading documents."
+            description="Create your first organization to start uploading documents and asking questions."
+            action={
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus />
+                  Create organization
+                </Button>
+              </DialogTrigger>
+            }
           />
         ) : null}
-        <ul className="divide-y rounded-md border">
-          {organizations.data?.organizations.map((organization) => (
-            <li key={organization.id}>
+
+        {hasOrganizations ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {organizations.data?.organizations.map((organization) => (
               <Link
+                key={organization.id}
                 to="/organizations/$organizationId"
                 params={{ organizationId: organization.id }}
-                className="flex items-center justify-between p-4 hover:bg-accent"
+                className="group outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
               >
-                <span className="font-medium">{organization.name}</span>
-                <span className="text-xs uppercase text-muted-foreground">
-                  {organization.role}
-                </span>
+                <Card className="h-full transition-colors group-hover:border-foreground/20 group-hover:bg-accent/40">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <span className="flex size-8 items-center justify-center rounded-md bg-muted text-foreground">
+                        <Building2 className="size-4" />
+                      </span>
+                      <span className="truncate">{organization.name}</span>
+                    </CardTitle>
+                    <CardDescription>
+                      {organization.role === 'OWNER' ? 'You own this organization' : 'Member'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between">
+                    <Badge variant={organization.role === 'OWNER' ? 'default' : 'secondary'}>
+                      {organization.role}
+                    </Badge>
+                    <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </CardContent>
+                </Card>
               </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Create an organization</h2>
-        <form onSubmit={handleCreate} className="space-y-3" noValidate>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create an organization</DialogTitle>
+          <DialogDescription>
+            Organizations keep documents and answers isolated per team.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleCreate} className="space-y-4" noValidate>
           {validationError ? (
             <ErrorNotice error={new Error(validationError)} />
           ) : null}
           {create.isError ? <ErrorNotice error={create.error} /> : null}
-          <div className="flex gap-2">
-            <input
-              aria-label="Organization name"
+          <div className="space-y-2">
+            <Label htmlFor="organization-name">Name</Label>
+            <Input
+              id="organization-name"
+              autoFocus
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Acme Inc."
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             />
-            <button
-              type="submit"
-              disabled={create.isPending}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {create.isPending ? 'Creating…' : 'Create'}
-            </button>
           </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button type="submit" disabled={create.isPending}>
+              {create.isPending ? 'Creating…' : 'Create organization'}
+            </Button>
+          </DialogFooter>
         </form>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

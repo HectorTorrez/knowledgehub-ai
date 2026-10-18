@@ -1,10 +1,30 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { FileText, Upload } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { DocumentStatusBadge } from '~/components/document-status-badge';
+import { EmptyState } from '~/components/empty-state';
+import { FileDropzone } from '~/components/file-dropzone';
+import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '~/components/ui/dialog';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import { Skeleton } from '~/components/ui/skeleton';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
+import { formatBytes } from '~/lib/format';
 import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
   documentTitleSchema,
@@ -19,24 +39,16 @@ export const Route = createFileRoute(
 
 const ACTIVE_STATUSES = new Set<DocumentSummary['status']>(['PENDING', 'PROCESSING']);
 
-const STATUS_CLASSES: Record<DocumentSummary['status'], string> = {
-  PENDING: 'bg-muted text-muted-foreground',
-  PROCESSING: 'bg-secondary text-secondary-foreground',
-  READY: 'bg-primary/10 text-foreground',
-  FAILED: 'bg-destructive/10 text-destructive',
-};
-
 function DocumentsPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  const listKey = queryKeys.organizations.documents.list(organizationId);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const documents = useQuery({
-    queryKey: listKey,
+    queryKey: queryKeys.organizations.documents.list(organizationId),
     queryFn: () => documentsApi.list(organizationId),
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -89,7 +101,6 @@ function DocumentsPage() {
     event.preventDefault();
     setValidationError(null);
 
-    const form = event.currentTarget;
     const result = documentTitleSchema.safeParse({ title });
 
     if (!result.success) {
@@ -113,97 +124,140 @@ function DocumentsPage() {
       await upload.mutateAsync({ organizationId, title: result.data.title, file });
       setTitle('');
       setFile(null);
-      form.reset();
+      setUploadOpen(false);
     } catch {
       return;
     }
   }
 
+  const hasDocuments =
+    documents.data !== undefined && documents.data.documents.length > 0;
+
   return (
-    <div className="space-y-8">
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Documents</h2>
-        {documents.isPending ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : null}
+    <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+      <div className="space-y-8">
+        <PageHeader
+          title="Documents"
+          description="Upload documents and ask questions grounded in their contents."
+          action={
+            <DialogTrigger asChild>
+              <Button>
+                <Upload />
+                Upload document
+              </Button>
+            </DialogTrigger>
+          }
+        />
+
         {documents.isError ? <ErrorNotice error={documents.error} /> : null}
-        {documents.data && documents.data.documents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No documents yet. Upload one below.
-          </p>
-        ) : null}
-        {documents.data && documents.data.documents.length > 0 ? (
-          <ul className="divide-y rounded-md border">
-            {documents.data.documents.map((document) => (
-              <li key={document.id} className="space-y-1 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="font-medium">{document.title}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASSES[document.status]}`}
-                  >
-                    {document.status}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {document.originalFileName ?? 'Upload pending'}
-                  {document.sizeBytes !== null
-                    ? ` · ${formatBytes(document.sizeBytes)}`
-                    : ''}
-                </p>
-                {document.status === 'FAILED' ? (
-                  <p className="text-xs text-destructive">
-                    {document.failureKind === 'VERIFICATION'
-                      ? 'Upload verification failed'
-                      : 'Processing failed'}
-                    {document.failureReason ? `: ${document.failureReason}` : ''}
-                  </p>
-                ) : null}
-              </li>
+
+        {documents.isPending ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-16 w-full rounded-xl" />
             ))}
-          </ul>
+          </div>
         ) : null}
-      </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Upload a document</h2>
-        <form onSubmit={handleUpload} className="space-y-3" noValidate>
-          {validationError ? <ErrorNotice error={new Error(validationError)} /> : null}
+        {!documents.isPending && !hasDocuments ? (
+          <EmptyState
+            icon={FileText}
+            title="No documents yet"
+            description="Upload a document to start asking questions about it."
+            action={
+              <DialogTrigger asChild>
+                <Button>
+                  <Upload />
+                  Upload document
+                </Button>
+              </DialogTrigger>
+            }
+          />
+        ) : null}
+
+        {hasDocuments ? (
+          <Card>
+            <CardContent className="p-0">
+              <ul className="divide-y">
+                {documents.data?.documents.map((document) => (
+                  <li
+                    key={document.id}
+                    className="flex items-center gap-4 px-6 py-4"
+                  >
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <FileText className="size-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium">
+                          {document.title}
+                        </p>
+                        <DocumentStatusBadge status={document.status} />
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {document.originalFileName ?? 'Upload pending'}
+                        {document.sizeBytes !== null
+                          ? ` · ${formatBytes(document.sizeBytes)}`
+                          : ''}
+                      </p>
+                      {document.status === 'FAILED' ? (
+                        <p className="mt-0.5 text-xs text-destructive">
+                          {document.failureKind === 'VERIFICATION'
+                            ? 'Upload verification failed'
+                            : 'Processing failed'}
+                          {document.failureReason ? `: ${document.failureReason}` : ''}
+                        </p>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Upload a document</DialogTitle>
+          <DialogDescription>
+            Add a PDF, plain text, or Markdown file to this organization.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleUpload} className="space-y-4" noValidate>
+          {validationError ? (
+            <ErrorNotice error={new Error(validationError)} />
+          ) : null}
           {upload.isError ? <ErrorNotice error={upload.error} /> : null}
-          <input
-            aria-label="Document title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Employee handbook"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-          />
-          <input
-            aria-label="Document file"
-            type="file"
+          <div className="space-y-2">
+            <Label htmlFor="document-title">Title</Label>
+            <Input
+              id="document-title"
+              autoFocus
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Employee handbook"
+            />
+          </div>
+          <FileDropzone
             accept={ALLOWED_UPLOAD_CONTENT_TYPES.join(',')}
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            file={file}
+            onFileChange={setFile}
           />
-          <button
-            type="submit"
-            disabled={upload.isPending}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-          >
-            {upload.isPending ? 'Uploading…' : 'Upload'}
-          </button>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setUploadOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={upload.isPending}>
+              {upload.isPending ? 'Uploading…' : 'Upload'}
+            </Button>
+          </DialogFooter>
         </form>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

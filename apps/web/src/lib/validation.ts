@@ -3,7 +3,7 @@ import { z } from 'zod';
 const EMAIL_MAX_LENGTH = 254;
 const NAME_MAX_LENGTH = 100;
 const DOCUMENT_TITLE_MAX_LENGTH = 200;
-const QUESTION_MAX_LENGTH = 2000;
+export const QUESTION_MAX_LENGTH = 2000;
 const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 128;
 

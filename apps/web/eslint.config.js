@@ -3,6 +3,12 @@ import config from '@knowledgehub/eslint-config/react';
 export default [
   ...config,
   {
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
     files: ['src/**/*.{ts,tsx}'],
     ignores: [
       'src/lib/webmcp/**',

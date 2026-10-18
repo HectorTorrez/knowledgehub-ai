@@ -1,8 +1,38 @@
+import type { OrganizationRole } from '@knowledgehub/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useState, type FormEvent } from 'react';
+import { Trash2, UserPlus } from 'lucide-react';
+import { useState, type FormEvent, type ReactNode } from 'react';
+import { EmptyState } from '~/components/empty-state';
 import { ErrorNotice } from '~/components/route-states';
-import type { OrganizationRole } from '@knowledgehub/shared-types';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '~/components/ui/dialog';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { memberEmailSchema } from '~/lib/validation';
@@ -13,11 +43,18 @@ export const Route = createFileRoute(
   component: OrganizationOverviewPage,
 });
 
+interface MemberToRemove {
+  userId: string;
+  name: string;
+}
+
 function OrganizationOverviewPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const [email, setEmail] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<MemberToRemove | null>(null);
 
   const organization = useQuery({
     queryKey: queryKeys.organizations.detail(organizationId),
@@ -77,120 +114,245 @@ function OrganizationOverviewPage() {
     try {
       await addMember.mutateAsync({ organizationId, email: result.data.email });
       setEmail('');
+      setAddMemberOpen(false);
     } catch {
       return;
     }
   }
 
+  function handleRemoveMember(member: MemberToRemove) {
+    removeMember.mutate({ organizationId, userId: member.userId });
+    setMemberToRemove(null);
+  }
+
   return (
-    <div className="space-y-8">
-      <section className="space-y-2">
-        <h2 className="text-lg font-medium">Details</h2>
-        {organization.data ? (
-          <dl className="grid grid-cols-2 gap-2 text-sm">
-            <dt className="text-muted-foreground">Name</dt>
-            <dd>{organization.data.organization.name}</dd>
-            <dt className="text-muted-foreground">Your role</dt>
-            <dd>{organization.data.organization.role}</dd>
-            <dt className="text-muted-foreground">Created</dt>
-            <dd>{new Date(organization.data.organization.createdAt).toLocaleString()}</dd>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Details</CardTitle>
+          <CardDescription>Summary of this organization.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <DetailItem label="Name">
+              {organization.data?.organization.name ?? '—'}
+            </DetailItem>
+            <DetailItem label="Your role">
+              {organization.data?.organization.role ?? '—'}
+            </DetailItem>
+            <DetailItem label="Members">
+              {members.data?.members.length ?? '—'}
+            </DetailItem>
+            <DetailItem label="Created">
+              {organization.data
+                ? new Date(organization.data.organization.createdAt).toLocaleDateString()
+                : '—'}
+            </DetailItem>
           </dl>
-        ) : null}
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Members</h2>
-        {members.isPending ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : null}
-        {members.isError ? <ErrorNotice error={members.error} /> : null}
-        <ul className="divide-y rounded-md border">
-          {members.data?.members.map((member) => (
-            <li
-              key={member.userId}
-              className="flex items-center justify-between gap-4 p-4"
-            >
-              <div>
-                <p className="font-medium">
-                  {member.firstName} {member.lastName}
-                </p>
-                <p className="text-sm text-muted-foreground">{member.email}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {isOwner ? (
-                  <select
-                    aria-label={`Role for ${member.email}`}
-                    value={member.role}
-                    disabled={updateRole.isPending}
-                    onChange={(event) =>
-                      updateRole.mutate({
-                        organizationId,
-                        userId: member.userId,
-                        role: event.target.value as OrganizationRole,
-                      })
-                    }
-                    className="rounded-md border bg-background px-2 py-1 text-sm"
-                  >
-                    <option value="OWNER">OWNER</option>
-                    <option value="MEMBER">MEMBER</option>
-                  </select>
-                ) : (
-                  <span className="text-xs uppercase text-muted-foreground">
-                    {member.role}
-                  </span>
-                )}
-                {isOwner ? (
-                  <button
-                    type="button"
-                    disabled={removeMember.isPending}
-                    onClick={() =>
-                      removeMember.mutate({ organizationId, userId: member.userId })
-                    }
-                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-60"
-                  >
-                    Remove
-                  </button>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-        {updateRole.isError ? <ErrorNotice error={updateRole.error} /> : null}
-        {removeMember.isError ? <ErrorNotice error={removeMember.error} /> : null}
-      </section>
+      <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
+        <Card>
+          <div className="flex items-start justify-between gap-4 p-6 pb-0">
+            <div className="space-y-1.5">
+              <h2 className="font-semibold leading-none tracking-tight">Members</h2>
+              <p className="text-sm text-muted-foreground">
+                People who can access this organization.
+              </p>
+            </div>
+            {isOwner ? (
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <UserPlus />
+                  Add member
+                </Button>
+              </DialogTrigger>
+            ) : null}
+          </div>
 
-      {isOwner ? (
-        <section className="space-y-3">
-          <h2 className="text-lg font-medium">Add a member</h2>
-          <p className="text-sm text-muted-foreground">
-            The person must already have a KnowledgeHub AI account. They join as a
-            MEMBER.
-          </p>
-          <form onSubmit={handleAddMember} className="space-y-3" noValidate>
+          <CardContent className="p-6">
+            {members.isPending ? (
+              <div className="space-y-3">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <Skeleton key={index} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : null}
+
+            {members.isError ? <ErrorNotice error={members.error} /> : null}
+
+            {members.data && members.data.members.length === 0 ? (
+              <EmptyState
+                icon={UserPlus}
+                title="No members yet"
+                description="Members can upload documents and ask questions."
+              />
+            ) : null}
+
+            {members.data && members.data.members.length > 0 ? (
+              <ul className="divide-y">
+                {members.data.members.map((member) => (
+                  <li
+                    key={member.userId}
+                    className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                        {initialsFor(member.firstName, member.lastName)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {member.firstName} {member.lastName}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {member.email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {isOwner ? (
+                        <Select
+                          value={member.role}
+                          onValueChange={(role) =>
+                            updateRole.mutate({
+                              organizationId,
+                              userId: member.userId,
+                              role: role as OrganizationRole,
+                            })
+                          }
+                        >
+                          <SelectTrigger
+                            className="w-28"
+                            aria-label={`Role for ${member.email}`}
+                            disabled={updateRole.isPending}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="OWNER">Owner</SelectItem>
+                            <SelectItem value="MEMBER">Member</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="secondary">{member.role}</Badge>
+                      )}
+                      {isOwner ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove ${member.email}`}
+                          onClick={() =>
+                            setMemberToRemove({
+                              userId: member.userId,
+                              name: `${member.firstName} ${member.lastName}`.trim() ||
+                                member.email,
+                            })
+                          }
+                        >
+                          <Trash2 />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {updateRole.isError ? <ErrorNotice error={updateRole.error} /> : null}
+            {removeMember.isError ? (
+              <ErrorNotice error={removeMember.error} />
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a member</DialogTitle>
+            <DialogDescription>
+              The person must already have a KnowledgeHub AI account. They join
+              as a MEMBER.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddMember} className="space-y-4" noValidate>
             {validationError ? (
               <ErrorNotice error={new Error(validationError)} />
             ) : null}
             {addMember.isError ? <ErrorNotice error={addMember.error} /> : null}
-            <div className="flex gap-2">
-              <input
-                aria-label="Member email"
+            <div className="space-y-2">
+              <Label htmlFor="member-email">Email</Label>
+              <Input
+                id="member-email"
                 type="email"
+                autoFocus
+                placeholder="teammate@example.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="teammate@example.com"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               />
-              <button
-                type="submit"
-                disabled={addMember.isPending}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-              >
-                {addMember.isPending ? 'Adding…' : 'Add member'}
-              </button>
             </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAddMemberOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addMember.isPending}>
+                {addMember.isPending ? 'Adding…' : 'Add member'}
+              </Button>
+            </DialogFooter>
           </form>
-        </section>
-      ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={memberToRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setMemberToRemove(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove member</DialogTitle>
+            <DialogDescription>
+              {memberToRemove
+                ? `${memberToRemove.name} will lose access to this organization.`
+                : 'This member will lose access to this organization.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMemberToRemove(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={removeMember.isPending}
+              onClick={() =>
+                memberToRemove ? handleRemoveMember(memberToRemove) : undefined
+              }
+            >
+              {removeMember.isPending ? 'Removing…' : 'Remove'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function DetailItem({
+  label,
+  children,
+}: Readonly<{ label: string; children: ReactNode }>) {
+  return (
+    <div className="space-y-1">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-sm font-medium">{children}</dd>
+    </div>
+  );
+}
+
+function initialsFor(firstName: string, lastName: string): string {
+  return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase();
 }

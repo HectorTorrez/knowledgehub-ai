@@ -1,7 +1,18 @@
 import { Link, useNavigate } from '@tanstack/react-router';
+import { ChevronsUpDown, LogOut } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
+import { Brand } from '~/components/brand';
 import { ErrorNotice } from '~/components/route-states';
+import { Button } from '~/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import { useLogout, useSession } from '~/hooks/use-auth';
 import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
 
@@ -36,42 +47,74 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }
 
   return (
-    <div className="min-h-dvh">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 p-4">
-          <div className="flex items-center gap-4 text-sm">
-            <Link to="/organizations" className="font-semibold">
-              KnowledgeHub AI
-            </Link>
-            <Link
-              to="/organizations"
-              className="text-muted-foreground hover:text-foreground"
-              activeProps={{ className: 'text-foreground' }}
-            >
-              Organizations
-            </Link>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            {user ? (
-              <span className="text-muted-foreground">{user.email}</span>
-            ) : null}
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={signOut.isPending}
-              className="rounded-md border px-3 py-1.5 hover:bg-accent disabled:opacity-60"
-            >
-              {signOut.isPending ? 'Signing out…' : 'Sign out'}
-            </button>
-          </div>
+    <div className="min-h-dvh bg-background">
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <Link to="/organizations" className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Brand />
+          </Link>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-9 gap-2 px-2">
+                  <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+                    {initialsFor(user.firstName, user.lastName, user.email)}
+                  </span>
+                  <span className="hidden text-sm sm:inline-block">
+                    {displayNameFor(user.firstName, user.lastName, user.email)}
+                  </span>
+                  <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span>
+                    {displayNameFor(user.firstName, user.lastName, user.email)}
+                  </span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {user.email}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => void handleSignOut()}
+                  disabled={signOut.isPending}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <LogOut />
+                  {signOut.isPending ? 'Signing out…' : 'Sign out'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
       </header>
       {signOutError ? (
-        <div className="mx-auto max-w-5xl px-4 pt-4">
+        <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
           <ErrorNotice error={signOutError} />
         </div>
       ) : null}
-      <main className="mx-auto max-w-5xl p-4">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
     </div>
   );
+}
+
+function displayNameFor(
+  firstName: string,
+  lastName: string,
+  email: string,
+): string {
+  const name = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+  return name.length > 0 ? name : email;
+}
+
+function initialsFor(
+  firstName: string,
+  lastName: string,
+  email: string,
+): string {
+  const fromName = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.trim();
+
+  return (fromName || (email[0] ?? '')).toUpperCase();
 }

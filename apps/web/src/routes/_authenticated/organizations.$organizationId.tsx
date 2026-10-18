@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
+import { ArrowLeft, FileText, LayoutGrid, MessageSquareText } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ErrorNotice } from '~/components/route-states';
+import { Skeleton } from '~/components/ui/skeleton';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 
@@ -20,25 +22,33 @@ function OrganizationLayout() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-baseline justify-between gap-4">
-        <h1 className="text-2xl font-semibold">
-          {organization.data?.organization.name ?? 'Organization'}
-        </h1>
-        <Link to="/organizations" className="text-sm text-muted-foreground underline">
+      <div className="space-y-1">
+        <Link
+          to="/organizations"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" />
           All organizations
         </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {organization.isPending ? (
+            <Skeleton className="h-8 w-56" />
+          ) : (
+            (organization.data?.organization.name ?? 'Organization')
+          )}
+        </h1>
       </div>
 
       {organization.isError ? <ErrorNotice error={organization.error} /> : null}
 
-      <nav className="flex gap-4 border-b text-sm">
-        <OrganizationTab to="/organizations/$organizationId" exact>
+      <nav className="flex gap-1 border-b">
+        <OrganizationTab to="/organizations/$organizationId" exact icon={LayoutGrid}>
           Overview
         </OrganizationTab>
-        <OrganizationTab to="/organizations/$organizationId/documents">
+        <OrganizationTab to="/organizations/$organizationId/documents" icon={FileText}>
           Documents
         </OrganizationTab>
-        <OrganizationTab to="/organizations/$organizationId/ask">
+        <OrganizationTab to="/organizations/$organizationId/ask" icon={MessageSquareText}>
           Ask
         </OrganizationTab>
       </nav>
@@ -51,6 +61,7 @@ function OrganizationLayout() {
 function OrganizationTab({
   to,
   exact,
+  icon: Icon,
   children,
 }: Readonly<{
   to:
@@ -58,6 +69,7 @@ function OrganizationTab({
     | '/organizations/$organizationId/documents'
     | '/organizations/$organizationId/ask';
   exact?: boolean;
+  icon: typeof LayoutGrid;
   children: ReactNode;
 }>) {
   const { organizationId } = Route.useParams();
@@ -67,9 +79,13 @@ function OrganizationTab({
       to={to}
       params={{ organizationId }}
       activeOptions={{ exact: exact ?? false }}
-      className="pb-2 text-muted-foreground hover:text-foreground"
-      activeProps={{ className: 'border-b-2 border-primary font-medium text-foreground' }}
+      className="inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors"
+      inactiveProps={{
+        className: 'border-transparent text-muted-foreground hover:text-foreground',
+      }}
+      activeProps={{ className: 'border-primary text-foreground' }}
     >
+      <Icon className="size-4" />
       {children}
     </Link>
   );
