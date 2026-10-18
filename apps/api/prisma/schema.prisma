@@ -119,6 +119,7 @@ model Organization {
   memberships Membership[]
   documents   Document[]
   answers     Answer[]
+  tenantUsage TenantUsage[]
 }
 
 /// Links a user to an organization with a role. The [userId, organizationId]
@@ -380,4 +381,25 @@ model Answer {
   createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+/// A persisted daily usage counter for a tenant, keyed by organization, kind,
+/// and the UTC day the usage falls in. Used to enforce per-tenant quotas that
+/// survive restarts; the counter is scoped by organization so a tenant can never
+/// read or consume another tenant's budget.
+model TenantUsage {
+  id String @id @default(uuid()) @db.Uuid
+
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  kind        String
+  periodStart DateTime
+  count       Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, kind, periodStart])
+  @@index([organizationId])
 }

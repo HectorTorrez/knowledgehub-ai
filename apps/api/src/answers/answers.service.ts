@@ -22,6 +22,7 @@ import {
 } from '../common/list-cursor.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { UsageService } from '../rate-limit/usage.service.js';
 import {
   EmbeddingRejectedError,
   EmbeddingResponseError,
@@ -136,6 +137,7 @@ export class AnswersService {
     private readonly retrieval: RetrievalService,
     private readonly config: AnswerConfig,
     private readonly prisma: PrismaService,
+    private readonly usage: UsageService,
   ) {}
 
   async answer(
@@ -265,6 +267,8 @@ export class AnswersService {
     if (sources.length === 0) {
       return { ...INSUFFICIENT_EVIDENCE_RESPONSE };
     }
+
+    await this.usage.recordAnswer(organizationId);
 
     const prompt = buildAnswerPrompt(question, sources);
     event.promptChars = prompt.system.length + prompt.user.length;

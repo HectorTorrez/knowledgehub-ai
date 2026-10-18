@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
 import { validateEnv } from '../config/env.validation.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
+import { RateLimitModule } from '../rate-limit/rate-limit.module.js';
 import { AnswerConfig } from './answer.config.js';
 import { ANSWER_PROVIDER } from './answer-provider.port.js';
 import { AnswersModule } from './answers.module.js';
@@ -21,6 +22,7 @@ describe('AnswersModule wiring', () => {
           validate: validateEnv,
         }),
         PrismaModule,
+        RateLimitModule,
         AnswersModule,
       ],
     }).compile();
