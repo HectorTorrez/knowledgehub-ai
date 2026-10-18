@@ -120,6 +120,7 @@ model Organization {
   documents   Document[]
   answers     Answer[]
   tenantUsage TenantUsage[]
+  conversations Conversation[]
 }
 
 /// Links a user to an organization with a role. The [userId, organizationId]
@@ -377,6 +378,26 @@ model Answer {
 
   answer    String?
   citations Json
+
+  conversationId String?       @db.Uuid
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([conversationId, createdAt])
+}
+
+/// A conversation groups a set of answers asked in sequence, so a follow-up can
+/// reference prior turns. Owned by the organization it was started in; every
+/// read and write is scoped by `organizationId` from the route.
+model Conversation {
+  id String @id @default(uuid()) @db.Uuid
+
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  answers Answer[]
 
   createdAt DateTime @default(now())
 

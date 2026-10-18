@@ -11,6 +11,7 @@ export const answerQuestionSchema = z
         MAX_ANSWER_QUESTION_CHARS,
         `question must be at most ${MAX_ANSWER_QUESTION_CHARS} characters`,
       ),
+    conversationId: z.uuid('conversationId must be a UUID').optional(),
   })
   .strict();
 

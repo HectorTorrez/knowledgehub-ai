@@ -20,6 +20,12 @@ export const DEFAULT_ANSWER_MIN_SIMILARITY = 0.2;
 
 export const MAX_ANSWER_QUESTION_CHARS = 2_000;
 
+export const DEFAULT_ANSWER_HISTORY_MAX_CHARS = 8_000;
+
+export const MIN_ANSWER_HISTORY_MAX_CHARS = 1_000;
+
+export const MAX_ANSWER_HISTORY_MAX_CHARS = 100_000;
+
 export const CITATION_EXCERPT_MAX_CHARS = 300;
 
 export class AnswerQuestionError extends Error {
