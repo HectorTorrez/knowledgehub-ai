@@ -108,6 +108,18 @@ const envObjectSchema = z.object({
     .positive()
     .default(30000),
 
+  PROCESSING_SANDBOX: z.enum(['inline', 'worker']).default('inline'),
+  PROCESSING_PDF_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30000),
+  PROCESSING_PDF_MAX_MEMORY_MB: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(512),
+
   OPENAI_API_KEY: z.string().min(1).optional(),
   OPENAI_BASE_URL: z.string().url().default(DEFAULT_OPENAI_BASE_URL),
   EMBEDDING_MODEL: z.string().min(1).default(DEFAULT_EMBEDDING_MODEL),

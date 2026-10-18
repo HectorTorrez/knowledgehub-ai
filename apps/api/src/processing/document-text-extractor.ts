@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { PDF_EXTRACTOR, type PdfExtractor } from './pdf-extractor.js';
 import {
   MAX_EXTRACTABLE_BYTES,
   MAX_EXTRACTED_CHARACTERS,
@@ -46,6 +47,10 @@ export class DocumentResourceLimitError extends Error {
 
 @Injectable()
 export class DocumentTextExtractor {
+  constructor(
+    @Inject(PDF_EXTRACTOR) private readonly pdfExtractor: PdfExtractor,
+  ) {}
+
   async extract({
     contentType,
     bytes,
@@ -58,7 +63,7 @@ export class DocumentTextExtractor {
 
     const pages =
       contentType === 'application/pdf'
-        ? await this.extractPdfPages(bytes)
+        ? await this.extractPdf(bytes)
         : this.extractPlainTextPages(contentType, bytes);
 
     const characterCount = pages.reduce(
@@ -75,6 +80,18 @@ export class DocumentTextExtractor {
     return { pages, pageCount: pages.length, characterCount };
   }
 
+  private async extractPdf(bytes: Uint8Array): Promise<ExtractedPage[]> {
+    const { pages, pageCount } = await this.pdfExtractor.extractPdf(bytes);
+
+    if (pageCount > MAX_PDF_PAGES) {
+      throw new DocumentResourceLimitError(
+        'The PDF exceeds the page limit',
+      );
+    }
+
+    return pages;
+  }
+
   private extractPlainTextPages(
     contentType: string,
     bytes: Uint8Array,
@@ -88,36 +105,6 @@ export class DocumentTextExtractor {
       return [{ pageNumber: 1, content }];
     } catch (error) {
       throw new DocumentExtractionError('The document is not valid UTF-8', {
-        cause: error,
-      });
-    }
-  }
-
-  private async extractPdfPages(bytes: Uint8Array): Promise<ExtractedPage[]> {
-    try {
-      const { extractText } = await import('unpdf');
-      const { text, totalPages } = await extractText(bytes, {
-        mergePages: false,
-      });
-
-      if (totalPages > MAX_PDF_PAGES) {
-        throw new DocumentResourceLimitError(
-          'The PDF exceeds the page limit',
-        );
-      }
-
-      const pageTexts = Array.isArray(text) ? text : [text];
-
-      return pageTexts.map((content, index) => ({
-        pageNumber: index + 1,
-        content,
-      }));
-    } catch (error) {
-      if (error instanceof DocumentResourceLimitError) {
-        throw error;
-      }
-
-      throw new DocumentExtractionError('The PDF could not be parsed', {
         cause: error,
       });
     }

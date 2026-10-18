@@ -631,13 +631,14 @@ are never returned.
   `PROCESSING_WORKER_ENABLED=true` or `ANSWERS_ENABLED=true`;
   `EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS` must agree with the stored
   `vector(1536)` column, and a mismatch fails at startup.
-- **PDF parsing is not sandboxed.** Extraction enforces deterministic size,
-  page, and character limits, but the parser still runs synchronously in the API
-  process. There is no execution-time or memory limit (a JavaScript timer cannot
-  stop synchronous parsing) and no process or container isolation, so a hostile
-  PDF can still exhaust CPU or memory. Untrusted production uploads at scale must
-  run the parser in an isolated process with enforceable resource limits; that
-  work is deferred.
+- **PDF parsing is bounded, not fully sandboxed.** Extraction enforces
+  deterministic size, page, and character limits. By default `unpdf` runs inline
+  in the API process; with `PROCESSING_SANDBOX=worker` it runs in a worker
+  thread with a V8 heap bound and a wall-clock timeout, which isolates a crash
+  and bounds memory. Neither mode enforces CPU wall-clock time (a JavaScript
+  timer cannot stop synchronous parsing) or OS-level isolation; hostile
+  production uploads at scale still want the parser in a constrained container,
+  which is deployment work.
 - **Orphaned objects from a crash are swept opportunistically.** Document
   deletion and each superseded staging upload remove their objects eagerly, and
   an optional in-process sweep (`STORAGE_SWEEP_ENABLED`) deletes orphaned
