@@ -32,4 +32,16 @@ export class StorageConfig {
   get secretAccessKey(): string {
     return this.config.getOrThrow<string>('STORAGE_SECRET_ACCESS_KEY');
   }
+
+  get sweepEnabled(): boolean {
+    return this.config.getOrThrow<string>('STORAGE_SWEEP_ENABLED') === 'true';
+  }
+
+  get sweepIntervalMs(): number {
+    return this.config.getOrThrow<number>('STORAGE_SWEEP_INTERVAL_MS');
+  }
+
+  get sweepGraceMs(): number {
+    return this.config.getOrThrow<number>('STORAGE_SWEEP_GRACE_MINUTES') * 60_000;
+  }
 }

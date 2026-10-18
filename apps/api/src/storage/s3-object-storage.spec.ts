@@ -3,6 +3,7 @@ import {
   CopyObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import type { ConfigService } from '@nestjs/config';
@@ -438,5 +439,73 @@ describe('S3ObjectStorage.copyObject', () => {
     await expect(adapter.copyObject(copy)).rejects.toBeInstanceOf(
       ObjectStorageIntegrityError,
     );
+  });
+});
+
+describe('S3ObjectStorage.listObjects', () => {
+  it('yields keys and last-modified timestamps across pages', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send
+      .mockResolvedValueOnce({
+        Contents: [
+          {
+            Key: 'organizations/a/verified/1',
+            LastModified: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        ],
+        IsTruncated: true,
+        NextContinuationToken: 'page-2',
+      })
+      .mockResolvedValueOnce({
+        Contents: [
+          {
+            Key: 'organizations/b/verified/2',
+            LastModified: new Date('2026-01-02T00:00:00.000Z'),
+          },
+        ],
+        IsTruncated: false,
+      });
+
+    const results = [];
+    for await (const object of adapter.listObjects('organizations/')) {
+      results.push(object);
+    }
+
+    expect(results).toEqual([
+      {
+        key: 'organizations/a/verified/1',
+        lastModifiedMs: new Date('2026-01-01T00:00:00.000Z').getTime(),
+      },
+      {
+        key: 'organizations/b/verified/2',
+        lastModifiedMs: new Date('2026-01-02T00:00:00.000Z').getTime(),
+      },
+    ]);
+
+    const commands = send.mock.calls.map(
+      (call) => call[0] as ListObjectsV2Command,
+    );
+    expect(commands[0]?.input.ContinuationToken).toBeUndefined();
+    expect(commands[1]?.input.ContinuationToken).toBe('page-2');
+  });
+
+  it('skips entries without a key and defaults the timestamp to zero', async () => {
+    const { adapter, send } = createSendingAdapter();
+    send.mockResolvedValueOnce({
+      Contents: [
+        { Key: undefined, LastModified: new Date('2026-01-01T00:00:00.000Z') },
+        { Key: 'organizations/a/verified/1' },
+      ],
+      IsTruncated: false,
+    });
+
+    const results = [];
+    for await (const object of adapter.listObjects('organizations/')) {
+      results.push(object);
+    }
+
+    expect(results).toEqual([
+      { key: 'organizations/a/verified/1', lastModifiedMs: 0 },
+    ]);
   });
 });
