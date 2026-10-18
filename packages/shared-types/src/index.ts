@@ -33,6 +33,17 @@ export interface PublicUser {
 }
 
 /**
+ * Request body of `POST /auth/register`. The account fields are the only
+ * accepted input: the server owns ids, timestamps, and the initial session.
+ */
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+/**
  * Response body of `POST /auth/register`.
  *
  * Access and refresh tokens are delivered as HttpOnly cookies, never in the
@@ -40,6 +51,14 @@ export interface PublicUser {
  */
 export interface RegisterResponse {
   user: PublicUser;
+}
+
+/**
+ * Request body of `POST /auth/login`. Credentials are the only accepted input.
+ */
+export interface LoginRequest {
+  email: string;
+  password: string;
 }
 
 /**

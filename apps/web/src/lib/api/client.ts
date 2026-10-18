@@ -1,4 +1,4 @@
-import { refreshCoordinator } from '~/lib/auth/refresh';
+import { refreshCoordinator, type RefreshOutcomeStatus } from '~/lib/auth/refresh';
 import { buildCsrfHeaders, isUnsafeMethod, readCsrfToken } from './csrf';
 import { ApiError, NETWORK_ERROR_STATUS, toApiError } from './errors';
 import { resolveUrl } from './url';
@@ -19,6 +19,11 @@ const JSON_CONTENT_TYPE = 'application/json';
 const UNAUTHORIZED_STATUS = 401;
 const FORBIDDEN_STATUS = 403;
 
+interface RecoveryResult {
+  response: Response;
+  recoveryOutcome?: RefreshOutcomeStatus;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
@@ -28,12 +33,21 @@ export async function apiFetch<T>(
   const csrfTokenUsed = isUnsafeMethod(method) ? readCsrfToken() : undefined;
 
   let response = await send(url, method, options);
+  let recoveryOutcome: RefreshOutcomeStatus | undefined;
 
   if (options.authRecovery === true) {
-    response = await applyRecovery(url, method, options, csrfTokenUsed, response);
+    const recovered = await applyRecovery(
+      url,
+      method,
+      options,
+      csrfTokenUsed,
+      response,
+    );
+    response = recovered.response;
+    recoveryOutcome = recovered.recoveryOutcome;
   }
 
-  return readResponse<T>(response);
+  return readResponse<T>(response, recoveryOutcome);
 }
 
 async function applyRecovery(
@@ -42,28 +56,33 @@ async function applyRecovery(
   options: ApiFetchOptions,
   csrfTokenUsed: string | undefined,
   response: Response,
-): Promise<Response> {
+): Promise<RecoveryResult> {
   if (response.status === UNAUTHORIZED_STATUS) {
     const outcome = await refreshCoordinator.refresh({ signal: options.signal });
 
     if (outcome.status === 'refreshed' || outcome.status === 'already-valid') {
-      return send(url, method, { ...options, authRecovery: false });
+      return {
+        response: await send(url, method, { ...options, authRecovery: false }),
+        recoveryOutcome: outcome.status,
+      };
     }
 
-    return response;
+    return { response, recoveryOutcome: outcome.status };
   }
 
   if (response.status === FORBIDDEN_STATUS && isUnsafeMethod(method)) {
     const currentToken = readCsrfToken();
 
     if (currentToken !== undefined && currentToken !== csrfTokenUsed) {
-      return send(url, method, { ...options, authRecovery: false });
+      return {
+        response: await send(url, method, { ...options, authRecovery: false }),
+      };
     }
 
-    return response;
+    return { response };
   }
 
-  return response;
+  return { response };
 }
 
 async function send(
@@ -104,7 +123,10 @@ async function send(
   }
 }
 
-async function readResponse<T>(response: Response): Promise<T> {
+async function readResponse<T>(
+  response: Response,
+  recoveryOutcome?: RefreshOutcomeStatus,
+): Promise<T> {
   if (response.status === 204) {
     return undefined as T;
   }
@@ -112,7 +134,7 @@ async function readResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
 
   if (!response.ok) {
-    throw toApiError(response.status, parseJsonOrUndefined(text));
+    throw toApiError(response.status, parseJsonOrUndefined(text), recoveryOutcome);
   }
 
   if (text.trim().length === 0) {

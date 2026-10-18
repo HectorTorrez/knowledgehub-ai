@@ -312,3 +312,87 @@ describe('apiFetch retry fidelity', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('apiFetch recovery provenance', () => {
+  it('records the refresh outcome when a 401 survives recovery', async () => {
+    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    refreshReturns({
+      status: 'forbidden',
+      error: new ApiError({ status: 403, message: 'Invalid or missing CSRF token' }),
+    });
+
+    const error = await apiFetch('/x', { authRecovery: true }).catch(caught());
+
+    expect(error).toMatchObject({ status: 401, recoveryOutcome: 'forbidden' });
+  });
+
+  it('records a successful recovery on the retried response', async () => {
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(401, 'Authentication required'))
+      .mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    refreshReturns({ status: 'refreshed' });
+
+    const error = await apiFetch('/x', { authRecovery: true }).catch(caught());
+
+    expect(error).toMatchObject({ status: 401, recoveryOutcome: 'refreshed' });
+  });
+
+  it('leaves the outcome unset when recovery is disabled', async () => {
+    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+
+    const error = await apiFetch('/x').catch(caught());
+
+    expect(error).toMatchObject({ status: 401 });
+    expect((error as ApiError).recoveryOutcome).toBeUndefined();
+  });
+
+  it('leaves the outcome unset for a non-authentication failure', async () => {
+    fetchMock.mockResolvedValueOnce(errorResponse(500, 'Server error'));
+
+    const error = await apiFetch('/x', { authRecovery: true }).catch(caught());
+
+    expect((error as ApiError).recoveryOutcome).toBeUndefined();
+  });
+
+  it.each<RefreshOutcome['status']>([
+    'unauthenticated',
+    'network-error',
+    'failure',
+    'unsupported',
+  ])('records the %s outcome on a surviving 401', async (status) => {
+    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    refreshReturns({ status } as RefreshOutcome);
+
+    const error = await apiFetch('/x', { authRecovery: true }).catch(caught());
+
+    expect(error).toMatchObject({ status: 401, recoveryOutcome: status });
+  });
+
+  it('records an already-valid recovery on the retried response', async () => {
+    fetchMock
+      .mockResolvedValueOnce(errorResponse(401, 'Authentication required'))
+      .mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    refreshReturns({ status: 'already-valid' });
+
+    const error = await apiFetch('/x', { authRecovery: true }).catch(caught());
+
+    expect(error).toMatchObject({ status: 401, recoveryOutcome: 'already-valid' });
+  });
+
+  it('leaves the outcome unset when a CSRF 403 is retried', async () => {
+    fetchMock.mockImplementationOnce(async () => {
+      documentStub.cookie = `${CSRF_COOKIE}=csrf-2`;
+      return errorResponse(403, 'Invalid or missing CSRF token');
+    });
+    fetchMock.mockResolvedValueOnce(errorResponse(403, 'Invalid or missing CSRF token'));
+
+    const error = await apiFetch('/organizations', {
+      method: 'POST',
+      body: { name: 'Acme' },
+      authRecovery: true,
+    }).catch(caught());
+
+    expect(error).toMatchObject({ status: 403 });
+    expect((error as ApiError).recoveryOutcome).toBeUndefined();
+  });
+});

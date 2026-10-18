@@ -22,6 +22,8 @@ export type RefreshOutcome =
   | { status: 'failure'; error: ApiError }
   | { status: 'unsupported' };
 
+export type RefreshOutcomeStatus = RefreshOutcome['status'];
+
 export interface RefreshCoordinator {
   refresh(options?: { signal?: AbortSignal }): Promise<RefreshOutcome>;
 }

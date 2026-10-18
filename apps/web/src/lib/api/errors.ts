@@ -1,4 +1,5 @@
 import type { ApiErrorResponse } from '@knowledgehub/shared-types';
+import type { RefreshOutcomeStatus } from '~/lib/auth/refresh';
 
 export const NETWORK_ERROR_STATUS = 0;
 
@@ -6,23 +7,27 @@ export interface ApiErrorOptions {
   status: number;
   message: string;
   validationErrors?: string[];
+  recoveryOutcome?: RefreshOutcomeStatus;
   cause?: unknown;
 }
 
 export class ApiError extends Error {
   readonly status: number;
   readonly validationErrors: string[];
+  readonly recoveryOutcome?: RefreshOutcomeStatus;
 
   constructor({
     status,
     message,
     validationErrors = [],
+    recoveryOutcome,
     cause,
   }: ApiErrorOptions) {
     super(message, { cause });
     this.name = 'ApiError';
     this.status = status;
     this.validationErrors = validationErrors;
+    this.recoveryOutcome = recoveryOutcome;
   }
 }
 
@@ -34,7 +39,7 @@ export function isNetworkError(value: unknown): boolean {
   return isApiError(value) && value.status === NETWORK_ERROR_STATUS;
 }
 
-export function isUnauthorized(value: unknown): boolean {
+export function isUnauthorized(value: unknown): value is ApiError {
   return isApiError(value) && value.status === 401;
 }
 
@@ -58,10 +63,14 @@ export function fallbackMessage(status: number): string {
   return `Request failed with status ${status}.`;
 }
 
-export function toApiError(status: number, body: unknown): ApiError {
+export function toApiError(
+  status: number,
+  body: unknown,
+  recoveryOutcome?: RefreshOutcomeStatus,
+): ApiError {
   const { message, validationErrors } = readErrorMessage(status, body);
 
-  return new ApiError({ status, message, validationErrors });
+  return new ApiError({ status, message, validationErrors, recoveryOutcome });
 }
 
 function readErrorMessage(
