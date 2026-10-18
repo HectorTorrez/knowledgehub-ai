@@ -9,3 +9,10 @@ export function formatBytes(bytes: number): string {
 
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}

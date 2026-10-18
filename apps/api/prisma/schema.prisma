@@ -35,6 +35,7 @@ model User {
   sessions    AuthSession[]
   memberships Membership[]
   documents   Document[]
+  answers     Answer[]
 }
 
 /// A single login on a single device. This is the unit of revocation: revoking
@@ -117,6 +118,7 @@ model Organization {
 
   memberships Membership[]
   documents   Document[]
+  answers     Answer[]
 }
 
 /// Links a user to an organization with a role. The [userId, organizationId]
@@ -153,6 +155,13 @@ enum DocumentStatus {
 enum DocumentFailureKind {
   VERIFICATION
   PROCESSING
+}
+
+/// Outcome of a persisted answer. `insufficient_evidence` is a successful
+/// outcome where the retrieved sources could not support an answer.
+enum AnswerStatus {
+  answered
+  insufficient_evidence
 }
 
 /// Queue state of a durable document processing job. QUEUED and CLAIMED are
@@ -342,4 +351,33 @@ model DocumentChunk {
   @@unique([documentId, documentGeneration, chunkIndex])
   @@index([organizationId])
   @@index([documentId, documentGeneration])
+}
+
+/// A persisted answer to a question, owned by the organization it was asked in.
+///
+/// OWNERSHIP — an answer belongs to its organization, not to the user who asked
+/// it. `askedById` is provenance only: it is nullable so an answer survives its
+/// asker's deletion, and it never scopes access. Every read and write is scoped
+/// by `organizationId`.
+///
+/// `citations` is a JSON array of the `AnswerCitation` shape returned to the
+/// client, so a later read reconstructs the full answer without re-deriving it.
+model Answer {
+  id String @id @default(uuid()) @db.Uuid
+
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  askedById String? @db.Uuid
+  askedBy   User?   @relation(fields: [askedById], references: [id], onDelete: SetNull)
+
+  question String
+  status   AnswerStatus
+
+  answer    String?
+  citations Json
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }

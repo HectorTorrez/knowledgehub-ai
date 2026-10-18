@@ -12,5 +12,11 @@ export const queryKeys = {
       detail: (organizationId: string, documentId: string) =>
         ['organizations', organizationId, 'documents', 'detail', documentId] as const,
     },
+    answers: {
+      list: (organizationId: string) =>
+        ['organizations', organizationId, 'answers', 'list'] as const,
+      detail: (organizationId: string, answerId: string) =>
+        ['organizations', organizationId, 'answers', 'detail', answerId] as const,
+    },
   },
 };

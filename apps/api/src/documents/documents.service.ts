@@ -19,6 +19,11 @@ import type {
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import {
+  decodeListCursor,
+  encodeListCursor,
+  listCursorFilter,
+} from '../common/list-cursor.js';
+import {
   OBJECT_STORAGE,
   ObjectVersionMismatchError,
   type ObjectStorage,
@@ -96,41 +101,6 @@ function normalizeObjectVersion(version: string): string {
   return version.replace(/^W\//, '').replace(/^"|"$/g, '');
 }
 
-interface ListCursor {
-  createdAt: Date;
-  id: string;
-}
-
-function encodeListCursor(cursor: ListCursor): string {
-  return Buffer.from(
-    JSON.stringify({
-      createdAt: cursor.createdAt.toISOString(),
-      id: cursor.id,
-    }),
-  ).toString('base64url');
-}
-
-function decodeListCursor(value: string): ListCursor | null {
-  try {
-    const parsed = JSON.parse(
-      Buffer.from(value, 'base64url').toString('utf8'),
-    ) as { createdAt?: unknown; id?: unknown };
-
-    if (typeof parsed.createdAt !== 'string' || typeof parsed.id !== 'string') {
-      return null;
-    }
-
-    const createdAt = new Date(parsed.createdAt);
-    if (Number.isNaN(createdAt.getTime())) {
-      return null;
-    }
-
-    return { createdAt, id: parsed.id };
-  } catch {
-    return null;
-  }
-}
-
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
@@ -169,14 +139,7 @@ export class DocumentsService {
     const documents = await this.prisma.document.findMany({
       where: {
         organizationId,
-        ...(cursor
-          ? {
-              OR: [
-                { createdAt: { lt: cursor.createdAt } },
-                { createdAt: cursor.createdAt, id: { lt: cursor.id } },
-              ],
-            }
-          : {}),
+        ...(cursor ? listCursorFilter(cursor) : {}),
       },
       select: DOCUMENT_PUBLIC_SELECT,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],

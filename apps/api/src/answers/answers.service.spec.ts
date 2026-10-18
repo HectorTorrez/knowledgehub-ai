@@ -1,6 +1,8 @@
 import {
   BadGatewayException,
+  BadRequestException,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +15,7 @@ import type {
   RetrievedChunk,
   RetrievalService,
 } from '../retrieval/retrieval.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
 import type { AnswerConfig } from './answer.config.js';
 import {
   AnswerRejectedError,
@@ -68,6 +71,17 @@ function createProvider(
   return { provider: { generate } as AnswerProvider, generate };
 }
 
+function createPrisma() {
+  return {
+    answer: {
+      create: vi.fn(async (_args?: unknown) => ({})),
+      findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
+      findFirst: vi.fn(async (_args?: unknown) => null as unknown),
+      deleteMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
+    },
+  };
+}
+
 function createService(options: {
   chunks?: RetrievedChunk[];
   retrievalImpl?: RetrievalService['search'];
@@ -79,9 +93,15 @@ function createService(options: {
   );
   const { provider, generate } = createProvider(options.providerImpl);
   const config = createConfig(options.configOverrides);
-  const service = new AnswersService(provider, retrieval, config);
+  const prisma = createPrisma();
+  const service = new AnswersService(
+    provider,
+    retrieval,
+    config,
+    prisma as unknown as PrismaService,
+  );
 
-  return { service, search, generate, config };
+  return { service, search, generate, config, prisma };
 }
 
 describe('AnswersService', () => {
@@ -412,5 +432,192 @@ describe('AnswersService', () => {
 
     expect(error).toBeInstanceOf(BadGatewayException);
     expect((error as Error).cause).toBe(cause);
+  });
+
+  it('persists an answered response scoped to the organization and asker', async () => {
+    const { service, prisma } = createService();
+
+    await service.answer('org-1', USER_ID, 'What is alpha?');
+
+    expect(prisma.answer.create).toHaveBeenCalledWith({
+      data: {
+        organizationId: 'org-1',
+        askedById: USER_ID,
+        question: 'What is alpha?',
+        status: 'answered',
+        answer: 'Retries are bounded [1].',
+        citations: [
+          {
+            marker: 1,
+            documentId: 'doc-1',
+            documentTitle: 'Architecture Notes',
+            pageNumber: 2,
+            chunkIndex: 4,
+            excerpt: 'Processing retries are bounded by maxAttempts.',
+          },
+        ],
+      },
+    });
+  });
+
+  it('persists a refusal with a null answer and no citations', async () => {
+    const { service, prisma } = createService({ chunks: [] });
+
+    await service.answer('org-1', USER_ID, 'What is alpha?');
+
+    expect(prisma.answer.create).toHaveBeenCalledWith({
+      data: {
+        organizationId: 'org-1',
+        askedById: USER_ID,
+        question: 'What is alpha?',
+        status: 'insufficient_evidence',
+        answer: null,
+        citations: [],
+      },
+    });
+  });
+
+  it('still returns the answer when persisting it fails', async () => {
+    const { service, prisma } = createService();
+    prisma.answer.create.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).resolves.toEqual({
+      status: 'answered',
+      answer: 'Retries are bounded [1].',
+      citations: [
+        {
+          marker: 1,
+          documentId: 'doc-1',
+          documentTitle: 'Architecture Notes',
+          pageNumber: 2,
+          chunkIndex: 4,
+          excerpt: 'Processing retries are bounded by maxAttempts.',
+        },
+      ],
+    });
+  });
+
+  it('does not persist when the answer step fails', async () => {
+    const { service, prisma } = createService({
+      providerImpl: async () => {
+        throw new AnswerUnavailableError('timeout');
+      },
+    });
+
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(prisma.answer.create).not.toHaveBeenCalled();
+  });
+
+  it('lists history scoped to the organization and keyset-ordered', async () => {
+    const row = {
+      id: 'answer-1',
+      question: 'What is alpha?',
+      status: 'answered',
+      answer: 'Alpha [1].',
+      citations: [],
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    };
+    const { service, prisma } = createService();
+    prisma.answer.findMany.mockResolvedValueOnce([row]);
+
+    const result = await service.list('org-1', { limit: 25 });
+
+    expect(prisma.answer.findMany).toHaveBeenCalledWith({
+      where: { organizationId: 'org-1' },
+      select: {
+        id: true,
+        question: true,
+        status: true,
+        answer: true,
+        citations: true,
+        createdAt: true,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 26,
+    });
+    expect(result).toEqual({
+      answers: [
+        {
+          id: 'answer-1',
+          question: 'What is alpha?',
+          status: 'answered',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
+  it('rejects a malformed cursor without querying', async () => {
+    const { service, prisma } = createService();
+
+    await expect(
+      service.list('org-1', { limit: 25, cursor: 'bad' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.answer.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns the full answer detail including citations', async () => {
+    const { service, prisma } = createService();
+    prisma.answer.findFirst.mockResolvedValueOnce({
+      id: 'answer-1',
+      question: 'What is alpha?',
+      status: 'answered',
+      answer: 'Alpha [1].',
+      citations: [
+        {
+          marker: 1,
+          documentId: 'doc-1',
+          documentTitle: 'Architecture Notes',
+          pageNumber: 2,
+          chunkIndex: 4,
+          excerpt: 'Processing retries are bounded by maxAttempts.',
+        },
+      ],
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    const result = await service.getDetail('org-1', 'answer-1');
+
+    expect(prisma.answer.findFirst).toHaveBeenCalledWith({
+      where: { id: 'answer-1', organizationId: 'org-1' },
+      select: expect.objectContaining({ id: true, citations: true }),
+    });
+    expect(result.answer.status).toBe('answered');
+    expect(result.answer.citations).toHaveLength(1);
+  });
+
+  it('returns 404 for a detail outside the organization', async () => {
+    const { service, prisma } = createService();
+    prisma.answer.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.getDetail('org-1', 'answer-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('deletes an answer scoped to its organization', async () => {
+    const { service, prisma } = createService();
+
+    await service.delete('org-1', 'answer-1');
+
+    expect(prisma.answer.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'answer-1', organizationId: 'org-1' },
+    });
+  });
+
+  it('returns 404 when deleting a missing answer', async () => {
+    const { service, prisma } = createService();
+    prisma.answer.deleteMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(service.delete('org-1', 'answer-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });
