@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   ObjectVersionMismatchError,
   type CopyObjectInput,
+  type ListedObject,
   type ObjectMetadata,
   type ObjectStorage,
   type PresignedUpload,
@@ -144,5 +145,15 @@ export class FakeObjectStorage implements ObjectStorage {
   async deleteObject(key: string): Promise<void> {
     this.onDeleteObject?.(key);
     this.objects.delete(key);
+  }
+
+  async *listObjects(prefix: string): AsyncIterable<ListedObject> {
+    for (const key of this.objects.keys()) {
+      if (!key.startsWith(prefix)) {
+        continue;
+      }
+
+      yield { key, lastModifiedMs: FAKE_NOW_MS };
+    }
   }
 }

@@ -83,6 +83,14 @@ const envObjectSchema = z.object({
     .min(32, 'STORAGE_SECRET_ACCESS_KEY must be at least 32 characters')
     .optional(),
 
+  STORAGE_SWEEP_ENABLED: z.enum(['true', 'false']).default('false'),
+  STORAGE_SWEEP_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3600000),
+  STORAGE_SWEEP_GRACE_MINUTES: z.coerce.number().int().positive().default(60),
+
   PROCESSING_WORKER_ENABLED: z.enum(['true', 'false']).default('false'),
   PROCESSING_POLL_INTERVAL_MS: z.coerce
     .number()

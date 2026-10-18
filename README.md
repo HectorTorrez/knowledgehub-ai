@@ -626,11 +626,11 @@ are never returned.
   PDF can still exhaust CPU or memory. Untrusted production uploads at scale must
   run the parser in an isolated process with enforceable resource limits; that
   work is deferred.
-- **Orphaned objects from a crash are not swept.** Document deletion and each
-  superseded staging upload remove their objects eagerly, but a periodic
-  garbage-collection sweep for objects left behind by a crash mid-promotion is
-  still deferred. An object's existence alone is never proof that a document was
-  accepted.
+- **Orphaned objects from a crash are swept opportunistically.** Document
+  deletion and each superseded staging upload remove their objects eagerly, and
+  an optional in-process sweep (`STORAGE_SWEEP_ENABLED`) deletes orphaned
+  verified objects older than a grace period. An object's existence alone is
+  never proof that a document was accepted.
 - **The PDF signature check is not validation.** It only confirms the `%PDF-`
   header; it does not establish that the file is a valid or safe PDF.
 

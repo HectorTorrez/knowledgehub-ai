@@ -4,6 +4,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   type S3Client,
 } from '@aws-sdk/client-s3';
@@ -12,6 +13,7 @@ import {
   ObjectStorageIntegrityError,
   ObjectVersionMismatchError,
   type CopyObjectInput,
+  type ListedObject,
   type ObjectMetadata,
   type ObjectStorage,
   type PresignedUpload,
@@ -232,5 +234,34 @@ export class S3ObjectStorage implements ObjectStorage {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }),
     );
+  }
+
+  async *listObjects(prefix: string): AsyncIterable<ListedObject> {
+    let continuationToken: string | undefined;
+
+    do {
+      const page = await this.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.config.bucket,
+          Prefix: prefix,
+          ...(continuationToken ? { ContinuationToken: continuationToken } : {}),
+        }),
+      );
+
+      for (const object of page.Contents ?? []) {
+        if (typeof object.Key !== 'string') {
+          continue;
+        }
+
+        yield {
+          key: object.Key,
+          lastModifiedMs: object.LastModified
+            ? object.LastModified.getTime()
+            : 0,
+        };
+      }
+
+      continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (continuationToken);
   }
 }

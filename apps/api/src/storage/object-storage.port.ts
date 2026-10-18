@@ -38,6 +38,11 @@ export interface CopyObjectInput {
   contentType: string;
 }
 
+export interface ListedObject {
+  key: string;
+  lastModifiedMs: number;
+}
+
 /**
  * Opaque object version; equality implies byte identity. Reads and copies are
  * conditioned on it so they fail instead of returning different bytes.
@@ -73,4 +78,5 @@ export interface ObjectStorage {
   readObject(input: ReadObjectInput): Promise<Uint8Array>;
   copyObject(input: CopyObjectInput): Promise<void>;
   deleteObject(key: string): Promise<void>;
+  listObjects(prefix: string): AsyncIterable<ListedObject>;
 }
