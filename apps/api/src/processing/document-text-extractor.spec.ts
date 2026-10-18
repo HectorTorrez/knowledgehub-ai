@@ -6,13 +6,16 @@ import {
   DocumentTextExtractor,
   UnsupportedDocumentTypeError,
 } from './document-text-extractor.js';
+import { InlinePdfExtractor } from './inline-pdf-extractor.js';
+import type { PdfExtractor } from './pdf-extractor.js';
 import {
   MAX_EXTRACTABLE_BYTES,
   MAX_EXTRACTED_CHARACTERS,
+  MAX_PDF_PAGES,
 } from './processing-limits.policy.js';
 
 const encoder = new TextEncoder();
-const extractor = new DocumentTextExtractor();
+const extractor = new DocumentTextExtractor(new InlinePdfExtractor());
 
 describe('DocumentTextExtractor', () => {
   it('decodes plain text byte-for-byte as a single page', async () => {
@@ -94,6 +97,44 @@ describe('DocumentTextExtractor', () => {
 
     await expect(
       extractor.extract({ contentType: 'text/plain', bytes }),
+    ).rejects.toBeInstanceOf(DocumentResourceLimitError);
+  });
+
+  it('delegates PDF extraction to the injected extractor', async () => {
+    const pdfExtractor: PdfExtractor = {
+      extractPdf: async () => ({
+        pages: [{ pageNumber: 1, content: 'delegated' }],
+        pageCount: 1,
+      }),
+    };
+    const delegated = new DocumentTextExtractor(pdfExtractor);
+
+    await expect(
+      delegated.extract({
+        contentType: 'application/pdf',
+        bytes: encoder.encode('%PDF-'),
+      }),
+    ).resolves.toEqual({
+      pages: [{ pageNumber: 1, content: 'delegated' }],
+      pageCount: 1,
+      characterCount: 'delegated'.length,
+    });
+  });
+
+  it('rejects a PDF whose extracted page count exceeds the limit', async () => {
+    const pdfExtractor: PdfExtractor = {
+      extractPdf: async () => ({
+        pages: [],
+        pageCount: MAX_PDF_PAGES + 1,
+      }),
+    };
+    const delegated = new DocumentTextExtractor(pdfExtractor);
+
+    await expect(
+      delegated.extract({
+        contentType: 'application/pdf',
+        bytes: encoder.encode('%PDF-'),
+      }),
     ).rejects.toBeInstanceOf(DocumentResourceLimitError);
   });
 });
