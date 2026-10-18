@@ -9,6 +9,7 @@ import { HealthModule } from './health/health.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProcessingModule } from './processing/processing.module.js';
+import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { RetrievalModule } from './retrieval/retrieval.module.js';
 import { SearchModule } from './search/search.module.js';
 
@@ -21,6 +22,7 @@ import { SearchModule } from './search/search.module.js';
     OrganizationsModule,
     DocumentsModule,
     ProcessingModule,
+    RateLimitModule,
     EmbeddingsModule,
     RetrievalModule,
     SearchModule,

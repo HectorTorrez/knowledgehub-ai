@@ -20,6 +20,7 @@ import type {
 import { SessionGuard } from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
 import { OrganizationMembershipGuard } from '../organizations/organization-membership.guard.js';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import {
   requireOrganizationContext,
   type OrganizationRequest,
@@ -41,6 +42,8 @@ export class AnswersController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('answerUser', 'answerTenant')
   answer(
     @Body(new ZodValidationPipe(answerQuestionSchema))
     body: AnswerQuestionInput,

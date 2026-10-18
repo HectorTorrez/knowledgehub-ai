@@ -150,6 +150,20 @@ const envObjectSchema = z.object({
     .min(0)
     .max(1)
     .default(DEFAULT_ANSWER_MIN_SIMILARITY),
+
+  RATE_LIMIT_LOGIN_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_SEARCH_PER_MINUTE: z.coerce.number().int().positive().default(60),
+  RATE_LIMIT_ANSWER_USER_PER_MINUTE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5),
+  RATE_LIMIT_ANSWER_TENANT_PER_MINUTE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(20),
+  QUOTA_ANSWER_DAILY: z.coerce.number().int().positive().default(1000),
 });
 
 const PRODUCTION_STORAGE_KEYS = [

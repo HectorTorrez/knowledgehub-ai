@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
+  HttpException,
   Logger,
   NotFoundException,
   ServiceUnavailableException,
@@ -25,6 +26,7 @@ import {
   type AnswerUsage,
 } from './answer-provider.port.js';
 import { AnswersService } from './answers.service.js';
+import type { UsageService } from '../rate-limit/usage.service.js';
 
 const USER_ID = 'user-1';
 
@@ -87,6 +89,7 @@ function createService(options: {
   retrievalImpl?: RetrievalService['search'];
   providerImpl?: AnswerProvider['generate'];
   configOverrides?: Partial<Record<string, unknown>>;
+  usageImpl?: () => Promise<void>;
 } = {}) {
   const { retrieval, search } = createRetrieval(
     options.retrievalImpl ?? (async () => options.chunks ?? [CHUNK]),
@@ -94,14 +97,18 @@ function createService(options: {
   const { provider, generate } = createProvider(options.providerImpl);
   const config = createConfig(options.configOverrides);
   const prisma = createPrisma();
+  const usage = {
+    recordAnswer: vi.fn(options.usageImpl ?? (async () => undefined)),
+  };
   const service = new AnswersService(
     provider,
     retrieval,
     config,
     prisma as unknown as PrismaService,
+    usage as unknown as UsageService,
   );
 
-  return { service, search, generate, config, prisma };
+  return { service, search, generate, config, prisma, usage };
 }
 
 describe('AnswersService', () => {
@@ -146,6 +153,39 @@ describe('AnswersService', () => {
       answer: null,
       citations: [],
     });
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it('records usage and then answers when sources are available', async () => {
+    const { service, usage } = createService();
+
+    await service.answer('org-1', USER_ID, 'What is alpha?');
+
+    expect(usage.recordAnswer).toHaveBeenCalledWith('org-1');
+  });
+
+  it('does not record usage when retrieval yields no sources', async () => {
+    const { service, usage } = createService({ chunks: [] });
+
+    await service.answer('org-1', USER_ID, 'What is alpha?');
+
+    expect(usage.recordAnswer).not.toHaveBeenCalled();
+  });
+
+  it('rejects with the quota error before generating when the tenant is over quota', async () => {
+    const quotaError = new HttpException(
+      { statusCode: 429, message: 'The organization has reached its daily answer limit' },
+      429,
+    );
+    const { service, generate } = createService({
+      usageImpl: async () => {
+        throw quotaError;
+      },
+    });
+
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).rejects.toBe(quotaError);
     expect(generate).not.toHaveBeenCalled();
   });
 

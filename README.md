@@ -292,6 +292,31 @@ Service Unavailable`. The API does not retry mutations automatically.
 
 Failed requests use the `ApiErrorResponse` shape `{ statusCode, message, error? }`.
 
+## Rate limiting and quotas
+
+Requests that spend money or CPU are rate-limited, and answer generation is
+additionally bounded by a persisted per-tenant daily quota.
+
+- `POST /auth/login` and `POST /auth/register` are limited **per IP** (default
+  10/minute).
+- `GET /organizations/:organizationId/search` is limited **per organization**
+  (default 60/minute).
+- `POST /organizations/:organizationId/answers` is limited **per user** (default
+  5/minute) and **per organization** (default 20/minute).
+- Answer generation is capped by a **daily quota per organization** (default
+  1000/day). Unlike the rate limits, the quota is persisted in the database
+  (`TenantUsage`) so it survives restarts and applies across instances.
+
+Exceeding a rate limit returns `429 Too Many Requests` with the standard
+`ApiErrorResponse` envelope and a `Retry-After` header (seconds until the window
+resets). Exceeding the daily answer quota returns `429` with the same envelope.
+The daily quota counts only answer requests that reached the completion step;
+requests that found no sources are not counted.
+
+Rate limits are enforced in the API process and are per-instance; the tenant
+quota is the durable cost-control boundary. All limits are configuration, not
+code: see `apps/api/.env.example` for `RATE_LIMIT_*` and `QUOTA_ANSWER_DAILY`.
+
 ## Documents
 
 Documents are files registered within a single organization. This section

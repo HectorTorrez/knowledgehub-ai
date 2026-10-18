@@ -9,6 +9,7 @@ import type { SearchResponse } from '@knowledgehub/shared-types';
 import { SessionGuard } from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
 import { OrganizationMembershipGuard } from '../organizations/organization-membership.guard.js';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import {
   requireOrganizationContext,
   type OrganizationRequest,
@@ -22,6 +23,8 @@ export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
   @Get()
+  @UseGuards(RateLimitGuard)
+  @RateLimit('search')
   search(
     @Query(new ZodValidationPipe(searchSchema))
     query: SearchInput,

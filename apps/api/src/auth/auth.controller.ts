@@ -17,6 +17,7 @@ import type {
   SessionResponse,
 } from '@knowledgehub/shared-types';
 import type { Request, Response } from 'express';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import { AuthConfig } from './auth.config.js';
 import { AuthService, type AuthResult } from './auth.service.js';
 import {
@@ -51,6 +52,8 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('login')
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
     @Req() request: Request,
@@ -68,6 +71,8 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('login')
   async login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
     @Req() request: Request,
