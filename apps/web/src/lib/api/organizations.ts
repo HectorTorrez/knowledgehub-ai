@@ -8,13 +8,9 @@ import type {
   UpdateMemberRoleRequest,
   UpdateMemberRoleResponse,
 } from '@knowledgehub/shared-types';
-import { apiFetch } from './client';
+import { apiFetch, type RequestOptions } from './client';
 
 const ORGANIZATIONS_PATH = '/organizations';
-
-export interface RequestOptions {
-  signal?: AbortSignal;
-}
 
 export const organizationsApi = {
   list(options: RequestOptions = {}): Promise<OrganizationListResponse> {

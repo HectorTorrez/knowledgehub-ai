@@ -15,6 +15,10 @@ export interface ApiFetchOptions {
   authRecovery?: boolean;
 }
 
+export interface RequestOptions {
+  signal?: AbortSignal;
+}
+
 const JSON_CONTENT_TYPE = 'application/json';
 const UNAUTHORIZED_STATUS = 401;
 const FORBIDDEN_STATUS = 403;

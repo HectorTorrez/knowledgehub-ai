@@ -96,4 +96,16 @@ describe('registerWebMcpTool', () => {
 
     expect(() => dispose()).not.toThrow();
   });
+
+  it('leaves the replacement registration intact when a stale disposer runs', () => {
+    const { context, registrations } = fakeContext();
+    install(context);
+
+    const firstDispose = registerWebMcpTool(tool('list_documents'));
+    registerWebMcpTool(tool('list_documents'));
+
+    firstDispose();
+
+    expect(registrations[1]?.signal?.aborted).toBe(false);
+  });
 });

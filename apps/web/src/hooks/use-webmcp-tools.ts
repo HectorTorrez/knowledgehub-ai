@@ -59,6 +59,7 @@ export function useWebMcpTools(): void {
   );
 
   const authenticated = session.data?.status === 'authenticated';
+  const hasActiveOrganization = activeOrganizationId !== undefined;
 
   const sessionTool = useMemo(
     () => (authenticated ? buildSessionTool(deps) : null),
@@ -69,11 +70,8 @@ export function useWebMcpTools(): void {
     [authenticated, deps],
   );
   const documentsTool = useMemo(
-    () =>
-      authenticated && activeOrganizationId !== undefined
-        ? buildDocumentsTool(deps)
-        : null,
-    [authenticated, activeOrganizationId, deps],
+    () => (authenticated && hasActiveOrganization ? buildDocumentsTool(deps) : null),
+    [authenticated, hasActiveOrganization, deps],
   );
 
   useWebMcpTool(sessionTool?.definition ?? null, sessionTool?.execute ?? NOOP_EXECUTE);

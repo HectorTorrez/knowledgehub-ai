@@ -6,8 +6,7 @@ import type {
   DocumentUploadUrlRequest,
   DocumentUploadUrlResponse,
 } from '@knowledgehub/shared-types';
-import { apiFetch } from './client';
-import type { RequestOptions } from './organizations';
+import { apiFetch, type RequestOptions } from './client';
 
 function documentsPath(organizationId: string): string {
   return `/organizations/${organizationId}/documents`;
