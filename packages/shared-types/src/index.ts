@@ -352,3 +352,22 @@ export interface AnswerListResponse {
 export interface AnswerDetailResponse {
   answer: AnswerDetail;
 }
+
+/**
+ * One result of `GET /organizations/:organizationId/search`. `excerpt` is the
+ * matching chunk's text, and `score` is its cosine similarity to the query
+ * (higher is closer).
+ */
+export interface SearchResult {
+  documentId: string;
+  documentTitle: string;
+  pageNumber: number;
+  chunkIndex: number;
+  excerpt: string;
+  score: number;
+}
+
+/** Response body of `GET /organizations/:organizationId/search`. */
+export interface SearchResponse {
+  results: SearchResult[];
+}
