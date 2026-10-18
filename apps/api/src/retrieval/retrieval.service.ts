@@ -71,9 +71,7 @@ export class RetrievalService {
         AND d."organizationId" = ${query.organizationId}::uuid
         AND d.status = 'READY'
         AND d.generation = c."documentGeneration"
-      ORDER BY c."embedding" <=> ${vectorLiteral(vector)}::vector,
-               c."documentId",
-               c."chunkIndex"
+      ORDER BY c."embedding" <=> ${vectorLiteral(vector)}::vector
       LIMIT ${limit}
     `;
 

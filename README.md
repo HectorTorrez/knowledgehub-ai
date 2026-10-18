@@ -608,9 +608,11 @@ are never returned.
   `READY`. A document in `PROCESSING` is still being worked on. A document whose
   text yields no chunks, such as a scanned PDF with no extractable text layer,
   fails permanently with `NO_EXTRACTABLE_TEXT` and is excluded from retrieval.
-  OCR is not part of this pipeline. Vector search
-  is currently exact: the HNSW index is deliberately deferred until retrieval
-  performance is measured.
+  OCR is not part of this pipeline.
+  Vector search uses an HNSW index (`vector_cosine_ops`), which is approximate:
+  a near neighbor can be missed, and results with equal similarity are returned
+  in arbitrary order. Recall is tuned through `hnsw.ef_search` at the database
+  level rather than in application code.
 - **Document text leaves the deployment for embedding.** Chunk text is sent to
   the configured provider (OpenAI `text-embedding-3-small` by default), and a
   search query is embedded the same way. `OPENAI_API_KEY` is required whenever
