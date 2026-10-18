@@ -41,6 +41,8 @@ const envObjectSchema = z.object({
     .max(365)
     .default(7),
 
+  INVITATION_TTL_DAYS: z.coerce.number().int().positive().max(365).default(7),
+
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   COOKIE_DOMAIN: z.string().min(1).optional(),

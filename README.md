@@ -219,6 +219,11 @@ GET    /organizations/:organizationId/members
 POST   /organizations/:organizationId/members
 PATCH  /organizations/:organizationId/members/:userId
 DELETE /organizations/:organizationId/members/:userId
+
+POST   /organizations/:organizationId/invitations
+GET    /organizations/:organizationId/invitations
+DELETE /organizations/:organizationId/invitations/:invitationId
+POST   /invitations/accept
 ```
 
 Tenant routes (`/:organizationId` and below) additionally require membership in
@@ -268,6 +273,29 @@ an owner.
 OWNER only. Responds `204 No Content` with an empty body. Returns `404` when the
 target is not a member and `409` when removing the target would leave the
 organization without an owner.
+
+### Invitations
+
+An OWNER can invite an email address that has no account yet instead of
+requiring the invitee to already exist.
+
+- `POST /organizations/:organizationId/invitations` (OWNER) with
+  `{ "email": string }` creates a pending invitation and returns
+  `{ invitation }` carrying the one-time plaintext `token` (returned only here;
+  the database stores its SHA-256 hash) and an `expiresAt` (configured by
+  `INVITATION_TTL_DAYS`).
+- `GET /organizations/:organizationId/invitations` (OWNER) lists pending
+  invitations.
+- `DELETE /organizations/:organizationId/invitations/:invitationId` (OWNER)
+  revokes one pending invitation.
+- `POST /invitations/accept` with `{ "token": string }` requires an authenticated
+  session whose email matches the invitation. It joins the caller as a `MEMBER`,
+  is idempotent for someone who is already a member, and returns
+  `{ organizationId }`. A missing, expired, already-accepted, or email-mismatched
+  invitation returns `404`/`403` without revealing whether the token existed.
+
+Delivery of the invitation (email) is not wired yet; the token is surfaced to the
+owner, who shares it out of band.
 
 ### Ownership and contention
 
