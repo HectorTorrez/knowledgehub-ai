@@ -316,3 +316,39 @@ export type AnswerResponse =
       answer: null;
       citations: AnswerCitation[];
     };
+
+/**
+ * Row in the persisted answer history. Carries the question and outcome without
+ * the answer prose, so the list stays cheap; fetch a detail for the full text.
+ */
+export interface AnswerSummary {
+  id: string;
+  question: string;
+  status: AnswerResponse['status'];
+  createdAt: string;
+}
+
+/** Full persisted answer, including prose and citations when `answered`. */
+export interface AnswerDetail {
+  id: string;
+  question: string;
+  status: AnswerResponse['status'];
+  answer: string | null;
+  citations: AnswerCitation[];
+  createdAt: string;
+}
+
+/**
+ * Response body of `GET /organizations/:organizationId/answers`. Keyset
+ * paginated like the document list: `nextCursor` is an opaque cursor, `null` on
+ * the last page.
+ */
+export interface AnswerListResponse {
+  answers: AnswerSummary[];
+  nextCursor: string | null;
+}
+
+/** Response body of `GET /organizations/:organizationId/answers/:answerId`. */
+export interface AnswerDetailResponse {
+  answer: AnswerDetail;
+}

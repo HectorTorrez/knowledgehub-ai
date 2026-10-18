@@ -646,4 +646,97 @@ describe('answers (e2e)', () => {
       citationCount: 1,
     });
   });
+
+  describe('history', () => {
+    const listAnswers = (token: string, organizationId: string) =>
+      request(app.getHttpServer())
+        .get(`/organizations/${organizationId}/answers`)
+        .set(bearer(token));
+
+    const getAnswer = (
+      token: string,
+      organizationId: string,
+      answerId: string,
+    ) =>
+      request(app.getHttpServer())
+        .get(`/organizations/${organizationId}/answers/${answerId}`)
+        .set(bearer(token));
+
+    const deleteAnswer = (
+      token: string,
+      organizationId: string,
+      answerId: string,
+    ) =>
+      request(app.getHttpServer())
+        .delete(`/organizations/${organizationId}/answers/${answerId}`)
+        .set(bearer(token));
+
+    it('persists answers and lists them newest-first', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'History Org');
+      await seedReadyChunk(organizationId, 'History passage.');
+
+      await ask(token, organizationId, { question: 'First?' }).expect(200);
+      await ask(token, organizationId, { question: 'Second?' }).expect(200);
+
+      const response = await listAnswers(token, organizationId).expect(200);
+
+      expect(response.body.answers).toHaveLength(2);
+      expect(response.body.nextCursor).toBeNull();
+      expect(response.body.answers[0].question).toBe('Second?');
+      expect(response.body.answers[1].question).toBe('First?');
+      expect(response.body.answers[0].status).toBe('answered');
+    });
+
+    it('returns the full answer and citations for one entry', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'History Detail Org');
+      await seedReadyChunk(organizationId, 'Detail passage.');
+
+      await ask(token, organizationId, { question: 'What is alpha?' }).expect(
+        200,
+      );
+      const list = await listAnswers(token, organizationId).expect(200);
+      const answerId = list.body.answers[0].id as string;
+
+      const response = await getAnswer(token, organizationId, answerId).expect(
+        200,
+      );
+
+      expect(response.body.answer.id).toBe(answerId);
+      expect(response.body.answer.status).toBe('answered');
+      expect(response.body.answer.answer).toContain('[1]');
+      expect(response.body.answer.citations).toHaveLength(1);
+    });
+
+    it('returns 404 for an answer in another organization', async () => {
+      const owner = await registerUser();
+      const other = await registerUser();
+      const organizationId = await createOrganization(owner.token, 'Hist A');
+      const otherOrganizationId = await createOrganization(other.token, 'Hist B');
+      await seedReadyChunk(organizationId, 'Scoped passage.');
+
+      await ask(owner.token, organizationId, { question: 'What is alpha?' }).expect(
+        200,
+      );
+      const list = await listAnswers(owner.token, organizationId).expect(200);
+      const answerId = list.body.answers[0].id as string;
+
+      await getAnswer(other.token, otherOrganizationId, answerId).expect(404);
+    });
+
+    it('deletes an answer and removes it from the list', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'History Delete Org');
+      await seedReadyChunk(organizationId, 'Delete passage.');
+
+      await ask(token, organizationId, { question: 'Doomed?' }).expect(200);
+      const list = await listAnswers(token, organizationId).expect(200);
+      const answerId = list.body.answers[0].id as string;
+
+      await deleteAnswer(token, organizationId, answerId).expect(204);
+      const after = await listAnswers(token, organizationId).expect(200);
+      expect(after.body.answers).toHaveLength(0);
+    });
+  });
 });

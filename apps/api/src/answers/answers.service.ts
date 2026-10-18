@@ -1,11 +1,27 @@
 import {
   BadGatewayException,
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { AnswerResponse } from '@knowledgehub/shared-types';
+import type {
+  AnswerCitation,
+  AnswerDetail,
+  AnswerDetailResponse,
+  AnswerListResponse,
+  AnswerResponse,
+  AnswerSummary,
+} from '@knowledgehub/shared-types';
+import {
+  decodeListCursor,
+  encodeListCursor,
+  listCursorFilter,
+} from '../common/list-cursor.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import {
   EmbeddingRejectedError,
   EmbeddingResponseError,
@@ -28,6 +44,7 @@ import {
 } from './answer-provider.port.js';
 import { buildAnswerPrompt, type AnswerPrompt } from './answer-prompt.js';
 import { AnswerConfig } from './answer.config.js';
+import type { ListAnswersInput } from './dto/list-answers.schema.js';
 
 const SERVICE_UNAVAILABLE_MESSAGE =
   'The answer service is temporarily unavailable';
@@ -67,6 +84,48 @@ function errorNameOf(error: unknown): string {
   return error instanceof Error ? error.name : 'UnknownError';
 }
 
+const ANSWER_SELECT = {
+  id: true,
+  question: true,
+  status: true,
+  answer: true,
+  citations: true,
+  createdAt: true,
+} as const;
+
+interface AnswerProjection {
+  id: string;
+  question: string;
+  status: AnswerResponse['status'];
+  answer: string | null;
+  citations: unknown;
+  createdAt: Date;
+}
+
+function toAnswerSummary(row: AnswerProjection): AnswerSummary {
+  return {
+    id: row.id,
+    question: row.question,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toAnswerDetail(row: AnswerProjection): AnswerDetail {
+  return {
+    id: row.id,
+    question: row.question,
+    status: row.status,
+    answer: row.answer,
+    citations: toCitations(row.citations),
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toCitations(value: unknown): AnswerCitation[] {
+  return Array.isArray(value) ? (value as unknown as AnswerCitation[]) : [];
+}
+
 @Injectable()
 export class AnswersService {
   private readonly logger = new Logger(AnswersService.name);
@@ -76,6 +135,7 @@ export class AnswersService {
     private readonly provider: AnswerProvider,
     private readonly retrieval: RetrievalService,
     private readonly config: AnswerConfig,
+    private readonly prisma: PrismaService,
   ) {}
 
   async answer(
@@ -101,6 +161,7 @@ export class AnswersService {
       const response = await this.run(organizationId, question, event);
       event.status = response.status;
       event.citationCount = response.citations.length;
+      await this.persistAnswer(organizationId, userId, question, response);
       return response;
     } catch (error) {
       event.errorName = errorNameOf(error);
@@ -108,6 +169,84 @@ export class AnswersService {
     } finally {
       event.durationMs = Date.now() - startedAt;
       this.log(event);
+    }
+  }
+
+  async list(
+    organizationId: string,
+    input: ListAnswersInput,
+  ): Promise<AnswerListResponse> {
+    const cursor = input.cursor ? decodeListCursor(input.cursor) : null;
+    if (input.cursor && !cursor) {
+      throw new BadRequestException('cursor is not valid');
+    }
+
+    const rows = await this.prisma.answer.findMany({
+      where: {
+        organizationId,
+        ...(cursor ? listCursorFilter(cursor) : {}),
+      },
+      select: ANSWER_SELECT,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: input.limit + 1,
+    });
+
+    const hasMore = rows.length > input.limit;
+    const page = hasMore ? rows.slice(0, input.limit) : rows;
+    const nextCursor =
+      hasMore && page.length > 0 ? encodeListCursor(page[page.length - 1]) : null;
+
+    return {
+      answers: page.map(toAnswerSummary),
+      nextCursor,
+    };
+  }
+
+  async getDetail(
+    organizationId: string,
+    answerId: string,
+  ): Promise<AnswerDetailResponse> {
+    const row = await this.prisma.answer.findFirst({
+      where: { id: answerId, organizationId },
+      select: ANSWER_SELECT,
+    });
+
+    if (!row) {
+      throw new NotFoundException('Answer not found');
+    }
+
+    return { answer: toAnswerDetail(row) };
+  }
+
+  async delete(organizationId: string, answerId: string): Promise<void> {
+    const result = await this.prisma.answer.deleteMany({
+      where: { id: answerId, organizationId },
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundException('Answer not found');
+    }
+  }
+
+  private async persistAnswer(
+    organizationId: string,
+    userId: string,
+    question: string,
+    response: AnswerResponse,
+  ): Promise<void> {
+    try {
+      await this.prisma.answer.create({
+        data: {
+          organizationId,
+          askedById: userId,
+          question,
+          status: response.status,
+          answer: response.status === 'answered' ? response.answer : null,
+          citations: response.citations as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      this.logger.warn('Could not persist the answer to history', error);
     }
   }
 

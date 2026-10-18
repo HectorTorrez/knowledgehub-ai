@@ -105,6 +105,26 @@ describe('documents (e2e)', () => {
       .get(`/organizations/${organizationId}/documents/${documentId}`)
       .set(bearer(token));
 
+  const renameDocument = (
+    token: string,
+    organizationId: string,
+    documentId: string,
+    body: object,
+  ) =>
+    request(app.getHttpServer())
+      .patch(`/organizations/${organizationId}/documents/${documentId}`)
+      .set(bearer(token))
+      .send(body);
+
+  const deleteDocument = (
+    token: string,
+    organizationId: string,
+    documentId: string,
+  ) =>
+    request(app.getHttpServer())
+      .delete(`/organizations/${organizationId}/documents/${documentId}`)
+      .set(bearer(token));
+
   const createUploadUrl = (
     token: string,
     organizationId: string,
@@ -404,7 +424,7 @@ describe('documents (e2e)', () => {
       const organizationId = await createOrganization(token, 'Empty Org');
 
       const response = await listDocuments(token, organizationId).expect(200);
-      expect(response.body).toEqual({ documents: [] });
+      expect(response.body).toEqual({ documents: [], nextCursor: null });
     });
 
     it('returns only the documents belonging to the authorized organization', async () => {
@@ -502,6 +522,130 @@ describe('documents (e2e)', () => {
       expect(serialized).not.toContain('uploadStorageKey');
       expect(serialized).not.toContain('uploadedById');
       expect(serialized).not.toContain('organizationId');
+    });
+
+    it('paginates with a limit and cursor', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Paged Org');
+
+      for (const title of ['One', 'Two', 'Three', 'Four', 'Five']) {
+        await createDocument(token, organizationId, { title }).expect(201);
+      }
+
+      const ordered = await prisma.document.findMany({
+        where: { organizationId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { id: true },
+      });
+      const ids = ordered.map((doc) => doc.id);
+
+      const firstPage = await listDocuments(token, organizationId)
+        .query({ limit: '2' })
+        .expect(200);
+
+      expect(
+        firstPage.body.documents.map((d: { id: string }) => d.id),
+      ).toEqual(ids.slice(0, 2));
+      expect(firstPage.body.nextCursor).not.toBeNull();
+
+      const secondPage = await listDocuments(token, organizationId)
+        .query({ limit: '2', cursor: firstPage.body.nextCursor as string })
+        .expect(200);
+
+      expect(
+        secondPage.body.documents.map((d: { id: string }) => d.id),
+      ).toEqual(ids.slice(2, 4));
+
+      const lastPage = await listDocuments(token, organizationId)
+        .query({ limit: '2', cursor: secondPage.body.nextCursor as string })
+        .expect(200);
+
+      expect(
+        lastPage.body.documents.map((d: { id: string }) => d.id),
+      ).toEqual(ids.slice(4));
+      expect(lastPage.body.nextCursor).toBeNull();
+    });
+  });
+
+  describe('rename', () => {
+    it('renames a document and returns the updated document', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Rename Org');
+
+      const created = await createDocument(token, organizationId, {
+        title: 'Before',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      const response = await renameDocument(token, organizationId, documentId, {
+        title: 'After',
+      }).expect(200);
+
+      expect(response.body.document.title).toBe('After');
+      expect(await loadDocument(documentId)).toMatchObject({ title: 'After' });
+    });
+
+    it('returns 404 for a document in another organization', async () => {
+      const owner = await registerUser();
+      const other = await registerUser();
+      const organizationId = await createOrganization(owner.token, 'Rename A');
+      const otherOrganizationId = await createOrganization(other.token, 'Rename B');
+
+      const created = await createDocument(owner.token, organizationId, {
+        title: 'Private',
+      }).expect(201);
+
+      await renameDocument(
+        other.token,
+        otherOrganizationId,
+        created.body.document.id,
+        { title: 'Nope' },
+      ).expect(404);
+    });
+
+    it('rejects an invalid title with 400', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Rename C');
+      const created = await createDocument(token, organizationId, {
+        title: 'Valid',
+      }).expect(201);
+
+      await renameDocument(token, organizationId, created.body.document.id, {
+        title: '   ',
+      }).expect(400);
+    });
+  });
+
+  describe('delete', () => {
+    it('removes the document row and returns 404 afterwards', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Delete Org');
+
+      const created = await createDocument(token, organizationId, {
+        title: 'Doomed',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await deleteDocument(token, organizationId, documentId).expect(204);
+      await expect(loadDocument(documentId)).rejects.toThrow();
+      await getDocument(token, organizationId, documentId).expect(404);
+    });
+
+    it('returns 404 for a document in another organization', async () => {
+      const owner = await registerUser();
+      const other = await registerUser();
+      const organizationId = await createOrganization(owner.token, 'Delete A');
+      const otherOrganizationId = await createOrganization(other.token, 'Delete B');
+
+      const created = await createDocument(owner.token, organizationId, {
+        title: 'Mine',
+      }).expect(201);
+
+      await deleteDocument(
+        other.token,
+        otherOrganizationId,
+        created.body.document.id,
+      ).expect(404);
     });
   });
 
