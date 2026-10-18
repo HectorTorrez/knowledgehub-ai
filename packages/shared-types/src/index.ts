@@ -207,9 +207,16 @@ export interface DocumentSummary {
   updatedAt: string;
 }
 
-/** Response body of `GET /organizations/:organizationId/documents`. */
+/**
+ * Response body of `GET /organizations/:organizationId/documents`.
+ *
+ * `nextCursor` is an opaque, server-issued keyset cursor. Pass it back as
+ * `cursor` on the next request to fetch the following page; it is `null` when
+ * there are no further documents.
+ */
 export interface DocumentListResponse {
   documents: DocumentSummary[];
+  nextCursor: string | null;
 }
 
 /** Response body of `POST` and `GET /organizations/:organizationId/documents[/:documentId]`. */
@@ -226,6 +233,16 @@ export interface DocumentDetailResponse {
  * contract.
  */
 export interface CreateDocumentRequest {
+  title: string;
+}
+
+/**
+ * Request body of `PATCH /organizations/:organizationId/documents/:documentId`.
+ *
+ * Only the title may change. Status, generation, file coordinates, and storage
+ * keys are server-derived and absent from this contract.
+ */
+export interface UpdateDocumentRequest {
   title: string;
 }
 

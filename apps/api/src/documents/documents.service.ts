@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   PayloadTooLargeException,
   ServiceUnavailableException,
@@ -25,6 +27,8 @@ import { StorageConfig } from '../storage/storage.config.js';
 import type { CompleteUploadInput } from './dto/complete-upload.schema.js';
 import type { CreateDocumentInput } from './dto/create-document.schema.js';
 import type { CreateUploadUrlInput } from './dto/create-upload-url.schema.js';
+import type { ListDocumentsInput } from './dto/list-documents.schema.js';
+import type { UpdateDocumentInput } from './dto/update-document.schema.js';
 import { PROCESSING_MAX_ATTEMPTS } from './processing-policy.js';
 import {
   createDocumentStorageKey,
@@ -92,8 +96,45 @@ function normalizeObjectVersion(version: string): string {
   return version.replace(/^W\//, '').replace(/^"|"$/g, '');
 }
 
+interface ListCursor {
+  createdAt: Date;
+  id: string;
+}
+
+function encodeListCursor(cursor: ListCursor): string {
+  return Buffer.from(
+    JSON.stringify({
+      createdAt: cursor.createdAt.toISOString(),
+      id: cursor.id,
+    }),
+  ).toString('base64url');
+}
+
+function decodeListCursor(value: string): ListCursor | null {
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(value, 'base64url').toString('utf8'),
+    ) as { createdAt?: unknown; id?: unknown };
+
+    if (typeof parsed.createdAt !== 'string' || typeof parsed.id !== 'string') {
+      return null;
+    }
+
+    const createdAt = new Date(parsed.createdAt);
+    if (Number.isNaN(createdAt.getTime())) {
+      return null;
+    }
+
+    return { createdAt, id: parsed.id };
+  } catch {
+    return null;
+  }
+}
+
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
@@ -116,14 +157,80 @@ export class DocumentsService {
     return { document: toDocumentSummary(document) };
   }
 
-  async list(organizationId: string): Promise<DocumentListResponse> {
+  async list(
+    organizationId: string,
+    input: ListDocumentsInput,
+  ): Promise<DocumentListResponse> {
+    const cursor = input.cursor ? decodeListCursor(input.cursor) : null;
+    if (input.cursor && !cursor) {
+      throw new BadRequestException('cursor is not valid');
+    }
+
     const documents = await this.prisma.document.findMany({
-      where: { organizationId },
+      where: {
+        organizationId,
+        ...(cursor
+          ? {
+              OR: [
+                { createdAt: { lt: cursor.createdAt } },
+                { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+              ],
+            }
+          : {}),
+      },
       select: DOCUMENT_PUBLIC_SELECT,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: input.limit + 1,
     });
 
-    return { documents: documents.map(toDocumentSummary) };
+    const hasMore = documents.length > input.limit;
+    const page = hasMore ? documents.slice(0, input.limit) : documents;
+    const nextCursor =
+      hasMore && page.length > 0
+        ? encodeListCursor(page[page.length - 1])
+        : null;
+
+    return {
+      documents: page.map(toDocumentSummary),
+      nextCursor,
+    };
+  }
+
+  async rename(
+    organizationId: string,
+    documentId: string,
+    input: UpdateDocumentInput,
+  ): Promise<DocumentDetailResponse> {
+    const updated = await this.prisma.document.updateMany({
+      where: { id: documentId, organizationId },
+      data: { title: input.title },
+    });
+
+    if (updated.count === 0) {
+      throw new NotFoundException('Document not found');
+    }
+
+    return this.readDocument(organizationId, documentId);
+  }
+
+  async delete(organizationId: string, documentId: string): Promise<void> {
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, organizationId },
+      select: { id: true, uploadStorageKey: true, storageKey: true },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    await this.prisma.document.deleteMany({
+      where: { id: documentId, organizationId },
+    });
+
+    await this.deleteObjectsBestEffort([
+      document.uploadStorageKey,
+      document.storageKey,
+    ]);
   }
 
   async getDetail(
@@ -141,7 +248,7 @@ export class DocumentsService {
     const organizationId = context.organizationId;
     const document = await this.prisma.document.findFirst({
       where: { id: documentId, organizationId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, uploadStorageKey: true },
     });
 
     if (!document) {
@@ -182,6 +289,8 @@ export class DocumentsService {
         'Upload URLs cannot be issued once processing has started',
       );
     }
+
+    await this.deleteSupersededStagingKey(document.uploadStorageKey, key);
 
     return {
       uploadUrl: upload.url,
@@ -354,6 +463,8 @@ export class DocumentsService {
       return this.resolveSupersededCompletion(organizationId, documentId);
     }
 
+    await this.deleteSupersededStagingKey(stagingKey, null);
+
     return this.readDocument(organizationId, documentId);
   }
 
@@ -413,6 +524,33 @@ export class DocumentsService {
     }
 
     return { document: toDocumentSummary(document) };
+  }
+
+  private async deleteSupersededStagingKey(
+    previousKey: string | null,
+    currentKey: string | null,
+  ): Promise<void> {
+    if (!previousKey || previousKey === currentKey) {
+      return;
+    }
+    await this.deleteObjectsBestEffort([previousKey]);
+  }
+
+  private async deleteObjectsBestEffort(keys: (string | null)[]): Promise<void> {
+    const targets = keys.filter((key): key is string => key !== null);
+
+    await Promise.all(
+      targets.map(async (key) => {
+        try {
+          await this.storage.deleteObject(key);
+        } catch (error) {
+          this.logger.warn(
+            `Could not delete object ${key}; leaving it for garbage collection`,
+            error,
+          );
+        }
+      }),
+    );
   }
 
   private async runStorage<T>(operation: () => Promise<T>): Promise<T> {

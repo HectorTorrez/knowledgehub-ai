@@ -37,6 +37,7 @@ export class FakeObjectStorage implements ObjectStorage {
   onReadObjectPrefix: ((input: ReadObjectPrefixInput) => void) | null = null;
   onReadObject: ((input: ReadObjectInput) => void) | null = null;
   onCopyObject: ((input: CopyObjectInput) => void) | null = null;
+  onDeleteObject: ((key: string) => void) | null = null;
   private readonly objects = new Map<string, StoredObject>();
 
   putObject(
@@ -138,5 +139,10 @@ export class FakeObjectStorage implements ObjectStorage {
       contentType: input.contentType,
       version: source.version,
     });
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    this.onDeleteObject?.(key);
+    this.objects.delete(key);
   }
 }

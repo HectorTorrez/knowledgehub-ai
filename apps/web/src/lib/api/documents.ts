@@ -5,6 +5,7 @@ import type {
   DocumentUploadCompleteRequest,
   DocumentUploadUrlRequest,
   DocumentUploadUrlResponse,
+  UpdateDocumentRequest,
 } from '@knowledgehub/shared-types';
 import { apiFetch, type RequestOptions } from './client';
 
@@ -12,15 +13,32 @@ function documentsPath(organizationId: string): string {
   return `/organizations/${organizationId}/documents`;
 }
 
+export interface ListDocumentsOptions extends RequestOptions {
+  cursor?: string;
+  limit?: number;
+}
+
 export const documentsApi = {
   list(
     organizationId: string,
-    options: RequestOptions = {},
+    options: ListDocumentsOptions = {},
   ): Promise<DocumentListResponse> {
-    return apiFetch<DocumentListResponse>(documentsPath(organizationId), {
-      authRecovery: true,
-      signal: options.signal,
-    });
+    const params = new URLSearchParams();
+    if (options.limit !== undefined) {
+      params.set('limit', String(options.limit));
+    }
+    if (options.cursor) {
+      params.set('cursor', options.cursor);
+    }
+
+    const query = params.toString();
+    return apiFetch<DocumentListResponse>(
+      `${documentsPath(organizationId)}${query ? `?${query}` : ''}`,
+      {
+        authRecovery: true,
+        signal: options.signal,
+      },
+    );
   },
 
   create(
@@ -42,6 +60,24 @@ export const documentsApi = {
       `${documentsPath(organizationId)}/${documentId}`,
       { authRecovery: true },
     );
+  },
+
+  rename(
+    organizationId: string,
+    documentId: string,
+    input: UpdateDocumentRequest,
+  ): Promise<DocumentDetailResponse> {
+    return apiFetch<DocumentDetailResponse>(
+      `${documentsPath(organizationId)}/${documentId}`,
+      { method: 'PATCH', body: input, authRecovery: true },
+    );
+  },
+
+  remove(organizationId: string, documentId: string): Promise<void> {
+    return apiFetch<void>(`${documentsPath(organizationId)}/${documentId}`, {
+      method: 'DELETE',
+      authRecovery: true,
+    });
   },
 
   createUploadUrl(

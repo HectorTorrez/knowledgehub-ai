@@ -1,5 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
   PayloadTooLargeException,
@@ -131,7 +132,7 @@ function createHarness(options: HarnessOptions = {}) {
         async (_args: { data: Record<string, unknown> }) =>
           options.created ?? documentRecord(),
       ),
-      findMany: vi.fn(async () => options.rows ?? []),
+      findMany: vi.fn(async (_args: unknown) => options.rows ?? []),
       findFirst: vi.fn(
         async (_args: { where: unknown; select?: unknown }) =>
           options.findFirst === undefined
@@ -143,6 +144,7 @@ function createHarness(options: HarnessOptions = {}) {
           options.created ?? documentRecord(),
       ),
       updateMany: vi.fn(async (_args: UpdateManyArgs) => ({ count: 1 })),
+      deleteMany: vi.fn(async () => ({ count: 1 })),
     },
   };
 
@@ -310,7 +312,7 @@ describe('DocumentsService.list', () => {
   it('scopes the query to the authorized organization with a deterministic order', async () => {
     const { service, prisma } = createHarness({ rows: [] });
 
-    await service.list('org-1');
+    await service.list('org-1', { limit: 25 });
 
     expect(prisma.document.findMany).toHaveBeenCalledWith({
       where: { organizationId: 'org-1' },
@@ -327,13 +329,17 @@ describe('DocumentsService.list', () => {
         updatedAt: true,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 26,
     });
   });
 
-  it('returns an empty list for a newly created organization', async () => {
+  it('returns an empty list and a null cursor for a newly created organization', async () => {
     const { service } = createHarness({ rows: [] });
 
-    await expect(service.list('org-1')).resolves.toEqual({ documents: [] });
+    await expect(service.list('org-1', { limit: 25 })).resolves.toEqual({
+      documents: [],
+      nextCursor: null,
+    });
   });
 
   it('maps each row to the public summary shape', async () => {
@@ -344,7 +350,7 @@ describe('DocumentsService.list', () => {
       ],
     });
 
-    const result = await service.list('org-1');
+    const result = await service.list('org-1', { limit: 25 });
 
     expect(result.documents).toEqual([
       {
@@ -372,6 +378,52 @@ describe('DocumentsService.list', () => {
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
     ]);
+    expect(result.nextCursor).toBeNull();
+  });
+
+  it('issues a cursor when more rows exist than the limit', async () => {
+    const first = documentRecord({ id: 'doc-1', createdAt: new Date('2026-01-01T00:00:00.000Z') });
+    const second = documentRecord({ id: 'doc-2', createdAt: new Date('2026-01-02T00:00:00.000Z') });
+    const { service } = createHarness({ rows: [second, first] });
+
+    const result = await service.list('org-1', { limit: 1 });
+
+    expect(result.documents).toHaveLength(1);
+    expect(result.documents[0].id).toBe('doc-2');
+    expect(result.nextCursor).not.toBeNull();
+  });
+
+  it('filters rows after the cursor when one is supplied', async () => {
+    const { service, prisma } = createHarness({ rows: [] });
+    const cursor = Buffer.from(
+      JSON.stringify({ createdAt: '2026-01-01T00:00:00.000Z', id: 'doc-9' }),
+    ).toString('base64url');
+
+    await service.list('org-1', { limit: 25, cursor });
+
+    const args = prisma.document.findMany.mock.calls[0][0] as {
+      where: { organizationId: string; OR: unknown[] };
+    };
+    expect(args.where).toEqual({
+      organizationId: 'org-1',
+      OR: [
+        { createdAt: { lt: new Date('2026-01-01T00:00:00.000Z') } },
+        {
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          id: { lt: 'doc-9' },
+        },
+      ],
+    });
+  });
+
+  it('rejects a malformed cursor with 400 without querying the database', async () => {
+    const { service, prisma } = createHarness({ rows: [] });
+
+    await expect(
+      service.list('org-1', { limit: 25, cursor: 'not-a-cursor' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.document.findMany).not.toHaveBeenCalled();
   });
 
   it('does not expose internal fields in the response', async () => {
@@ -379,7 +431,7 @@ describe('DocumentsService.list', () => {
       rows: [documentRecord({ id: 'doc-1' })],
     });
 
-    const result = await service.list('org-1');
+    const result = await service.list('org-1', { limit: 25 });
 
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('storageKey');
@@ -423,6 +475,98 @@ describe('DocumentsService.getDetail', () => {
   });
 });
 
+describe('DocumentsService.rename', () => {
+  it('renames the document scoped to its organization', async () => {
+    const { service, prisma } = createHarness();
+
+    await service.rename('org-1', 'doc-1', { title: 'New title' });
+
+    expect(prisma.document.updateMany).toHaveBeenCalledWith({
+      where: { id: 'doc-1', organizationId: 'org-1' },
+      data: { title: 'New title' },
+    });
+  });
+
+  it('returns the renamed document', async () => {
+    const { service } = createHarness({
+      findFirst: documentRecord({ title: 'New title' }),
+    });
+
+    const result = await service.rename('org-1', 'doc-1', {
+      title: 'New title',
+    });
+
+    expect(result.document.title).toBe('New title');
+  });
+
+  it('returns 404 when the document does not exist in the organization', async () => {
+    const { service, prisma } = createHarness();
+    prisma.document.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      service.rename('org-1', 'doc-1', { title: 'New title' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('DocumentsService.delete', () => {
+  it('returns 404 without deleting anything when the document is not found', async () => {
+    const { service, prisma, storage } = createHarness({ findFirst: null });
+    const deleteObject = vi.spyOn(storage, 'deleteObject');
+
+    await expect(service.delete('org-1', 'doc-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    expect(prisma.document.deleteMany).not.toHaveBeenCalled();
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('deletes the document row scoped to its organization', async () => {
+    const { service, prisma } = createHarness();
+
+    await service.delete('org-1', 'doc-1');
+
+    expect(prisma.document.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'doc-1', organizationId: 'org-1' },
+    });
+  });
+
+  it('deletes both the staging and verified objects', async () => {
+    const verifiedKey = 'organizations/org-1/documents/doc-1/verified/token';
+    const { service, storage } = createHarness({
+      findFirst: documentRecord({ storageKey: verifiedKey }),
+    });
+    const deleteObject = vi.spyOn(storage, 'deleteObject');
+
+    await service.delete('org-1', 'doc-1');
+
+    expect(deleteObject).toHaveBeenCalledTimes(2);
+    expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
+    expect(deleteObject).toHaveBeenCalledWith(verifiedKey);
+  });
+
+  it('deletes only the keys that are present', async () => {
+    const { service, storage } = createHarness({
+      findFirst: documentRecord({ uploadStorageKey: null, storageKey: null }),
+    });
+    const deleteObject = vi.spyOn(storage, 'deleteObject');
+
+    await service.delete('org-1', 'doc-1');
+
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('resolves even when object deletion fails', async () => {
+    const { service, storage } = createHarness();
+    vi.spyOn(storage, 'deleteObject').mockRejectedValueOnce(
+      new Error('storage down'),
+    );
+
+    await expect(service.delete('org-1', 'doc-1')).resolves.toBeUndefined();
+  });
+});
+
 describe('DocumentsService.createUploadUrl', () => {
   const input = { contentType: 'application/pdf' } as const;
 
@@ -433,7 +577,7 @@ describe('DocumentsService.createUploadUrl', () => {
 
     expect(prisma.document.findFirst).toHaveBeenCalledWith({
       where: { id: 'doc-1', organizationId: 'org-1' },
-      select: { id: true, status: true },
+      select: { id: true, status: true, uploadStorageKey: true },
     });
   });
 
@@ -598,6 +742,27 @@ describe('DocumentsService.createUploadUrl', () => {
     expect(Object.keys(result).sort()).toEqual(
       ['expiresAt', 'headers', 'maxSizeBytes', 'method', 'uploadUrl'].sort(),
     );
+  });
+
+  it('deletes the superseded staging object after persisting a new upload URL', async () => {
+    const { service, storage } = createHarness();
+    const deleteObject = vi.spyOn(storage, 'deleteObject');
+
+    await service.createUploadUrl(organizationContext(), 'doc-1', input);
+
+    expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
+  });
+
+  it('leaves the previous staging object alone when the update is superseded', async () => {
+    const { service, prisma, storage } = createHarness();
+    prisma.document.updateMany.mockResolvedValueOnce({ count: 0 });
+    const deleteObject = vi.spyOn(storage, 'deleteObject');
+
+    await expect(
+      service.createUploadUrl(organizationContext(), 'doc-1', input),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(deleteObject).not.toHaveBeenCalled();
   });
 });
 
@@ -1088,5 +1253,17 @@ describe('DocumentsService.completeUpload', () => {
     expect(serialized).not.toContain(state.storageKey ?? 'never-null');
     expect(serialized).not.toContain('uploadedById');
     expect(serialized).not.toContain('organizationId');
+  });
+
+  it('deletes the staging object after a successful promotion', async () => {
+    const storage = new FakeObjectStorage();
+    seedValidPdf(storage);
+    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const deleteObject = vi.spyOn(storage, 'deleteObject');
+
+    await service.completeUpload(organizationContext(), 'doc-1', {});
+
+    expect(state.status).toBe('PROCESSING');
+    expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
   });
 });

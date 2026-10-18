@@ -1,12 +1,15 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -34,6 +37,14 @@ import {
   createUploadUrlSchema,
   type CreateUploadUrlInput,
 } from './dto/create-upload-url.schema.js';
+import {
+  listDocumentsSchema,
+  type ListDocumentsInput,
+} from './dto/list-documents.schema.js';
+import {
+  updateDocumentSchema,
+  type UpdateDocumentInput,
+} from './dto/update-document.schema.js';
 import { DocumentsService } from './documents.service.js';
 
 @Controller('organizations/:organizationId/documents')
@@ -52,9 +63,14 @@ export class DocumentsController {
   }
 
   @Get()
-  list(@Req() request: OrganizationRequest): Promise<DocumentListResponse> {
+  list(
+    @Query(new ZodValidationPipe(listDocumentsSchema))
+    query: ListDocumentsInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<DocumentListResponse> {
     return this.documents.list(
       requireOrganizationContext(request).organizationId,
+      query,
     );
   }
 
@@ -64,6 +80,32 @@ export class DocumentsController {
     @Req() request: OrganizationRequest,
   ): Promise<DocumentDetailResponse> {
     return this.documents.getDetail(
+      requireOrganizationContext(request).organizationId,
+      documentId,
+    );
+  }
+
+  @Patch(':documentId')
+  rename(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Body(new ZodValidationPipe(updateDocumentSchema))
+    body: UpdateDocumentInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<DocumentDetailResponse> {
+    return this.documents.rename(
+      requireOrganizationContext(request).organizationId,
+      documentId,
+      body,
+    );
+  }
+
+  @Delete(':documentId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Req() request: OrganizationRequest,
+  ): Promise<void> {
+    return this.documents.delete(
       requireOrganizationContext(request).organizationId,
       documentId,
     );

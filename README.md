@@ -306,17 +306,19 @@ an unauthenticated request returns `401`, an authenticated non-member returns
 `:organizationId` or `:documentId` returns `400`.
 
 ```
-POST /organizations/:organizationId/documents
-GET  /organizations/:organizationId/documents
-GET  /organizations/:organizationId/documents/:documentId
-POST /organizations/:organizationId/documents/:documentId/upload-url
-POST /organizations/:organizationId/documents/:documentId/upload-complete
+POST   /organizations/:organizationId/documents
+GET    /organizations/:organizationId/documents
+GET    /organizations/:organizationId/documents/:documentId
+PATCH  /organizations/:organizationId/documents/:documentId
+DELETE /organizations/:organizationId/documents/:documentId
+POST   /organizations/:organizationId/documents/:documentId/upload-url
+POST   /organizations/:organizationId/documents/:documentId/upload-complete
 ```
 
-Any organization member — `OWNER` or `MEMBER` — may create, list, read, upload,
-and complete documents. A document belongs to its organization, not to the user
-who registered it: the uploader is recorded for provenance only and never scopes
-access.
+Any organization member — `OWNER` or `MEMBER` — may create, list, read, rename,
+delete, upload, and complete documents. A document belongs to its organization,
+not to the user who registered it: the uploader is recorded for provenance only
+and never scopes access.
 
 ### POST /organizations/:organizationId/documents → 201
 
@@ -327,14 +329,32 @@ the session, and the status always starts at `PENDING`. Returns `{ document }`
 
 ### GET /organizations/:organizationId/documents → 200
 
-Returns `{ documents }` (`DocumentListResponse`) — only the documents belonging
-to the organization — ordered by creation time descending, then id descending.
+Returns `{ documents, nextCursor }` (`DocumentListResponse`) — the documents
+belonging to the organization, ordered by creation time descending, then id
+descending, keyset-paginated. The optional `limit` query parameter caps the page
+size (1–100, default 25); the optional `cursor` query parameter is the opaque
+`nextCursor` of the previous page. `nextCursor` is `null` on the last page.
 
 ### GET /organizations/:organizationId/documents/:documentId → 200
 
 Returns `{ document }` (`DocumentDetailResponse`). The document is looked up by
 both id and organization, so a document that exists only in another
 organization returns `404`.
+
+### PATCH /organizations/:organizationId/documents/:documentId → 200
+
+Body `{ "title": string }` (trimmed, 1–200 characters; unknown fields are
+rejected with `400`). Renames the document and returns `{ document }`
+(`DocumentDetailResponse`). A document in another organization — or one that
+does not exist — returns `404`.
+
+### DELETE /organizations/:organizationId/documents/:documentId → 204
+
+Permanently deletes the document, its extracted text and chunks, its processing
+jobs, and its staging and verified objects. A document in another organization —
+or one that does not exist — returns `404`. Object deletion is best-effort: if
+storage deletion fails the object is left for the garbage-collection sweep, but
+the document row is still removed.
 
 ### POST /organizations/:organizationId/documents/:documentId/upload-url → 200
 
@@ -456,8 +476,9 @@ Because the promoted object is written before the database row is updated, a
 failed or racing database write can leave an **orphaned verified object** with
 no document pointing at it. The object's existence is never treated as proof
 that a document was accepted — the conditional database update is what accepts
-it — and cleaning up orphaned staging and verified objects is not implemented
-yet (see [Limitations](#limitations)).
+it. Document deletion and each superseded staging upload remove their objects
+eagerly; a periodic sweep for objects orphaned by a crash mid-promotion is
+still deferred (see [Limitations](#limitations)).
 
 ### What verification checks — and what it does not
 
@@ -583,16 +604,13 @@ are never returned.
   PDF can still exhaust CPU or memory. Untrusted production uploads at scale must
   run the parser in an isolated process with enforceable resource limits; that
   work is deferred.
-- **Orphaned objects are not cleaned up.** A failed or superseded promotion can
-  leave a staging or verified object with no document referencing it, and there
-  is no deletion or garbage collection yet. An object's existence alone is
-  never proof that a document was accepted.
+- **Orphaned objects from a crash are not swept.** Document deletion and each
+  superseded staging upload remove their objects eagerly, but a periodic
+  garbage-collection sweep for objects left behind by a crash mid-promotion is
+  still deferred. An object's existence alone is never proof that a document was
+  accepted.
 - **The PDF signature check is not validation.** It only confirms the `%PDF-`
   header; it does not establish that the file is a valid or safe PDF.
-- **Listing is unpaginated.** `GET …/documents` returns every document in the
-  organization in one response. Pagination is deferred; large organizations
-  will need it.
-- **Documents cannot be deleted or renamed** in this increment.
 
 ## Grounded answers
 
