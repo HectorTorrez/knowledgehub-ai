@@ -1,0 +1,45 @@
+import { describe, expect, it } from 'vitest';
+import { queryKeys } from './query-keys';
+
+describe('queryKeys', () => {
+  it('scopes organization data by organization id', () => {
+    expect(queryKeys.organizations.detail('org-a')).not.toEqual(
+      queryKeys.organizations.detail('org-b'),
+    );
+    expect(queryKeys.organizations.members('org-a')).not.toEqual(
+      queryKeys.organizations.members('org-b'),
+    );
+    expect(queryKeys.organizations.documents.list('org-a')).not.toEqual(
+      queryKeys.organizations.documents.list('org-b'),
+    );
+  });
+
+  it('isolates document detail keys by document id', () => {
+    expect(queryKeys.organizations.documents.detail('org-a', 'doc-1')).not.toEqual(
+      queryKeys.organizations.documents.detail('org-a', 'doc-2'),
+    );
+  });
+
+  it('keeps every organization key under the organizations prefix', () => {
+    const keys = [
+      queryKeys.organizations.list(),
+      queryKeys.organizations.detail('org-a'),
+      queryKeys.organizations.members('org-a'),
+      queryKeys.organizations.documents.list('org-a'),
+      queryKeys.organizations.documents.detail('org-a', 'doc-1'),
+    ];
+
+    for (const key of keys) {
+      expect(key[0]).toBe('organizations');
+    }
+  });
+
+  it('exposes the document list key in the organization subtree', () => {
+    expect(queryKeys.organizations.documents.list('org-a')).toEqual([
+      'organizations',
+      'org-a',
+      'documents',
+      'list',
+    ]);
+  });
+});

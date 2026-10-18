@@ -1,16 +1,15 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
+import { sessionQuery } from '~/lib/auth/session';
 
 export const Route = createFileRoute('/')({
-  component: HomeComponent,
-});
+  ssr: false,
+  beforeLoad: async ({ context }) => {
+    const state = await context.queryClient
+      .fetchQuery(sessionQuery)
+      .catch(() => null);
 
-function HomeComponent() {
-  return (
-    <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-3xl font-bold tracking-tight">KnowledgeHub AI</h1>
-      <p className="mt-2 text-muted-foreground">
-        The TanStack Start frontend is running.
-      </p>
-    </main>
-  );
-}
+    throw redirect({
+      to: state?.status === 'authenticated' ? '/organizations' : '/login',
+    });
+  },
+});

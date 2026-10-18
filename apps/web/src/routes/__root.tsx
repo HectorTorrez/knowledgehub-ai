@@ -1,7 +1,6 @@
 /// <reference types="vite/client" />
 import {
   HeadContent,
-  Link,
   Outlet,
   Scripts,
   createRootRouteWithContext,
@@ -45,17 +44,6 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body>
-        <header className="border-b">
-          <nav className="mx-auto flex max-w-2xl gap-4 p-4 text-sm">
-            <Link
-              to="/"
-              activeProps={{ className: 'font-semibold' }}
-              activeOptions={{ exact: true }}
-            >
-              Home
-            </Link>
-          </nav>
-        </header>
         {children}
         {import.meta.env.DEV ? (
           <>

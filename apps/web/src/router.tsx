@@ -3,6 +3,7 @@ import { createRouter } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary';
 import { NotFound } from '~/components/NotFound';
+import { createUnauthorizedHandler } from '~/lib/auth/session';
 import { routeTree } from './routeTree.gen';
 
 /**
@@ -19,6 +20,10 @@ export function getRouter() {
       },
     },
   });
+
+  const onUnauthorized = createUnauthorizedHandler(queryClient);
+  queryClient.getQueryCache().config.onError = onUnauthorized;
+  queryClient.getMutationCache().config.onError = onUnauthorized;
 
   const router = createRouter({
     routeTree,
