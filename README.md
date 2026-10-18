@@ -620,8 +620,18 @@ document and page. Retrieval, context assembly, the provider call, and citation
 validation happen inside the API; the client receives only the validated answer.
 
 ```
-POST /organizations/:organizationId/answers
+POST   /organizations/:organizationId/answers
+GET    /organizations/:organizationId/answers
+GET    /organizations/:organizationId/answers/:answerId
+DELETE /organizations/:organizationId/answers/:answerId
 ```
+
+Every answer is persisted to the organization's history once a successful
+outcome is produced; a page refresh no longer loses it. `GET …/answers` returns
+`{ answers, nextCursor }` keyset-paginated summaries (question, outcome, and
+timestamp), `GET …/answers/:answerId` returns the full answer and citations, and
+`DELETE …/answers/:answerId` removes one entry. Failed requests are not
+persisted.
 
 The endpoint requires an authenticated session and membership in the
 organization named in the route, exactly like the document endpoints:
@@ -814,8 +824,9 @@ proof of entailment; human review remains necessary.
 
 ### Limitations
 
-- **No conversation persistence or history.** Requests are stateless; a page
-  refresh loses the answer.
+- **Answers are persisted, not conversational.** History stores each answered
+  question and its outcome, but a follow-up question cannot reference a prior
+  answer — each request is independent.
 - **No streaming.** One completed JSON body is returned; typical latency is one
   embedding call plus one completion.
 - **No rate limiting or per-tenant quota.**
