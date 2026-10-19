@@ -33,12 +33,26 @@ export function decodeListCursor(value: string): ListCursor | null {
   }
 }
 
-export function listCursorFilter(cursor: ListCursor): {
+export type ListDirection = 'asc' | 'desc';
+
+export function listCursorFilter(
+  cursor: ListCursor,
+  direction: ListDirection = 'desc',
+): {
   OR: [
-    { createdAt: { lt: Date } },
-    { createdAt: Date; id: { lt: string } },
+    { createdAt: { lt: Date } | { gt: Date } },
+    { createdAt: Date; id: { lt: string } | { gt: string } },
   ];
 } {
+  if (direction === 'asc') {
+    return {
+      OR: [
+        { createdAt: { gt: cursor.createdAt } },
+        { createdAt: cursor.createdAt, id: { gt: cursor.id } },
+      ],
+    };
+  }
+
   return {
     OR: [
       { createdAt: { lt: cursor.createdAt } },

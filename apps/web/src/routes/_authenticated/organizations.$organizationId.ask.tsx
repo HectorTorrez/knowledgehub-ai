@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { LoaderCircle, Send } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { AnswerThread, type LatestAnswer } from '~/components/answer-thread';
+import { AnswerBody } from '~/components/answer-content';
 import { DocumentScopeSelect } from '~/components/document-scope-select';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
@@ -16,8 +17,8 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
+import { useAnswerStream } from '~/hooks/use-answer-stream';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
-import { answerFor, answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { ALL_DOCUMENTS, resolveDocumentScope } from '~/lib/document-scope';
 import { pageHead } from '~/lib/seo';
@@ -35,44 +36,49 @@ export const Route = createFileRoute(
   component: AskPage,
 });
 
+interface AskedQuestion {
+  question: string;
+  documentId: string | undefined;
+  scopeLabel: string;
+}
+
 function AskPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const [question, setQuestion] = useState('');
   const [selection, setSelection] = useState(ALL_DOCUMENTS);
+  const [asked, setAsked] = useState<AskedQuestion | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const answerRef = useRef<HTMLDivElement>(null);
 
   const ready = useReadyDocuments(organizationId);
   const scope = resolveDocumentScope(selection, ready.documents);
-
-  const ask = useMutation({
-    mutationFn: (input: {
-      organizationId: string;
-      question: string;
-      documentId?: string;
-    }) =>
-      answersApi.ask(input.organizationId, input.question, input.documentId),
-    onSuccess: (_data, variables) =>
-      client.invalidateQueries({
-        queryKey: queryKeys.organizations.answers.list(variables.organizationId),
-      }),
-  });
+  const stream = useAnswerStream(organizationId);
 
   useEffect(() => {
-    if (ask.data) {
-      const prefersReducedMotion = window.matchMedia(
-        '(prefers-reduced-motion: reduce)',
-      ).matches;
-
-      answerRef.current?.scrollIntoView({
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        block: 'start',
-      });
+    if (stream.status !== 'done') {
+      return;
     }
-  }, [ask.data]);
+
+    const prefersReducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+
+    answerRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'start',
+    });
+
+    void client.invalidateQueries({
+      queryKey: queryKeys.organizations.answers.list(organizationId),
+    });
+  }, [stream.status, client, organizationId]);
 
   async function submit() {
+    if (stream.status === 'streaming') {
+      return;
+    }
+
     setValidationError(null);
 
     const result = questionSchema.safeParse({ question });
@@ -82,16 +88,14 @@ function AskPage() {
       return;
     }
 
-    try {
-      await ask.mutateAsync({
-        organizationId,
-        question: result.data.question,
-        documentId: scope.documentId,
-      });
-      setQuestion('');
-    } catch {
-      return;
-    }
+    const questionText = result.data.question;
+    setAsked({
+      question: questionText,
+      documentId: scope.documentId,
+      scopeLabel: scope.label,
+    });
+
+    await stream.ask(questionText, scope.documentId);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -106,18 +110,28 @@ function AskPage() {
     }
   }
 
-  const answer = answerFor(ask.variables, ask.data, organizationId);
-  const askedScope = resolveDocumentScope(
-    ask.variables?.documentId ?? ALL_DOCUMENTS,
-    ready.documents,
-  );
-  const latest: LatestAnswer | undefined = answer
-    ? {
-        question: ask.variables?.question ?? '',
-        response: answer,
-        scopeLabel: askedScope.label,
-      }
-    : undefined;
+  const streaming = stream.status === 'streaming';
+  const awaitingFirstToken = streaming && stream.answerStatus === null;
+
+  const latest: LatestAnswer | undefined =
+    stream.status === 'done' && stream.answerStatus !== null && asked !== null
+      ? {
+          question: asked.question,
+          response:
+            stream.answerStatus === 'answered'
+              ? {
+                  status: 'answered',
+                  answer: stream.text,
+                  citations: stream.citations,
+                }
+              : {
+                  status: 'insufficient_evidence',
+                  answer: null,
+                  citations: stream.citations,
+                },
+          scopeLabel: asked.scopeLabel,
+        }
+      : undefined;
 
   return (
     <div className="space-y-8">
@@ -132,7 +146,9 @@ function AskPage() {
             {validationError ? (
               <ErrorNotice error={new Error(validationError)} />
             ) : null}
-            {ask.isError ? <ErrorNotice error={ask.error} /> : null}
+            {stream.status === 'error' ? (
+              <ErrorNotice error={stream.error} />
+            ) : null}
 
             <div className="space-y-2">
               <Label htmlFor="document-scope">Answer from</Label>
@@ -140,7 +156,7 @@ function AskPage() {
                 documents={ready.documents}
                 value={scope.documentId ?? ALL_DOCUMENTS}
                 onValueChange={setSelection}
-                disabled={ready.query.isPending}
+                disabled={ready.query.isPending || streaming}
               />
               <p className="text-xs text-muted-foreground">
                 {scopeHint(ready.query.isPending, ready.documents.length)}
@@ -171,9 +187,9 @@ function AskPage() {
               </p>
               <Button
                 type="submit"
-                disabled={ask.isPending || question.trim().length === 0}
+                disabled={streaming || question.trim().length === 0}
               >
-                {ask.isPending ? (
+                {streaming ? (
                   <>
                     <LoaderCircle className="animate-spin" />
                     Thinking…
@@ -191,11 +207,12 @@ function AskPage() {
       </Card>
 
       <div ref={answerRef} className="scroll-mt-20 space-y-8">
-        {ask.isPending ? (
-          <ThinkingCard
-            question={ask.variables?.question ?? ''}
-            scopeLabel={scope.label}
-          />
+        {awaitingFirstToken && asked !== null ? (
+          <ThinkingCard question={asked.question} scopeLabel={asked.scopeLabel} />
+        ) : null}
+
+        {streaming && !awaitingFirstToken ? (
+          <StreamingAnswerCard text={stream.text} />
         ) : null}
 
         <AnswerThread organizationId={organizationId} latest={latest} />
@@ -231,6 +248,20 @@ function ThinkingCard({
           <LoaderCircle className="size-4 animate-spin" />
           Searching {scopeLabel}…
         </span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StreamingAnswerCard({ text }: Readonly<{ text: string }>) {
+  return (
+    <Card>
+      <CardContent role="status" aria-live="polite" className="space-y-3 p-6">
+        <AnswerBody text={text} />
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <LoaderCircle className="size-3.5 animate-spin" />
+          Writing…
+        </p>
       </CardContent>
     </Card>
   );

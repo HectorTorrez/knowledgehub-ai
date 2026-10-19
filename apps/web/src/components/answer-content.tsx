@@ -1,5 +1,7 @@
 import type { AnswerCitation } from '@knowledgehub/shared-types';
-import { SearchX } from 'lucide-react';
+import { Check, Copy, SearchX } from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '~/components/ui/button';
 
 export function AnswerBody({ text }: Readonly<{ text: string }>) {
   const parts = text.split(/(\[\d+\])/g);
@@ -28,6 +30,33 @@ export function CitationMarker({ marker }: Readonly<{ marker: number }>) {
     >
       {marker}
     </a>
+  );
+}
+
+export function CopyButton({ text }: Readonly<{ text: string }>) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      return;
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={copy}
+      aria-label={copied ? 'Copied' : 'Copy answer'}
+    >
+      {copied ? <Check /> : <Copy />}
+      {copied ? 'Copied' : 'Copy'}
+    </Button>
   );
 }
 

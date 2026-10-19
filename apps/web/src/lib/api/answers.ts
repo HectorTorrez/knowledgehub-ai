@@ -3,26 +3,13 @@ import type {
   AnswerListResponse,
   AnswerRequest,
   AnswerResponse,
+  AnswerStreamEvent,
 } from '@knowledgehub/shared-types';
-import { apiFetch, type RequestOptions } from './client';
-
-export interface AskedQuestion {
-  organizationId: string;
-  question: string;
-  documentId?: string;
-}
+import { apiFetch, apiStream, type RequestOptions } from './client';
 
 export interface ListAnswersOptions extends RequestOptions {
   cursor?: string;
   limit?: number;
-}
-
-export function answerFor(
-  request: AskedQuestion | undefined,
-  answer: AnswerResponse | undefined,
-  organizationId: string,
-): AnswerResponse | undefined {
-  return request?.organizationId === organizationId ? answer : undefined;
 }
 
 export const answersApi = {
@@ -78,3 +65,59 @@ export const answersApi = {
     });
   },
 };
+
+export async function streamAnswer(
+  organizationId: string,
+  question: string,
+  documentId: string | undefined,
+  onEvent: (event: AnswerStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const body: AnswerRequest = {
+    question,
+    stream: true,
+    ...(documentId ? { documentId } : {}),
+  };
+
+  const response = await apiStream(`/organizations/${organizationId}/answers`, {
+    method: 'POST',
+    body,
+    signal,
+  });
+
+  await consumeNdjson(response.body, onEvent);
+}
+
+async function consumeNdjson(
+  body: ReadableStream<Uint8Array> | null,
+  onEvent: (event: AnswerStreamEvent) => void,
+): Promise<void> {
+  if (body === null) {
+    throw new Error('The streamed response had no body.');
+  }
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex = buffer.indexOf('\n');
+    while (newlineIndex >= 0) {
+      const line = buffer.slice(0, newlineIndex).trim();
+      buffer = buffer.slice(newlineIndex + 1);
+
+      if (line.length > 0) {
+        onEvent(JSON.parse(line) as AnswerStreamEvent);
+      }
+
+      newlineIndex = buffer.indexOf('\n');
+    }
+  }
+}

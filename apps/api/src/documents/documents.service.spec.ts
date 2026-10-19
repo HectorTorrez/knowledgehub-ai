@@ -312,7 +312,7 @@ describe('DocumentsService.list', () => {
   it('scopes the query to the authorized organization with a deterministic order', async () => {
     const { service, prisma } = createHarness({ rows: [] });
 
-    await service.list('org-1', { limit: 25 });
+    await service.list('org-1', { limit: 25, order: 'createdAt_desc' });
 
     expect(prisma.document.findMany).toHaveBeenCalledWith({
       where: { organizationId: 'org-1' },
@@ -336,7 +336,7 @@ describe('DocumentsService.list', () => {
   it('returns an empty list and a null cursor for a newly created organization', async () => {
     const { service } = createHarness({ rows: [] });
 
-    await expect(service.list('org-1', { limit: 25 })).resolves.toEqual({
+    await expect(service.list('org-1', { limit: 25, order: 'createdAt_desc' })).resolves.toEqual({
       documents: [],
       nextCursor: null,
     });
@@ -350,7 +350,7 @@ describe('DocumentsService.list', () => {
       ],
     });
 
-    const result = await service.list('org-1', { limit: 25 });
+    const result = await service.list('org-1', { limit: 25, order: 'createdAt_desc' });
 
     expect(result.documents).toEqual([
       {
@@ -386,7 +386,7 @@ describe('DocumentsService.list', () => {
     const second = documentRecord({ id: 'doc-2', createdAt: new Date('2026-01-02T00:00:00.000Z') });
     const { service } = createHarness({ rows: [second, first] });
 
-    const result = await service.list('org-1', { limit: 1 });
+    const result = await service.list('org-1', { limit: 1, order: 'createdAt_desc' });
 
     expect(result.documents).toHaveLength(1);
     expect(result.documents[0].id).toBe('doc-2');
@@ -399,7 +399,7 @@ describe('DocumentsService.list', () => {
       JSON.stringify({ createdAt: '2026-01-01T00:00:00.000Z', id: 'doc-9' }),
     ).toString('base64url');
 
-    await service.list('org-1', { limit: 25, cursor });
+    await service.list('org-1', { limit: 25, order: 'createdAt_desc', cursor });
 
     const args = prisma.document.findMany.mock.calls[0][0] as {
       where: { organizationId: string; OR: unknown[] };
@@ -416,11 +416,63 @@ describe('DocumentsService.list', () => {
     });
   });
 
+  it('filters by title query case-insensitively', async () => {
+    const { service, prisma } = createHarness({ rows: [] });
+
+    await service.list('org-1', { limit: 25, order: 'createdAt_desc', q: 'handbook' });
+
+    expect(prisma.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: 'org-1',
+          title: { contains: 'handbook', mode: 'insensitive' },
+        },
+      }),
+    );
+  });
+
+  it('filters by status', async () => {
+    const { service, prisma } = createHarness({ rows: [] });
+
+    await service.list('org-1', { limit: 25, order: 'createdAt_desc', status: 'READY' });
+
+    expect(prisma.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: 'org-1', status: 'READY' },
+      }),
+    );
+  });
+
+  it('sorts ascending and filters the cursor in the same direction', async () => {
+    const { service, prisma } = createHarness({ rows: [] });
+    const cursor = Buffer.from(
+      JSON.stringify({ createdAt: '2026-01-01T00:00:00.000Z', id: 'doc-9' }),
+    ).toString('base64url');
+
+    await service.list('org-1', { limit: 25, order: 'createdAt_asc', cursor });
+
+    const args = prisma.document.findMany.mock.calls[0][0] as {
+      orderBy: unknown[];
+      where: { organizationId: string; OR: unknown[] };
+    };
+    expect(args.orderBy).toEqual([{ createdAt: 'asc' }, { id: 'asc' }]);
+    expect(args.where).toEqual({
+      organizationId: 'org-1',
+      OR: [
+        { createdAt: { gt: new Date('2026-01-01T00:00:00.000Z') } },
+        {
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          id: { gt: 'doc-9' },
+        },
+      ],
+    });
+  });
+
   it('rejects a malformed cursor with 400 without querying the database', async () => {
     const { service, prisma } = createHarness({ rows: [] });
 
     await expect(
-      service.list('org-1', { limit: 25, cursor: 'not-a-cursor' }),
+      service.list('org-1', { limit: 25, order: 'createdAt_desc', cursor: 'not-a-cursor' }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(prisma.document.findMany).not.toHaveBeenCalled();
@@ -431,7 +483,7 @@ describe('DocumentsService.list', () => {
       rows: [documentRecord({ id: 'doc-1' })],
     });
 
-    const result = await service.list('org-1', { limit: 25 });
+    const result = await service.list('org-1', { limit: 25, order: 'createdAt_desc' });
 
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('storageKey');

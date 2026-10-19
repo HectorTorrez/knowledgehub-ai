@@ -1,3 +1,34 @@
+import type { DocumentStatus } from '@knowledgehub/shared-types';
+
+interface DocumentListFilters {
+  q?: string;
+  status?: DocumentStatus;
+  order?: 'createdAt_desc' | 'createdAt_asc';
+}
+
+function documentsListKey(
+  organizationId: string,
+  filters: DocumentListFilters,
+) {
+  const base = [
+    'organizations',
+    organizationId,
+    'documents',
+    'list',
+  ] as const;
+
+  if (Object.values(filters).every((value) => value === undefined)) {
+    return base;
+  }
+
+  return [
+    ...base,
+    filters.q ?? '',
+    filters.status ?? '',
+    filters.order ?? 'createdAt_desc',
+  ] as const;
+}
+
 export const queryKeys = {
   organizations: {
     all: ['organizations'] as const,
@@ -7,8 +38,8 @@ export const queryKeys = {
     members: (organizationId: string) =>
       ['organizations', organizationId, 'members'] as const,
     documents: {
-      list: (organizationId: string) =>
-        ['organizations', organizationId, 'documents', 'list'] as const,
+      list: (organizationId: string, filters: DocumentListFilters = {}) =>
+        documentsListKey(organizationId, filters),
       ready: (organizationId: string) =>
         ['organizations', organizationId, 'documents', 'list', 'ready'] as const,
       detail: (organizationId: string, documentId: string) =>
