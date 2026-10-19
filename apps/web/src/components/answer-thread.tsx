@@ -223,8 +223,9 @@ function LatestAnswerCard({
                 size="icon"
                 onClick={onRequestDelete}
                 aria-label={`Remove “${latest.question}” from history`}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
-                <Trash2 className="size-4 text-muted-foreground" />
+                <Trash2 className="size-4" />
               </Button>
             ) : null}
           </div>
@@ -269,7 +270,7 @@ function HistoryRow({
           <span
             className={cn(
               'size-2 shrink-0 rounded-full',
-              answer.status === 'answered' ? 'bg-primary' : 'bg-muted-foreground/40',
+              answer.status === 'answered' ? 'bg-success' : 'bg-muted-foreground/40',
             )}
           />
           <span className="min-w-0 flex-1">
@@ -293,8 +294,9 @@ function HistoryRow({
           size="icon"
           onClick={onRequestDelete}
           aria-label={`Remove “${answer.question}” from history`}
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
         >
-          <Trash2 className="size-4 text-muted-foreground" />
+          <Trash2 className="size-4" />
         </Button>
       </div>
 
