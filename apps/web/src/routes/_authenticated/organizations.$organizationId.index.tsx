@@ -33,13 +33,17 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
+import { useToast } from '~/components/ui/toast';
+import { useSession } from '~/hooks/use-auth';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
+import { formatDate, formatRole } from '~/lib/format';
 import { memberEmailSchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/',
 )({
+  head: () => ({ meta: [{ title: 'Overview · KnowledgeHub AI' }] }),
   component: OrganizationOverviewPage,
 });
 
@@ -51,10 +55,15 @@ interface MemberToRemove {
 function OrganizationOverviewPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
+  const { toast } = useToast();
+  const session = useSession();
   const [email, setEmail] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<MemberToRemove | null>(null);
+
+  const currentUserId =
+    session.data?.status === 'authenticated' ? session.data.user.id : undefined;
 
   const organization = useQuery({
     queryKey: queryKeys.organizations.detail(organizationId),
@@ -70,10 +79,17 @@ function OrganizationOverviewPage() {
   const addMember = useMutation({
     mutationFn: (input: { organizationId: string; email: string }) =>
       organizationsApi.addMember(input.organizationId, { email: input.email }),
-    onSuccess: (_data, variables) =>
-      client.invalidateQueries({
+    onSuccess: (data, variables) => {
+      toast({
+        variant: 'success',
+        title: 'Member added',
+        description: `${data.member.email} can now access this organization.`,
+      });
+
+      return client.invalidateQueries({
         queryKey: queryKeys.organizations.members(variables.organizationId),
-      }),
+      });
+    },
   });
 
   const updateRole = useMutation({
@@ -85,19 +101,31 @@ function OrganizationOverviewPage() {
       organizationsApi.updateMemberRole(input.organizationId, input.userId, {
         role: input.role,
       }),
-    onSuccess: (_data, variables) =>
-      client.invalidateQueries({
+    onSuccess: (data, variables) => {
+      toast({
+        variant: 'success',
+        title: 'Role updated',
+        description: `${data.member.email} is now ${
+          data.member.role === 'OWNER' ? 'an owner' : 'a member'
+        }.`,
+      });
+
+      return client.invalidateQueries({
         queryKey: queryKeys.organizations.members(variables.organizationId),
-      }),
+      });
+    },
   });
 
   const removeMember = useMutation({
     mutationFn: (input: { organizationId: string; userId: string }) =>
       organizationsApi.removeMember(input.organizationId, input.userId),
-    onSuccess: (_data, variables) =>
-      client.invalidateQueries({
+    onSuccess: (_data, variables) => {
+      toast({ variant: 'success', title: 'Member removed' });
+
+      return client.invalidateQueries({
         queryKey: queryKeys.organizations.members(variables.organizationId),
-      }),
+      });
+    },
   });
 
   async function handleAddMember(event: FormEvent<HTMLFormElement>) {
@@ -120,9 +148,13 @@ function OrganizationOverviewPage() {
     }
   }
 
-  function handleRemoveMember(member: MemberToRemove) {
-    removeMember.mutate({ organizationId, userId: member.userId });
-    setMemberToRemove(null);
+  async function handleRemoveMember(member: MemberToRemove) {
+    try {
+      await removeMember.mutateAsync({ organizationId, userId: member.userId });
+      setMemberToRemove(null);
+    } catch {
+      return;
+    }
   }
 
   return (
@@ -138,14 +170,16 @@ function OrganizationOverviewPage() {
               {organization.data?.organization.name ?? '—'}
             </DetailItem>
             <DetailItem label="Your role">
-              {organization.data?.organization.role ?? '—'}
+              {organization.data
+                ? formatRole(organization.data.organization.role)
+                : '—'}
             </DetailItem>
             <DetailItem label="Members">
               {members.data?.members.length ?? '—'}
             </DetailItem>
             <DetailItem label="Created">
               {organization.data
-                ? new Date(organization.data.organization.createdAt).toLocaleDateString()
+                ? formatDate(organization.data.organization.createdAt)
                 : '—'}
             </DetailItem>
           </dl>
@@ -204,6 +238,11 @@ function OrganizationOverviewPage() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">
                           {member.firstName} {member.lastName}
+                          {member.userId === currentUserId ? (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              (you)
+                            </span>
+                          ) : null}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {member.email}
@@ -211,7 +250,7 @@ function OrganizationOverviewPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      {isOwner ? (
+                      {isOwner && member.userId !== currentUserId ? (
                         <Select
                           value={member.role}
                           onValueChange={(role) =>
@@ -235,9 +274,11 @@ function OrganizationOverviewPage() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Badge variant="secondary">{member.role}</Badge>
+                        <Badge variant="secondary">
+                          {formatRole(member.role)}
+                        </Badge>
                       )}
-                      {isOwner ? (
+                      {isOwner && member.userId !== currentUserId ? (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -321,6 +362,9 @@ function OrganizationOverviewPage() {
                 : 'This member will lose access to this organization.'}
             </DialogDescription>
           </DialogHeader>
+          {removeMember.isError ? (
+            <ErrorNotice error={removeMember.error} />
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setMemberToRemove(null)}>
               Cancel
@@ -328,9 +372,11 @@ function OrganizationOverviewPage() {
             <Button
               variant="destructive"
               disabled={removeMember.isPending}
-              onClick={() =>
-                memberToRemove ? handleRemoveMember(memberToRemove) : undefined
-              }
+              onClick={() => {
+                if (memberToRemove) {
+                  void handleRemoveMember(memberToRemove);
+                }
+              }}
             >
               {removeMember.isPending ? 'Removing…' : 'Remove'}
             </Button>

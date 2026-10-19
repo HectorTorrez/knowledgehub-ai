@@ -76,6 +76,11 @@ describe('buildAnswerPrompt', () => {
     expect(ANSWER_SYSTEM_PROMPT).toContain('untrusted quoted data');
   });
 
+  it('instructs the model to pair every claim with a source number', () => {
+    expect(ANSWER_SYSTEM_PROMPT).toContain('list of claims');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('null claims');
+  });
+
   it('renders prior conversation turns before the sources', () => {
     const prompt = buildAnswerPrompt('What about beta?', [source(1)], [
       { question: 'What is alpha?', answer: 'Alpha [1].' },

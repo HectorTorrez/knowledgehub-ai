@@ -1,3 +1,5 @@
+import type { OrganizationRole } from '@knowledgehub/shared-types';
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) {
     return `${bytes} B`;
@@ -15,4 +17,12 @@ export function formatDateTime(iso: string): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
+}
+
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
+export function formatRole(role: OrganizationRole): string {
+  return role === 'OWNER' ? 'Owner' : 'Member';
 }

@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
 import { Brand } from '~/components/brand';
+import { PasswordInput } from '~/components/password-input';
 import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import {
@@ -24,6 +25,7 @@ import { loginFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/login')({
   ssr: false,
+  head: () => ({ meta: [{ title: 'Sign in · KnowledgeHub AI' }] }),
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: toSameOriginPath(search.redirect),
   }),
@@ -107,6 +109,7 @@ function LoginPage() {
                   name="email"
                   type="email"
                   autoComplete="email"
+                  autoFocus
                   placeholder="you@example.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -114,13 +117,12 @@ function LoginPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   autoComplete="current-password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={setPassword}
                 />
               </div>
               <Button

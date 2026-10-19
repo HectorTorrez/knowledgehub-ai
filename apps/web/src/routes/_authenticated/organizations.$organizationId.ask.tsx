@@ -2,7 +2,7 @@ import type { AnswerResponse } from '@knowledgehub/shared-types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { LoaderCircle, Send } from 'lucide-react';
-import { useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { AnswerHistory } from '~/components/answer-history';
 import {
   AnswerBody,
@@ -22,6 +22,7 @@ import { questionSchema, QUESTION_MAX_LENGTH } from '~/lib/validation';
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/ask',
 )({
+  head: () => ({ meta: [{ title: 'Ask a question · KnowledgeHub AI' }] }),
   component: AskPage,
 });
 
@@ -30,6 +31,7 @@ function AskPage() {
   const client = useQueryClient();
   const [question, setQuestion] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const answerRef = useRef<HTMLDivElement>(null);
 
   const ask = useMutation({
     mutationFn: (input: { organizationId: string; question: string }) =>
@@ -39,6 +41,19 @@ function AskPage() {
         queryKey: queryKeys.organizations.answers.list(variables.organizationId),
       }),
   });
+
+  useEffect(() => {
+    if (ask.data) {
+      const prefersReducedMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches;
+
+      answerRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+  }, [ask.data]);
 
   async function submit() {
     setValidationError(null);
@@ -55,6 +70,7 @@ function AskPage() {
         organizationId,
         question: result.data.question,
       });
+      setQuestion('');
     } catch {
       return;
     }
@@ -93,14 +109,19 @@ function AskPage() {
               <Textarea
                 id="question"
                 rows={4}
+                maxLength={QUESTION_MAX_LENGTH}
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 onKeyDown={handleKeyDown}
+                aria-describedby="question-hint"
                 placeholder="What is the parental leave policy?"
               />
             </div>
             <div className="flex items-center justify-between gap-4">
-              <p className="text-xs text-muted-foreground">
+              <p
+                id="question-hint"
+                className="text-xs text-muted-foreground"
+              >
                 {question.length}/{QUESTION_MAX_LENGTH} · Enter to ask,
                 Shift+Enter for a new line
               </p>
@@ -125,11 +146,16 @@ function AskPage() {
         </CardContent>
       </Card>
 
-      {ask.isPending ? <ThinkingCard /> : null}
+      <div ref={answerRef} className="scroll-mt-20">
+        {ask.isPending ? <ThinkingCard /> : null}
 
-      {answer ? (
-        <AnswerSection question={ask.variables?.question ?? ''} answer={answer} />
-      ) : null}
+        {answer ? (
+          <AnswerSection
+            question={ask.variables?.question ?? ''}
+            answer={answer}
+          />
+        ) : null}
+      </div>
 
       <AnswerHistory organizationId={organizationId} />
     </div>
@@ -139,7 +165,11 @@ function AskPage() {
 function ThinkingCard() {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-6 text-sm text-muted-foreground">
+      <CardContent
+        role="status"
+        aria-live="polite"
+        className="flex items-center gap-3 p-6 text-sm text-muted-foreground"
+      >
         <LoaderCircle className="size-4 animate-spin" />
         Searching this organization&apos;s documents…
       </CardContent>

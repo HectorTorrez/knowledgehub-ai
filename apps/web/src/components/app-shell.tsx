@@ -48,6 +48,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <div className="min-h-dvh bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:border focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Skip to content
+      </a>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link to="/organizations" className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -94,7 +100,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           <ErrorNotice error={signOutError} />
         </div>
       ) : null}
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-6xl px-4 py-8 outline-none sm:px-6"
+      >
+        {children}
+      </main>
     </div>
   );
 }
