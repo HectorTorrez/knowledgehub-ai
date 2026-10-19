@@ -4,7 +4,8 @@ const EMAIL_MAX_LENGTH = 254;
 const NAME_MAX_LENGTH = 100;
 const DOCUMENT_TITLE_MAX_LENGTH = 200;
 export const QUESTION_MAX_LENGTH = 2000;
-const PASSWORD_MIN_LENGTH = 12;
+export const SEARCH_QUERY_MAX_LENGTH = 2000;
+export const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 128;
 
 export const ALLOWED_UPLOAD_CONTENT_TYPES = [
@@ -90,8 +91,8 @@ export const searchQuerySchema = z.object({
     .trim()
     .min(1, 'Enter a search query.')
     .max(
-      QUESTION_MAX_LENGTH,
-      `Search queries must be at most ${QUESTION_MAX_LENGTH} characters.`,
+      SEARCH_QUERY_MAX_LENGTH,
+      `Search queries must be at most ${SEARCH_QUERY_MAX_LENGTH} characters.`,
     ),
 });
 

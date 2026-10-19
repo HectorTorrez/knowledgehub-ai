@@ -67,7 +67,10 @@ function createRetrieval(
 
 function createProvider(
   impl: AnswerProvider['generate'] = async () =>
-    generation({ status: 'answered', answer: 'Retries are bounded [1].' }),
+    generation({
+      status: 'answered',
+      claims: [{ text: 'Retries are bounded.', source: 1 }],
+    }),
 ) {
   const generate = vi.fn(impl);
   return { provider: { generate } as AnswerProvider, generate };
@@ -310,7 +313,11 @@ describe('AnswersService', () => {
       providerImpl: async () =>
         generation({
           status: 'answered',
-          answer: 'Second [2] and first [1] and second again [2].',
+          claims: [
+            { text: 'Second.', source: 2 },
+            { text: 'First.', source: 1 },
+            { text: 'Second again.', source: 2 },
+          ],
         }),
     });
 
@@ -332,7 +339,7 @@ describe('AnswersService', () => {
   it('returns the fixed refusal when the model declines', async () => {
     const { service } = createService({
       providerImpl: async () =>
-        generation({ status: 'insufficient_evidence', answer: null }),
+        generation({ status: 'insufficient_evidence', claims: null }),
     });
 
     await expect(service.answer('org-1', USER_ID, 'What is alpha?')).resolves.toEqual({
@@ -343,11 +350,23 @@ describe('AnswersService', () => {
   });
 
   it.each([
-    ['an unknown marker', { status: 'answered', answer: 'Bad [9].' }],
-    ['no markers', { status: 'answered', answer: 'No marker here.' }],
-    ['a malformed marker', { status: 'answered', answer: 'Bad [1,2].' }],
-    ['an empty answer', { status: 'answered', answer: '   ' }],
-    ['unexpected fields', { status: 'answered', answer: 'Alpha [1].', extra: 1 }],
+    [
+      'a claim citing an unknown source',
+      { status: 'answered', claims: [{ text: 'Alpha.', source: 9 }] },
+    ],
+    ['an empty claim list', { status: 'answered', claims: [] }],
+    [
+      'a blank claim',
+      { status: 'answered', claims: [{ text: '   ', source: 1 }] },
+    ],
+    [
+      'a non-integer source',
+      { status: 'answered', claims: [{ text: 'Alpha.', source: 1.5 }] },
+    ],
+    [
+      'unexpected fields',
+      { status: 'answered', claims: [{ text: 'Alpha.', source: 1 }], extra: 1 },
+    ],
     ['a non-object payload', 'not an object'],
   ])('maps %s to 502 without returning the payload', async (_label, draft) => {
     const { service } = createService({
@@ -365,7 +384,10 @@ describe('AnswersService', () => {
   it('maps a refusal carrying an answer to 502', async () => {
     const { service } = createService({
       providerImpl: async () =>
-        generation({ status: 'insufficient_evidence', answer: 'I refuse.' }),
+        generation({
+          status: 'insufficient_evidence',
+          claims: [{ text: 'I refuse.', source: 1 }],
+        }),
     });
 
     await expect(
@@ -452,7 +474,10 @@ describe('AnswersService', () => {
       chunks: [{ ...CHUNK, content: 'PASSAGE_SECRET_MARKER' }],
       providerImpl: async () =>
         generation(
-          { status: 'answered', answer: 'ANSWER_SECRET_MARKER [1].' },
+          {
+            status: 'answered',
+            claims: [{ text: 'ANSWER_SECRET_MARKER.', source: 1 }],
+          },
           { inputTokens: 11, outputTokens: 22 },
         ),
     });

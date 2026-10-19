@@ -19,13 +19,24 @@ import {
 import { ErrorNotice } from './route-states';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import { Skeleton } from './ui/skeleton';
+import { useToast } from './ui/toast';
 
 export function AnswerHistory({
   organizationId,
 }: Readonly<{ organizationId: string }>) {
   const client = useQueryClient();
+  const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AnswerSummary | null>(null);
 
   const history = useInfiniteQuery({
     queryKey: queryKeys.organizations.answers.list(organizationId),
@@ -38,11 +49,30 @@ export function AnswerHistory({
   const remove = useMutation({
     mutationFn: (answerId: string) =>
       answersApi.remove(organizationId, answerId),
-    onSettled: () =>
-      client.invalidateQueries({
+    onSuccess: () => {
+      toast({ variant: 'success', title: 'Question removed from history' });
+
+      return client.invalidateQueries({
         queryKey: queryKeys.organizations.answers.list(organizationId),
-      }),
+      });
+    },
   });
+
+  async function handleDelete() {
+    if (deleteTarget === null) {
+      return;
+    }
+
+    try {
+      await remove.mutateAsync(deleteTarget.id);
+      if (expandedId === deleteTarget.id) {
+        setExpandedId(null);
+      }
+      setDeleteTarget(null);
+    } catch {
+      return;
+    }
+  }
 
   const rows = history.data?.pages.flatMap((page) => page.answers) ?? [];
 
@@ -51,13 +81,18 @@ export function AnswerHistory({
       <h2 className="text-lg font-semibold">History</h2>
 
       {history.isError ? <ErrorNotice error={history.error} /> : null}
+      {remove.isError && deleteTarget === null ? (
+        <ErrorNotice error={remove.error} />
+      ) : null}
 
       {history.isPending ? (
         <Skeleton className="h-24 w-full rounded-xl" />
       ) : null}
 
       {!history.isPending && rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No questions asked yet.</p>
+        <p className="text-sm text-muted-foreground">
+          Questions you ask will appear here so you can revisit their answers.
+        </p>
       ) : null}
 
       {rows.length > 0 ? (
@@ -73,8 +108,10 @@ export function AnswerHistory({
                   onToggle={() =>
                     setExpandedId(expandedId === answer.id ? null : answer.id)
                   }
-                  onDelete={() => remove.mutate(answer.id)}
-                  deleting={remove.isPending && remove.variables === answer.id}
+                  onRequestDelete={() => {
+                    remove.reset();
+                    setDeleteTarget(answer);
+                  }}
                 />
               ))}
             </ul>
@@ -96,6 +133,38 @@ export function AnswerHistory({
           </Button>
         </div>
       ) : null}
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove from history</DialogTitle>
+            <DialogDescription>
+              This permanently removes this question and its answer from your
+              history. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {remove.isError ? <ErrorNotice error={remove.error} /> : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => void handleDelete()}
+            >
+              {remove.isPending ? 'Removing…' : 'Remove'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -105,15 +174,13 @@ function HistoryRow({
   answer,
   expanded,
   onToggle,
-  onDelete,
-  deleting,
+  onRequestDelete,
 }: Readonly<{
   organizationId: string;
   answer: AnswerSummary;
   expanded: boolean;
   onToggle: () => void;
-  onDelete: () => void;
-  deleting: boolean;
+  onRequestDelete: () => void;
 }>) {
   return (
     <li>
@@ -121,7 +188,8 @@ function HistoryRow({
         <button
           type="button"
           onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <span
             className={cn(
@@ -135,6 +203,7 @@ function HistoryRow({
             </span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
               {formatDateTime(answer.createdAt)}
+              {answer.status === 'answered' ? '' : ' · Not answered'}
             </span>
           </span>
           <ChevronDown
@@ -147,9 +216,8 @@ function HistoryRow({
         <Button
           variant="ghost"
           size="icon"
-          onClick={onDelete}
-          disabled={deleting}
-          aria-label="Delete answer"
+          onClick={onRequestDelete}
+          aria-label={`Remove “${answer.question}” from history`}
         >
           <Trash2 className="size-4 text-muted-foreground" />
         </Button>

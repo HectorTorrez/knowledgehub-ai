@@ -27,16 +27,20 @@ import {
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
+import { useToast } from '~/components/ui/toast';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
+import { formatDate, formatRole } from '~/lib/format';
 import { organizationNameSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/_authenticated/organizations/')({
+  head: () => ({ meta: [{ title: 'Organizations · KnowledgeHub AI' }] }),
   component: OrganizationsPage,
 });
 
 function OrganizationsPage() {
   const client = useQueryClient();
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -49,8 +53,15 @@ function OrganizationsPage() {
   const create = useMutation({
     mutationFn: (organizationName: string) =>
       organizationsApi.create({ name: organizationName }),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: queryKeys.organizations.all }),
+    onSuccess: (data) => {
+      toast({
+        variant: 'success',
+        title: 'Organization created',
+        description: `“${data.organization.name}” is ready for documents.`,
+      });
+
+      return client.invalidateQueries({ queryKey: queryKeys.organizations.all });
+    },
   });
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -138,12 +149,12 @@ function OrganizationsPage() {
                       <span className="truncate">{organization.name}</span>
                     </CardTitle>
                     <CardDescription>
-                      {organization.role === 'OWNER' ? 'You own this organization' : 'Member'}
+                      Created {formatDate(organization.createdAt)}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex items-center justify-between">
                     <Badge variant={organization.role === 'OWNER' ? 'default' : 'secondary'}>
-                      {organization.role}
+                      {formatRole(organization.role)}
                     </Badge>
                     <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </CardContent>

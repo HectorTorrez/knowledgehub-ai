@@ -59,7 +59,10 @@ function generate(provider: AnswerProvider): Promise<AnswerGeneration> {
 
 describe('parseAnswerResponse', () => {
   it('returns the parsed draft from the assistant message', () => {
-    const draft = { status: 'answered', answer: 'Alpha [1].' };
+    const draft = {
+      status: 'answered',
+      claims: [{ text: 'Alpha.', source: 1 }],
+    };
 
     expect(
       parseAnswerResponse(completion(JSON.stringify(draft))),
@@ -114,11 +117,16 @@ describe('parseAnswerUsage', () => {
 describe('OpenAiAnswerProvider', () => {
   it('sends the model, prompt, output limit, JSON schema, and authorization', async () => {
     const fetchImpl = vi.fn<AnswerFetch>(async () =>
-      response(200, completion('{"status":"answered","answer":"Alpha [1]."}')),
+      response(
+        200,
+        completion(
+          '{"status":"answered","claims":[{"text":"Alpha.","source":1}]}',
+        ),
+      ),
     );
 
     await expect(generate(createProvider(fetchImpl))).resolves.toEqual({
-      draft: { status: 'answered', answer: 'Alpha [1].' },
+      draft: { status: 'answered', claims: [{ text: 'Alpha.', source: 1 }] },
       usage: { inputTokens: null, outputTokens: null },
     });
 
@@ -147,9 +155,20 @@ describe('OpenAiAnswerProvider', () => {
       type: 'object',
       properties: {
         status: { type: 'string', enum: ['answered', 'insufficient_evidence'] },
-        answer: { type: ['string', 'null'] },
+        claims: {
+          type: ['array', 'null'],
+          items: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              source: { type: 'integer' },
+            },
+            required: ['text', 'source'],
+            additionalProperties: false,
+          },
+        },
       },
-      required: ['status', 'answer'],
+      required: ['status', 'claims'],
       additionalProperties: false,
     });
   });
@@ -158,14 +177,20 @@ describe('OpenAiAnswerProvider', () => {
     const fetchImpl = vi.fn<AnswerFetch>(async () =>
       response(200, {
         choices: [
-          { message: { role: 'assistant', content: '{"status":"answered","answer":"Alpha [1]."}' } },
+          {
+            message: {
+              role: 'assistant',
+              content:
+                '{"status":"answered","claims":[{"text":"Alpha.","source":1}]}',
+            },
+          },
         ],
         usage: { prompt_tokens: 120, completion_tokens: 8 },
       }),
     );
 
     await expect(generate(createProvider(fetchImpl))).resolves.toEqual({
-      draft: { status: 'answered', answer: 'Alpha [1].' },
+      draft: { status: 'answered', claims: [{ text: 'Alpha.', source: 1 }] },
       usage: { inputTokens: 120, outputTokens: 8 },
     });
   });
@@ -174,12 +199,12 @@ describe('OpenAiAnswerProvider', () => {
     const fetchImpl = vi.fn<AnswerFetch>(async () =>
       response(
         200,
-        completion('{"status":"insufficient_evidence","answer":null}'),
+        completion('{"status":"insufficient_evidence","claims":null}'),
       ),
     );
 
     await expect(generate(createProvider(fetchImpl))).resolves.toEqual({
-      draft: { status: 'insufficient_evidence', answer: null },
+      draft: { status: 'insufficient_evidence', claims: null },
       usage: { inputTokens: null, outputTokens: null },
     });
   });

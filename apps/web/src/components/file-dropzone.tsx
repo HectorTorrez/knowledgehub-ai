@@ -51,6 +51,7 @@ export function FileDropzone({
         ref={inputRef}
         type="file"
         accept={accept}
+        tabIndex={-1}
         className="sr-only"
         onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
       />

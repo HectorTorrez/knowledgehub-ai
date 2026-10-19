@@ -9,6 +9,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { ToastProvider } from '~/components/ui/toast';
 import appCss from '~/styles/app.css?url';
 
 export const Route = createRootRouteWithContext<{
@@ -32,7 +33,9 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   return (
     <RootDocument>
-      <Outlet />
+      <ToastProvider>
+        <Outlet />
+      </ToastProvider>
     </RootDocument>
   );
 }

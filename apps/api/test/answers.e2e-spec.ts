@@ -218,7 +218,7 @@ describe('answers (e2e)', () => {
     embedImpl = async () => [basis(0)];
     answerProvider.calls.length = 0;
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', answer: 'Default [1].' });
+      draft({ status: 'answered', claims: [{ text: 'Default.', source: 1 }] });
   });
 
   afterEach(async () => {
@@ -292,7 +292,7 @@ describe('answers (e2e)', () => {
     answerProvider.generateImpl = async () =>
       draft({
         status: 'answered',
-        answer: 'Retries are bounded by maxAttempts [1].',
+        claims: [{ text: 'Retries are bounded by maxAttempts.', source: 1 }],
       });
 
     const response = await ask(token, organizationId, {
@@ -369,7 +369,7 @@ describe('answers (e2e)', () => {
     await seedReadyChunk(organizationId, 'some passage');
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'insufficient_evidence', answer: null });
+      draft({ status: 'insufficient_evidence', claims: null });
 
     const response = await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -427,7 +427,10 @@ describe('answers (e2e)', () => {
     await seedReadyChunk(organizationId, 'some passage');
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', answer: 'Ungrounded claim [9].' });
+      draft({
+        status: 'answered',
+        claims: [{ text: 'Ungrounded claim.', source: 9 }],
+      });
 
     const response = await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -437,18 +440,18 @@ describe('answers (e2e)', () => {
   });
 
   it.each([
-    ['a comma-separated group', 'Malformed [1,2].'],
-    ['a range', 'Malformed [1-3].'],
-    ['an unclosed marker', 'Malformed [1.'],
+    ['a claim citing an unknown source', { text: 'Malformed claim.', source: 2 }],
+    ['a blank claim', { text: '   ', source: 1 }],
+    ['a non-integer source', { text: 'Malformed claim.', source: 1.5 }],
   ])(
     'maps %s to 502 and discards the answer',
-    async (_label, answer) => {
+    async (_label, claim) => {
       const { token } = await registerUser();
       const organizationId = await createOrganization(token, 'Malformed Org');
       await seedReadyChunk(organizationId, 'some passage');
 
       answerProvider.generateImpl = async () =>
-        draft({ status: 'answered', answer });
+        draft({ status: 'answered', claims: [claim] });
 
       const response = await ask(token, organizationId, {
         question: 'What is alpha?',
@@ -458,24 +461,22 @@ describe('answers (e2e)', () => {
     },
   );
 
-  it('maps an answered response with zero citations to 502 and discards the answer', async () => {
+  it('maps an answered response with no claims to 502 and discards the answer', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'No Citation Org');
     await seedReadyChunk(organizationId, 'some passage');
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', answer: 'A claim with no marker.' });
+      draft({ status: 'answered', claims: [] });
 
     const response = await ask(token, organizationId, {
       question: 'What is alpha?',
     }).expect(502);
 
-    expect(JSON.stringify(response.body)).not.toContain(
-      'A claim with no marker',
-    );
+    expect(response.body).not.toHaveProperty('answer');
   });
 
-  it('maps an insufficient-evidence response carrying prose to 502', async () => {
+  it('maps an insufficient-evidence response carrying claims to 502', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Prose Refusal Org');
     await seedReadyChunk(organizationId, 'some passage');
@@ -483,7 +484,7 @@ describe('answers (e2e)', () => {
     answerProvider.generateImpl = async () =>
       draft({
         status: 'insufficient_evidence',
-        answer: 'I cannot answer that.',
+        claims: [{ text: 'I cannot answer that.', source: 1 }],
       });
 
     const response = await ask(token, organizationId, {
@@ -557,7 +558,7 @@ describe('answers (e2e)', () => {
     );
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', answer: 'Alpha only [1].' });
+      draft({ status: 'answered', claims: [{ text: 'Alpha only.', source: 1 }] });
 
     const response = await ask(owner.token, organizationId, {
       question: 'What is alpha?',
@@ -607,7 +608,7 @@ describe('answers (e2e)', () => {
     });
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', answer: 'Current only [1].' });
+      draft({ status: 'answered', claims: [{ text: 'Current only.', source: 1 }] });
 
     await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -627,7 +628,10 @@ describe('answers (e2e)', () => {
     await seedReadyChunk(organizationId, 'PASSAGE_SECRET_MARKER');
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', answer: 'ANSWER_SECRET_MARKER [1].' });
+      draft({
+        status: 'answered',
+        claims: [{ text: 'ANSWER_SECRET_MARKER.', source: 1 }],
+      });
 
     await ask(token, organizationId, {
       question: 'QUESTION_SECRET_MARKER?',
