@@ -4,6 +4,7 @@ import { sessionQuery } from '~/lib/auth/session';
 
 export const Route = createFileRoute('/_authenticated')({
   ssr: false,
+  head: () => ({ meta: [{ name: 'robots', content: 'noindex, nofollow' }] }),
   beforeLoad: async ({ context, location }) => {
     const state = await context.queryClient.fetchQuery(sessionQuery);
 

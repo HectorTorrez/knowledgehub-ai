@@ -171,7 +171,7 @@ async function preflight(app: INestApplication): Promise<void> {
 
     await provider.generate(
       {
-        system: 'Return status insufficient_evidence with a null answer.',
+        system: 'Return status insufficient_evidence with null claims.',
         user: 'Question: preflight',
       },
       { maxOutputTokens: 32 },

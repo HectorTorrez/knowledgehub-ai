@@ -40,9 +40,20 @@ const ANSWER_JSON_SCHEMA = {
     type: 'object',
     properties: {
       status: { type: 'string', enum: ['answered', 'insufficient_evidence'] },
-      answer: { type: ['string', 'null'] },
+      claims: {
+        type: ['array', 'null'],
+        items: {
+          type: 'object',
+          properties: {
+            text: { type: 'string' },
+            source: { type: 'integer' },
+          },
+          required: ['text', 'source'],
+          additionalProperties: false,
+        },
+      },
     },
-    required: ['status', 'answer'],
+    required: ['status', 'claims'],
     additionalProperties: false,
   },
 } as const;

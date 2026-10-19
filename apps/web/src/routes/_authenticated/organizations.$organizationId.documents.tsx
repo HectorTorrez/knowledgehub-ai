@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   MoreHorizontal,
   Pencil,
+  RefreshCw,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -39,9 +40,12 @@ import {
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
+import { useToast } from '~/components/ui/toast';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatBytes } from '~/lib/format';
+import { pageHead } from '~/lib/seo';
+import { cn } from '~/lib/utils';
 import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
   documentTitleSchema,
@@ -51,6 +55,12 @@ import {
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/documents',
 )({
+  head: () =>
+    pageHead({
+      title: 'Documents · KnowledgeHub AI',
+      description:
+        "Upload and manage the documents used to ground your organization's answers.",
+    }),
   component: DocumentsPage,
 });
 
@@ -59,6 +69,7 @@ const ACTIVE_STATUSES = new Set<DocumentSummary['status']>(['PENDING', 'PROCESSI
 function DocumentsPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
+  const { toast } = useToast();
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -168,6 +179,11 @@ function DocumentsPage() {
 
     try {
       await upload.mutateAsync({ organizationId, title: result.data.title, file });
+      toast({
+        variant: 'success',
+        title: 'Document uploaded',
+        description: `“${result.data.title}” is queued for processing.`,
+      });
       setTitle('');
       setFile(null);
       setUploadOpen(false);
@@ -199,6 +215,7 @@ function DocumentsPage() {
         documentId: renameTarget.id,
         title: result.data.title,
       });
+      toast({ variant: 'success', title: 'Document renamed' });
       setRenameTarget(null);
     } catch {
       return;
@@ -212,6 +229,11 @@ function DocumentsPage() {
 
     try {
       await remove.mutateAsync(deleteTarget.id);
+      toast({
+        variant: 'success',
+        title: 'Document deleted',
+        description: `“${deleteTarget.title}” was removed.`,
+      });
       setDeleteTarget(null);
     } catch {
       return;
@@ -229,12 +251,25 @@ function DocumentsPage() {
             title="Documents"
             description="Upload documents and ask questions grounded in their contents."
             action={
-              <DialogTrigger asChild>
-                <Button>
-                  <Upload />
-                  Upload document
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Refresh documents"
+                  onClick={() => void documents.refetch()}
+                  disabled={documents.isFetching}
+                >
+                  <RefreshCw
+                    className={cn(documents.isFetching && 'animate-spin')}
+                  />
                 </Button>
-              </DialogTrigger>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Upload />
+                    Upload document
+                  </Button>
+                </DialogTrigger>
+              </div>
             }
           />
 
@@ -279,12 +314,18 @@ function DocumentsPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-medium">
+                            <p
+                              className="truncate text-sm font-medium"
+                              title={document.title}
+                            >
                               {document.title}
                             </p>
                             <DocumentStatusBadge status={document.status} />
                           </div>
-                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          <p
+                            className="mt-0.5 truncate text-xs text-muted-foreground"
+                            title={document.originalFileName ?? undefined}
+                          >
                             {document.originalFileName ?? 'Upload pending'}
                             {document.sizeBytes !== null
                               ? ` · ${formatBytes(document.sizeBytes)}`
@@ -306,7 +347,7 @@ function DocumentsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              aria-label="Document actions"
+                              aria-label={`Actions for ${document.title}`}
                             >
                               <MoreHorizontal />
                             </Button>

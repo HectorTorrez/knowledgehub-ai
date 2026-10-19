@@ -323,12 +323,15 @@ export interface DocumentUploadCompleteRequest {
 /**
  * Request body of `POST /organizations/:organizationId/answers`.
  *
- * Only the question is accepted. The organization comes from the route and the
- * caller's identity from the session, so no organization id, document id, or
- * retrieval option is part of this contract.
+ * The organization comes from the route and the caller's identity from the
+ * session. `documentId`, when present, narrows retrieval to a single document;
+ * it must belong to the same organization and be `READY`, and the server
+ * rejects any other selection. Retrieval options stay server-owned, so no
+ * organization id, document list, or retrieval option is part of this contract.
  */
 export interface AnswerRequest {
   question: string;
+  documentId?: string;
   conversationId?: string;
   stream?: boolean;
 }

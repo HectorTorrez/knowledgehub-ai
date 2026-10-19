@@ -723,12 +723,18 @@ conversation with `POST …/conversations`, list them with `GET …/conversation
 and filter history with `GET …/answers?conversationId=…`. Deleting a conversation
 cascades to its answers. History is bounded by `ANSWER_HISTORY_MAX_CHARS`.
 
+A question may carry an optional `documentId` to scope retrieval to a single
+document. That document must belong to the same organization (`404` otherwise)
+and be `READY` (`409` otherwise); retrieval is otherwise restricted to the
+organization's ready documents, and no document list or retrieval option is part
+of the contract.
+
 The endpoint requires an authenticated session and membership in the
 organization named in the route, exactly like the document endpoints:
 unauthenticated requests return `401`, authenticated non-members return `403`
 (without revealing whether the organization exists), and a malformed
 `:organizationId` returns `400`. The organization comes only from the route: the
-body cannot select documents, filters, or another organization.
+body cannot select filters or another organization.
 
 ### Feature flag
 

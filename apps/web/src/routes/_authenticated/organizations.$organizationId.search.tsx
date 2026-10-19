@@ -1,7 +1,7 @@
 import type { SearchResult } from '@knowledgehub/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { LoaderCircle, Search as SearchIcon } from 'lucide-react';
+import { LoaderCircle, Search as SearchIcon, X as XIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
@@ -12,11 +12,18 @@ import { Input } from '~/components/ui/input';
 import { Skeleton } from '~/components/ui/skeleton';
 import { queryKeys } from '~/lib/api/query-keys';
 import { searchApi } from '~/lib/api/search';
-import { searchQuerySchema } from '~/lib/validation';
+import { pageHead } from '~/lib/seo';
+import { SEARCH_QUERY_MAX_LENGTH, searchQuerySchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/search',
 )({
+  head: () =>
+    pageHead({
+      title: 'Search · KnowledgeHub AI',
+      description:
+        "Search across your organization's documents with semantic retrieval.",
+    }),
   component: SearchPage,
 });
 
@@ -48,7 +55,14 @@ function SearchPage() {
     setSubmitted(parsed.data.q);
   }
 
+  function clearSearch() {
+    setDraft('');
+    setSubmitted(null);
+    setValidationError(null);
+  }
+
   const rows = results.data?.results ?? [];
+  const isSearching = submitted !== null && results.isPending;
 
   return (
     <div className="space-y-6">
@@ -58,21 +72,40 @@ function SearchPage() {
       />
 
       <form onSubmit={handleSubmit} className="flex gap-2">
-        <div className="flex-1">
+        <div className="relative flex-1">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Search your documents…"
             aria-label="Search query"
+            maxLength={SEARCH_QUERY_MAX_LENGTH}
+            className="pr-9 pl-9"
+            autoFocus
           />
+          {draft.length > 0 ? (
+            <button
+              type="button"
+              onClick={clearSearch}
+              aria-label="Clear search"
+              className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <XIcon className="size-4" />
+            </button>
+          ) : null}
         </div>
-        <Button type="submit" disabled={results.isPending}>
-          {results.isPending ? (
-            <LoaderCircle className="animate-spin" />
+        <Button type="submit" disabled={isSearching}>
+          {isSearching ? (
+            <>
+              <LoaderCircle className="animate-spin" />
+              Searching…
+            </>
           ) : (
-            <SearchIcon />
+            <>
+              <SearchIcon />
+              Search
+            </>
           )}
-          Search
         </Button>
       </form>
 
@@ -87,24 +120,28 @@ function SearchPage() {
         />
       ) : null}
 
-      {results.isPending ? (
-        <div className="space-y-3">
+      {isSearching ? (
+        <div className="space-y-3" role="status" aria-live="polite">
           {Array.from({ length: 3 }).map((_, index) => (
             <Skeleton key={index} className="h-20 w-full rounded-xl" />
           ))}
         </div>
       ) : null}
 
-      {submitted !== null && !results.isPending && rows.length === 0 ? (
+      {submitted !== null && !isSearching && rows.length === 0 ? (
         <EmptyState
           icon={SearchIcon}
           title="No results"
-          description="Nothing matched your query. Try different wording."
+          description={`Nothing matched “${submitted}”. Try different wording.`}
         />
       ) : null}
 
       {rows.length > 0 ? (
         <div className="space-y-3">
+          <p className="text-sm text-muted-foreground" role="status">
+            {rows.length} {rows.length === 1 ? 'result' : 'results'} for “
+            {submitted}”
+          </p>
           {rows.map((result) => (
             <SearchResultCard key={`${result.documentId}-${result.chunkIndex}`} result={result} />
           ))}

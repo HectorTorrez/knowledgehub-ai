@@ -3,7 +3,6 @@ import type { AnswerSource } from './answer-context.js';
 import {
   buildCitations,
   buildExcerpt,
-  parseCitationMarkers,
   validateAnswerContract,
 } from './answer-citation.js';
 
@@ -23,65 +22,6 @@ function source(
     ...overrides,
   };
 }
-
-describe('parseCitationMarkers', () => {
-  it('extracts a single marker', () => {
-    expect(parseCitationMarkers('Retries are bounded [1].')).toEqual({
-      markers: [1],
-      malformed: [],
-    });
-  });
-
-  it('de-duplicates repeated markers and sorts ascending', () => {
-    expect(parseCitationMarkers('[2] and [1] and [2]').markers).toEqual([1, 2]);
-  });
-
-  it('ignores brackets that contain no digits', () => {
-    expect(parseCitationMarkers('[note] [] [draft]')).toEqual({
-      markers: [],
-      malformed: [],
-    });
-  });
-
-  it('flags a comma-separated marker as malformed', () => {
-    expect(parseCitationMarkers('See [1, 2].')).toEqual({
-      markers: [],
-      malformed: ['[1, 2]'],
-    });
-  });
-
-  it('flags a range marker as malformed', () => {
-    expect(parseCitationMarkers('See [1-3].')).toEqual({
-      markers: [],
-      malformed: ['[1-3]'],
-    });
-  });
-
-  it('flags a mixed marker as malformed', () => {
-    expect(parseCitationMarkers('See [1a].')).toEqual({
-      markers: [],
-      malformed: ['[1a]'],
-    });
-  });
-
-  it('flags a padded marker as malformed', () => {
-    expect(parseCitationMarkers('See [ 1 ].')).toEqual({
-      markers: [],
-      malformed: ['[ 1 ]'],
-    });
-  });
-
-  it('flags an unclosed marker as malformed', () => {
-    expect(parseCitationMarkers('See [1')).toEqual({
-      markers: [],
-      malformed: ['[1]'],
-    });
-  });
-
-  it('accepts a zero-padded marker as the number it denotes', () => {
-    expect(parseCitationMarkers('See [01].').markers).toEqual([1]);
-  });
-});
 
 describe('buildExcerpt', () => {
   it('returns short content unchanged', () => {
@@ -146,33 +86,86 @@ describe('buildCitations', () => {
 describe('validateAnswerContract', () => {
   const sources = [source(1), source(2)];
 
-  it('accepts a grounded answered response', () => {
+  it('renders an answered response from its claims and derives the markers', () => {
     expect(
       validateAnswerContract(
-        { status: 'answered', answer: 'Bounded retries [1] and leases [2].' },
+        {
+          status: 'answered',
+          claims: [
+            { text: 'Bounded retries.', source: 1 },
+            { text: 'Leases are time-limited.', source: 2 },
+          ],
+        },
         sources,
       ),
     ).toEqual({
       ok: true,
       status: 'answered',
-      answer: 'Bounded retries [1] and leases [2].',
+      answer: 'Bounded retries [1]. Leases are time-limited [2].',
       markers: [1, 2],
     });
   });
 
+  it('appends the marker when a claim has no sentence punctuation', () => {
+    const result = validateAnswerContract(
+      {
+        status: 'answered',
+        claims: [{ text: 'torrezhectorb@gmail.com', source: 1 }],
+      },
+      sources,
+    );
+
+    expect(result).toMatchObject({ answer: 'torrezhectorb@gmail.com [1]' });
+  });
+
   it('de-duplicates repeated markers in the accepted response', () => {
     const result = validateAnswerContract(
-      { status: 'answered', answer: 'First [1] then again [1].' },
+      {
+        status: 'answered',
+        claims: [
+          { text: 'First.', source: 1 },
+          { text: 'Again.', source: 1 },
+        ],
+      },
       sources,
     );
 
     expect(result).toMatchObject({ ok: true, markers: [1] });
   });
 
-  it('accepts a refusal that carries no answer', () => {
+  it('drops a repeated sentence while keeping its first source', () => {
+    const result = validateAnswerContract(
+      {
+        status: 'answered',
+        claims: [
+          { text: 'The same sentence.', source: 1 },
+          { text: 'The same sentence.', source: 2 },
+        ],
+      },
+      sources,
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      status: 'answered',
+      answer: 'The same sentence [1].',
+      markers: [1],
+    });
+  });
+
+  it('trims claim text before rendering', () => {
+    const result = validateAnswerContract(
+      { status: 'answered', claims: [{ text: '  Alpha.  ', source: 1 }] },
+      sources,
+    );
+
+    expect(result).toMatchObject({ answer: 'Alpha [1].' });
+  });
+
+  it('accepts a refusal that carries no claims', () => {
     expect(
       validateAnswerContract(
-        { status: 'insufficient_evidence', answer: null },
+        { status: 'insufficient_evidence', claims: null },
         sources,
       ),
     ).toEqual({ ok: true, status: 'insufficient_evidence' });
@@ -189,15 +182,19 @@ describe('validateAnswerContract', () => {
   );
 
   it('fails closed on a missing field', () => {
-    expect(validateAnswerContract({ status: 'answered' }, sources)).toMatchObject(
-      { ok: false, violation: { reason: 'UNEXPECTED_FIELDS' } },
-    );
+    expect(
+      validateAnswerContract({ status: 'answered' }, sources),
+    ).toMatchObject({ ok: false, violation: { reason: 'UNEXPECTED_FIELDS' } });
   });
 
   it('fails closed on an unexpected field', () => {
     expect(
       validateAnswerContract(
-        { status: 'answered', answer: 'Alpha [1]', extra: true },
+        {
+          status: 'answered',
+          claims: [{ text: 'Alpha.', source: 1 }],
+          extra: true,
+        },
         sources,
       ),
     ).toMatchObject({ ok: false, violation: { reason: 'UNEXPECTED_FIELDS' } });
@@ -205,67 +202,92 @@ describe('validateAnswerContract', () => {
 
   it('fails closed on an unexpected status', () => {
     expect(
-      validateAnswerContract({ status: 'maybe', answer: 'Alpha [1]' }, sources),
+      validateAnswerContract({ status: 'maybe', claims: null }, sources),
     ).toMatchObject({ ok: false, violation: { reason: 'UNEXPECTED_STATUS' } });
   });
 
-  it('fails closed when an answered response carries no string answer', () => {
+  it.each([null, 'Alpha.', 42])(
+    'fails closed when an answered response carries no claim list: %j',
+    (claims) => {
+      expect(
+        validateAnswerContract({ status: 'answered', claims }, sources),
+      ).toMatchObject({ ok: false, violation: { reason: 'NO_CLAIMS' } });
+    },
+  );
+
+  it('fails closed when an answered response carries an empty claim list', () => {
     expect(
-      validateAnswerContract({ status: 'answered', answer: null }, sources),
-    ).toMatchObject({ ok: false, violation: { reason: 'INVALID_ANSWER_TYPE' } });
+      validateAnswerContract({ status: 'answered', claims: [] }, sources),
+    ).toMatchObject({ ok: false, violation: { reason: 'NO_CLAIMS' } });
   });
 
-  it('fails closed on an empty answer', () => {
-    expect(
-      validateAnswerContract({ status: 'answered', answer: '   ' }, sources),
-    ).toMatchObject({ ok: false, violation: { reason: 'EMPTY_ANSWER' } });
-  });
-
-  it('fails closed when an answered response cites nothing', () => {
+  it('fails closed on a claim that is not an object', () => {
     expect(
       validateAnswerContract(
-        { status: 'answered', answer: 'No citation here.' },
+        { status: 'answered', claims: ['Alpha.'] },
         sources,
       ),
-    ).toMatchObject({ ok: false, violation: { reason: 'NO_CITATIONS' } });
+    ).toMatchObject({ ok: false, violation: { reason: 'INVALID_CLAIM' } });
   });
 
-  it('fails closed on a malformed marker instead of dropping it', () => {
+  it.each([
+    ['a non-string text', { text: 42, source: 1 }],
+    ['a blank text', { text: '   ', source: 1 }],
+  ])('fails closed on %s', (_label, claim) => {
+    expect(
+      validateAnswerContract({ status: 'answered', claims: [claim] }, sources),
+    ).toMatchObject({ ok: false, violation: { reason: 'INVALID_CLAIM_TEXT' } });
+  });
+
+  it.each([
+    ['a missing source', { text: 'Alpha.' }],
+    ['a non-integer source', { text: 'Alpha.', source: 1.5 }],
+    ['a string source', { text: 'Alpha.', source: '1' }],
+  ])('fails closed on %s', (_label, claim) => {
+    expect(
+      validateAnswerContract({ status: 'answered', claims: [claim] }, sources),
+    ).toMatchObject({
+      ok: false,
+      violation: { reason: 'INVALID_CLAIM_SOURCE' },
+    });
+  });
+
+  it('fails closed when a claim references a source that was not provided', () => {
     expect(
       validateAnswerContract(
-        { status: 'answered', answer: 'Alpha [1, 2]' },
+        { status: 'answered', claims: [{ text: 'Alpha.', source: 9 }] },
         sources,
       ),
-    ).toMatchObject({ ok: false, violation: { reason: 'MALFORMED_MARKER' } });
-  });
-
-  it('fails closed when a marker references a source that was not provided', () => {
-    expect(
-      validateAnswerContract({ status: 'answered', answer: 'Alpha [9]' }, sources),
     ).toMatchObject({ ok: false, violation: { reason: 'UNKNOWN_SOURCE' } });
 
     expect(
-      validateAnswerContract({ status: 'answered', answer: 'Alpha [0]' }, sources),
+      validateAnswerContract(
+        { status: 'answered', claims: [{ text: 'Alpha.', source: 0 }] },
+        sources,
+      ),
     ).toMatchObject({ ok: false, violation: { reason: 'UNKNOWN_SOURCE' } });
   });
 
-  it('fails closed when a refusal carries answer prose', () => {
+  it('fails closed when a refusal carries claims', () => {
     expect(
       validateAnswerContract(
-        { status: 'insufficient_evidence', answer: 'I do not know.' },
+        {
+          status: 'insufficient_evidence',
+          claims: [{ text: 'I do not know.', source: 1 }],
+        },
         sources,
       ),
     ).toMatchObject({
       ok: false,
-      violation: { reason: 'REFUSAL_WITH_ANSWER' },
+      violation: { reason: 'REFUSAL_WITH_CLAIMS' },
     });
   });
 
-  it('accepts a valid marker even when the cited passage does not support the claim', () => {
+  it('accepts a valid source even when the cited passage does not support the claim', () => {
     const result = validateAnswerContract(
       {
         status: 'answered',
-        answer: 'Revenue grew 40% last quarter [1].',
+        claims: [{ text: 'Revenue grew 40% last quarter.', source: 1 }],
       },
       [source(1, { content: 'The office is closed on Mondays.' })],
     );

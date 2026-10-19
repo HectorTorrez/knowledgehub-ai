@@ -13,8 +13,15 @@ export interface ListAnswersOptions extends RequestOptions {
 }
 
 export const answersApi = {
-  ask(organizationId: string, question: string): Promise<AnswerResponse> {
-    const body: AnswerRequest = { question };
+  ask(
+    organizationId: string,
+    question: string,
+    documentId?: string,
+  ): Promise<AnswerResponse> {
+    const body: AnswerRequest = {
+      question,
+      ...(documentId ? { documentId } : {}),
+    };
 
     return apiFetch<AnswerResponse>(
       `/organizations/${organizationId}/answers`,
@@ -62,17 +69,21 @@ export const answersApi = {
 export async function streamAnswer(
   organizationId: string,
   question: string,
+  documentId: string | undefined,
   onEvent: (event: AnswerStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const response = await apiStream(
-    `/organizations/${organizationId}/answers`,
-    {
-      method: 'POST',
-      body: { question, stream: true },
-      signal,
-    },
-  );
+  const body: AnswerRequest = {
+    question,
+    stream: true,
+    ...(documentId ? { documentId } : {}),
+  };
+
+  const response = await apiStream(`/organizations/${organizationId}/answers`, {
+    method: 'POST',
+    body,
+    signal,
+  });
 
   await consumeNdjson(response.body, onEvent);
 }

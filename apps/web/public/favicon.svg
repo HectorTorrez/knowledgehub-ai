@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-label="KnowledgeHub AI">
+  <rect width="64" height="64" rx="14" fill="#171717"/>
+  <g stroke="#fafafa" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.7 10.7v42.6"/>
+    <path d="M21.3 21.3v32"/>
+    <path d="M32 16v37.3"/>
+    <path d="M42.7 16 53.3 53.3"/>
+  </g>
+</svg>

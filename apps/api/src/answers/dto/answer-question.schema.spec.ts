@@ -48,7 +48,25 @@ describe('answerQuestionSchema', () => {
     expect(answerQuestionSchema.safeParse({}).success).toBe(false);
   });
 
-  it('rejects client-supplied scope and retrieval fields', () => {
+  it('accepts an optional documentId that scopes the question to one document', () => {
+    const documentId = randomUUID();
+
+    expect(
+      answerQuestionSchema.parse({ question: 'What is alpha?', documentId })
+        .documentId,
+    ).toBe(documentId);
+  });
+
+  it('rejects a documentId that is not a UUID', () => {
+    expect(
+      answerQuestionSchema.safeParse({
+        question: 'What is alpha?',
+        documentId: 'doc-1',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects client-supplied retrieval options and multi-document selection', () => {
     for (const extra of [
       { organizationId: randomUUID() },
       { documentIds: [randomUUID()] },

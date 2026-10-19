@@ -25,7 +25,7 @@ export function useAnswerStream(organizationId: string) {
   const abortRef = useRef<AbortController | null>(null);
 
   const ask = useCallback(
-    async (question: string) => {
+    async (question: string, documentId?: string) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -36,6 +36,7 @@ export function useAnswerStream(organizationId: string) {
         await streamAnswer(
           organizationId,
           question,
+          documentId,
           (event) => {
             setState((current) => {
               switch (event.type) {
@@ -62,6 +63,11 @@ export function useAnswerStream(organizationId: string) {
     },
     [organizationId],
   );
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    setState(IDLE_STATE);
+  }, [organizationId]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();

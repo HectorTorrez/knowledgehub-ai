@@ -4,8 +4,10 @@ import {
   redirect,
   useRouter,
 } from '@tanstack/react-router';
+import { CircleCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Brand } from '~/components/brand';
+import { PasswordInput } from '~/components/password-input';
 import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import {
@@ -20,10 +22,19 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { useRegister } from '~/hooks/use-auth';
 import { sessionQuery } from '~/lib/auth/session';
-import { registerFormSchema } from '~/lib/validation';
+import { pageHead } from '~/lib/seo';
+import { cn } from '~/lib/utils';
+import { PASSWORD_MIN_LENGTH, registerFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/register')({
   ssr: false,
+  head: () =>
+    pageHead({
+      title: 'Create account · KnowledgeHub AI',
+      description:
+        'Create a KnowledgeHub AI account to upload documents and get grounded answers with citations.',
+      path: '/register',
+    }),
   beforeLoad: async ({ context }) => {
     const state = await context.queryClient
       .fetchQuery(sessionQuery)
@@ -46,6 +57,7 @@ function RegisterPage() {
     lastName: '',
   });
   const [validationError, setValidationError] = useState<string | null>(null);
+  const meetsMinimumLength = form.password.length >= PASSWORD_MIN_LENGTH;
 
   function update(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -90,12 +102,13 @@ function RegisterPage() {
                 <ErrorNotice error={new Error(validationError)} />
               ) : null}
               {register.isError ? <ErrorNotice error={register.error} /> : null}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First name</Label>
                   <Input
                     id="firstName"
                     autoComplete="given-name"
+                    autoFocus
                     value={form.firstName}
                     onChange={(event) => update('firstName', event.target.value)}
                   />
@@ -123,15 +136,29 @@ function RegisterPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
+                  name="password"
                   autoComplete="new-password"
                   value={form.password}
-                  onChange={(event) => update('password', event.target.value)}
+                  onChange={(value) => update('password', value)}
+                  describedBy="password-hint"
                 />
-                <p className="text-xs text-muted-foreground">
-                  At least 12 characters.
+                <p
+                  id="password-hint"
+                  className={cn(
+                    'flex items-center gap-1 text-xs',
+                    meetsMinimumLength
+                      ? 'text-success'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {meetsMinimumLength ? (
+                    <CircleCheck className="size-3.5" />
+                  ) : null}
+                  {meetsMinimumLength
+                    ? 'Meets the minimum password length.'
+                    : `At least ${PASSWORD_MIN_LENGTH} characters.`}
                 </p>
               </div>
               <Button

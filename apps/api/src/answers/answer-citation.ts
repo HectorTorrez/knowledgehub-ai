@@ -2,18 +2,16 @@ import type { AnswerCitation } from '@knowledgehub/shared-types';
 import type { AnswerSource } from './answer-context.js';
 import { CITATION_EXCERPT_MAX_CHARS } from './answer-policy.js';
 
-export type AnswerStatus = 'answered' | 'insufficient_evidence';
-
 export type AnswerContractViolationReason =
   | 'NOT_AN_OBJECT'
   | 'UNEXPECTED_FIELDS'
   | 'UNEXPECTED_STATUS'
-  | 'INVALID_ANSWER_TYPE'
-  | 'EMPTY_ANSWER'
-  | 'MALFORMED_MARKER'
-  | 'NO_CITATIONS'
-  | 'UNKNOWN_SOURCE'
-  | 'REFUSAL_WITH_ANSWER';
+  | 'REFUSAL_WITH_CLAIMS'
+  | 'NO_CLAIMS'
+  | 'INVALID_CLAIM'
+  | 'INVALID_CLAIM_TEXT'
+  | 'INVALID_CLAIM_SOURCE'
+  | 'UNKNOWN_SOURCE';
 
 export interface AnswerContractViolation {
   reason: AnswerContractViolationReason;
@@ -25,8 +23,10 @@ export type AnswerContract =
   | { ok: true; status: 'insufficient_evidence' }
   | { ok: false; violation: AnswerContractViolation };
 
-const MARKER_SYNTAX = /^\d+$/;
-const MAX_MALFORMED_DETAIL_CHARS = 20;
+export interface AnswerClaim {
+  text: string;
+  source: number;
+}
 
 function violation(
   reason: AnswerContractViolationReason,
@@ -37,42 +37,6 @@ function violation(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function parseCitationMarkers(answer: string): {
-  markers: number[];
-  malformed: string[];
-} {
-  const markers = new Set<number>();
-  const malformed: string[] = [];
-  let index = 0;
-
-  while (index < answer.length) {
-    const open = answer.indexOf('[', index);
-
-    if (open === -1) {
-      break;
-    }
-
-    const close = answer.indexOf(']', open + 1);
-    const group =
-      close === -1 ? answer.slice(open + 1) : answer.slice(open + 1, close);
-
-    if (/\d/.test(group)) {
-      if (close !== -1 && MARKER_SYNTAX.test(group)) {
-        markers.add(Number(group));
-      } else {
-        malformed.push(`[${group.slice(0, MAX_MALFORMED_DETAIL_CHARS)}]`);
-      }
-    }
-
-    index = close === -1 ? answer.length : close + 1;
-  }
-
-  return {
-    markers: [...markers].sort((a, b) => a - b),
-    malformed,
-  };
 }
 
 export function buildExcerpt(
@@ -109,6 +73,92 @@ export function buildCitations(
     }));
 }
 
+function parseClaims(
+  value: unknown,
+  sourceCount: number,
+): { claims: AnswerClaim[] } | { violation: AnswerContractViolation } {
+  if (!Array.isArray(value) || value.length === 0) {
+    return {
+      violation: {
+        reason: 'NO_CLAIMS',
+        detail: 'An answered response must carry at least one claim',
+      },
+    };
+  }
+
+  const claims: AnswerClaim[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (!isRecord(entry)) {
+      return {
+        violation: { reason: 'INVALID_CLAIM', detail: 'A claim must be an object' },
+      };
+    }
+
+    if (typeof entry.text !== 'string') {
+      return {
+        violation: {
+          reason: 'INVALID_CLAIM_TEXT',
+          detail: 'A claim must carry a string text',
+        },
+      };
+    }
+
+    const text = entry.text.trim();
+
+    if (text.length === 0) {
+      return {
+        violation: {
+          reason: 'INVALID_CLAIM_TEXT',
+          detail: 'A claim must not be blank',
+        },
+      };
+    }
+
+    if (typeof entry.source !== 'number' || !Number.isInteger(entry.source)) {
+      return {
+        violation: {
+          reason: 'INVALID_CLAIM_SOURCE',
+          detail: 'A claim must carry an integer source',
+        },
+      };
+    }
+
+    if (entry.source < 1 || entry.source > sourceCount) {
+      return {
+        violation: {
+          reason: 'UNKNOWN_SOURCE',
+          detail: `A claim cited a source that was not provided: ${entry.source}`,
+        },
+      };
+    }
+
+    if (seen.has(text)) {
+      continue;
+    }
+
+    seen.add(text);
+    claims.push({ text, source: entry.source });
+  }
+
+  return { claims };
+}
+
+const SENTENCE_END = /([.!?…])$/;
+
+function renderClaim(claim: AnswerClaim): string {
+  const marker = `[${claim.source}]`;
+
+  return SENTENCE_END.test(claim.text)
+    ? claim.text.replace(SENTENCE_END, ` ${marker}$1`)
+    : `${claim.text} ${marker}`;
+}
+
+function renderAnswer(claims: AnswerClaim[]): string {
+  return claims.map(renderClaim).join(' ');
+}
+
 export function validateAnswerContract(
   value: unknown,
   sources: AnswerSource[],
@@ -119,7 +169,7 @@ export function validateAnswerContract(
 
   const keys = Object.keys(value).sort();
 
-  if (keys.length !== 2 || keys[0] !== 'answer' || keys[1] !== 'status') {
+  if (keys.length !== 2 || keys[0] !== 'claims' || keys[1] !== 'status') {
     return violation(
       'UNEXPECTED_FIELDS',
       `The answer provider returned unexpected fields: ${keys.join(', ') || '(none)'}`,
@@ -134,52 +184,28 @@ export function validateAnswerContract(
   }
 
   if (value.status === 'insufficient_evidence') {
-    if (value.answer !== null) {
+    if (value.claims !== null) {
       return violation(
-        'REFUSAL_WITH_ANSWER',
-        'An insufficient_evidence response must not carry an answer',
+        'REFUSAL_WITH_CLAIMS',
+        'An insufficient_evidence response must not carry claims',
       );
     }
 
     return { ok: true, status: 'insufficient_evidence' };
   }
 
-  if (typeof value.answer !== 'string') {
-    return violation(
-      'INVALID_ANSWER_TYPE',
-      'An answered response must carry a string answer',
-    );
+  const parsed = parseClaims(value.claims, sources.length);
+
+  if ('violation' in parsed) {
+    return { ok: false, violation: parsed.violation };
   }
 
-  const answer = value.answer.trim();
-
-  if (answer.length === 0) {
-    return violation('EMPTY_ANSWER', 'An answered response must not be empty');
-  }
-
-  const { markers, malformed } = parseCitationMarkers(answer);
-
-  if (malformed.length > 0) {
-    return violation(
-      'MALFORMED_MARKER',
-      `The answer contained a malformed citation marker: ${malformed.join(', ')}`,
-    );
-  }
-
-  if (markers.length === 0) {
-    return violation('NO_CITATIONS', 'An answered response must cite a source');
-  }
-
-  const unknown = markers.filter(
-    (marker) => marker < 1 || marker > sources.length,
-  );
-
-  if (unknown.length > 0) {
-    return violation(
-      'UNKNOWN_SOURCE',
-      `The answer cited a source that was not provided: ${unknown.join(', ')}`,
-    );
-  }
-
-  return { ok: true, status: 'answered', answer, markers };
+  return {
+    ok: true,
+    status: 'answered',
+    answer: renderAnswer(parsed.claims),
+    markers: [...new Set(parsed.claims.map((claim) => claim.source))].sort(
+      (a, b) => a - b,
+    ),
+  };
 }

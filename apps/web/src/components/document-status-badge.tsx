@@ -20,13 +20,12 @@ const STATUS_CONFIG: Record<
   },
   PROCESSING: {
     label: 'Processing',
-    className: 'border-transparent bg-secondary text-secondary-foreground',
+    className: 'border-transparent bg-info/15 text-info',
     icon: LoaderCircle,
   },
   READY: {
     label: 'Ready',
-    className:
-      'border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+    className: 'border-transparent bg-success/15 text-success',
     icon: CircleCheck,
   },
   FAILED: {

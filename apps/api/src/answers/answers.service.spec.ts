@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
+  ConflictException,
   HttpException,
   Logger,
   NotFoundException,
@@ -67,7 +68,10 @@ function createRetrieval(
 
 function createProvider(
   impl: AnswerProvider['generate'] = async () =>
-    generation({ status: 'answered', answer: 'Retries are bounded [1].' }),
+    generation({
+      status: 'answered',
+      claims: [{ text: 'Retries are bounded.', source: 1 }],
+    }),
 ) {
   const generate = vi.fn(impl);
   return { provider: { generate } as AnswerProvider, generate };
@@ -84,6 +88,11 @@ function createPrisma() {
     conversation: {
       findFirst: vi.fn(
         async (): Promise<{ id: string } | null> => ({ id: 'conversation-1' }),
+      ),
+    },
+    document: {
+      findFirst: vi.fn(
+        async (): Promise<{ status: string } | null> => ({ status: 'READY' }),
       ),
     },
   };
@@ -148,6 +157,51 @@ describe('AnswersService', () => {
       text: 'What is alpha?',
       limit: 8,
     });
+  });
+
+  it('scopes retrieval to the requested document when one is supplied', async () => {
+    const { service, search, prisma } = createService();
+
+    await service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9');
+
+    expect(prisma.document.findFirst).toHaveBeenCalledWith({
+      where: { id: 'doc-9', organizationId: 'org-1' },
+      select: { status: true },
+    });
+    expect(search).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      text: 'What is alpha?',
+      limit: 8,
+      documentId: 'doc-9',
+    });
+  });
+
+  it('does not check a document when the question is unscoped', async () => {
+    const { service, prisma } = createService();
+
+    await service.answer('org-1', USER_ID, 'What is alpha?');
+
+    expect(prisma.document.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects a question scoped to a document outside the organization with 404', async () => {
+    const { service, search, prisma } = createService();
+    prisma.document.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it('rejects a question scoped to a document that is not READY with 409', async () => {
+    const { service, search, prisma } = createService();
+    prisma.document.findFirst.mockResolvedValueOnce({ status: 'PROCESSING' });
+
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(search).not.toHaveBeenCalled();
   });
 
   it('returns a fixed refusal without calling the provider when retrieval is empty', async () => {
@@ -310,7 +364,11 @@ describe('AnswersService', () => {
       providerImpl: async () =>
         generation({
           status: 'answered',
-          answer: 'Second [2] and first [1] and second again [2].',
+          claims: [
+            { text: 'Second.', source: 2 },
+            { text: 'First.', source: 1 },
+            { text: 'Second again.', source: 2 },
+          ],
         }),
     });
 
@@ -332,7 +390,7 @@ describe('AnswersService', () => {
   it('returns the fixed refusal when the model declines', async () => {
     const { service } = createService({
       providerImpl: async () =>
-        generation({ status: 'insufficient_evidence', answer: null }),
+        generation({ status: 'insufficient_evidence', claims: null }),
     });
 
     await expect(service.answer('org-1', USER_ID, 'What is alpha?')).resolves.toEqual({
@@ -343,11 +401,23 @@ describe('AnswersService', () => {
   });
 
   it.each([
-    ['an unknown marker', { status: 'answered', answer: 'Bad [9].' }],
-    ['no markers', { status: 'answered', answer: 'No marker here.' }],
-    ['a malformed marker', { status: 'answered', answer: 'Bad [1,2].' }],
-    ['an empty answer', { status: 'answered', answer: '   ' }],
-    ['unexpected fields', { status: 'answered', answer: 'Alpha [1].', extra: 1 }],
+    [
+      'a claim citing an unknown source',
+      { status: 'answered', claims: [{ text: 'Alpha.', source: 9 }] },
+    ],
+    ['an empty claim list', { status: 'answered', claims: [] }],
+    [
+      'a blank claim',
+      { status: 'answered', claims: [{ text: '   ', source: 1 }] },
+    ],
+    [
+      'a non-integer source',
+      { status: 'answered', claims: [{ text: 'Alpha.', source: 1.5 }] },
+    ],
+    [
+      'unexpected fields',
+      { status: 'answered', claims: [{ text: 'Alpha.', source: 1 }], extra: 1 },
+    ],
     ['a non-object payload', 'not an object'],
   ])('maps %s to 502 without returning the payload', async (_label, draft) => {
     const { service } = createService({
@@ -365,7 +435,10 @@ describe('AnswersService', () => {
   it('maps a refusal carrying an answer to 502', async () => {
     const { service } = createService({
       providerImpl: async () =>
-        generation({ status: 'insufficient_evidence', answer: 'I refuse.' }),
+        generation({
+          status: 'insufficient_evidence',
+          claims: [{ text: 'I refuse.', source: 1 }],
+        }),
     });
 
     await expect(
@@ -452,7 +525,10 @@ describe('AnswersService', () => {
       chunks: [{ ...CHUNK, content: 'PASSAGE_SECRET_MARKER' }],
       providerImpl: async () =>
         generation(
-          { status: 'answered', answer: 'ANSWER_SECRET_MARKER [1].' },
+          {
+            status: 'answered',
+            claims: [{ text: 'ANSWER_SECRET_MARKER.', source: 1 }],
+          },
           { inputTokens: 11, outputTokens: 22 },
         ),
     });
