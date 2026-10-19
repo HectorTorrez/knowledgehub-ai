@@ -219,6 +219,11 @@ GET    /organizations/:organizationId/members
 POST   /organizations/:organizationId/members
 PATCH  /organizations/:organizationId/members/:userId
 DELETE /organizations/:organizationId/members/:userId
+
+POST   /organizations/:organizationId/invitations
+GET    /organizations/:organizationId/invitations
+DELETE /organizations/:organizationId/invitations/:invitationId
+POST   /invitations/accept
 ```
 
 Tenant routes (`/:organizationId` and below) additionally require membership in
@@ -269,6 +274,29 @@ OWNER only. Responds `204 No Content` with an empty body. Returns `404` when the
 target is not a member and `409` when removing the target would leave the
 organization without an owner.
 
+### Invitations
+
+An OWNER can invite an email address that has no account yet instead of
+requiring the invitee to already exist.
+
+- `POST /organizations/:organizationId/invitations` (OWNER) with
+  `{ "email": string }` creates a pending invitation and returns
+  `{ invitation }` carrying the one-time plaintext `token` (returned only here;
+  the database stores its SHA-256 hash) and an `expiresAt` (configured by
+  `INVITATION_TTL_DAYS`).
+- `GET /organizations/:organizationId/invitations` (OWNER) lists pending
+  invitations.
+- `DELETE /organizations/:organizationId/invitations/:invitationId` (OWNER)
+  revokes one pending invitation.
+- `POST /invitations/accept` with `{ "token": string }` requires an authenticated
+  session whose email matches the invitation. It joins the caller as a `MEMBER`,
+  is idempotent for someone who is already a member, and returns
+  `{ organizationId }`. A missing, expired, already-accepted, or email-mismatched
+  invitation returns `404`/`403` without revealing whether the token existed.
+
+Delivery of the invitation (email) is not wired yet; the token is surfaced to the
+owner, who shares it out of band.
+
 ### Ownership and contention
 
 Every organization must keep at least one `OWNER`. This is an
@@ -316,6 +344,18 @@ requests that found no sources are not counted.
 Rate limits are enforced in the API process and are per-instance; the tenant
 quota is the durable cost-control boundary. All limits are configuration, not
 code: see `apps/api/.env.example` for `RATE_LIMIT_*` and `QUOTA_ANSWER_DAILY`.
+
+## Observability
+
+Every request is logged as a single structured line carrying a `requestId`
+(also returned as the `X-Request-Id` response header), the method, path, status,
+duration, and — when the request was authenticated — the user and organization
+ids. Bodies, query strings, headers, and cookies are never logged.
+
+Set `METRICS_ENABLED=true` to expose `GET /metrics` in Prometheus text format
+(request counts and durations by method and status). The endpoint returns `503`
+while disabled and carries only counters, never request content; keep it
+network-isolated in production.
 
 ## Documents
 
@@ -619,13 +659,14 @@ are never returned.
   `PROCESSING_WORKER_ENABLED=true` or `ANSWERS_ENABLED=true`;
   `EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS` must agree with the stored
   `vector(1536)` column, and a mismatch fails at startup.
-- **PDF parsing is not sandboxed.** Extraction enforces deterministic size,
-  page, and character limits, but the parser still runs synchronously in the API
-  process. There is no execution-time or memory limit (a JavaScript timer cannot
-  stop synchronous parsing) and no process or container isolation, so a hostile
-  PDF can still exhaust CPU or memory. Untrusted production uploads at scale must
-  run the parser in an isolated process with enforceable resource limits; that
-  work is deferred.
+- **PDF parsing is bounded, not fully sandboxed.** Extraction enforces
+  deterministic size, page, and character limits. By default `unpdf` runs inline
+  in the API process; with `PROCESSING_SANDBOX=worker` it runs in a worker
+  thread with a V8 heap bound and a wall-clock timeout, which isolates a crash
+  and bounds memory. Neither mode enforces CPU wall-clock time (a JavaScript
+  timer cannot stop synchronous parsing) or OS-level isolation; hostile
+  production uploads at scale still want the parser in a constrained container,
+  which is deployment work.
 - **Orphaned objects from a crash are swept opportunistically.** Document
   deletion and each superseded staging upload remove their objects eagerly, and
   an optional in-process sweep (`STORAGE_SWEEP_ENABLED`) deletes orphaned
@@ -708,6 +749,13 @@ Body (strict; unknown fields return `400`):
 
 `question` is trimmed and must be 1–2,000 characters. Only the question is
 accepted.
+
+An optional `stream` boolean selects a streamed response
+(`application/x-ndjson`) instead of the single JSON body: a `status` event, one
+or more `delta` events carrying chunks of the validated answer, and a trailing
+`citations` event. The answer is still fully validated before streaming begins;
+streaming never emits unvalidated provider output and does not reduce the
+embedding-plus-completion latency.
 
 `200` — answered:
 
@@ -878,9 +926,10 @@ proof of entailment; human review remains necessary.
   `ANSWER_HISTORY_MAX_CHARS`; there is no retrieval over history and no
   vector store. Each turn's retrieval is still run fresh from the current
   question.
-- **No streaming.** One completed JSON body is returned; typical latency is one
-  embedding call plus one completion.
-- **No rate limiting or per-tenant quota.**
+- **Streaming is post-validation.** The streamed response renders the validated
+  answer progressively but still waits for the full completion, so it improves
+  perceived latency, not total latency. Streaming never emits unvalidated
+  provider output.
 - **No automated entailment evaluation.**
 - **The similarity floor is a heuristic** and is model- and corpus-dependent.
 - **Prompt injection through documents is reduced, not eliminated.**

@@ -12,6 +12,7 @@ export const answerQuestionSchema = z
         `question must be at most ${MAX_ANSWER_QUESTION_CHARS} characters`,
       ),
     conversationId: z.uuid('conversationId must be a UUID').optional(),
+    stream: z.boolean('stream must be a boolean').optional(),
   })
   .strict();
 

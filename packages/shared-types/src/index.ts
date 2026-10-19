@@ -169,6 +169,54 @@ export interface UpdateMemberRoleResponse {
 }
 
 /**
+ * A pending invitation to join an organization, returned when an owner invites
+ * an email address that has no account yet. `token` is the one-time plaintext
+ * token handed to the invitee; it is returned only here and never stored.
+ */
+export interface OrganizationInvitationDetail {
+  id: string;
+  email: string;
+  role: OrganizationRole;
+  token: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** Public view of a pending invitation, without the token. */
+export interface OrganizationInvitationSummary {
+  id: string;
+  email: string;
+  role: OrganizationRole;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** Request body of `POST /organizations/:organizationId/invitations`. */
+export interface CreateInvitationRequest {
+  email: string;
+}
+
+/** Response body of `POST /organizations/:organizationId/invitations`. */
+export interface CreateInvitationResponse {
+  invitation: OrganizationInvitationDetail;
+}
+
+/** Response body of `GET /organizations/:organizationId/invitations`. */
+export interface InvitationListResponse {
+  invitations: OrganizationInvitationSummary[];
+}
+
+/** Request body of `POST /invitations/accept`. */
+export interface AcceptInvitationRequest {
+  token: string;
+}
+
+/** Response body of `POST /invitations/accept`. */
+export interface AcceptInvitationResponse {
+  organizationId: string;
+}
+
+/**
  * Processing lifecycle of a document. `PENDING` means registered but not yet
  * verified; `PROCESSING` means the uploaded bytes are verified and promoted to
  * server-controlled storage and a durable processing job exists; `READY` means
@@ -282,6 +330,7 @@ export interface DocumentUploadCompleteRequest {
 export interface AnswerRequest {
   question: string;
   conversationId?: string;
+  stream?: boolean;
 }
 
 /**
@@ -317,6 +366,17 @@ export type AnswerResponse =
       answer: null;
       citations: AnswerCitation[];
     };
+
+/**
+ * One event in the streamed answer response (`application/x-ndjson`). A stream
+ * emits a leading `status`, zero or more `delta` chunks of the validated answer
+ * prose, and a trailing `citations` event. The answer is still fully validated
+ * before streaming begins; streaming never leaks unvalidated provider output.
+ */
+export type AnswerStreamEvent =
+  | { type: 'status'; status: AnswerResponse['status'] }
+  | { type: 'delta'; text: string }
+  | { type: 'citations'; citations: AnswerCitation[] };
 
 /**
  * Row in the persisted answer history. Carries the question and outcome without

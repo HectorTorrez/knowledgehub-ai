@@ -44,6 +44,8 @@ const envObjectSchema = z.object({
     .max(365)
     .default(7),
 
+  INVITATION_TTL_DAYS: z.coerce.number().int().positive().max(365).default(7),
+
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   COOKIE_DOMAIN: z.string().min(1).optional(),
@@ -110,6 +112,18 @@ const envObjectSchema = z.object({
     .int()
     .positive()
     .default(30000),
+
+  PROCESSING_SANDBOX: z.enum(['inline', 'worker']).default('inline'),
+  PROCESSING_PDF_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30000),
+  PROCESSING_PDF_MAX_MEMORY_MB: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(512),
 
   OPENAI_API_KEY: z.string().min(1).optional(),
   OPENAI_BASE_URL: z.string().url().default(DEFAULT_OPENAI_BASE_URL),
@@ -182,6 +196,8 @@ const envObjectSchema = z.object({
     .positive()
     .default(20),
   QUOTA_ANSWER_DAILY: z.coerce.number().int().positive().default(1000),
+
+  METRICS_ENABLED: z.enum(['true', 'false']).default('false'),
 });
 
 const PRODUCTION_STORAGE_KEYS = [

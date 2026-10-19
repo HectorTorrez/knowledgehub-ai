@@ -24,4 +24,18 @@ export class ProcessingConfig {
   get recoveryIntervalMs(): number {
     return this.config.getOrThrow<number>('PROCESSING_RECOVERY_INTERVAL_MS');
   }
+
+  get sandbox(): 'inline' | 'worker' {
+    return this.config.getOrThrow<string>('PROCESSING_SANDBOX') as
+      | 'inline'
+      | 'worker';
+  }
+
+  get pdfTimeoutMs(): number {
+    return this.config.getOrThrow<number>('PROCESSING_PDF_TIMEOUT_MS');
+  }
+
+  get pdfMaxMemoryMb(): number {
+    return this.config.getOrThrow<number>('PROCESSING_PDF_MAX_MEMORY_MB');
+  }
 }
