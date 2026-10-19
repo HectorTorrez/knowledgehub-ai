@@ -22,12 +22,19 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { useRegister } from '~/hooks/use-auth';
 import { sessionQuery } from '~/lib/auth/session';
+import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
 import { PASSWORD_MIN_LENGTH, registerFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/register')({
   ssr: false,
-  head: () => ({ meta: [{ title: 'Create account · KnowledgeHub AI' }] }),
+  head: () =>
+    pageHead({
+      title: 'Create account · KnowledgeHub AI',
+      description:
+        'Create a KnowledgeHub AI account to upload documents and get grounded answers with citations.',
+      path: '/register',
+    }),
   beforeLoad: async ({ context }) => {
     const state = await context.queryClient
       .fetchQuery(sessionQuery)

@@ -44,6 +44,7 @@ import { useToast } from '~/components/ui/toast';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatBytes } from '~/lib/format';
+import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
 import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
@@ -54,7 +55,12 @@ import {
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/documents',
 )({
-  head: () => ({ meta: [{ title: 'Documents · KnowledgeHub AI' }] }),
+  head: () =>
+    pageHead({
+      title: 'Documents · KnowledgeHub AI',
+      description:
+        "Upload and manage the documents used to ground your organization's answers.",
+    }),
   component: DocumentsPage,
 });
 

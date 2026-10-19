@@ -12,12 +12,18 @@ import { Input } from '~/components/ui/input';
 import { Skeleton } from '~/components/ui/skeleton';
 import { queryKeys } from '~/lib/api/query-keys';
 import { searchApi } from '~/lib/api/search';
+import { pageHead } from '~/lib/seo';
 import { SEARCH_QUERY_MAX_LENGTH, searchQuerySchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/search',
 )({
-  head: () => ({ meta: [{ title: 'Search · KnowledgeHub AI' }] }),
+  head: () =>
+    pageHead({
+      title: 'Search · KnowledgeHub AI',
+      description:
+        "Search across your organization's documents with semantic retrieval.",
+    }),
   component: SearchPage,
 });
 

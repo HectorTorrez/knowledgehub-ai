@@ -20,12 +20,18 @@ import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { answerFor, answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { ALL_DOCUMENTS, resolveDocumentScope } from '~/lib/document-scope';
+import { pageHead } from '~/lib/seo';
 import { questionSchema, QUESTION_MAX_LENGTH } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/ask',
 )({
-  head: () => ({ meta: [{ title: 'Ask a question · KnowledgeHub AI' }] }),
+  head: () =>
+    pageHead({
+      title: 'Ask a question · KnowledgeHub AI',
+      description:
+        "Ask a question and get answers grounded in your organization's documents, with citations.",
+    }),
   component: AskPage,
 });
 

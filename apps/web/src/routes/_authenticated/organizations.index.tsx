@@ -31,10 +31,16 @@ import { useToast } from '~/components/ui/toast';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDate, formatRole } from '~/lib/format';
+import { pageHead } from '~/lib/seo';
 import { organizationNameSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/_authenticated/organizations/')({
-  head: () => ({ meta: [{ title: 'Organizations · KnowledgeHub AI' }] }),
+  head: () =>
+    pageHead({
+      title: 'Organizations · KnowledgeHub AI',
+      description:
+        'Manage the organizations you belong to and open their documents.',
+    }),
   component: OrganizationsPage,
 });
 
