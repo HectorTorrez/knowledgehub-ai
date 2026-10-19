@@ -19,7 +19,15 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
+export interface ApiStreamOptions {
+  method?: HttpMethod;
+  body?: unknown;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+
 const JSON_CONTENT_TYPE = 'application/json';
+const NDJSON_CONTENT_TYPE = 'application/x-ndjson';
 const UNAUTHORIZED_STATUS = 401;
 const FORBIDDEN_STATUS = 403;
 
@@ -52,6 +60,76 @@ export async function apiFetch<T>(
   }
 
   return readResponse<T>(response, recoveryOutcome);
+}
+
+export async function apiStream(
+  path: string,
+  options: ApiStreamOptions = {},
+): Promise<Response> {
+  const method = options.method ?? 'POST';
+  const url = resolveUrl(path);
+  const csrfTokenUsed = isUnsafeMethod(method) ? readCsrfToken() : undefined;
+
+  let response = await sendStream(url, method, options);
+
+  if (response.status === UNAUTHORIZED_STATUS) {
+    const outcome = await refreshCoordinator.refresh({ signal: options.signal });
+
+    if (outcome.status === 'refreshed' || outcome.status === 'already-valid') {
+      response = await sendStream(url, method, options);
+    }
+  } else if (response.status === FORBIDDEN_STATUS && isUnsafeMethod(method)) {
+    const currentToken = readCsrfToken();
+
+    if (currentToken !== undefined && currentToken !== csrfTokenUsed) {
+      response = await sendStream(url, method, options);
+    }
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw toApiError(response.status, parseJsonOrUndefined(text));
+  }
+
+  return response;
+}
+
+async function sendStream(
+  url: string,
+  method: HttpMethod,
+  options: ApiStreamOptions,
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    Accept: NDJSON_CONTENT_TYPE,
+    ...buildCsrfHeaders(method),
+    ...options.headers,
+  };
+
+  let body: string | undefined;
+  if (options.body !== undefined) {
+    headers['Content-Type'] = JSON_CONTENT_TYPE;
+    body = JSON.stringify(options.body);
+  }
+
+  try {
+    return await fetch(url, {
+      method,
+      headers,
+      body,
+      credentials: 'include',
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
+    throw new ApiError({
+      status: NETWORK_ERROR_STATUS,
+      message: 'Unable to reach the API.',
+      cause: error,
+    });
+  }
 }
 
 async function applyRecovery(

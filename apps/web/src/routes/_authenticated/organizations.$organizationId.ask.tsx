@@ -1,11 +1,12 @@
-import type { AnswerResponse } from '@knowledgehub/shared-types';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { AnswerCitation } from '@knowledgehub/shared-types';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { LoaderCircle, Send } from 'lucide-react';
+import { LoaderCircle, Send, Sparkles } from 'lucide-react';
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { AnswerHistory } from '~/components/answer-history';
 import {
   AnswerBody,
+  CopyButton,
   InsufficientEvidence,
   SourcesList,
 } from '~/components/answer-content';
@@ -15,7 +16,7 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
-import { answerFor, answersApi } from '~/lib/api/answers';
+import { useAnswerStream } from '~/hooks/use-answer-stream';
 import { queryKeys } from '~/lib/api/query-keys';
 import { questionSchema, QUESTION_MAX_LENGTH } from '~/lib/validation';
 
@@ -25,54 +26,57 @@ export const Route = createFileRoute(
   component: AskPage,
 });
 
+const SUGGESTED_QUESTIONS = [
+  'Summarize the key points across my documents.',
+  'What are the main policies?',
+  'Find any deadlines or dates mentioned.',
+];
+
 function AskPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const [question, setQuestion] = useState('');
+  const [askedQuestion, setAskedQuestion] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const stream = useAnswerStream(organizationId);
 
-  const ask = useMutation({
-    mutationFn: (input: { organizationId: string; question: string }) =>
-      answersApi.ask(input.organizationId, input.question),
-    onSuccess: (_data, variables) =>
-      client.invalidateQueries({
-        queryKey: queryKeys.organizations.answers.list(variables.organizationId),
-      }),
-  });
+  async function submit(value: string) {
+    if (stream.status === 'streaming') {
+      return;
+    }
 
-  async function submit() {
     setValidationError(null);
 
-    const result = questionSchema.safeParse({ question });
-
+    const result = questionSchema.safeParse({ question: value });
     if (!result.success) {
       setValidationError(result.error.issues[0]?.message ?? 'Enter a question.');
       return;
     }
 
-    try {
-      await ask.mutateAsync({
-        organizationId,
-        question: result.data.question,
-      });
-    } catch {
-      return;
-    }
+    const questionText = result.data.question;
+    setAskedQuestion(questionText);
+    await stream.ask(questionText);
+    await client.invalidateQueries({
+      queryKey: queryKeys.organizations.answers.list(organizationId),
+    });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void submit();
+    void submit(question);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      void submit();
+      void submit(question);
     }
   }
 
-  const answer = answerFor(ask.variables, ask.data, organizationId);
+  const streaming = stream.status === 'streaming';
+  const awaitingFirstToken = streaming && stream.answerStatus === null;
+  const showSuggestions =
+    !streaming && askedQuestion === '' && question.trim().length === 0;
 
   return (
     <div className="space-y-8">
@@ -87,7 +91,9 @@ function AskPage() {
             {validationError ? (
               <ErrorNotice error={new Error(validationError)} />
             ) : null}
-            {ask.isError ? <ErrorNotice error={ask.error} /> : null}
+            {stream.status === 'error' ? (
+              <ErrorNotice error={stream.error} />
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="question">Your question</Label>
               <Textarea
@@ -106,9 +112,9 @@ function AskPage() {
               </p>
               <Button
                 type="submit"
-                disabled={ask.isPending || question.trim().length === 0}
+                disabled={streaming || question.trim().length === 0}
               >
-                {ask.isPending ? (
+                {streaming ? (
                   <>
                     <LoaderCircle className="animate-spin" />
                     Thinking…
@@ -125,13 +131,56 @@ function AskPage() {
         </CardContent>
       </Card>
 
-      {ask.isPending ? <ThinkingCard /> : null}
+      {showSuggestions ? (
+        <SuggestionList
+          onSelect={(suggestion) => setQuestion(suggestion)}
+        />
+      ) : null}
 
-      {answer ? (
-        <AnswerSection question={ask.variables?.question ?? ''} answer={answer} />
+      {streaming ? (
+        awaitingFirstToken ? (
+          <ThinkingCard />
+        ) : (
+          <StreamingAnswerCard text={stream.text} />
+        )
+      ) : null}
+
+      {!streaming && askedQuestion !== '' ? (
+        <AnswerSection
+          question={askedQuestion}
+          status={stream.answerStatus}
+          text={stream.text}
+          citations={stream.citations}
+        />
       ) : null}
 
       <AnswerHistory organizationId={organizationId} />
+    </div>
+  );
+}
+
+function SuggestionList({
+  onSelect,
+}: Readonly<{ onSelect: (question: string) => void }>) {
+  return (
+    <div className="space-y-2">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <Sparkles className="size-3.5" />
+        Try asking
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {SUGGESTED_QUESTIONS.map((suggestion) => (
+          <Button
+            key={suggestion}
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onSelect(suggestion)}
+          >
+            {suggestion}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -147,33 +196,61 @@ function ThinkingCard() {
   );
 }
 
+function StreamingAnswerCard({ text }: Readonly<{ text: string }>) {
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-6">
+        <AnswerBody text={text} />
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <LoaderCircle className="size-3.5 animate-spin" />
+          Writing…
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AnswerSection({
   question,
-  answer,
-}: Readonly<{ question: string; answer: AnswerResponse }>) {
+  status,
+  text,
+  citations,
+}: Readonly<{
+  question: string;
+  status: 'answered' | 'insufficient_evidence' | null;
+  text: string;
+  citations: AnswerCitation[];
+}>) {
+  if (status === null) {
+    return null;
+  }
+
   return (
     <div className="space-y-4">
-      {question ? (
-        <div className="space-y-1">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Question
-          </p>
-          <p className="text-sm font-medium">{question}</p>
-        </div>
-      ) : null}
+      <div className="space-y-1">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Question
+        </p>
+        <p className="text-sm font-medium">{question}</p>
+      </div>
 
       <Card>
         <CardContent className="p-6">
-          {answer.status === 'answered' ? (
-            <AnswerBody text={answer.answer} />
-          ) : (
-            <InsufficientEvidence />
-          )}
+          <div className="flex items-start justify-between gap-4">
+            {status === 'answered' ? (
+              <div className="min-w-0 flex-1">
+                <AnswerBody text={text} />
+              </div>
+            ) : (
+              <InsufficientEvidence />
+            )}
+            {status === 'answered' ? <CopyButton text={text} /> : null}
+          </div>
         </CardContent>
       </Card>
 
-      {answer.citations.length > 0 ? (
-        <SourcesList citations={answer.citations} />
+      {status === 'answered' && citations.length > 0 ? (
+        <SourcesList citations={citations} />
       ) : null}
     </div>
   );

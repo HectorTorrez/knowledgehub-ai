@@ -136,13 +136,19 @@ export class DocumentsService {
       throw new BadRequestException('cursor is not valid');
     }
 
+    const direction = input.order === 'createdAt_asc' ? 'asc' : 'desc';
     const documents = await this.prisma.document.findMany({
       where: {
         organizationId,
-        ...(cursor ? listCursorFilter(cursor) : {}),
+        ...(input.q ? { title: { contains: input.q, mode: 'insensitive' } } : {}),
+        ...(input.status ? { status: input.status } : {}),
+        ...(cursor ? listCursorFilter(cursor, direction) : {}),
       },
       select: DOCUMENT_PUBLIC_SELECT,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      orderBy:
+        direction === 'asc'
+          ? [{ createdAt: 'asc' }, { id: 'asc' }]
+          : [{ createdAt: 'desc' }, { id: 'desc' }],
       take: input.limit + 1,
     });
 

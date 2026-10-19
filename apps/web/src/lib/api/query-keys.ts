@@ -1,3 +1,5 @@
+import type { DocumentStatus } from '@knowledgehub/shared-types';
+
 export const queryKeys = {
   organizations: {
     all: ['organizations'] as const,
@@ -7,8 +9,23 @@ export const queryKeys = {
     members: (organizationId: string) =>
       ['organizations', organizationId, 'members'] as const,
     documents: {
-      list: (organizationId: string) =>
-        ['organizations', organizationId, 'documents', 'list'] as const,
+      list: (
+        organizationId: string,
+        filters: {
+          q?: string;
+          status?: DocumentStatus;
+          order?: 'createdAt_desc' | 'createdAt_asc';
+        } = {},
+      ) =>
+        [
+          'organizations',
+          organizationId,
+          'documents',
+          'list',
+          filters.q ?? '',
+          filters.status ?? '',
+          filters.order ?? 'createdAt_desc',
+        ] as const,
       detail: (organizationId: string, documentId: string) =>
         ['organizations', organizationId, 'documents', 'detail', documentId] as const,
     },

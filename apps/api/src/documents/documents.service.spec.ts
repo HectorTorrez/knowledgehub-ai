@@ -416,6 +416,58 @@ describe('DocumentsService.list', () => {
     });
   });
 
+  it('filters by title query case-insensitively', async () => {
+    const { service, prisma } = createHarness({ rows: [] });
+
+    await service.list('org-1', { limit: 25, q: 'handbook' });
+
+    expect(prisma.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: 'org-1',
+          title: { contains: 'handbook', mode: 'insensitive' },
+        },
+      }),
+    );
+  });
+
+  it('filters by status', async () => {
+    const { service, prisma } = createHarness({ rows: [] });
+
+    await service.list('org-1', { limit: 25, status: 'READY' });
+
+    expect(prisma.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: 'org-1', status: 'READY' },
+      }),
+    );
+  });
+
+  it('sorts ascending and filters the cursor in the same direction', async () => {
+    const { service, prisma } = createHarness({ rows: [] });
+    const cursor = Buffer.from(
+      JSON.stringify({ createdAt: '2026-01-01T00:00:00.000Z', id: 'doc-9' }),
+    ).toString('base64url');
+
+    await service.list('org-1', { limit: 25, order: 'createdAt_asc', cursor });
+
+    const args = prisma.document.findMany.mock.calls[0][0] as {
+      orderBy: unknown[];
+      where: { organizationId: string; OR: unknown[] };
+    };
+    expect(args.orderBy).toEqual([{ createdAt: 'asc' }, { id: 'asc' }]);
+    expect(args.where).toEqual({
+      organizationId: 'org-1',
+      OR: [
+        { createdAt: { gt: new Date('2026-01-01T00:00:00.000Z') } },
+        {
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          id: { gt: 'doc-9' },
+        },
+      ],
+    });
+  });
+
   it('rejects a malformed cursor with 400 without querying the database', async () => {
     const { service, prisma } = createHarness({ rows: [] });
 

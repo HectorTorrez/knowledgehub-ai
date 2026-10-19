@@ -2,6 +2,7 @@ import type {
   CreateDocumentRequest,
   DocumentDetailResponse,
   DocumentListResponse,
+  DocumentStatus,
   DocumentUploadCompleteRequest,
   DocumentUploadUrlRequest,
   DocumentUploadUrlResponse,
@@ -16,6 +17,9 @@ function documentsPath(organizationId: string): string {
 export interface ListDocumentsOptions extends RequestOptions {
   cursor?: string;
   limit?: number;
+  q?: string;
+  status?: DocumentStatus;
+  order?: 'createdAt_desc' | 'createdAt_asc';
 }
 
 export const documentsApi = {
@@ -29,6 +33,15 @@ export const documentsApi = {
     }
     if (options.cursor) {
       params.set('cursor', options.cursor);
+    }
+    if (options.q) {
+      params.set('q', options.q);
+    }
+    if (options.status) {
+      params.set('status', options.status);
+    }
+    if (options.order) {
+      params.set('order', options.order);
     }
 
     const query = params.toString();
@@ -102,3 +115,28 @@ export const documentsApi = {
     );
   },
 };
+
+export async function uploadFileToDocument(
+  organizationId: string,
+  documentId: string,
+  file: File,
+): Promise<DocumentDetailResponse> {
+  const target = await documentsApi.createUploadUrl(organizationId, documentId, {
+    contentType: file.type || 'application/octet-stream',
+    sizeBytes: file.size,
+  });
+
+  const response = await fetch(target.uploadUrl, {
+    method: target.method,
+    headers: target.headers,
+    body: file,
+  });
+
+  if (!response.ok) {
+    throw new Error(`The storage upload failed with status ${response.status}.`);
+  }
+
+  return documentsApi.completeUpload(organizationId, documentId, {
+    originalFileName: file.name,
+  });
+}
