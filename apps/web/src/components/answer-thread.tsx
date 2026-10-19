@@ -1,4 +1,4 @@
-import type { AnswerSummary } from '@knowledgehub/shared-types';
+import type { AnswerResponse, AnswerSummary } from '@knowledgehub/shared-types';
 import {
   useInfiniteQuery,
   useMutation,
@@ -30,9 +30,16 @@ import {
 import { Skeleton } from './ui/skeleton';
 import { useToast } from './ui/toast';
 
-export function AnswerHistory({
+export interface LatestAnswer {
+  question: string;
+  response: AnswerResponse;
+  scopeLabel: string;
+}
+
+export function AnswerThread({
   organizationId,
-}: Readonly<{ organizationId: string }>) {
+  latest,
+}: Readonly<{ organizationId: string; latest?: LatestAnswer }>) {
   const client = useQueryClient();
   const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -75,10 +82,28 @@ export function AnswerHistory({
   }
 
   const rows = history.data?.pages.flatMap((page) => page.answers) ?? [];
+  const newestMatch = latest
+    ? rows.find((row) => row.question === latest.question)
+    : undefined;
+  const earlier = newestMatch
+    ? rows.filter((row) => row.id !== newestMatch.id)
+    : rows;
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold">History</h2>
+      {latest ? (
+        <LatestAnswerCard
+          latest={latest}
+          onRequestDelete={
+            newestMatch
+              ? () => {
+                  remove.reset();
+                  setDeleteTarget(newestMatch);
+                }
+              : undefined
+          }
+        />
+      ) : null}
 
       {history.isError ? <ErrorNotice error={history.error} /> : null}
       {remove.isError && deleteTarget === null ? (
@@ -89,34 +114,39 @@ export function AnswerHistory({
         <Skeleton className="h-24 w-full rounded-xl" />
       ) : null}
 
-      {!history.isPending && rows.length === 0 ? (
+      {!history.isPending && !latest && rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Questions you ask will appear here so you can revisit their answers.
         </p>
       ) : null}
 
-      {rows.length > 0 ? (
-        <Card>
-          <CardContent className="p-0">
-            <ul className="divide-y">
-              {rows.map((answer) => (
-                <HistoryRow
-                  key={answer.id}
-                  organizationId={organizationId}
-                  answer={answer}
-                  expanded={expandedId === answer.id}
-                  onToggle={() =>
-                    setExpandedId(expandedId === answer.id ? null : answer.id)
-                  }
-                  onRequestDelete={() => {
-                    remove.reset();
-                    setDeleteTarget(answer);
-                  }}
-                />
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+      {earlier.length > 0 ? (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">
+            {latest ? 'Earlier questions' : 'History'}
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <ul className="divide-y">
+                {earlier.map((answer) => (
+                  <HistoryRow
+                    key={answer.id}
+                    organizationId={organizationId}
+                    answer={answer}
+                    expanded={expandedId === answer.id}
+                    onToggle={() =>
+                      setExpandedId(expandedId === answer.id ? null : answer.id)
+                    }
+                    onRequestDelete={() => {
+                      remove.reset();
+                      setDeleteTarget(answer);
+                    }}
+                  />
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
       ) : null}
 
       {history.hasNextPage ? (
@@ -169,6 +199,52 @@ export function AnswerHistory({
   );
 }
 
+function LatestAnswerCard({
+  latest,
+  onRequestDelete,
+}: Readonly<{ latest: LatestAnswer; onRequestDelete?: () => void }>) {
+  return (
+    <div className="space-y-3">
+      <Card>
+        <CardContent className="space-y-4 p-6">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Question
+              </p>
+              <p className="text-sm font-medium">{latest.question}</p>
+              <p className="text-xs text-muted-foreground">
+                Answered from {latest.scopeLabel}
+              </p>
+            </div>
+            {onRequestDelete ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRequestDelete}
+                aria-label={`Remove “${latest.question}” from history`}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            ) : null}
+          </div>
+
+          {latest.response.status === 'answered' ? (
+            <AnswerBody text={latest.response.answer} />
+          ) : (
+            <InsufficientEvidence />
+          )}
+        </CardContent>
+      </Card>
+
+      {latest.response.citations.length > 0 ? (
+        <SourcesList citations={latest.response.citations} />
+      ) : null}
+    </div>
+  );
+}
+
 function HistoryRow({
   organizationId,
   answer,
@@ -194,7 +270,7 @@ function HistoryRow({
           <span
             className={cn(
               'size-2 shrink-0 rounded-full',
-              answer.status === 'answered' ? 'bg-primary' : 'bg-muted-foreground/40',
+              answer.status === 'answered' ? 'bg-success' : 'bg-muted-foreground/40',
             )}
           />
           <span className="min-w-0 flex-1">
@@ -218,8 +294,9 @@ function HistoryRow({
           size="icon"
           onClick={onRequestDelete}
           aria-label={`Remove “${answer.question}” from history`}
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
         >
-          <Trash2 className="size-4 text-muted-foreground" />
+          <Trash2 className="size-4" />
         </Button>
       </div>
 

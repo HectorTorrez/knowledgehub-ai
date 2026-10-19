@@ -21,11 +21,18 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { useLogin } from '~/hooks/use-auth';
 import { sessionQuery } from '~/lib/auth/session';
+import { pageHead } from '~/lib/seo';
 import { loginFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/login')({
   ssr: false,
-  head: () => ({ meta: [{ title: 'Sign in · KnowledgeHub AI' }] }),
+  head: () =>
+    pageHead({
+      title: 'Sign in · KnowledgeHub AI',
+      description:
+        "Sign in to KnowledgeHub AI to search and ask questions across your organization's documents.",
+      path: '/login',
+    }),
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: toSameOriginPath(search.redirect),
   }),

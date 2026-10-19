@@ -9,6 +9,8 @@ export const queryKeys = {
     documents: {
       list: (organizationId: string) =>
         ['organizations', organizationId, 'documents', 'list'] as const,
+      ready: (organizationId: string) =>
+        ['organizations', organizationId, 'documents', 'list', 'ready'] as const,
       detail: (organizationId: string, documentId: string) =>
         ['organizations', organizationId, 'documents', 'detail', documentId] as const,
     },

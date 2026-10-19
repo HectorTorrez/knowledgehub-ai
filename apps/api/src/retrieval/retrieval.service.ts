@@ -15,6 +15,7 @@ export interface RetrievalQuery {
   organizationId: string;
   text: string;
   limit?: number;
+  documentId?: string;
 }
 
 export interface RetrievedChunk {
@@ -56,7 +57,27 @@ export class RetrievalService {
 
     const vector = await this.embedQuery(query.text);
 
-    const rows = await this.prisma.$queryRaw<ChunkMatchRow[]>`
+    const rows = query.documentId
+      ? await this.prisma.$queryRaw<ChunkMatchRow[]>`
+      SELECT
+        c.id AS "chunkId",
+        c."documentId" AS "documentId",
+        d.title AS "title",
+        c."pageNumber" AS "pageNumber",
+        c."chunkIndex" AS "chunkIndex",
+        c.content AS "content",
+        (1 - (c."embedding" <=> ${vectorLiteral(vector)}::vector)) AS "similarity"
+      FROM "DocumentChunk" AS c
+      JOIN "Document" AS d ON d.id = c."documentId"
+      WHERE c."organizationId" = ${query.organizationId}::uuid
+        AND d."organizationId" = ${query.organizationId}::uuid
+        AND d.status = 'READY'
+        AND d.generation = c."documentGeneration"
+        AND c."documentId" = ${query.documentId}::uuid
+      ORDER BY c."embedding" <=> ${vectorLiteral(vector)}::vector
+      LIMIT ${limit}
+    `
+      : await this.prisma.$queryRaw<ChunkMatchRow[]>`
       SELECT
         c.id AS "chunkId",
         c."documentId" AS "documentId",

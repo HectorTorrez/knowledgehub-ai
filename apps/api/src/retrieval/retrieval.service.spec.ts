@@ -82,6 +82,28 @@ describe('RetrievalService', () => {
     expect(sql).toContain('d.generation = c."documentGeneration"');
   });
 
+  it('scopes the search to a single document when one is requested', async () => {
+    const { service, calls } = createService([]);
+
+    await service.search({
+      organizationId: 'org-1',
+      text: 'alpha',
+      documentId: 'doc-9',
+    });
+
+    const sql = sqlOf(calls[0]!);
+    expect(sql).toContain('c."documentId" = ?::uuid');
+    expect(calls[0]!.values).toContain('doc-9');
+  });
+
+  it('omits the document filter when no document is requested', async () => {
+    const { service, calls } = createService([]);
+
+    await service.search({ organizationId: 'org-1', text: 'alpha' });
+
+    expect(sqlOf(calls[0]!)).not.toContain('c."documentId" =');
+  });
+
   it('orders matches by cosine distance and applies the limit', async () => {
     const { service, calls } = createService([]);
 

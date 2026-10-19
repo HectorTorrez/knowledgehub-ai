@@ -26,6 +26,7 @@ describe('queryKeys', () => {
       queryKeys.organizations.detail('org-a'),
       queryKeys.organizations.members('org-a'),
       queryKeys.organizations.documents.list('org-a'),
+      queryKeys.organizations.documents.ready('org-a'),
       queryKeys.organizations.documents.detail('org-a', 'doc-1'),
     ];
 
@@ -41,5 +42,13 @@ describe('queryKeys', () => {
       'documents',
       'list',
     ]);
+  });
+
+  it('keys the ready-documents picker under the list prefix so invalidations reach it', () => {
+    const list = queryKeys.organizations.documents.list('org-a');
+    const ready = queryKeys.organizations.documents.ready('org-a');
+
+    expect(ready.slice(0, list.length)).toEqual([...list]);
+    expect(ready).not.toEqual(list);
   });
 });

@@ -41,7 +41,7 @@ function OrganizationLayout() {
 
       {organization.isError ? <ErrorNotice error={organization.error} /> : null}
 
-      <nav className="-mb-px flex gap-1 overflow-x-auto border-b">
+      <nav className="flex gap-1 overflow-x-auto border-b">
         <OrganizationTab to="/organizations/$organizationId" exact icon={LayoutGrid}>
           Overview
         </OrganizationTab>
@@ -83,7 +83,7 @@ function OrganizationTab({
       to={to}
       params={{ organizationId }}
       activeOptions={{ exact: exact ?? false }}
-      className="inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors"
+      className="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors"
       inactiveProps={{
         className: 'border-transparent text-muted-foreground hover:text-foreground',
       }}

@@ -270,6 +270,7 @@ describe('answers (e2e)', () => {
       { question: 123 },
       { question: 'What is alpha?', organizationId: randomUUID() },
       { question: 'What is alpha?', documentIds: [randomUUID()] },
+      { question: 'What is alpha?', documentId: 'not-a-uuid' },
       { question: 'What is alpha?', limit: 5 },
     ];
 
@@ -575,6 +576,77 @@ describe('answers (e2e)', () => {
     expect(JSON.stringify(prompt)).not.toContain(
       'BETA_OTHER_TENANT_SECRET_PASSAGE',
     );
+  });
+
+  it('scopes retrieval to the requested document and ignores the rest of the corpus', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Scoped Org');
+
+    const scopedDocumentId = await seedReadyChunk(
+      organizationId,
+      'SCOPED_DOCUMENT_PASSAGE',
+      { title: 'Scoped Doc' },
+    );
+    await seedReadyChunk(organizationId, 'OTHER_DOCUMENT_PASSAGE', {
+      title: 'Other Doc',
+    });
+
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'answered', claims: [{ text: 'Scoped only.', source: 1 }] });
+
+    const response = await ask(token, organizationId, {
+      question: 'What is alpha?',
+      documentId: scopedDocumentId,
+    }).expect(200);
+
+    expect(response.body.citations).toEqual([
+      expect.objectContaining({
+        marker: 1,
+        documentId: scopedDocumentId,
+        documentTitle: 'Scoped Doc',
+      }),
+    ]);
+
+    expect(answerProvider.calls).toHaveLength(1);
+    const prompt = answerProvider.calls[0]!.prompt;
+    expect(prompt.user).toContain('SCOPED_DOCUMENT_PASSAGE');
+    expect(prompt.user).not.toContain('OTHER_DOCUMENT_PASSAGE');
+  });
+
+  it('rejects a documentId outside the organization with 404 without calling the provider', async () => {
+    const owner = await registerUser();
+    const other = await registerUser();
+    const organizationId = await createOrganization(owner.token, 'Scope Guard Org');
+    const otherOrganizationId = await createOrganization(
+      other.token,
+      'Scope Guard Other',
+    );
+    const foreignDocumentId = await seedReadyChunk(
+      otherOrganizationId,
+      'FOREIGN_TENANT_PASSAGE',
+    );
+
+    await ask(owner.token, organizationId, {
+      question: 'What is alpha?',
+      documentId: foreignDocumentId,
+    }).expect(404);
+
+    expect(answerProvider.calls).toHaveLength(0);
+  });
+
+  it('rejects a documentId that is not READY with 409 without calling the provider', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Not Ready Org');
+    const documentId = await seedReadyChunk(organizationId, 'PENDING_PASSAGE', {
+      status: 'PENDING',
+    });
+
+    await ask(token, organizationId, {
+      question: 'What is alpha?',
+      documentId,
+    }).expect(409);
+
+    expect(answerProvider.calls).toHaveLength(0);
   });
 
   it('never sends stale-generation or non-READY content to the provider', async () => {

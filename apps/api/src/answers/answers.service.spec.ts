@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
+  ConflictException,
   HttpException,
   Logger,
   NotFoundException,
@@ -89,6 +90,11 @@ function createPrisma() {
         async (): Promise<{ id: string } | null> => ({ id: 'conversation-1' }),
       ),
     },
+    document: {
+      findFirst: vi.fn(
+        async (): Promise<{ status: string } | null> => ({ status: 'READY' }),
+      ),
+    },
   };
 }
 
@@ -151,6 +157,51 @@ describe('AnswersService', () => {
       text: 'What is alpha?',
       limit: 8,
     });
+  });
+
+  it('scopes retrieval to the requested document when one is supplied', async () => {
+    const { service, search, prisma } = createService();
+
+    await service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9');
+
+    expect(prisma.document.findFirst).toHaveBeenCalledWith({
+      where: { id: 'doc-9', organizationId: 'org-1' },
+      select: { status: true },
+    });
+    expect(search).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      text: 'What is alpha?',
+      limit: 8,
+      documentId: 'doc-9',
+    });
+  });
+
+  it('does not check a document when the question is unscoped', async () => {
+    const { service, prisma } = createService();
+
+    await service.answer('org-1', USER_ID, 'What is alpha?');
+
+    expect(prisma.document.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects a question scoped to a document outside the organization with 404', async () => {
+    const { service, search, prisma } = createService();
+    prisma.document.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it('rejects a question scoped to a document that is not READY with 409', async () => {
+    const { service, search, prisma } = createService();
+    prisma.document.findFirst.mockResolvedValueOnce({ status: 'PROCESSING' });
+
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(search).not.toHaveBeenCalled();
   });
 
   it('returns a fixed refusal without calling the provider when retrieval is empty', async () => {

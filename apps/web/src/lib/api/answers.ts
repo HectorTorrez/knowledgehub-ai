@@ -9,6 +9,7 @@ import { apiFetch, type RequestOptions } from './client';
 export interface AskedQuestion {
   organizationId: string;
   question: string;
+  documentId?: string;
 }
 
 export interface ListAnswersOptions extends RequestOptions {
@@ -25,8 +26,15 @@ export function answerFor(
 }
 
 export const answersApi = {
-  ask(organizationId: string, question: string): Promise<AnswerResponse> {
-    const body: AnswerRequest = { question };
+  ask(
+    organizationId: string,
+    question: string,
+    documentId?: string,
+  ): Promise<AnswerResponse> {
+    const body: AnswerRequest = {
+      question,
+      ...(documentId ? { documentId } : {}),
+    };
 
     return apiFetch<AnswerResponse>(
       `/organizations/${organizationId}/answers`,

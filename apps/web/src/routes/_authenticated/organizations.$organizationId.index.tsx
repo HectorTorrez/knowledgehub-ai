@@ -38,12 +38,18 @@ import { useSession } from '~/hooks/use-auth';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDate, formatRole } from '~/lib/format';
+import { pageHead } from '~/lib/seo';
 import { memberEmailSchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/',
 )({
-  head: () => ({ meta: [{ title: 'Overview · KnowledgeHub AI' }] }),
+  head: () =>
+    pageHead({
+      title: 'Overview · KnowledgeHub AI',
+      description:
+        'Manage the members and roles with access to this organization.',
+    }),
   component: OrganizationOverviewPage,
 });
 
@@ -283,6 +289,7 @@ function OrganizationOverviewPage() {
                           variant="ghost"
                           size="icon"
                           aria-label={`Remove ${member.email}`}
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           onClick={() =>
                             setMemberToRemove({
                               userId: member.userId,
