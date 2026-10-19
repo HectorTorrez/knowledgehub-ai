@@ -51,10 +51,10 @@ const VARIANT_STYLES: Record<
 > = {
   success: {
     icon: CircleCheck,
-    iconClassName: 'text-emerald-600 dark:text-emerald-400',
+    iconClassName: 'text-success',
   },
   error: { icon: TriangleAlert, iconClassName: 'text-destructive' },
-  info: { icon: Info, iconClassName: 'text-muted-foreground' },
+  info: { icon: Info, iconClassName: 'text-info' },
 };
 
 export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {

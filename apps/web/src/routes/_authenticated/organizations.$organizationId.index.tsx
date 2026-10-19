@@ -283,6 +283,7 @@ function OrganizationOverviewPage() {
                           variant="ghost"
                           size="icon"
                           aria-label={`Remove ${member.email}`}
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           onClick={() =>
                             setMemberToRemove({
                               userId: member.userId,

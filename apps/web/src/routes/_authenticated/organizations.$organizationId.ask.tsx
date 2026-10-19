@@ -1,22 +1,25 @@
-import type { AnswerResponse } from '@knowledgehub/shared-types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { LoaderCircle, Send } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { AnswerHistory } from '~/components/answer-history';
 import {
-  AnswerBody,
-  InsufficientEvidence,
-  SourcesList,
-} from '~/components/answer-content';
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
+import { AnswerThread, type LatestAnswer } from '~/components/answer-thread';
+import { DocumentScopeSelect } from '~/components/document-scope-select';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
+import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { answerFor, answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
+import { ALL_DOCUMENTS, resolveDocumentScope } from '~/lib/document-scope';
 import { questionSchema, QUESTION_MAX_LENGTH } from '~/lib/validation';
 
 export const Route = createFileRoute(
@@ -30,12 +33,20 @@ function AskPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const [question, setQuestion] = useState('');
+  const [selection, setSelection] = useState(ALL_DOCUMENTS);
   const [validationError, setValidationError] = useState<string | null>(null);
   const answerRef = useRef<HTMLDivElement>(null);
 
+  const ready = useReadyDocuments(organizationId);
+  const scope = resolveDocumentScope(selection, ready.documents);
+
   const ask = useMutation({
-    mutationFn: (input: { organizationId: string; question: string }) =>
-      answersApi.ask(input.organizationId, input.question),
+    mutationFn: (input: {
+      organizationId: string;
+      question: string;
+      documentId?: string;
+    }) =>
+      answersApi.ask(input.organizationId, input.question, input.documentId),
     onSuccess: (_data, variables) =>
       client.invalidateQueries({
         queryKey: queryKeys.organizations.answers.list(variables.organizationId),
@@ -69,6 +80,7 @@ function AskPage() {
       await ask.mutateAsync({
         organizationId,
         question: result.data.question,
+        documentId: scope.documentId,
       });
       setQuestion('');
     } catch {
@@ -89,12 +101,23 @@ function AskPage() {
   }
 
   const answer = answerFor(ask.variables, ask.data, organizationId);
+  const askedScope = resolveDocumentScope(
+    ask.variables?.documentId ?? ALL_DOCUMENTS,
+    ready.documents,
+  );
+  const latest: LatestAnswer | undefined = answer
+    ? {
+        question: ask.variables?.question ?? '',
+        response: answer,
+        scopeLabel: askedScope.label,
+      }
+    : undefined;
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Ask a question"
-        description="Answers are grounded in this organization's ready documents and cite their sources."
+        description="Answers are grounded in the documents you choose and cite their sources."
       />
 
       <Card>
@@ -104,6 +127,23 @@ function AskPage() {
               <ErrorNotice error={new Error(validationError)} />
             ) : null}
             {ask.isError ? <ErrorNotice error={ask.error} /> : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="document-scope">Answer from</Label>
+              <DocumentScopeSelect
+                documents={ready.documents}
+                value={scope.documentId ?? ALL_DOCUMENTS}
+                onValueChange={setSelection}
+                disabled={ready.query.isPending}
+              />
+              <p className="text-xs text-muted-foreground">
+                {scopeHint(ready.query.isPending, ready.documents.length)}
+              </p>
+              {ready.query.isError ? (
+                <ErrorNotice error={ready.query.error} />
+              ) : null}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="question">Your question</Label>
               <Textarea
@@ -117,11 +157,9 @@ function AskPage() {
                 placeholder="What is the parental leave policy?"
               />
             </div>
+
             <div className="flex items-center justify-between gap-4">
-              <p
-                id="question-hint"
-                className="text-xs text-muted-foreground"
-              >
+              <p id="question-hint" className="text-xs text-muted-foreground">
                 {question.length}/{QUESTION_MAX_LENGTH} · Enter to ask,
                 Shift+Enter for a new line
               </p>
@@ -146,65 +184,48 @@ function AskPage() {
         </CardContent>
       </Card>
 
-      <div ref={answerRef} className="scroll-mt-20">
-        {ask.isPending ? <ThinkingCard /> : null}
-
-        {answer ? (
-          <AnswerSection
+      <div ref={answerRef} className="scroll-mt-20 space-y-8">
+        {ask.isPending ? (
+          <ThinkingCard
             question={ask.variables?.question ?? ''}
-            answer={answer}
+            scopeLabel={scope.label}
           />
         ) : null}
-      </div>
 
-      <AnswerHistory organizationId={organizationId} />
+        <AnswerThread organizationId={organizationId} latest={latest} />
+      </div>
     </div>
   );
 }
 
-function ThinkingCard() {
+function scopeHint(isPending: boolean, readyCount: number): string {
+  if (isPending) {
+    return 'Loading this organization’s documents…';
+  }
+
+  if (readyCount === 0) {
+    return 'No documents are ready yet — upload one to ask questions about it.';
+  }
+
+  return 'Search every document, or narrow this question to one.';
+}
+
+function ThinkingCard({
+  question,
+  scopeLabel,
+}: Readonly<{ question: string; scopeLabel: string }>) {
   return (
     <Card>
-      <CardContent
-        role="status"
-        aria-live="polite"
-        className="flex items-center gap-3 p-6 text-sm text-muted-foreground"
-      >
-        <LoaderCircle className="size-4 animate-spin" />
-        Searching this organization&apos;s documents…
+      <CardContent role="status" aria-live="polite" className="space-y-2 p-6">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Question
+        </p>
+        <p className="text-sm font-medium">{question}</p>
+        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          <LoaderCircle className="size-4 animate-spin" />
+          Searching {scopeLabel}…
+        </span>
       </CardContent>
     </Card>
-  );
-}
-
-function AnswerSection({
-  question,
-  answer,
-}: Readonly<{ question: string; answer: AnswerResponse }>) {
-  return (
-    <div className="space-y-4">
-      {question ? (
-        <div className="space-y-1">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Question
-          </p>
-          <p className="text-sm font-medium">{question}</p>
-        </div>
-      ) : null}
-
-      <Card>
-        <CardContent className="p-6">
-          {answer.status === 'answered' ? (
-            <AnswerBody text={answer.answer} />
-          ) : (
-            <InsufficientEvidence />
-          )}
-        </CardContent>
-      </Card>
-
-      {answer.citations.length > 0 ? (
-        <SourcesList citations={answer.citations} />
-      ) : null}
-    </div>
   );
 }

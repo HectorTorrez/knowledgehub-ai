@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -151,6 +152,7 @@ export class AnswersService {
     userId: string,
     question: string,
     conversationId?: string,
+    documentId?: string,
   ): Promise<AnswerResponse> {
     const startedAt = Date.now();
     const event: AnswerLogEvent = {
@@ -180,7 +182,13 @@ export class AnswersService {
         );
       }
 
-      const response = await this.run(organizationId, question, event, history);
+      const response = await this.run(
+        organizationId,
+        question,
+        event,
+        history,
+        documentId,
+      );
       event.status = response.status;
       event.citationCount = response.citations.length;
       await this.persistAnswer(
@@ -286,12 +294,17 @@ export class AnswersService {
     question: string,
     event: AnswerLogEvent,
     history: ConversationTurn[],
+    documentId?: string,
   ): Promise<AnswerResponse> {
     if (!this.config.enabled) {
       throw new ServiceUnavailableException('Answer generation is not enabled');
     }
 
-    const sources = await this.retrieveSources(organizationId, question);
+    if (documentId) {
+      await this.assertDocumentAnswerable(organizationId, documentId);
+    }
+
+    const sources = await this.retrieveSources(organizationId, question, documentId);
     event.sourceCount = sources.length;
 
     if (sources.length === 0) {
@@ -336,6 +349,7 @@ export class AnswersService {
   private async retrieveSources(
     organizationId: string,
     question: string,
+    documentId?: string,
   ): Promise<AnswerSource[]> {
     let chunks;
 
@@ -344,6 +358,7 @@ export class AnswersService {
         organizationId,
         text: question,
         limit: this.config.maxSources,
+        ...(documentId ? { documentId } : {}),
       });
     } catch (error) {
       throw mapRetrievalError(error);
@@ -367,6 +382,24 @@ export class AnswersService {
       });
     } catch (error) {
       throw mapAnswerError(error);
+    }
+  }
+
+  private async assertDocumentAnswerable(
+    organizationId: string,
+    documentId: string,
+  ): Promise<void> {
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, organizationId },
+      select: { status: true },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (document.status !== 'READY') {
+      throw new ConflictException('Document is not ready to answer questions');
     }
   }
 

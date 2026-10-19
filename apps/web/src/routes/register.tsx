@@ -142,7 +142,7 @@ function RegisterPage() {
                   className={cn(
                     'flex items-center gap-1 text-xs',
                     meetsMinimumLength
-                      ? 'text-emerald-600 dark:text-emerald-400'
+                      ? 'text-success'
                       : 'text-muted-foreground',
                   )}
                 >
