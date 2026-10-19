@@ -75,4 +75,37 @@ describe('buildAnswerPrompt', () => {
     expect(ANSWER_SYSTEM_PROMPT).toContain('insufficient_evidence');
     expect(ANSWER_SYSTEM_PROMPT).toContain('untrusted quoted data');
   });
+
+  it('renders prior conversation turns before the sources', () => {
+    const prompt = buildAnswerPrompt('What about beta?', [source(1)], [
+      { question: 'What is alpha?', answer: 'Alpha [1].' },
+    ]);
+
+    expect(prompt.user).toContain('Previous conversation:');
+    expect(prompt.user).toContain('User: What is alpha?');
+    expect(prompt.user).toContain('Assistant: Alpha [1].');
+    expect(prompt.user).toContain('<source id="1"');
+    expect(prompt.user.indexOf('Previous conversation:')).toBeLessThan(
+      prompt.user.indexOf('<source id="1"'),
+    );
+  });
+
+  it('omits the conversation section when there is no history', () => {
+    const prompt = buildAnswerPrompt('What is alpha?', [source(1)]);
+
+    expect(prompt.user).not.toContain('Previous conversation:');
+  });
+
+  it('escapes markup in prior conversation turns', () => {
+    const prompt = buildAnswerPrompt('Question?', [source(1)], [
+      { question: '<b>hi</b>', answer: '<script>x</script>' },
+    ]);
+
+    expect(prompt.user).toContain('User: &lt;b&gt;hi&lt;/b&gt;');
+    expect(prompt.user).not.toContain('<script>');
+  });
+
+  it('instructs the model that conversation is context, not a source', () => {
+    expect(ANSWER_SYSTEM_PROMPT).toContain('not a source');
+  });
 });

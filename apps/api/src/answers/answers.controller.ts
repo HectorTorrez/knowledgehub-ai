@@ -57,6 +57,7 @@ export class AnswersController {
       context.organizationId,
       context.userId,
       body.question,
+      body.conversationId,
     );
 
     if (body.stream) {

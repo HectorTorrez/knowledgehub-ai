@@ -9,14 +9,17 @@ import {
 } from './answer-provider.port.js';
 import { AnswersController } from './answers.controller.js';
 import { AnswersService } from './answers.service.js';
+import { ConversationsController } from './conversations.controller.js';
+import { ConversationsService } from './conversations.service.js';
 import { OpenAiAnswerProvider } from './openai-answer-provider.js';
 
 @Module({
   imports: [AuthModule, OrganizationsModule, RetrievalModule],
-  controllers: [AnswersController],
+  controllers: [AnswersController, ConversationsController],
   providers: [
     AnswerConfig,
     AnswersService,
+    ConversationsService,
     {
       provide: ANSWER_PROVIDER,
       inject: [AnswerConfig],

@@ -81,6 +81,11 @@ function createPrisma() {
       findFirst: vi.fn(async (_args?: unknown) => null as unknown),
       deleteMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
+    conversation: {
+      findFirst: vi.fn(
+        async (): Promise<{ id: string } | null> => ({ id: 'conversation-1' }),
+      ),
+    },
   };
 }
 
@@ -170,6 +175,66 @@ describe('AnswersService', () => {
     await service.answer('org-1', USER_ID, 'What is alpha?');
 
     expect(usage.recordAnswer).not.toHaveBeenCalled();
+  });
+
+  it('loads prior turns and persists the follow-up under its conversation', async () => {
+    const { service, prisma, generate } = createService();
+    prisma.answer.findMany.mockResolvedValueOnce([
+      { question: 'What is alpha?', answer: 'Alpha [1].' },
+    ]);
+
+    await service.answer(
+      'org-1',
+      USER_ID,
+      'What about beta?',
+      'conversation-1',
+    );
+
+    expect(prisma.conversation.findFirst).toHaveBeenCalledWith({
+      where: { id: 'conversation-1', organizationId: 'org-1' },
+      select: { id: true },
+    });
+    expect(prisma.answer.findMany).toHaveBeenCalledWith({
+      where: {
+        conversationId: 'conversation-1',
+        organizationId: 'org-1',
+        status: 'answered',
+        answer: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { question: true, answer: true },
+      take: 20,
+    });
+    expect(prisma.answer.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ conversationId: 'conversation-1' }),
+    });
+    expect(generate).toHaveBeenCalled();
+  });
+
+  it('rejects a follow-up whose conversation is not in the organization', async () => {
+    const { service, prisma } = createService();
+    prisma.conversation.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.answer(
+        'org-1',
+        USER_ID,
+        'What about beta?',
+        'conversation-other',
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('filters history by conversation when requested', async () => {
+    const { service, prisma } = createService();
+
+    await service.list('org-1', { limit: 25, conversationId: 'conversation-1' });
+
+    expect(prisma.answer.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: 'org-1', conversationId: 'conversation-1' },
+      }),
+    );
   });
 
   it('rejects with the quota error before generating when the tenant is over quota', async () => {
@@ -560,6 +625,7 @@ describe('AnswersService', () => {
       status: 'answered',
       answer: 'Alpha [1].',
       citations: [],
+      conversationId: null,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
     };
     const { service, prisma } = createService();
@@ -575,6 +641,7 @@ describe('AnswersService', () => {
         status: true,
         answer: true,
         citations: true,
+        conversationId: true,
         createdAt: true,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -586,6 +653,7 @@ describe('AnswersService', () => {
           id: 'answer-1',
           question: 'What is alpha?',
           status: 'answered',
+          conversationId: null,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ],

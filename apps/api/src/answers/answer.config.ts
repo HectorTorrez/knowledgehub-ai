@@ -37,6 +37,10 @@ export class AnswerConfig {
     return this.config.getOrThrow<number>('ANSWER_MIN_SIMILARITY');
   }
 
+  get historyMaxChars(): number {
+    return this.config.getOrThrow<number>('ANSWER_HISTORY_MAX_CHARS');
+  }
+
   get baseUrl(): string {
     return this.config.getOrThrow<string>('OPENAI_BASE_URL');
   }

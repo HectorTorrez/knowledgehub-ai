@@ -702,6 +702,11 @@ POST   /organizations/:organizationId/answers
 GET    /organizations/:organizationId/answers
 GET    /organizations/:organizationId/answers/:answerId
 DELETE /organizations/:organizationId/answers/:answerId
+
+POST   /organizations/:organizationId/conversations
+GET    /organizations/:organizationId/conversations
+GET    /organizations/:organizationId/conversations/:conversationId
+DELETE /organizations/:organizationId/conversations/:conversationId
 ```
 
 Every answer is persisted to the organization's history once a successful
@@ -710,6 +715,13 @@ outcome is produced; a page refresh no longer loses it. `GET …/answers` return
 timestamp), `GET …/answers/:answerId` returns the full answer and citations, and
 `DELETE …/answers/:answerId` removes one entry. Failed requests are not
 persisted.
+
+A question may carry an optional `conversationId`. When present, the conversation
+must belong to the same organization (`404` otherwise), and the most recent prior
+turns are included in the prompt as quoted context — never as sources. Create a
+conversation with `POST …/conversations`, list them with `GET …/conversations`,
+and filter history with `GET …/answers?conversationId=…`. Deleting a conversation
+cascades to its answers. History is bounded by `ANSWER_HISTORY_MAX_CHARS`.
 
 The endpoint requires an authenticated session and membership in the
 organization named in the route, exactly like the document endpoints:
@@ -909,14 +921,15 @@ proof of entailment; human review remains necessary.
 
 ### Limitations
 
-- **Answers are persisted, not conversational.** History stores each answered
-  question and its outcome, but a follow-up question cannot reference a prior
-  answer — each request is independent.
+- **Conversation is context, not memory.** A follow-up carrying a
+  `conversationId` receives the prior turns as quoted prompt context, bounded by
+  `ANSWER_HISTORY_MAX_CHARS`; there is no retrieval over history and no
+  vector store. Each turn's retrieval is still run fresh from the current
+  question.
 - **Streaming is post-validation.** The streamed response renders the validated
   answer progressively but still waits for the full completion, so it improves
   perceived latency, not total latency. Streaming never emits unvalidated
   provider output.
-- **No rate limiting or per-tenant quota.**
 - **No automated entailment evaluation.**
 - **The similarity floor is a heuristic** and is model- and corpus-dependent.
 - **Prompt injection through documents is reduced, not eliminated.**

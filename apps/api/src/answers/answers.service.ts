@@ -43,7 +43,7 @@ import {
   type AnswerGeneration,
   type AnswerProvider,
 } from './answer-provider.port.js';
-import { buildAnswerPrompt, type AnswerPrompt } from './answer-prompt.js';
+import { buildAnswerPrompt, type AnswerPrompt, type ConversationTurn } from './answer-prompt.js';
 import { AnswerConfig } from './answer.config.js';
 import type { ListAnswersInput } from './dto/list-answers.schema.js';
 
@@ -55,6 +55,8 @@ const INSUFFICIENT_EVIDENCE_RESPONSE: AnswerResponse = {
   answer: null,
   citations: [],
 };
+
+const MAX_CONVERSATION_TURNS = 20;
 
 type AnswerStatus = AnswerResponse['status'] | 'error';
 
@@ -91,6 +93,7 @@ const ANSWER_SELECT = {
   status: true,
   answer: true,
   citations: true,
+  conversationId: true,
   createdAt: true,
 } as const;
 
@@ -100,6 +103,7 @@ interface AnswerProjection {
   status: AnswerResponse['status'];
   answer: string | null;
   citations: unknown;
+  conversationId: string | null;
   createdAt: Date;
 }
 
@@ -108,6 +112,7 @@ function toAnswerSummary(row: AnswerProjection): AnswerSummary {
     id: row.id,
     question: row.question,
     status: row.status,
+    conversationId: row.conversationId,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -119,6 +124,7 @@ function toAnswerDetail(row: AnswerProjection): AnswerDetail {
     status: row.status,
     answer: row.answer,
     citations: toCitations(row.citations),
+    conversationId: row.conversationId,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -144,6 +150,7 @@ export class AnswersService {
     organizationId: string,
     userId: string,
     question: string,
+    conversationId?: string,
   ): Promise<AnswerResponse> {
     const startedAt = Date.now();
     const event: AnswerLogEvent = {
@@ -160,10 +167,29 @@ export class AnswersService {
     };
 
     try {
-      const response = await this.run(organizationId, question, event);
+      let history: ConversationTurn[] = [];
+
+      if (conversationId) {
+        await this.assertConversationInOrganization(
+          conversationId,
+          organizationId,
+        );
+        history = await this.loadConversationHistory(
+          organizationId,
+          conversationId,
+        );
+      }
+
+      const response = await this.run(organizationId, question, event, history);
       event.status = response.status;
       event.citationCount = response.citations.length;
-      await this.persistAnswer(organizationId, userId, question, response);
+      await this.persistAnswer(
+        organizationId,
+        userId,
+        question,
+        response,
+        conversationId,
+      );
       return response;
     } catch (error) {
       event.errorName = errorNameOf(error);
@@ -186,6 +212,7 @@ export class AnswersService {
     const rows = await this.prisma.answer.findMany({
       where: {
         organizationId,
+        ...(input.conversationId ? { conversationId: input.conversationId } : {}),
         ...(cursor ? listCursorFilter(cursor) : {}),
       },
       select: ANSWER_SELECT,
@@ -235,6 +262,7 @@ export class AnswersService {
     userId: string,
     question: string,
     response: AnswerResponse,
+    conversationId?: string,
   ): Promise<void> {
     try {
       await this.prisma.answer.create({
@@ -245,6 +273,7 @@ export class AnswersService {
           status: response.status,
           answer: response.status === 'answered' ? response.answer : null,
           citations: response.citations as unknown as Prisma.InputJsonValue,
+          ...(conversationId ? { conversationId } : {}),
         },
       });
     } catch (error) {
@@ -256,6 +285,7 @@ export class AnswersService {
     organizationId: string,
     question: string,
     event: AnswerLogEvent,
+    history: ConversationTurn[],
   ): Promise<AnswerResponse> {
     if (!this.config.enabled) {
       throw new ServiceUnavailableException('Answer generation is not enabled');
@@ -270,7 +300,7 @@ export class AnswersService {
 
     await this.usage.recordAnswer(organizationId);
 
-    const prompt = buildAnswerPrompt(question, sources);
+    const prompt = buildAnswerPrompt(question, sources, history);
     event.promptChars = prompt.system.length + prompt.user.length;
 
     const generation = await this.generate(prompt);
@@ -338,6 +368,56 @@ export class AnswersService {
     } catch (error) {
       throw mapAnswerError(error);
     }
+  }
+
+  private async assertConversationInOrganization(
+    conversationId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, organizationId },
+      select: { id: true },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+  }
+
+  private async loadConversationHistory(
+    organizationId: string,
+    conversationId: string,
+  ): Promise<ConversationTurn[]> {
+    const rows = await this.prisma.answer.findMany({
+      where: {
+        conversationId,
+        organizationId,
+        status: 'answered',
+        answer: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { question: true, answer: true },
+      take: MAX_CONVERSATION_TURNS,
+    });
+
+    const turns = rows
+      .map((row) => ({ question: row.question, answer: row.answer as string }))
+      .reverse();
+
+    let remaining = this.config.historyMaxChars;
+    const selected: ConversationTurn[] = [];
+
+    for (let index = turns.length - 1; index >= 0; index -= 1) {
+      const turn = turns[index] as ConversationTurn;
+      const cost = turn.question.length + turn.answer.length;
+      if (selected.length > 0 && cost > remaining) {
+        break;
+      }
+      selected.unshift(turn);
+      remaining -= cost;
+    }
+
+    return selected;
   }
 }
 

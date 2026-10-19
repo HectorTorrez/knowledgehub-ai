@@ -12,6 +12,7 @@ export const listAnswersSchema = z
       .max(ANSWER_LIST_MAX_LIMIT, `limit must be at most ${ANSWER_LIST_MAX_LIMIT}`)
       .default(ANSWER_LIST_DEFAULT_LIMIT),
     cursor: z.string().min(1, 'cursor must not be empty').optional(),
+    conversationId: z.uuid('conversationId must be a UUID').optional(),
   })
   .strict();
 

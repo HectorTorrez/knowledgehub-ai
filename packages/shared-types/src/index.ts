@@ -329,6 +329,7 @@ export interface DocumentUploadCompleteRequest {
  */
 export interface AnswerRequest {
   question: string;
+  conversationId?: string;
   stream?: boolean;
 }
 
@@ -385,6 +386,7 @@ export interface AnswerSummary {
   id: string;
   question: string;
   status: AnswerResponse['status'];
+  conversationId: string | null;
   createdAt: string;
 }
 
@@ -395,6 +397,7 @@ export interface AnswerDetail {
   status: AnswerResponse['status'];
   answer: string | null;
   citations: AnswerCitation[];
+  conversationId: string | null;
   createdAt: string;
 }
 
@@ -411,6 +414,27 @@ export interface AnswerListResponse {
 /** Response body of `GET /organizations/:organizationId/answers/:answerId`. */
 export interface AnswerDetailResponse {
   answer: AnswerDetail;
+}
+
+/**
+ * A conversation groups a sequence of answers so a follow-up can reference
+ * prior turns. Carries only identity and timing; the answers themselves are
+ * listed through the answers endpoint filtered by `conversationId`.
+ */
+export interface ConversationSummary {
+  id: string;
+  createdAt: string;
+}
+
+/** Response body of `GET /organizations/:organizationId/conversations`. */
+export interface ConversationListResponse {
+  conversations: ConversationSummary[];
+  nextCursor: string | null;
+}
+
+/** Response body of `POST` and `GET /organizations/:organizationId/conversations/:conversationId`. */
+export interface ConversationDetailResponse {
+  conversation: ConversationSummary;
 }
 
 /**
