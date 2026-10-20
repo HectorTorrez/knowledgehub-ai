@@ -14,7 +14,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
 import { FileDropzone } from '~/components/file-dropzone';
@@ -47,9 +47,12 @@ import { formatBytes } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
 import {
+  MAX_PROCESSABLE_UPLOAD_BYTES,
+  validateUploadFile,
+} from '~/lib/upload-validation';
+import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
   documentTitleSchema,
-  isAllowedUploadContentType,
 } from '~/lib/validation';
 
 export const Route = createFileRoute(
@@ -72,7 +75,9 @@ function DocumentsPage() {
   const { toast } = useToast();
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const fileValidationId = useRef(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<DocumentSummary | null>(null);
   const [renameTitle, setRenameTitle] = useState('');
@@ -100,6 +105,7 @@ function DocumentsPage() {
       organizationId: string;
       title: string;
       file: File;
+      contentType: string;
     }) => {
       const created = await documentsApi.create(input.organizationId, {
         title: input.title,
@@ -109,7 +115,7 @@ function DocumentsPage() {
         input.organizationId,
         documentId,
         {
-          contentType: input.file.type || 'application/octet-stream',
+          contentType: input.contentType,
           sizeBytes: input.file.size,
         },
       );
@@ -154,9 +160,31 @@ function DocumentsPage() {
       }),
   });
 
+  async function handleFileChange(nextFile: File | null) {
+    const validationId = fileValidationId.current + 1;
+    fileValidationId.current = validationId;
+    setFile(nextFile);
+    setFileError(null);
+
+    if (nextFile === null) {
+      return;
+    }
+
+    const result = await validateUploadFile(nextFile);
+
+    if (validationId !== fileValidationId.current) {
+      return;
+    }
+
+    if (!result.ok) {
+      setFileError(result.message);
+    }
+  }
+
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setValidationError(null);
+    setFileError(null);
 
     const result = documentTitleSchema.safeParse({ title });
 
@@ -170,15 +198,20 @@ function DocumentsPage() {
       return;
     }
 
-    if (!isAllowedUploadContentType(file.type)) {
-      setValidationError(
-        'Unsupported file type. Upload a PDF, plain text, or Markdown file.',
-      );
+    const fileResult = await validateUploadFile(file);
+
+    if (!fileResult.ok) {
+      setFileError(fileResult.message);
       return;
     }
 
     try {
-      await upload.mutateAsync({ organizationId, title: result.data.title, file });
+      await upload.mutateAsync({
+        organizationId,
+        title: result.data.title,
+        file,
+        contentType: fileResult.contentType,
+      });
       toast({
         variant: 'success',
         title: 'Document uploaded',
@@ -186,6 +219,7 @@ function DocumentsPage() {
       });
       setTitle('');
       setFile(null);
+      setFileError(null);
       setUploadOpen(false);
     } catch {
       return;
@@ -394,7 +428,8 @@ function DocumentsPage() {
           <DialogHeader>
             <DialogTitle>Upload a document</DialogTitle>
             <DialogDescription>
-              Add a PDF, plain text, or Markdown file to this organization.
+              Add a PDF, plain text, or Markdown file up to{' '}
+              {formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} to this organization.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpload} className="space-y-4" noValidate>
@@ -412,11 +447,18 @@ function DocumentsPage() {
                 placeholder="Employee handbook"
               />
             </div>
-            <FileDropzone
-              accept={ALLOWED_UPLOAD_CONTENT_TYPES.join(',')}
-              file={file}
-              onFileChange={setFile}
-            />
+            <div className="space-y-2">
+              <FileDropzone
+                accept={ALLOWED_UPLOAD_CONTENT_TYPES.join(',')}
+                file={file}
+                onFileChange={(nextFile) => void handleFileChange(nextFile)}
+              />
+              {fileError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {fileError}
+                </p>
+              ) : null}
+            </div>
             <DialogFooter>
               <Button
                 type="button"
