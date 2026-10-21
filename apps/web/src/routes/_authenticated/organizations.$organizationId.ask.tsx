@@ -24,7 +24,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import { AnswerActions } from '~/components/answer-actions';
+import { AnswerActions, AnswerFeedback } from '~/components/answer-actions';
 import { AnswerThread } from '~/components/answer-thread';
 import {
   AnswerBody,
@@ -552,7 +552,12 @@ function PermalinkAnswer({
                 organizationId={organizationId}
               />
             ) : null}
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-1">
+              <AnswerFeedback
+                organizationId={organizationId}
+                answerId={detail.data.answer.id}
+                initial={detail.data.answer.feedback}
+              />
               <AnswerActions
                 organizationId={organizationId}
                 answerId={detail.data.answer.id}
@@ -733,7 +738,12 @@ function PersistedAnswer({
               organizationId={organizationId}
             />
           ) : null}
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-1">
+            <AnswerFeedback
+              organizationId={organizationId}
+              answerId={detail.data.answer.id}
+              initial={detail.data.answer.feedback}
+            />
             <AnswerActions
               organizationId={organizationId}
               answerId={detail.data.answer.id}

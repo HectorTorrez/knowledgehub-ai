@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { ChevronDown, LoaderCircle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { AnswerActions } from '~/components/answer-actions';
+import { AnswerActions, AnswerFeedback } from '~/components/answer-actions';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime } from '~/lib/format';
@@ -228,6 +228,12 @@ function LatestAnswerCard({
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              {answerId !== undefined ? (
+                <AnswerFeedback
+                  organizationId={organizationId}
+                  answerId={answerId}
+                />
+              ) : null}
               <AnswerActions
                 organizationId={organizationId}
                 answerId={answerId}
@@ -378,7 +384,12 @@ function ExpandedAnswer({
         </div>
       ) : null}
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-end gap-1">
+        <AnswerFeedback
+          organizationId={organizationId}
+          answerId={answer.id}
+          initial={answer.feedback}
+        />
         <AnswerActions
           organizationId={organizationId}
           answerId={answer.id}

@@ -393,6 +393,25 @@ export interface AnswerSummary {
   createdAt: string;
 }
 
+export type AnswerFeedbackValue = 'UP' | 'DOWN';
+
+/** The signed-in user's rating of an answer, if they left one. */
+export interface AnswerFeedbackSummary {
+  value: AnswerFeedbackValue;
+  comment: string | null;
+}
+
+/** Request body of `PUT /organizations/:organizationId/answers/:answerId/feedback`. */
+export interface SetAnswerFeedbackRequest {
+  value: AnswerFeedbackValue;
+  comment?: string;
+}
+
+/** Response body of the feedback endpoints. `null` after a rating is removed. */
+export interface AnswerFeedbackResponse {
+  feedback: AnswerFeedbackSummary | null;
+}
+
 /** Full persisted answer, including prose and citations when `answered`. */
 export interface AnswerDetail {
   id: string;
@@ -402,6 +421,7 @@ export interface AnswerDetail {
   citations: AnswerCitation[];
   conversationId: string | null;
   createdAt: string;
+  feedback: AnswerFeedbackSummary | null;
 }
 
 /**

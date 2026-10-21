@@ -1,9 +1,11 @@
 import type {
   AnswerDetailResponse,
+  AnswerFeedbackResponse,
   AnswerListResponse,
   AnswerRequest,
   AnswerResponse,
   AnswerStreamEvent,
+  SetAnswerFeedbackRequest,
 } from '@knowledgehub/shared-types';
 import { apiFetch, apiStream, type RequestOptions } from './client';
 
@@ -69,6 +71,24 @@ export const answersApi = {
       method: 'DELETE',
       authRecovery: true,
     });
+  },
+
+  setFeedback(
+    organizationId: string,
+    answerId: string,
+    input: SetAnswerFeedbackRequest,
+  ): Promise<AnswerFeedbackResponse> {
+    return apiFetch<AnswerFeedbackResponse>(
+      `/organizations/${organizationId}/answers/${answerId}/feedback`,
+      { method: 'PUT', body: input, authRecovery: true },
+    );
+  },
+
+  clearFeedback(organizationId: string, answerId: string): Promise<void> {
+    return apiFetch<void>(
+      `/organizations/${organizationId}/answers/${answerId}/feedback`,
+      { method: 'DELETE', authRecovery: true },
+    );
   },
 };
 
