@@ -178,6 +178,14 @@ STORAGE_INTEGRATION=true pnpm --filter @knowledgehub/api test:e2e
 The integration check is skipped unless `STORAGE_INTEGRATION=true`, so the
 default suite needs no running object storage.
 
+The web browser suite uses Playwright with a mocked API, and starts the Vite dev
+server itself:
+
+```bash
+pnpm --filter @knowledgehub/web exec playwright install chromium
+pnpm --filter @knowledgehub/web test:e2e
+```
+
 The grounded-answer evaluation is also opt-in. It is excluded from `pnpm test`
 and `pnpm test:e2e`, requires a real provider key, and is documented under
 [Evaluation](#evaluation).
@@ -192,7 +200,20 @@ POST /auth/login      { email, password }                       -> 200 { user }
 GET  /auth/session                                              -> 200 { user } | 401
 POST /auth/refresh                                              -> 200 { user }
 POST /auth/logout                                               -> 204
+
+PATCH  /auth/profile       { firstName, lastName }              -> 200 { user }
+POST   /auth/change-password { currentPassword, newPassword }   -> 204
+GET    /auth/sessions                                           -> 200 { sessions }
+DELETE /auth/sessions/:sessionId                                -> 204
 ```
+
+`PATCH /auth/profile` updates the caller's display name. `POST
+/auth/change-password` verifies the current password, hashes the new one, and
+revokes every other session for that user; the active session stays signed in.
+`GET /auth/sessions` lists the caller's active sessions with their device,
+IP address, timestamps, and a `current` flag. `DELETE /auth/sessions/:sessionId`
+revokes another session; the current session is refused (`409`) and must be ended
+through logout.
 
 `GET /auth/session` is a read-only check of the current cookie-backed session.
 It returns the authenticated user's public profile, never rotates tokens or
@@ -296,6 +317,22 @@ requiring the invitee to already exist.
 
 Delivery of the invitation (email) is not wired yet; the token is surfaced to the
 owner, who shares it out of band.
+
+### Organization settings
+
+- `PATCH /organizations/:organizationId` (OWNER) with `{ "name": string }`
+  renames the organization and returns `{ organization }`.
+- `DELETE /organizations/:organizationId` (OWNER) permanently deletes the
+  organization with everything it owns (`204`).
+- `POST /organizations/:organizationId/leave` (any member) removes the caller's
+  membership (`204`). A last owner cannot leave (`409`); transfer ownership or
+  delete the organization instead.
+
+### GET /organizations/:organizationId/usage → 200
+
+Returns `{ usage: { answers: { used, limit, periodStart, resetsAt } } }` for the
+current UTC day. `used` is clamped to `limit`, and `resetsAt` is the next UTC
+midnight. The daily answer quota is configured by `QUOTA_ANSWER_DAILY`.
 
 ### Ownership and contention
 
@@ -420,6 +457,14 @@ jobs, and its staging and verified objects. A document in another organization �
 or one that does not exist — returns `404`. Object deletion is best-effort: if
 storage deletion fails the object is left for the garbage-collection sweep, but
 the document row is still removed.
+
+### POST /organizations/:organizationId/documents/:documentId/reprocess → 200
+
+Re-queues a `FAILED` document from its verified object without re-uploading. The
+generation is bumped, the failure is cleared, and a fresh processing job is
+created. Only `FAILED` documents are eligible (`409` otherwise); a document whose
+verified object no longer exists, or that never reached verified storage, returns
+`409` and must be deleted and uploaded again.
 
 ### POST /organizations/:organizationId/documents/:documentId/upload-url → 200
 
@@ -677,13 +722,14 @@ are never returned.
 
 ## Search
 
-`GET /organizations/:organizationId/search?q=<text>&limit=<n>` ranks an
-organization's ready document chunks by embedding similarity to the query and
+`GET /organizations/:organizationId/search?q=<text>&limit=<n>&documentId=<uuid>`
+ranks an organization's ready document chunks by embedding similarity to the query and
 returns `{ results }` (`SearchResponse`), each result carrying the source
 document id and title, the page number, the matching chunk's text as `excerpt`,
 and a `score` (cosine similarity, higher is closer). `q` is required (trimmed,
-1–2000 characters); `limit` defaults to 10 and caps at 50. Like the document
-endpoints, it requires an authenticated session and membership: `401`
+1–2000 characters); `limit` defaults to 10 and caps at 50; the optional
+`documentId` narrows the search to one ready document in the organization. Like
+the document endpoints, it requires an authenticated session and membership: `401`
 unauthenticated, `403` non-member, `400` for a malformed `:organizationId` or
 blank query.
 
@@ -714,14 +760,30 @@ outcome is produced; a page refresh no longer loses it. `GET …/answers` return
 `{ answers, nextCursor }` keyset-paginated summaries (question, outcome, and
 timestamp), `GET …/answers/:answerId` returns the full answer and citations, and
 `DELETE …/answers/:answerId` removes one entry. Failed requests are not
-persisted.
+persisted. Pass `askedBy=me` to restrict the list to the caller's questions; the
+default (`organization`) keeps the organization-wide history.
 
 A question may carry an optional `conversationId`. When present, the conversation
 must belong to the same organization (`404` otherwise), and the most recent prior
 turns are included in the prompt as quoted context — never as sources. Create a
 conversation with `POST …/conversations`, list them with `GET …/conversations`,
-and filter history with `GET …/answers?conversationId=…`. Deleting a conversation
-cascades to its answers. History is bounded by `ANSWER_HISTORY_MAX_CHARS`.
+and filter history with `GET …/answers?conversationId=…`. A conversation carries
+a `title` derived from its first question (`null` until then). Deleting a
+conversation cascades to its answers. History is bounded by
+`ANSWER_HISTORY_MAX_CHARS`.
+
+### Feedback
+
+- `PUT /organizations/:organizationId/answers/:answerId/feedback` with
+  `{ "value": "UP" | "DOWN", "comment"?: string }` sets or replaces the caller's
+  rating for an answer and returns `{ feedback }`.
+- `DELETE /organizations/:organizationId/answers/:answerId/feedback` removes it
+  (`204`).
+- `GET …/answers/:answerId` includes the caller's `feedback` (or `null`); ratings
+  are per user, so one person's rating never hides another's.
+
+Every answer endpoint scopes the answer by organization, so an id from another
+tenant returns `404`.
 
 A question may carry an optional `documentId` to scope retrieval to a single
 document. That document must belong to the same organization (`404` otherwise)
