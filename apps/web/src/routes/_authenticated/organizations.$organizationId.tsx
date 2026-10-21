@@ -7,8 +7,8 @@ import {
   MessageSquareText,
   Search,
   Settings,
+  type LucideIcon,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { ErrorNotice } from '~/components/route-states';
 import { Skeleton } from '~/components/ui/skeleton';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -20,6 +20,49 @@ export const Route = createFileRoute(
   component: OrganizationLayout,
 });
 
+type OrganizationTabPath =
+  | '/organizations/$organizationId'
+  | '/organizations/$organizationId/documents'
+  | '/organizations/$organizationId/ask'
+  | '/organizations/$organizationId/search'
+  | '/organizations/$organizationId/settings';
+
+interface OrganizationTabItem {
+  to: OrganizationTabPath;
+  exact?: boolean;
+  icon: LucideIcon;
+  label: string;
+}
+
+const ORGANIZATION_TABS: ReadonlyArray<OrganizationTabItem> = [
+  {
+    to: '/organizations/$organizationId',
+    exact: true,
+    icon: LayoutGrid,
+    label: 'Overview',
+  },
+  {
+    to: '/organizations/$organizationId/documents',
+    icon: FileText,
+    label: 'Documents',
+  },
+  {
+    to: '/organizations/$organizationId/ask',
+    icon: MessageSquareText,
+    label: 'Ask',
+  },
+  {
+    to: '/organizations/$organizationId/search',
+    icon: Search,
+    label: 'Search',
+  },
+  {
+    to: '/organizations/$organizationId/settings',
+    icon: Settings,
+    label: 'Settings',
+  },
+];
+
 function OrganizationLayout() {
   const { organizationId } = Route.useParams();
   const organization = useQuery({
@@ -28,65 +71,67 @@ function OrganizationLayout() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
+    <div className="space-y-6 pb-24 sm:pb-0">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         <Link
           to="/organizations"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
           All organizations
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {organization.isPending ? (
-            <Skeleton className="h-8 w-56" />
-          ) : (
-            (organization.data?.organization.name ?? 'Organization')
-          )}
-        </h1>
+        <span aria-hidden="true" className="text-muted-foreground">
+          /
+        </span>
+        {organization.isPending ? (
+          <Skeleton className="h-4 w-32" />
+        ) : (
+          <span className="min-w-0 truncate font-medium">
+            {organization.data?.organization.name ?? 'Organization'}
+          </span>
+        )}
       </div>
 
       {organization.isError ? <ErrorNotice error={organization.error} /> : null}
 
-      <nav className="flex gap-1 overflow-x-auto border-b">
-        <OrganizationTab to="/organizations/$organizationId" exact icon={LayoutGrid}>
-          Overview
-        </OrganizationTab>
-        <OrganizationTab to="/organizations/$organizationId/documents" icon={FileText}>
-          Documents
-        </OrganizationTab>
-        <OrganizationTab to="/organizations/$organizationId/ask" icon={MessageSquareText}>
-          Ask
-        </OrganizationTab>
-        <OrganizationTab to="/organizations/$organizationId/search" icon={Search}>
-          Search
-        </OrganizationTab>
-        <OrganizationTab to="/organizations/$organizationId/settings" icon={Settings}>
-          Settings
-        </OrganizationTab>
+      <nav
+        aria-label="Organization sections"
+        className="hidden gap-1 overflow-x-auto border-b sm:flex"
+      >
+        {ORGANIZATION_TABS.map((tab) => (
+          <OrganizationTab key={tab.to} {...tab} />
+        ))}
       </nav>
 
       <Outlet />
+
+      <nav
+        aria-label="Organization sections"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:hidden"
+      >
+        {ORGANIZATION_TABS.map(({ icon: Icon, ...tab }) => (
+          <Link
+            key={tab.to}
+            to={tab.to}
+            params={{ organizationId }}
+            activeOptions={{ exact: tab.exact ?? false }}
+            className="flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-1.5 text-[0.6875rem] font-medium transition-colors"
+            inactiveProps={{ className: 'text-muted-foreground' }}
+            activeProps={{
+              className: 'text-foreground',
+              'aria-current': 'page',
+            }}
+          >
+            <Icon className="size-5" />
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }
 
-function OrganizationTab({
-  to,
-  exact,
-  icon: Icon,
-  children,
-}: Readonly<{
-  to:
-    | '/organizations/$organizationId'
-    | '/organizations/$organizationId/documents'
-    | '/organizations/$organizationId/ask'
-    | '/organizations/$organizationId/search'
-    | '/organizations/$organizationId/settings';
-  exact?: boolean;
-  icon: typeof LayoutGrid;
-  children: ReactNode;
-}>) {
+function OrganizationTab({ to, exact, icon: Icon, label }: OrganizationTabItem) {
   const { organizationId } = Route.useParams();
 
   return (
@@ -98,10 +143,13 @@ function OrganizationTab({
       inactiveProps={{
         className: 'border-transparent text-muted-foreground hover:text-foreground',
       }}
-      activeProps={{ className: 'border-primary text-foreground' }}
+      activeProps={{
+        className: 'border-primary text-foreground',
+        'aria-current': 'page',
+      }}
     >
       <Icon className="size-4" />
-      {children}
+      {label}
     </Link>
   );
 }

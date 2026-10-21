@@ -24,7 +24,7 @@ test('signs in and browses an organization', async ({ page }) => {
   await page.getByRole('link', { name: /Acme/ }).first().click();
 
   await expect(page.getByRole('heading', { name: 'Acme' })).toBeVisible();
-  await expect(page.getByText('Daily answer usage')).toBeVisible();
+  await expect(page.getByText('Daily answer usage', { exact: true })).toBeVisible();
   await expect(page.getByText('2 of 100 answers')).toBeVisible();
 
   await page.getByRole('link', { name: 'Documents' }).click();
