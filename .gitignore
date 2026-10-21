@@ -48,3 +48,7 @@ sprint*.md
 
 # Turborepo cache
 .turbo/
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
