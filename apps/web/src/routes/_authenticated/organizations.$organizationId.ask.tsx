@@ -403,7 +403,7 @@ function AskPage() {
                       aria-label={`Delete ${
                         conversation.title ?? 'this conversation'
                       }`}
-                      className="mr-1 size-8 text-muted-foreground opacity-100 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                      className="mr-1 size-11 text-muted-foreground opacity-100 hover:text-destructive sm:size-8 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                       onClick={() => setDeleteTarget(conversation)}
                     >
                       <Trash2 className="size-3.5" />

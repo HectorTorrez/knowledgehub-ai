@@ -347,7 +347,7 @@ function BackLink({ organizationId }: Readonly<{ organizationId: string }>) {
     <Link
       to="/organizations/$organizationId/documents"
       params={{ organizationId }}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      className="inline-flex items-center gap-1 py-2 -my-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
     >
       <ArrowLeft className="size-4" />
       All documents

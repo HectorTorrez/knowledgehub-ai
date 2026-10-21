@@ -68,6 +68,40 @@ test('exposes every organization section in the bottom navigation', async ({
     'aria-current',
     'page',
   );
+
+  const brand = page.getByRole('link', { name: 'KnowledgeHub' });
+  const brandBox = await brand.boundingBox();
+
+  expect(brandBox).not.toBeNull();
+  expect(brandBox!.height).toBeLessThanOrEqual(32);
+});
+
+test('keeps key touch targets at least 44px tall', async ({ page }) => {
+  await mockApi(page, { authenticated: true });
+  await page.goto('/organizations/org-1/ask?conversation=conversation-1');
+  await page.waitForLoadState('networkidle');
+
+  const newConversation = page.getByRole('button', {
+    name: 'New conversation',
+  });
+  const newConversationBox = await newConversation.boundingBox();
+  expect(newConversationBox).not.toBeNull();
+  expect(newConversationBox!.height).toBeGreaterThanOrEqual(44);
+
+  const nav = page.getByRole('navigation', { name: 'Organization sections' });
+  const navLinkBox = await nav
+    .getByRole('link', { name: 'Ask' })
+    .boundingBox();
+  expect(navLinkBox).not.toBeNull();
+  expect(navLinkBox!.height).toBeGreaterThanOrEqual(44);
+
+  await page.goto('/organizations/org-1/documents');
+  await page.waitForLoadState('networkidle');
+
+  const actions = page.getByRole('button', { name: 'Actions for Handbook' });
+  const actionsBox = await actions.boundingBox();
+  expect(actionsBox).not.toBeNull();
+  expect(actionsBox!.height).toBeGreaterThanOrEqual(44);
 });
 
 test('keeps the ask composer and answer inside the mobile viewport', async ({

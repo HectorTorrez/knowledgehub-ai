@@ -132,7 +132,7 @@ function SearchPage() {
               type="button"
               onClick={clearSearch}
               aria-label="Clear search"
-              className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-sm p-3 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
             >
               <XIcon className="size-4" />
             </button>

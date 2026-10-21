@@ -27,7 +27,7 @@ export function CitationMarker({ marker }: Readonly<{ marker: number }>) {
     <a
       href={`#source-${marker}`}
       aria-label={`Go to source ${marker}`}
-      className="mx-0.5 inline-flex h-4 min-w-4 translate-y-[-1px] items-center justify-center rounded-sm bg-primary/10 px-1 align-middle text-[10px] leading-none font-semibold text-primary transition-colors hover:bg-primary/20"
+      className="relative mx-0.5 inline-flex h-4 min-w-4 translate-y-[-1px] items-center justify-center rounded-sm bg-primary/10 px-1 align-middle text-[10px] leading-none font-semibold text-primary transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-primary/20"
     >
       {marker}
     </a>
