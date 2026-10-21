@@ -1,6 +1,11 @@
 import { refreshCoordinator, type RefreshOutcomeStatus } from '~/lib/auth/refresh';
 import { buildCsrfHeaders, isUnsafeMethod, readCsrfToken } from './csrf';
-import { ApiError, NETWORK_ERROR_STATUS, toApiError } from './errors';
+import {
+  ApiError,
+  NETWORK_ERROR_STATUS,
+  parseRetryAfterSeconds,
+  toApiError,
+} from './errors';
 import { resolveUrl } from './url';
 
 export { resolveUrl };
@@ -88,7 +93,12 @@ export async function apiStream(
 
   if (!response.ok) {
     const text = await response.text();
-    throw toApiError(response.status, parseJsonOrUndefined(text));
+    throw toApiError(
+      response.status,
+      parseJsonOrUndefined(text),
+      undefined,
+      parseRetryAfterSeconds(response.headers.get('Retry-After')),
+    );
   }
 
   return response;
@@ -216,7 +226,12 @@ async function readResponse<T>(
   const text = await response.text();
 
   if (!response.ok) {
-    throw toApiError(response.status, parseJsonOrUndefined(text), recoveryOutcome);
+    throw toApiError(
+      response.status,
+      parseJsonOrUndefined(text),
+      recoveryOutcome,
+      parseRetryAfterSeconds(response.headers.get('Retry-After')),
+    );
   }
 
   if (text.trim().length === 0) {

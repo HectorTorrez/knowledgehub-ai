@@ -7,9 +7,11 @@ import {
   isForbidden,
   isNetworkError,
   isNotFound,
+  isRateLimited,
   isServiceUnavailable,
   isUnauthorized,
   NETWORK_ERROR_STATUS,
+  parseRetryAfterSeconds,
   toApiError,
 } from './errors';
 
@@ -101,5 +103,48 @@ describe('status helpers', () => {
   it('does not match a plain error', () => {
     expect(isUnauthorized(new Error('x'))).toBe(false);
     expect(isForbidden(new Error('x'))).toBe(false);
+  });
+});
+
+describe('rate limiting', () => {
+  it('identifies a 429 response', () => {
+    expect(isRateLimited(new ApiError({ status: 429, message: 'slow down' }))).toBe(
+      true,
+    );
+    expect(isRateLimited(new ApiError({ status: 500, message: 'boom' }))).toBe(
+      false,
+    );
+    expect(isRateLimited(new Error('x'))).toBe(false);
+  });
+
+  it('carries the retry delay on the error', () => {
+    const error = toApiError(
+      429,
+      { statusCode: 429, message: 'Too many requests' },
+      undefined,
+      30,
+    );
+
+    expect(error.retryAfterSeconds).toBe(30);
+  });
+
+  it('parses a delta-seconds Retry-After header', () => {
+    expect(parseRetryAfterSeconds('30')).toBe(30);
+    expect(parseRetryAfterSeconds('0')).toBe(0);
+    expect(parseRetryAfterSeconds('1.2')).toBe(2);
+  });
+
+  it('parses an HTTP-date Retry-After header', () => {
+    const date = new Date(Date.now() + 45_000).toUTCString();
+
+    expect(parseRetryAfterSeconds(date)).toBeGreaterThanOrEqual(44);
+    expect(parseRetryAfterSeconds(date)).toBeLessThanOrEqual(46);
+  });
+
+  it('ignores a missing or malformed header', () => {
+    expect(parseRetryAfterSeconds(null)).toBeUndefined();
+    expect(parseRetryAfterSeconds('')).toBeUndefined();
+    expect(parseRetryAfterSeconds('soon')).toBeUndefined();
+    expect(parseRetryAfterSeconds('-5')).toBeUndefined();
   });
 });

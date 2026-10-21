@@ -8,6 +8,7 @@ export interface ApiErrorOptions {
   message: string;
   validationErrors?: string[];
   recoveryOutcome?: RefreshOutcomeStatus;
+  retryAfterSeconds?: number;
   cause?: unknown;
 }
 
@@ -15,12 +16,14 @@ export class ApiError extends Error {
   readonly status: number;
   readonly validationErrors: string[];
   readonly recoveryOutcome?: RefreshOutcomeStatus;
+  readonly retryAfterSeconds?: number;
 
   constructor({
     status,
     message,
     validationErrors = [],
     recoveryOutcome,
+    retryAfterSeconds,
     cause,
   }: ApiErrorOptions) {
     super(message, { cause });
@@ -28,6 +31,7 @@ export class ApiError extends Error {
     this.status = status;
     this.validationErrors = validationErrors;
     this.recoveryOutcome = recoveryOutcome;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -59,6 +63,10 @@ export function isServiceUnavailable(value: unknown): boolean {
   return isApiError(value) && value.status === 503;
 }
 
+export function isRateLimited(value: unknown): value is ApiError {
+  return isApiError(value) && value.status === 429;
+}
+
 export function fallbackMessage(status: number): string {
   return `Request failed with status ${status}.`;
 }
@@ -67,10 +75,39 @@ export function toApiError(
   status: number,
   body: unknown,
   recoveryOutcome?: RefreshOutcomeStatus,
+  retryAfterSeconds?: number,
 ): ApiError {
   const { message, validationErrors } = readErrorMessage(status, body);
 
-  return new ApiError({ status, message, validationErrors, recoveryOutcome });
+  return new ApiError({
+    status,
+    message,
+    validationErrors,
+    recoveryOutcome,
+    retryAfterSeconds,
+  });
+}
+
+export function parseRetryAfterSeconds(
+  header: string | null,
+): number | undefined {
+  if (header === null || header.trim().length === 0) {
+    return undefined;
+  }
+
+  const seconds = Number(header);
+
+  if (/^-?\d+(?:\.\d+)?$/.test(header.trim())) {
+    return seconds >= 0 ? Math.ceil(seconds) : undefined;
+  }
+
+  const date = Date.parse(header);
+
+  if (!Number.isNaN(date)) {
+    return Math.max(0, Math.ceil((date - Date.now()) / 1000));
+  }
+
+  return undefined;
 }
 
 function readErrorMessage(
