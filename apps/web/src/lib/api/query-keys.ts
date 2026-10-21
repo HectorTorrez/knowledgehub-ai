@@ -38,6 +38,8 @@ export const queryKeys = {
     members: (organizationId: string) =>
       ['organizations', organizationId, 'members'] as const,
     documents: {
+      all: (organizationId: string) =>
+        ['organizations', organizationId, 'documents'] as const,
       list: (organizationId: string, filters: DocumentListFilters = {}) =>
         documentsListKey(organizationId, filters),
       ready: (organizationId: string) =>

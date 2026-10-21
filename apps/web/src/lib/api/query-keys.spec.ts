@@ -44,6 +44,18 @@ describe('queryKeys', () => {
     ]);
   });
 
+  it('keys every document query under the all prefix so a broad invalidation reaches them', () => {
+    const all = queryKeys.organizations.documents.all('org-a');
+
+    expect(all).toEqual(['organizations', 'org-a', 'documents']);
+    expect(queryKeys.organizations.documents.list('org-a').slice(0, 3)).toEqual([
+      ...all,
+    ]);
+    expect(queryKeys.organizations.documents.ready('org-a').slice(0, 3)).toEqual([
+      ...all,
+    ]);
+  });
+
   it('keys the ready-documents picker under the list prefix so invalidations reach it', () => {
     const list = queryKeys.organizations.documents.list('org-a');
     const ready = queryKeys.organizations.documents.ready('org-a');
