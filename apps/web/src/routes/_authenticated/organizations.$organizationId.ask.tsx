@@ -308,8 +308,8 @@ function AskPage() {
         />
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="h-fit rounded-xl border bg-card lg:sticky lg:top-20">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <aside className="h-fit min-w-0 rounded-xl border bg-card lg:sticky lg:top-20">
           <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
             <h2 className="text-sm font-semibold">Conversations</h2>
             <Button
@@ -402,7 +402,7 @@ function AskPage() {
           </div>
         </aside>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {activeConversationId === null ? (
             <Card>
               <CardContent className="space-y-4 p-6">
@@ -426,6 +426,7 @@ function AskPage() {
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="h-auto max-w-full justify-start whitespace-normal py-2 text-left"
                           onClick={() => setQuestion(suggestion)}
                         >
                           {suggestion}

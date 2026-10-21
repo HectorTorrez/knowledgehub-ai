@@ -715,7 +715,7 @@ function DocumentsPage() {
             />
 
             {uploadItems.length > 0 ? (
-              <ul className="max-h-56 space-y-2 overflow-y-auto">
+              <ul className="max-h-40 space-y-2 overflow-y-auto sm:max-h-56">
                 {uploadItems.map((item) => (
                   <li
                     key={item.id}
