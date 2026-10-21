@@ -13,6 +13,7 @@ export const listAnswersSchema = z
       .default(ANSWER_LIST_DEFAULT_LIMIT),
     cursor: z.string().min(1, 'cursor must not be empty').optional(),
     conversationId: z.uuid('conversationId must be a UUID').optional(),
+    askedBy: z.enum(['me', 'organization']).default('organization'),
   })
   .strict();
 

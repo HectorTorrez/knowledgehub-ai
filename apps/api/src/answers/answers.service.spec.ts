@@ -429,7 +429,7 @@ describe('AnswersService', () => {
   it('filters history by conversation when requested', async () => {
     const { service, prisma } = createService();
 
-    await service.list('org-1', { limit: 25, conversationId: 'conversation-1' });
+    await service.list('org-1', USER_ID, { limit: 25, askedBy: 'organization', conversationId: 'conversation-1' });
 
     expect(prisma.answer.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -856,7 +856,7 @@ describe('AnswersService', () => {
     const { service, prisma } = createService();
     prisma.answer.findMany.mockResolvedValueOnce([row]);
 
-    const result = await service.list('org-1', { limit: 25 });
+    const result = await service.list('org-1', USER_ID, { limit: 25, askedBy: 'organization' });
 
     expect(prisma.answer.findMany).toHaveBeenCalledWith({
       where: { organizationId: 'org-1' },
@@ -890,7 +890,7 @@ describe('AnswersService', () => {
     const { service, prisma } = createService();
 
     await expect(
-      service.list('org-1', { limit: 25, cursor: 'bad' }),
+      service.list('org-1', USER_ID, { limit: 25, askedBy: 'organization', cursor: 'bad' }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(prisma.answer.findMany).not.toHaveBeenCalled();

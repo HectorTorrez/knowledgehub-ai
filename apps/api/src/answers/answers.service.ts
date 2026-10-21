@@ -221,6 +221,7 @@ export class AnswersService {
 
   async list(
     organizationId: string,
+    userId: string,
     input: ListAnswersInput,
   ): Promise<AnswerListResponse> {
     const cursor = input.cursor ? decodeListCursor(input.cursor) : null;
@@ -231,6 +232,7 @@ export class AnswersService {
     const rows = await this.prisma.answer.findMany({
       where: {
         organizationId,
+        ...(input.askedBy === 'me' ? { askedById: userId } : {}),
         ...(input.conversationId ? { conversationId: input.conversationId } : {}),
         ...(cursor ? listCursorFilter(cursor) : {}),
       },

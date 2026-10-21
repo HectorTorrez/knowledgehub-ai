@@ -13,6 +13,7 @@ export interface ListAnswersOptions extends RequestOptions {
   cursor?: string;
   limit?: number;
   conversationId?: string;
+  askedBy?: 'me' | 'organization';
 }
 
 export const answersApi = {
@@ -47,6 +48,9 @@ export const answersApi = {
     }
     if (options.conversationId) {
       params.set('conversationId', options.conversationId);
+    }
+    if (options.askedBy) {
+      params.set('askedBy', options.askedBy);
     }
 
     const query = params.toString();
