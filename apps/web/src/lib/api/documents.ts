@@ -86,6 +86,16 @@ export const documentsApi = {
     );
   },
 
+  reprocess(
+    organizationId: string,
+    documentId: string,
+  ): Promise<DocumentDetailResponse> {
+    return apiFetch<DocumentDetailResponse>(
+      `${documentsPath(organizationId)}/${documentId}/reprocess`,
+      { method: 'POST', authRecovery: true },
+    );
+  },
+
   remove(organizationId: string, documentId: string): Promise<void> {
     return apiFetch<void>(`${documentsPath(organizationId)}/${documentId}`, {
       method: 'DELETE',

@@ -111,6 +111,18 @@ export class DocumentsController {
     );
   }
 
+  @Post(':documentId/reprocess')
+  @HttpCode(HttpStatus.OK)
+  reprocess(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Req() request: OrganizationRequest,
+  ): Promise<DocumentDetailResponse> {
+    return this.documents.reprocess(
+      requireOrganizationContext(request).organizationId,
+      documentId,
+    );
+  }
+
   @Post(':documentId/upload-url')
   @HttpCode(HttpStatus.OK)
   createUploadUrl(

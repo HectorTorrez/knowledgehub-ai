@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, FileText, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileText, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { PageHeader } from '~/components/page-header';
@@ -77,6 +77,24 @@ function DocumentDetailPage() {
           queryKey: queryKeys.organizations.documents.list(organizationId),
         }),
       ]);
+    },
+  });
+
+  const reprocess = useMutation({
+    mutationFn: () => documentsApi.reprocess(organizationId, documentId),
+    onSuccess: () => {
+      toast({
+        variant: 'success',
+        title: 'Reprocessing started',
+        description: 'This page will refresh when the document moves forward.',
+      });
+
+      return client.invalidateQueries({
+        queryKey: queryKeys.organizations.documents.detail(
+          organizationId,
+          documentId,
+        ),
+      });
     },
   });
 
@@ -158,6 +176,16 @@ function DocumentDetailPage() {
         description="The file, processing state, and metadata behind this document."
         action={
           <div className="flex items-center gap-2">
+            {entry.status === 'FAILED' ? (
+              <Button
+                variant="outline"
+                disabled={reprocess.isPending}
+                onClick={() => reprocess.mutate()}
+              >
+                <RotateCcw />
+                {reprocess.isPending ? 'Retrying…' : 'Retry processing'}
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={openRename}>
               <Pencil />
               Rename
@@ -169,6 +197,8 @@ function DocumentDetailPage() {
           </div>
         }
       />
+
+      {reprocess.isError ? <ErrorNotice error={reprocess.error} /> : null}
 
       {entry.status === 'FAILED' ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">

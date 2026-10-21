@@ -3,6 +3,7 @@ import {
   createDocumentStorageKey,
   createVerifiedStorageKey,
   isDocumentStagingKey,
+  isDocumentVerifiedKey,
 } from './upload-key.js';
 
 describe('createDocumentStorageKey', () => {
@@ -91,5 +92,34 @@ describe('isDocumentStagingKey', () => {
       isDocumentStagingKey('organizations/org-1/documents/doc-1/', 'org-1', 'doc-1'),
     ).toBe(false);
     expect(isDocumentStagingKey('', 'org-1', 'doc-1')).toBe(false);
+  });
+});
+
+describe('isDocumentVerifiedKey', () => {
+  it('accepts a verified key for the same document', () => {
+    expect(
+      isDocumentVerifiedKey(
+        createVerifiedStorageKey('org-1', 'doc-1'),
+        'org-1',
+        'doc-1',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects staging keys and keys from another document', () => {
+    expect(
+      isDocumentVerifiedKey(
+        createDocumentStorageKey('org-1', 'doc-1'),
+        'org-1',
+        'doc-1',
+      ),
+    ).toBe(false);
+    expect(
+      isDocumentVerifiedKey(
+        createVerifiedStorageKey('org-2', 'doc-1'),
+        'org-1',
+        'doc-1',
+      ),
+    ).toBe(false);
   });
 });
