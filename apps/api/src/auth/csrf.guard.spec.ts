@@ -9,6 +9,7 @@ import { CSRF_COOKIE, CSRF_HEADER, generateCsrfToken } from './csrf.js';
 import {
   CsrfGuard,
   ENFORCE_CSRF_WHEN_BROWSER_AUTH_DISABLED,
+  SKIP_CSRF,
 } from './csrf.guard.js';
 
 const SECRET = 'csrf-secret-value-that-is-at-least-32-chars';
@@ -23,6 +24,7 @@ interface FakeRequest {
 class TestController {
   plain(): void {}
   logout(): void {}
+  login(): void {}
 }
 
 Reflect.defineMetadata(
@@ -30,6 +32,8 @@ Reflect.defineMetadata(
   true,
   TestController.prototype.logout,
 );
+
+Reflect.defineMetadata(SKIP_CSRF, true, TestController.prototype.login);
 
 function context(
   request: FakeRequest,
@@ -289,6 +293,39 @@ describe('CsrfGuard', () => {
         }),
       ),
     ).toBe(true);
+  });
+});
+
+describe('CsrfGuard bootstrap exemption', () => {
+  it('skips CSRF for a marked handler carrying stale auth cookies', () => {
+    const guard = buildGuard();
+
+    expect(
+      guard.canActivate(
+        context(
+          {
+            method: 'POST',
+            headers: { origin: 'http://evil.test' },
+            cookies: { [ACCESS_TOKEN_COOKIE]: 'stale-access-token' },
+          },
+          TestController.prototype.login,
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('leaves unmarked unsafe handlers rejected without a CSRF token', () => {
+    const guard = buildGuard();
+
+    expect(() =>
+      guard.canActivate(
+        context({
+          method: 'POST',
+          headers: { origin: TRUSTED_ORIGIN },
+          cookies: { [ACCESS_TOKEN_COOKIE]: 'stale-access-token' },
+        }),
+      ),
+    ).toThrow(ForbiddenException);
   });
 });
 

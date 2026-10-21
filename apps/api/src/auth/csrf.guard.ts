@@ -24,8 +24,14 @@ import {
 export const ENFORCE_CSRF_WHEN_BROWSER_AUTH_DISABLED =
   'knowledgehub:enforce-csrf-when-browser-auth-disabled';
 
+export const SKIP_CSRF = 'knowledgehub:skip-csrf';
+
 export function EnforceCsrfWhenBrowserAuthDisabled(): MethodDecorator {
   return SetMetadata(ENFORCE_CSRF_WHEN_BROWSER_AUTH_DISABLED, true);
+}
+
+export function SkipCsrf(): MethodDecorator {
+  return SetMetadata(SKIP_CSRF, true);
 }
 
 @Injectable()
@@ -40,6 +46,10 @@ export class CsrfGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
 
     if (!isUnsafeMethod(request.method)) {
+      return true;
+    }
+
+    if (this.skipsCsrf(context)) {
       return true;
     }
 
@@ -106,6 +116,15 @@ export class CsrfGuard implements CanActivate {
         ENFORCE_CSRF_WHEN_BROWSER_AUTH_DISABLED,
         [context.getHandler(), context.getClass()],
       ) === true
+    );
+  }
+
+  private skipsCsrf(context: ExecutionContext): boolean {
+    return (
+      this.reflector.getAllAndOverride<boolean>(SKIP_CSRF, [
+        context.getHandler(),
+        context.getClass(),
+      ]) === true
     );
   }
 }
