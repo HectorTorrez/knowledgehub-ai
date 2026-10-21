@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_UPLOAD_BYTES,
   SIGNATURE_PREFIX_BYTES,
   type AllowedUploadContentType,
 } from './upload-policy.js';
@@ -41,7 +42,7 @@ describe('evaluateUploadMetadata', () => {
   it('accepts a size exactly at the cap', () => {
     expect(
       evaluateUploadMetadata(
-        { sizeBytes: 2_000_000_000, contentType: pdf },
+        { sizeBytes: MAX_UPLOAD_BYTES, contentType: pdf },
         pdf,
       ),
     ).toBeNull();
@@ -56,7 +57,7 @@ describe('evaluateUploadMetadata', () => {
   it('rejects a size above the cap', () => {
     expect(
       evaluateUploadMetadata(
-        { sizeBytes: 2_000_000_001, contentType: pdf },
+        { sizeBytes: MAX_UPLOAD_BYTES + 1, contentType: pdf },
         pdf,
       ),
     ).toBe('SIZE_LIMIT_EXCEEDED');
@@ -65,7 +66,7 @@ describe('evaluateUploadMetadata', () => {
   it('checks size before content type', () => {
     expect(
       evaluateUploadMetadata(
-        { sizeBytes: 2_000_000_001, contentType: 'image/png' },
+        { sizeBytes: MAX_UPLOAD_BYTES + 1, contentType: 'image/png' },
         pdf,
       ),
     ).toBe('SIZE_LIMIT_EXCEEDED');

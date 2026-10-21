@@ -8,9 +8,12 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { createHash } from 'node:crypto';
 import type { Response } from 'express';
+import { SecurityAuditService } from '../audit/security-audit.service.js';
 import type { AuthenticatedRequest } from '../auth/session.guard.js';
 import type { OrganizationRequest } from '../organizations/organization-context.js';
+import { normalizeEmail } from '../users/email.js';
 import {
   RateLimitConfig,
   type RateLimitBudgetName,
@@ -24,7 +27,8 @@ export function RateLimit(...budgets: RateLimitBudgetName[]): MethodDecorator {
   return SetMetadata(RATE_LIMIT_BUDGETS, budgets);
 }
 
-type RateLimitedRequest = AuthenticatedRequest & OrganizationRequest;
+type RateLimitedRequest = AuthenticatedRequest &
+  OrganizationRequest & { body?: unknown };
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
@@ -32,6 +36,7 @@ export class RateLimitGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly config: RateLimitConfig,
     @Inject(RATE_LIMIT_STORE) private readonly store: RateLimitStore,
+    private readonly audit: SecurityAuditService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -55,6 +60,13 @@ export class RateLimitGuard implements CanActivate {
 
       const { count, resetAtMs } = await this.store.hit(key, budget.windowMs);
       if (count > budget.limit) {
+        this.audit.record('rate_limit.exceeded', {
+          budget: name,
+          scope: budget.scope,
+          ip: request.ip,
+          userId: request.auth?.userId,
+          organizationId: request.organizationContext?.organizationId,
+        });
         throw this.tooManyRequests(context, resetAtMs);
       }
     }
@@ -68,6 +80,11 @@ export class RateLimitGuard implements CanActivate {
   ): string | undefined {
     if (scope === 'ip') {
       return `ip:${request.ip}`;
+    }
+
+    if (scope === 'account') {
+      const email = readEmail(request.body);
+      return email ? `account:${hashEmail(email)}` : undefined;
     }
 
     if (scope === 'user') {
@@ -96,4 +113,25 @@ export class RateLimitGuard implements CanActivate {
       HttpStatus.TOO_MANY_REQUESTS,
     );
   }
+}
+
+function readEmail(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null) {
+    return undefined;
+  }
+
+  const email = (body as { email?: unknown }).email;
+
+  if (typeof email !== 'string') {
+    return undefined;
+  }
+
+  const normalized = normalizeEmail(email);
+  return normalized.length > 0 && normalized.length <= 320
+    ? normalized
+    : undefined;
+}
+
+function hashEmail(email: string): string {
+  return createHash('sha256').update(email).digest('hex');
 }

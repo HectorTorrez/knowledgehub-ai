@@ -5,16 +5,20 @@ import type { StorageConfig } from './storage.config.js';
 import { StorageSweepService } from './storage-sweep.service.js';
 
 const VERIFIED = 'organizations/org-1/documents/doc-1/verified/token';
+const STAGING = 'organizations/org-1/documents/doc-1/staging-token';
 
 function object(key: string, lastModifiedMs: number): ListedObject {
   return { key, lastModifiedMs };
 }
 
-function buildService(options: {
-  objects?: ListedObject[];
-  referenced?: string[];
-  graceMs?: number;
-} = {}) {
+function buildService(
+  options: {
+    objects?: ListedObject[];
+    referencedVerified?: string[];
+    referencedStaging?: string[];
+    graceMs?: number;
+  } = {},
+) {
   const storage = {
     listObjects: vi.fn(
       (_prefix: string) =>
@@ -27,11 +31,17 @@ function buildService(options: {
     deleteObject: vi.fn(async () => undefined),
   } as unknown as ObjectStorage;
 
+  const verified = options.referencedVerified ?? [];
+  const staging = options.referencedStaging ?? [];
+  const referenced = [...verified, ...staging];
+  const rows = referenced.map((key) => ({
+    storageKey: verified.includes(key) ? key : null,
+    uploadStorageKey: staging.includes(key) ? key : null,
+  }));
+
   const prisma = {
     document: {
-      findMany: vi.fn(async () =>
-        (options.referenced ?? []).map((key) => ({ storageKey: key })),
-      ),
+      findMany: vi.fn(async () => rows),
     },
   } as unknown as PrismaService;
 
@@ -55,10 +65,29 @@ describe('StorageSweepService', () => {
     expect(deleteObject).toHaveBeenCalledWith(VERIFIED);
   });
 
+  it('deletes an old unreferenced staging object', async () => {
+    const { service, deleteObject } = buildService({
+      objects: [object(STAGING, Date.now() - 120_000)],
+    });
+
+    await expect(service.sweepOnce()).resolves.toBe(1);
+    expect(deleteObject).toHaveBeenCalledWith(STAGING);
+  });
+
   it('keeps a referenced verified object', async () => {
     const { service, deleteObject } = buildService({
       objects: [object(VERIFIED, Date.now() - 120_000)],
-      referenced: [VERIFIED],
+      referencedVerified: [VERIFIED],
+    });
+
+    await expect(service.sweepOnce()).resolves.toBe(0);
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('keeps a referenced staging object', async () => {
+    const { service, deleteObject } = buildService({
+      objects: [object(STAGING, Date.now() - 120_000)],
+      referencedStaging: [STAGING],
     });
 
     await expect(service.sweepOnce()).resolves.toBe(0);
@@ -75,11 +104,11 @@ describe('StorageSweepService', () => {
     expect(deleteObject).not.toHaveBeenCalled();
   });
 
-  it('ignores staging objects', async () => {
+  it('ignores keys outside the document object layout', async () => {
     const { service, deleteObject } = buildService({
       objects: [
         object(
-          'organizations/org-1/documents/doc-1/staging-token',
+          'organizations/org-1/exports/report.csv',
           Date.now() - 120_000,
         ),
       ],

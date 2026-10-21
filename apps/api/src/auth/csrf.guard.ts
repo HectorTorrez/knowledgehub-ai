@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
+import { SecurityAuditService } from '../audit/security-audit.service.js';
 import { AuthConfig } from './auth.config.js';
 import { extractBearerToken } from './authorization.js';
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from './cookies.js';
@@ -32,6 +33,7 @@ export class CsrfGuard implements CanActivate {
   constructor(
     private readonly authConfig: AuthConfig,
     private readonly reflector: Reflector,
+    private readonly audit: SecurityAuditService,
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -52,12 +54,17 @@ export class CsrfGuard implements CanActivate {
     const enforceWhenDisabled = this.enforcesCsrfWhenDisabled(context);
 
     if (!this.authConfig.browserAuthEnabled && !enforceWhenDisabled) {
-      throw new ForbiddenException('Browser authentication is disabled');
+      this.reject(request, 'browser_auth_disabled', {
+        message: 'Browser authentication is disabled',
+      });
     }
 
     const origin = resolveRequestOrigin(request);
     if (!isTrustedOrigin(origin, this.authConfig.trustedOrigins)) {
-      throw new ForbiddenException('Request origin is not allowed');
+      this.reject(request, 'untrusted_origin', {
+        message: 'Request origin is not allowed',
+        origin,
+      });
     }
 
     const csrfSecret = this.authConfig.csrfSecretOrUndefined;
@@ -69,10 +76,28 @@ export class CsrfGuard implements CanActivate {
       !verifyCsrfToken(csrfSecret, cookieToken) ||
       !csrfTokensMatch(cookieToken, headerToken)
     ) {
-      throw new ForbiddenException('Invalid or missing CSRF token');
+      this.reject(request, 'invalid_token', {
+        message: 'Invalid or missing CSRF token',
+      });
     }
 
     return true;
+  }
+
+  private reject(
+    request: Request,
+    reason: string,
+    details: { message: string; origin?: string },
+  ): never {
+    this.audit.record('csrf.rejected', {
+      reason,
+      method: request.method,
+      path: request.path,
+      ip: request.ip,
+      origin: details.origin,
+    });
+
+    throw new ForbiddenException(details.message);
   }
 
   private enforcesCsrfWhenDisabled(context: ExecutionContext): boolean {

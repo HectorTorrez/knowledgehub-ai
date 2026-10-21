@@ -4,7 +4,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { PublicUser } from '@knowledgehub/shared-types';
+import { createHash } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
+import { SecurityAuditService } from '../audit/security-audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { normalizeEmail } from '../users/email.js';
 import { AuthConfig } from './auth.config.js';
@@ -32,7 +34,7 @@ type RefreshOutcome =
       sessionId: string;
       successor: GeneratedRefreshToken;
     }
-  | { kind: 'replay' }
+  | { kind: 'replay'; sessionId: string }
   | { kind: 'inactive' }
   | { kind: 'invalid' };
 
@@ -56,6 +58,7 @@ export class AuthService {
     private readonly passwords: PasswordService,
     private readonly tokens: TokenService,
     private readonly authConfig: AuthConfig,
+    private readonly audit: SecurityAuditService,
   ) {}
 
   async register(
@@ -94,12 +97,22 @@ export class AuthService {
       sessionId = created.sessionId;
     } catch (error) {
       if (isUniqueEmailViolation(error)) {
+        this.audit.record('auth.register.rejected', {
+          reason: 'email_in_use',
+          emailHash: hashEmail(email),
+          ipAddress: options.ipAddress,
+        });
         throw new ConflictException(
           'An account with this email address already exists',
         );
       }
       throw error;
     }
+
+    this.audit.record('auth.register.succeeded', {
+      userId: user.id,
+      ipAddress: options.ipAddress,
+    });
 
     const accessToken = await this.tokens.signAccessToken(user.id, sessionId);
 
@@ -122,6 +135,7 @@ export class AuthService {
         await this.dummyPasswordHash(),
         input.password,
       );
+      this.recordFailedLogin(email, options);
       throw invalidCredentials();
     }
 
@@ -131,6 +145,7 @@ export class AuthService {
     );
 
     if (!passwordMatches) {
+      this.recordFailedLogin(email, options);
       throw invalidCredentials();
     }
 
@@ -140,6 +155,11 @@ export class AuthService {
     );
 
     const accessToken = await this.tokens.signAccessToken(user.id, sessionId);
+
+    this.audit.record('auth.login.succeeded', {
+      userId: user.id,
+      ipAddress: options.ipAddress,
+    });
 
     return {
       user: toPublicUser(user),
@@ -183,7 +203,7 @@ export class AuthService {
             where: { id: session.id, revokedAt: null },
             data: { revokedAt: now },
           });
-          return { kind: 'replay' };
+          return { kind: 'replay', sessionId: session.id };
         }
 
         if (token.expiresAt.getTime() <= now.getTime()) {
@@ -200,7 +220,7 @@ export class AuthService {
             where: { id: session.id, revokedAt: null },
             data: { revokedAt: now },
           });
-          return { kind: 'replay' };
+          return { kind: 'replay', sessionId: session.id };
         }
 
         const active = await tx.authSession.updateMany({
@@ -238,6 +258,11 @@ export class AuthService {
     );
 
     if (outcome.kind !== 'ok') {
+      if (outcome.kind === 'replay') {
+        this.audit.record('auth.refresh.replay_detected', {
+          sessionId: outcome.sessionId,
+        });
+      }
       throw invalidRefreshToken();
     }
 
@@ -285,6 +310,8 @@ export class AuthService {
       where: { id: token.sessionId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+
+    this.audit.record('auth.logout', { sessionId: token.sessionId });
   }
 
   private async persistSession(
@@ -313,9 +340,20 @@ export class AuthService {
     return session.id;
   }
 
+  private recordFailedLogin(email: string, options: AuthOptions): void {
+    this.audit.record('auth.login.failed', {
+      emailHash: hashEmail(email),
+      ipAddress: options.ipAddress,
+    });
+  }
+
   private dummyPasswordHash(): Promise<string> {
     return (this.dummyHash ??= this.passwords.hash(DUMMY_PASSWORD));
   }
+}
+
+function hashEmail(email: string): string {
+  return createHash('sha256').update(email).digest('hex');
 }
 
 function invalidCredentials(): UnauthorizedException {

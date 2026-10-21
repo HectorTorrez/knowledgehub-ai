@@ -19,11 +19,12 @@ export interface AnswerSource {
 
 const SOURCE_SEPARATOR = '\n\n';
 
-function escapeSourceText(value: string): string {
+export function escapeSourceText(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 export function renderSourceBlock(source: AnswerSource): string {

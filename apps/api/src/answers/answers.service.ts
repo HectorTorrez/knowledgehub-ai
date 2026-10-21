@@ -30,6 +30,11 @@ import {
   EmbeddingUnavailableError,
 } from '../embeddings/embedding-provider.port.js';
 import { RetrievalService } from '../retrieval/retrieval.service.js';
+import {
+  buildDocumentCatalog,
+  MAX_CATALOG_DOCUMENTS,
+  type CatalogDocumentRow,
+} from './answer-catalog.js';
 import { buildCitations, validateAnswerContract } from './answer-citation.js';
 import {
   assembleContext,
@@ -67,6 +72,7 @@ interface AnswerLogEvent {
   userId: string;
   model: string;
   sourceCount: number;
+  catalogCount: number;
   promptChars: number;
   citationCount: number;
   durationMs: number;
@@ -161,6 +167,7 @@ export class AnswersService {
       userId,
       model: this.config.model,
       sourceCount: 0,
+      catalogCount: 0,
       promptChars: 0,
       citationCount: 0,
       durationMs: 0,
@@ -304,23 +311,35 @@ export class AnswersService {
       await this.assertDocumentAnswerable(organizationId, documentId);
     }
 
-    const sources = await this.retrieveSources(organizationId, question, documentId);
-    event.sourceCount = sources.length;
+    const [sources, catalogRows] = await Promise.all([
+      this.retrieveSources(organizationId, question, documentId),
+      this.loadDocumentCatalogRows(organizationId, documentId),
+    ]);
 
-    if (sources.length === 0) {
+    const catalog = buildDocumentCatalog(
+      catalogRows.rows,
+      catalogRows.total,
+      sources.length,
+    );
+
+    event.sourceCount = sources.length;
+    event.catalogCount = catalog.sources.length;
+
+    if (sources.length === 0 && catalog.sources.length === 0) {
       return { ...INSUFFICIENT_EVIDENCE_RESPONSE };
     }
 
     await this.usage.recordAnswer(organizationId);
 
-    const prompt = buildAnswerPrompt(question, sources, history);
+    const prompt = buildAnswerPrompt(question, sources, history, catalog);
     event.promptChars = prompt.system.length + prompt.user.length;
 
     const generation = await this.generate(prompt);
     event.inputTokens = generation.usage.inputTokens;
     event.outputTokens = generation.usage.outputTokens;
 
-    const contract = validateAnswerContract(generation.draft, sources);
+    const allSources = [...sources, ...catalog.sources];
+    const contract = validateAnswerContract(generation.draft, allSources);
 
     if (!contract.ok) {
       throw new BadGatewayException('The answer could not be grounded');
@@ -333,7 +352,7 @@ export class AnswersService {
     return {
       status: 'answered',
       answer: contract.answer,
-      citations: buildCitations(contract.markers, sources),
+      citations: buildCitations(contract.markers, allSources),
     };
   }
 
@@ -365,6 +384,50 @@ export class AnswersService {
     }
 
     return assembleContext(chunks, this.contextBudget());
+  }
+
+  private async loadDocumentCatalogRows(
+    organizationId: string,
+    documentId?: string,
+  ): Promise<{ rows: CatalogDocumentRow[]; total: number }> {
+    const where = {
+      organizationId,
+      status: 'READY' as const,
+      ...(documentId ? { id: documentId } : {}),
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.document.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          originalFileName: true,
+          generation: true,
+          extractions: {
+            orderBy: { documentGeneration: 'desc' },
+            take: 1,
+            select: { documentGeneration: true, pageCount: true },
+          },
+          chunks: {
+            orderBy: { chunkIndex: 'asc' },
+            take: 1,
+            select: {
+              id: true,
+              documentGeneration: true,
+              pageNumber: true,
+              chunkIndex: true,
+              content: true,
+            },
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: MAX_CATALOG_DOCUMENTS,
+      }),
+      this.prisma.document.count({ where }),
+    ]);
+
+    return { rows, total };
   }
 
   private contextBudget(): ContextBudget {

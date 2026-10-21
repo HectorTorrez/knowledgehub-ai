@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { CatalogSource, DocumentCatalog } from './answer-catalog.js';
 import type { AnswerSource } from './answer-context.js';
 import { AnswerQuestionError, MAX_ANSWER_QUESTION_CHARS } from './answer-policy.js';
 import { ANSWER_SYSTEM_PROMPT, buildAnswerPrompt } from './answer-prompt.js';
@@ -20,6 +21,28 @@ function source(
   };
 }
 
+function catalogSource(
+  overrides: Partial<CatalogSource> = {},
+): CatalogSource {
+  return {
+    marker: 2,
+    chunkId: 'chunk-2',
+    documentId: 'doc-2',
+    documentTitle: 'Envios & <locales>',
+    pageNumber: 1,
+    chunkIndex: 0,
+    content: 'Guía "Monto" <script>',
+    similarity: 1,
+    pageCount: 2,
+    originalFileName: 'envios.xlsx',
+    ...overrides,
+  };
+}
+
+function documentCatalog(): DocumentCatalog {
+  return { sources: [catalogSource()], total: 2 };
+}
+
 describe('buildAnswerPrompt', () => {
   it('renders the sources and the question after them', () => {
     const prompt = buildAnswerPrompt('What is alpha?', [source(1)]);
@@ -28,6 +51,45 @@ describe('buildAnswerPrompt', () => {
     expect(prompt.user).toBe(
       '<source id="1" title="Report" page="1">\nAlpha beta.\n</source>\n\nQuestion:\nWhat is alpha?',
     );
+  });
+
+  it('renders the document catalog after the sources and before the question', () => {
+    const catalog = documentCatalog();
+
+    const prompt = buildAnswerPrompt(
+      'Which documents do I have?',
+      [source(1)],
+      [],
+      catalog,
+    );
+
+    expect(prompt.user).toBe(
+      '<source id="1" title="Report" page="1">\nAlpha beta.\n</source>\n\n' +
+        'Document catalog (showing 1 of 2 most recent documents):\n' +
+        '<document id="2" title="Envios &amp; &lt;locales&gt;" file="envios.xlsx" pages="2">\n' +
+        'Guía &quot;Monto&quot; &lt;script&gt;\n' +
+        '</document>\n\n' +
+        'Question:\nWhich documents do I have?',
+    );
+  });
+
+  it('omits the document catalog when it has no entries', () => {
+    const prompt = buildAnswerPrompt('What is alpha?', [source(1)], [], {
+      sources: [],
+      total: 0,
+    });
+
+    expect(prompt.user).not.toContain('Document catalog');
+  });
+
+  it('omits the truncation note when every catalog entry is shown', () => {
+    const prompt = buildAnswerPrompt('Question?', [], [], {
+      ...documentCatalog(),
+      total: 1,
+    });
+
+    expect(prompt.user).toContain('Document catalog:');
+    expect(prompt.user).not.toContain('showing');
   });
 
   it('separates multiple sources with a blank line', () => {
@@ -79,6 +141,12 @@ describe('buildAnswerPrompt', () => {
   it('instructs the model to pair every claim with a source number', () => {
     expect(ANSWER_SYSTEM_PROMPT).toContain('list of claims');
     expect(ANSWER_SYSTEM_PROMPT).toContain('null claims');
+  });
+
+  it('instructs the model to treat catalog entries as numbered sources', () => {
+    expect(ANSWER_SYSTEM_PROMPT).toContain('Document catalog');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('catalog entry');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('quoted data');
   });
 
   it('renders prior conversation turns before the sources', () => {

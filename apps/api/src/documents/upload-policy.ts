@@ -1,4 +1,6 @@
-export const MAX_UPLOAD_BYTES = 2_000_000_000;
+import { MAX_EXTRACTABLE_BYTES } from '../processing/processing-limits.policy.js';
+
+export const MAX_UPLOAD_BYTES = MAX_EXTRACTABLE_BYTES;
 
 export const SIGNATURE_PREFIX_BYTES = 1024;
 

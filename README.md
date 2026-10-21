@@ -783,10 +783,12 @@ embedding-plus-completion latency.
 ```
 
 - `citations` contains only the sources the answer actually referenced, in
-  ascending marker order.
+  ascending marker order. A marker may point at a retrieved passage or at a
+  document-catalog entry; a catalog citation resolves to the document's first
+  chunk, so `pageNumber`, `chunkIndex`, and `excerpt` describe that chunk.
 - `marker` is the number used in the answer text, so the client can render it
   without renumbering.
-- `excerpt` is derived from the retrieved chunk on the server and truncated to
+- `excerpt` is derived from the cited chunk on the server and truncated to
   300 characters; it is never model-supplied text.
 - No vectors, storage keys, generations, similarity scores, prompts, or provider
   metadata are returned.
@@ -798,9 +800,27 @@ embedding-plus-completion latency.
 ```
 
 `insufficient_evidence` is a successful outcome, not an HTTP error. It is
-returned when retrieval yields no usable passage (no provider call is made) or
-when the model declines to answer from the supplied sources. The refusal carries
-no model-written prose; the client owns the user-facing message.
+returned when retrieval yields no usable passage and the organization has no
+indexed documents (no provider call is made), or when the model declines to
+answer from the supplied sources. The refusal carries no model-written prose;
+the client owns the user-facing message.
+
+### Document catalog
+
+Every prompt carries the organization's `READY` documents as a numbered
+catalog after the retrieved passages. Each entry exposes the document title,
+original file name, page count, and a 240-character excerpt of its first chunk,
+so questions about which documents exist or what a document covers do not
+depend on a passage clearing the similarity floor. Catalog entries are citable
+like passages and are ordered by most recent first.
+
+The catalog is capped at the 20 most recent documents (or the single document
+selected with `documentId`); when more exist the prompt states the full count
+and the model can only describe the returned subset. Passage markers keep their
+positions; catalog markers start after the last passage. Catalog excerpts are
+partial and for identity and overview questions only; the prompt requires the
+model to refuse detail questions (specific values, totals, counts, dates) unless
+a retrieved passage states the answer.
 
 ### Configuration
 
@@ -842,10 +862,11 @@ performed; the client decides whether to retry a `503`.
 
 ### Data egress and security
 
-- **The question and selected passages leave the deployment.** The question is
-  sent to the configured embedding provider, and the retrieved passages plus the
-  question are sent to the configured completion provider (the same OpenAI
-  account and base URL used for embeddings).
+- **The question, selected passages, and document catalog leave the deployment.**
+  The question is sent to the configured embedding provider, and the retrieved
+  passages, document catalog (titles, file names, page counts, opening
+  excerpts), and question are sent to the configured completion provider (the
+  same OpenAI account and base URL used for embeddings).
 - **Retrieved text is untrusted.** The system prompt frames sources as quoted
   data and escapes delimiters, and citations are validated. This reduces prompt
   injection but does not eliminate it: a hostile document can still influence
@@ -857,10 +878,10 @@ performed; the client decides whether to retry a `503`.
 - **No persistence.** Questions and answers are not stored, so this increment
   adds no retention surface.
 - **Privacy-conscious logging.** One structured line is emitted per request with
-  organization id, user id, status, model, source count, prompt characters,
-  citation count, duration, and token usage, plus an error class name on
-  failure. Questions, answers, passage text, credentials, and raw provider
-  payloads are never logged.
+  organization id, user id, status, model, passage count, catalog count, prompt
+  characters, citation count, duration, and token usage, plus an error class
+  name on failure. Questions, answers, passage text, document titles,
+  credentials, and raw provider payloads are never logged.
 
 ### Evaluation
 
@@ -938,6 +959,9 @@ proof of entailment; human review remains necessary.
   provider output.
 - **No automated entailment evaluation.**
 - **The similarity floor is a heuristic** and is model- and corpus-dependent.
+- **The document catalog is bounded.** Only the 20 most recent `READY`
+  documents are described to the model; larger organizations can ask about the
+  rest only through content retrieval or by selecting a specific document.
 - **Prompt injection through documents is reduced, not eliminated.**
 - **No answer caching and no repair/retry** when model output is invalid; such
   output fails closed.

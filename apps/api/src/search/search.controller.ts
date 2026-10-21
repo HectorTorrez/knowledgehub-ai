@@ -24,7 +24,7 @@ export class SearchController {
 
   @Get()
   @UseGuards(RateLimitGuard)
-  @RateLimit('search')
+  @RateLimit('search', 'searchUser')
   search(
     @Query(new ZodValidationPipe(searchSchema))
     query: SearchInput,

@@ -1,5 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import type { SecurityAuditService } from '../audit/security-audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { AuthConfig } from './auth.config.js';
 import { AuthService } from './auth.service.js';
@@ -87,6 +88,7 @@ function createHarness(options: HarnessOptions = {}) {
     passwords as unknown as PasswordService,
     tokens as unknown as TokenService,
     authConfig,
+    { record: vi.fn() } as unknown as SecurityAuditService,
   );
 
   return { service, prisma, passwords, tokens, tx };
@@ -387,6 +389,7 @@ function createRotationHarness(overrides: RotationOverrides = {}) {
     {} as PasswordService,
     tokens as unknown as TokenService,
     authConfig,
+    { record: vi.fn() } as unknown as SecurityAuditService,
   );
 
   return { service, prisma, tokens, tx };

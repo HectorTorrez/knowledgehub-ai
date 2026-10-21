@@ -19,6 +19,7 @@ import type {
 } from '../retrieval/retrieval.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { AnswerConfig } from './answer.config.js';
+import type { CatalogDocumentRow } from './answer-catalog.js';
 import {
   AnswerRejectedError,
   AnswerResponseError,
@@ -45,6 +46,23 @@ const CHUNK: RetrievedChunk = {
   chunkIndex: 4,
   content: 'Processing retries are bounded by maxAttempts.',
   similarity: 0.9,
+};
+
+const CATALOG_DOCUMENT: CatalogDocumentRow = {
+  id: 'doc-catalog',
+  title: 'Envios locales',
+  originalFileName: 'envios.xlsx',
+  generation: 1,
+  extractions: [{ documentGeneration: 1, pageCount: 2 }],
+  chunks: [
+    {
+      id: 'chunk-catalog',
+      documentGeneration: 1,
+      pageNumber: 1,
+      chunkIndex: 0,
+      content: 'Guía Fecha Cliente Monto ME-000022 $40.00',
+    },
+  ],
 };
 
 function createConfig(overrides: Partial<Record<string, unknown>> = {}) {
@@ -94,12 +112,16 @@ function createPrisma() {
       findFirst: vi.fn(
         async (): Promise<{ status: string } | null> => ({ status: 'READY' }),
       ),
+      findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
+      count: vi.fn(async (_args?: unknown) => 0),
     },
   };
 }
 
 function createService(options: {
   chunks?: RetrievedChunk[];
+  catalog?: CatalogDocumentRow[];
+  catalogTotal?: number;
   retrievalImpl?: RetrievalService['search'];
   providerImpl?: AnswerProvider['generate'];
   configOverrides?: Partial<Record<string, unknown>>;
@@ -111,6 +133,10 @@ function createService(options: {
   const { provider, generate } = createProvider(options.providerImpl);
   const config = createConfig(options.configOverrides);
   const prisma = createPrisma();
+  prisma.document.findMany.mockResolvedValue(options.catalog ?? []);
+  prisma.document.count.mockResolvedValue(
+    options.catalogTotal ?? options.catalog?.length ?? 0,
+  );
   const usage = {
     recordAnswer: vi.fn(options.usageImpl ?? (async () => undefined)),
   };
@@ -213,6 +239,83 @@ describe('AnswersService', () => {
       citations: [],
     });
     expect(generate).not.toHaveBeenCalled();
+  });
+
+  it('answers document-inventory questions from the catalog when no passage clears the floor', async () => {
+    const { service, generate } = createService({
+      chunks: [],
+      catalog: [CATALOG_DOCUMENT],
+      providerImpl: async () =>
+        generation({
+          status: 'answered',
+          claims: [
+            {
+              text: 'The organization has one document about local shipments.',
+              source: 1,
+            },
+          ],
+        }),
+    });
+
+    await expect(service.answer('org-1', USER_ID, 'Which documents do I have?')).resolves.toEqual({
+      status: 'answered',
+      answer:
+        'The organization has one document about local shipments [1].',
+      citations: [
+        {
+          marker: 1,
+          documentId: 'doc-catalog',
+          documentTitle: 'Envios locales',
+          pageNumber: 1,
+          chunkIndex: 0,
+          excerpt: 'Guía Fecha Cliente Monto ME-000022 $40.00',
+        },
+      ],
+    });
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('numbers retrieved passages before catalog entries so content citations keep their markers', async () => {
+    const { service, generate } = createService({
+      catalog: [CATALOG_DOCUMENT],
+      providerImpl: async () =>
+        generation({
+          status: 'answered',
+          claims: [
+            { text: 'Retries are bounded.', source: 1 },
+            { text: 'A shipment document exists.', source: 2 },
+          ],
+        }),
+    });
+
+    const result = await service.answer('org-1', USER_ID, 'What is alpha?');
+
+    expect(result.status).toBe('answered');
+    expect(result.citations.map((citation) => citation.marker)).toEqual([1, 2]);
+    expect(result.citations[1]).toMatchObject({
+      documentId: 'doc-catalog',
+      documentTitle: 'Envios locales',
+    });
+
+    const prompt = generate.mock.calls[0]![0];
+    expect(prompt.user.indexOf('<source id="1"')).toBeLessThan(
+      prompt.user.indexOf('<document id="2"'),
+    );
+  });
+
+  it('scopes the document catalog to the selected document', async () => {
+    const { service, prisma } = createService({ catalog: [CATALOG_DOCUMENT] });
+
+    await service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9');
+
+    expect(prisma.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: 'org-1', status: 'READY', id: 'doc-9' },
+      }),
+    );
+    expect(prisma.document.count).toHaveBeenCalledWith({
+      where: { organizationId: 'org-1', status: 'READY', id: 'doc-9' },
+    });
   });
 
   it('records usage and then answers when sources are available', async () => {
@@ -544,6 +647,7 @@ describe('AnswersService', () => {
       userId: USER_ID,
       model: 'gpt-4.1-mini',
       sourceCount: 1,
+      catalogCount: 0,
       citationCount: 1,
       inputTokens: 11,
       outputTokens: 22,
@@ -568,6 +672,7 @@ describe('AnswersService', () => {
     expect(log.mock.calls[0]![0]).toMatchObject({
       status: 'insufficient_evidence',
       sourceCount: 0,
+      catalogCount: 0,
       citationCount: 0,
       promptChars: 0,
       inputTokens: null,
