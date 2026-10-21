@@ -42,6 +42,7 @@ import { invitationsApi } from '~/lib/api/invitations';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { isNotFound } from '~/lib/api/errors';
+import { cn } from '~/lib/utils';
 import { formatDate, formatDateTime, formatRole } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { memberEmailSchema } from '~/lib/validation';
@@ -88,6 +89,11 @@ function OrganizationOverviewPage() {
   });
 
   const isOwner = organization.data?.organization.role === 'OWNER';
+
+  const usage = useQuery({
+    queryKey: queryKeys.organizations.usage(organizationId),
+    queryFn: () => organizationsApi.usage(organizationId),
+  });
 
   const invitations = useQuery({
     queryKey: queryKeys.organizations.invitations.list(organizationId),
@@ -273,6 +279,63 @@ function OrganizationOverviewPage() {
                 : '—'}
             </DetailItem>
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily answer usage</CardTitle>
+          <CardDescription>
+            Answers reset at midnight UTC. The limit is shared by everyone in
+            this organization.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {usage.isPending ? (
+            <Skeleton className="h-12 w-full" />
+          ) : null}
+          {usage.isError ? <ErrorNotice error={usage.error} /> : null}
+          {usage.data ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">
+                  {usage.data.usage.answers.used} of{' '}
+                  {usage.data.usage.answers.limit} answers
+                </span>
+                <span className="text-muted-foreground">
+                  Resets {formatDateTime(usage.data.usage.answers.resetsAt)}
+                </span>
+              </div>
+              <div
+                className="h-2 overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={usage.data.usage.answers.limit}
+                aria-valuenow={usage.data.usage.answers.used}
+                aria-label="Daily answer usage"
+              >
+                <div
+                  className={cn(
+                    'h-full transition-[width]',
+                    usage.data.usage.answers.used >=
+                      usage.data.usage.answers.limit
+                      ? 'bg-destructive'
+                      : 'bg-primary',
+                  )}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round(
+                        (usage.data.usage.answers.used /
+                          usage.data.usage.answers.limit) *
+                          100,
+                      ),
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

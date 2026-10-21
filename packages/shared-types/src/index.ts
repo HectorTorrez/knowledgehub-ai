@@ -150,6 +150,21 @@ export interface UpdateOrganizationRequest {
   name: string;
 }
 
+/** How much of a quota is used in the current period. */
+export interface UsageCounter {
+  used: number;
+  limit: number;
+  periodStart: string;
+  resetsAt: string;
+}
+
+/** Response body of `GET /organizations/:organizationId/usage`. */
+export interface OrganizationUsageResponse {
+  usage: {
+    answers: UsageCounter;
+  };
+}
+
 /**
  * A member of an organization. Exposes only the profile fields a client needs
  * to render a member list alongside the member's role; `createdAt` is when the

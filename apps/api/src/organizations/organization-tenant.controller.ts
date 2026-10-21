@@ -16,6 +16,7 @@ import type {
   AddMemberResponse,
   MemberListResponse,
   OrganizationDetailResponse,
+  OrganizationUsageResponse,
   UpdateMemberRoleResponse,
 } from '@knowledgehub/shared-types';
 import { SessionGuard } from '../auth/session.guard.js';
@@ -38,6 +39,7 @@ import {
 } from './organization-context.js';
 import { OrganizationMembershipGuard } from './organization-membership.guard.js';
 import { OrganizationsService } from './organizations.service.js';
+import { UsageService } from '../rate-limit/usage.service.js';
 
 /**
  * `SessionGuard` is listed first: Nest runs guards in declaration order, so
@@ -46,7 +48,10 @@ import { OrganizationsService } from './organizations.service.js';
 @Controller('organizations')
 @UseGuards(SessionGuard, OrganizationMembershipGuard)
 export class OrganizationTenantController {
-  constructor(private readonly organizations: OrganizationsService) {}
+  constructor(
+    private readonly organizations: OrganizationsService,
+    private readonly usage: UsageService,
+  ) {}
 
   @Get(':organizationId')
   detail(
@@ -79,6 +84,15 @@ export class OrganizationTenantController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async leave(@Req() request: OrganizationRequest): Promise<void> {
     await this.organizations.leave(requireOrganizationContext(request));
+  }
+
+  @Get(':organizationId/usage')
+  getUsage(
+    @Req() request: OrganizationRequest,
+  ): Promise<OrganizationUsageResponse> {
+    return this.usage.getAnswerUsage(
+      requireOrganizationContext(request).organizationId,
+    );
   }
 
   @Get(':organizationId/members')

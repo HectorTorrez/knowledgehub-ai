@@ -11,8 +11,11 @@ function buildUsage(options: {
   const upsert = vi.fn(
     options.upsertImpl ?? (async () => ({ count: 1 })),
   );
+  const findUnique = vi.fn(
+    async (_args?: unknown): Promise<unknown> => null,
+  );
   const prisma = {
-    tenantUsage: { upsert },
+    tenantUsage: { upsert, findUnique },
   } as unknown as PrismaService;
   const config = {
     answerQuotaDaily: options.quota ?? 1000,
@@ -21,6 +24,7 @@ function buildUsage(options: {
   return {
     service: new UsageService(prisma, config),
     upsert,
+    findUnique,
   };
 }
 
@@ -67,5 +71,28 @@ describe('UsageService', () => {
     await expect(service.recordAnswer('org-1')).rejects.toBeInstanceOf(
       HttpException,
     );
+  });
+});
+
+describe('UsageService.getAnswerUsage', () => {
+  it('returns zero used when there is no counter for today', async () => {
+    const { service } = buildUsage({ quota: 50 });
+
+    const result = await service.getAnswerUsage('org-1');
+
+    expect(result.usage.answers).toMatchObject({ used: 0, limit: 50 });
+    expect(
+      new Date(result.usage.answers.resetsAt).getTime() -
+        new Date(result.usage.answers.periodStart).getTime(),
+    ).toBe(86_400_000);
+  });
+
+  it('clamps the used count to the limit', async () => {
+    const { service, findUnique } = buildUsage({ quota: 10 });
+    findUnique.mockResolvedValueOnce({ count: 12 });
+
+    const result = await service.getAnswerUsage('org-1');
+
+    expect(result.usage.answers.used).toBe(10);
   });
 });
