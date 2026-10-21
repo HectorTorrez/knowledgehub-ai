@@ -86,6 +86,39 @@ export interface SessionResponse {
   user: PublicUser;
 }
 
+/** Request body of `PATCH /auth/profile`. */
+export interface UpdateProfileRequest {
+  firstName: string;
+  lastName: string;
+}
+
+/** Response body of `PATCH /auth/profile`. */
+export interface UpdateProfileResponse {
+  user: PublicUser;
+}
+
+/** Request body of `POST /auth/change-password`. */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+/** One device session for the signed-in user. */
+export interface AuthSessionSummary {
+  id: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  current: boolean;
+}
+
+/** Response body of `GET /auth/sessions`. */
+export interface AuthSessionListResponse {
+  sessions: AuthSessionSummary[];
+}
+
 /** A user's role within an organization. */
 export type OrganizationRole = 'OWNER' | 'MEMBER';
 

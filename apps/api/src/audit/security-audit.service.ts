@@ -8,7 +8,9 @@ export type SecurityEvent =
   | 'auth.logout'
   | 'auth.refresh.replay_detected'
   | 'csrf.rejected'
-  | 'rate_limit.exceeded';
+  | 'rate_limit.exceeded'
+  | 'auth.password.changed'
+  | 'auth.session.revoked';
 
 export type SecurityEventFields = Record<string, unknown>;
 

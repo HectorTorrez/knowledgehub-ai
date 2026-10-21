@@ -51,6 +51,43 @@ export const registerFormSchema = z.object({
     .max(NAME_MAX_LENGTH, `Last name must be at most ${NAME_MAX_LENGTH} characters.`),
 });
 
+export const profileFormSchema = z.object({
+  firstName: z
+    .string()
+    .trim()
+    .min(1, 'First name is required.')
+    .max(NAME_MAX_LENGTH, `First name must be at most ${NAME_MAX_LENGTH} characters.`),
+  lastName: z
+    .string()
+    .trim()
+    .min(1, 'Last name is required.')
+    .max(NAME_MAX_LENGTH, `Last name must be at most ${NAME_MAX_LENGTH} characters.`),
+});
+
+export const changePasswordFormSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Enter your current password.'),
+    newPassword: z
+      .string()
+      .min(
+        PASSWORD_MIN_LENGTH,
+        `Use at least ${PASSWORD_MIN_LENGTH} characters.`,
+      )
+      .max(
+        PASSWORD_MAX_LENGTH,
+        `Use at most ${PASSWORD_MAX_LENGTH} characters.`,
+      ),
+    confirmPassword: z.string().min(1, 'Confirm your new password.'),
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    message: 'The passwords do not match.',
+    path: ['confirmPassword'],
+  })
+  .refine((value) => value.newPassword !== value.currentPassword, {
+    message: 'Choose a password different from your current one.',
+    path: ['newPassword'],
+  });
+
 export const organizationNameSchema = z.object({
   name: z
     .string()

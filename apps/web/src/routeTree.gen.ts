@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedInvitationsAcceptRouteImport } from './routes/_authenticated/invitations.accept'
 import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations.index'
 import { Route as AuthenticatedOrganizationsOrganizationIdRouteImport } from './routes/_authenticated/organizations.$organizationId'
@@ -41,6 +42,11 @@ const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedInvitationsAcceptRoute =
   AuthenticatedInvitationsAcceptRouteImport.update({
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
   '/organizations/': typeof AuthenticatedOrganizationsIndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/organizations': typeof AuthenticatedOrganizationsIndexRoute
   '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/_authenticated/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
   '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/settings'
     | '/invitations/accept'
     | '/organizations/$organizationId'
     | '/organizations/'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/settings'
     | '/invitations/accept'
     | '/organizations'
     | '/organizations/$organizationId/ask'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/register'
+    | '/_authenticated/settings'
     | '/_authenticated/invitations/accept'
     | '/_authenticated/organizations/$organizationId'
     | '/_authenticated/organizations/'
@@ -224,6 +236,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/invitations/accept': {
       id: '/_authenticated/invitations/accept'
@@ -334,12 +353,14 @@ const AuthenticatedOrganizationsOrganizationIdRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedInvitationsAcceptRoute: typeof AuthenticatedInvitationsAcceptRoute
   AuthenticatedOrganizationsOrganizationIdRoute: typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
   AuthenticatedOrganizationsIndexRoute: typeof AuthenticatedOrganizationsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedInvitationsAcceptRoute: AuthenticatedInvitationsAcceptRoute,
   AuthenticatedOrganizationsOrganizationIdRoute:
     AuthenticatedOrganizationsOrganizationIdRouteWithChildren,
