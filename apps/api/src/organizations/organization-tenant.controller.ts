@@ -29,6 +29,10 @@ import {
   type UpdateMemberRoleInput,
 } from './dto/update-member-role.schema.js';
 import {
+  updateOrganizationSchema,
+  type UpdateOrganizationInput,
+} from './dto/update-organization.schema.js';
+import {
   requireOrganizationContext,
   type OrganizationRequest,
 } from './organization-context.js';
@@ -49,6 +53,32 @@ export class OrganizationTenantController {
     @Req() request: OrganizationRequest,
   ): Promise<OrganizationDetailResponse> {
     return this.organizations.getDetail(requireOrganizationContext(request));
+  }
+
+  @Patch(':organizationId')
+  updateName(
+    @Body(new ZodValidationPipe(updateOrganizationSchema))
+    body: UpdateOrganizationInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<OrganizationDetailResponse> {
+    return this.organizations.updateName(
+      requireOrganizationContext(request),
+      body,
+    );
+  }
+
+  @Delete(':organizationId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeOrganization(@Req() request: OrganizationRequest): Promise<void> {
+    await this.organizations.deleteOrganization(
+      requireOrganizationContext(request),
+    );
+  }
+
+  @Post(':organizationId/leave')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async leave(@Req() request: OrganizationRequest): Promise<void> {
+    await this.organizations.leave(requireOrganizationContext(request));
   }
 
   @Get(':organizationId/members')

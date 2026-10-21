@@ -20,6 +20,7 @@ import { Route as AuthenticatedOrganizationsOrganizationIdIndexRouteImport } fro
 import { Route as AuthenticatedOrganizationsOrganizationIdAskRouteImport } from './routes/_authenticated/organizations.$organizationId.ask'
 import { Route as AuthenticatedOrganizationsOrganizationIdDocumentsRouteImport } from './routes/_authenticated/organizations.$organizationId.documents'
 import { Route as AuthenticatedOrganizationsOrganizationIdSearchRouteImport } from './routes/_authenticated/organizations.$organizationId.search'
+import { Route as AuthenticatedOrganizationsOrganizationIdSettingsRouteImport } from './routes/_authenticated/organizations.$organizationId.settings'
 import { Route as AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRouteImport } from './routes/_authenticated/organizations.$organizationId.documents.$documentId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -83,6 +84,12 @@ const AuthenticatedOrganizationsOrganizationIdSearchRoute =
     path: '/search',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
   } as any)
+const AuthenticatedOrganizationsOrganizationIdSettingsRoute =
+  AuthenticatedOrganizationsOrganizationIdSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute =
   AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRouteImport.update(
     {
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
   '/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRouteWithChildren
   '/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
+  '/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute
   '/organizations/$organizationId/': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute
   '/organizations/$organizationId/documents/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute
 }
@@ -115,6 +123,7 @@ export interface FileRoutesByTo {
   '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
   '/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRouteWithChildren
   '/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
+  '/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute
   '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute
   '/organizations/$organizationId/documents/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute
 }
@@ -130,6 +139,7 @@ export interface FileRoutesById {
   '/_authenticated/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
   '/_authenticated/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRouteWithChildren
   '/_authenticated/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
+  '/_authenticated/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute
   '/_authenticated/organizations/$organizationId/': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute
   '/_authenticated/organizations/$organizationId/documents/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute
 }
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/organizations/$organizationId/ask'
     | '/organizations/$organizationId/documents'
     | '/organizations/$organizationId/search'
+    | '/organizations/$organizationId/settings'
     | '/organizations/$organizationId/'
     | '/organizations/$organizationId/documents/$documentId'
   fileRoutesByTo: FileRoutesByTo
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/organizations/$organizationId/ask'
     | '/organizations/$organizationId/documents'
     | '/organizations/$organizationId/search'
+    | '/organizations/$organizationId/settings'
     | '/organizations/$organizationId'
     | '/organizations/$organizationId/documents/$documentId'
   id:
@@ -171,6 +183,7 @@ export interface FileRouteTypes {
     | '/_authenticated/organizations/$organizationId/ask'
     | '/_authenticated/organizations/$organizationId/documents'
     | '/_authenticated/organizations/$organizationId/search'
+    | '/_authenticated/organizations/$organizationId/settings'
     | '/_authenticated/organizations/$organizationId/'
     | '/_authenticated/organizations/$organizationId/documents/$documentId'
   fileRoutesById: FileRoutesById
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdSearchRouteImport
       parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
     }
+    '/_authenticated/organizations/$organizationId/settings': {
+      id: '/_authenticated/organizations/$organizationId/settings'
+      path: '/settings'
+      fullPath: '/organizations/$organizationId/settings'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdSettingsRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/documents/$documentId': {
       id: '/_authenticated/organizations/$organizationId/documents/$documentId'
       path: '/$documentId'
@@ -290,6 +310,7 @@ interface AuthenticatedOrganizationsOrganizationIdRouteChildren {
   AuthenticatedOrganizationsOrganizationIdAskRoute: typeof AuthenticatedOrganizationsOrganizationIdAskRoute
   AuthenticatedOrganizationsOrganizationIdDocumentsRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsRouteWithChildren
   AuthenticatedOrganizationsOrganizationIdSearchRoute: typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
+  AuthenticatedOrganizationsOrganizationIdSettingsRoute: typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute
   AuthenticatedOrganizationsOrganizationIdIndexRoute: typeof AuthenticatedOrganizationsOrganizationIdIndexRoute
 }
 
@@ -301,6 +322,8 @@ const AuthenticatedOrganizationsOrganizationIdRouteChildren: AuthenticatedOrgani
       AuthenticatedOrganizationsOrganizationIdDocumentsRouteWithChildren,
     AuthenticatedOrganizationsOrganizationIdSearchRoute:
       AuthenticatedOrganizationsOrganizationIdSearchRoute,
+    AuthenticatedOrganizationsOrganizationIdSettingsRoute:
+      AuthenticatedOrganizationsOrganizationIdSettingsRoute,
     AuthenticatedOrganizationsOrganizationIdIndexRoute:
       AuthenticatedOrganizationsOrganizationIdIndexRoute,
   }

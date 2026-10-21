@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
-import { ArrowLeft, FileText, LayoutGrid, MessageSquareText, Search } from 'lucide-react';
+import {
+  ArrowLeft,
+  FileText,
+  LayoutGrid,
+  MessageSquareText,
+  Search,
+  Settings,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ErrorNotice } from '~/components/route-states';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -54,6 +61,9 @@ function OrganizationLayout() {
         <OrganizationTab to="/organizations/$organizationId/search" icon={Search}>
           Search
         </OrganizationTab>
+        <OrganizationTab to="/organizations/$organizationId/settings" icon={Settings}>
+          Settings
+        </OrganizationTab>
       </nav>
 
       <Outlet />
@@ -71,7 +81,8 @@ function OrganizationTab({
     | '/organizations/$organizationId'
     | '/organizations/$organizationId/documents'
     | '/organizations/$organizationId/ask'
-    | '/organizations/$organizationId/search';
+    | '/organizations/$organizationId/search'
+    | '/organizations/$organizationId/settings';
   exact?: boolean;
   icon: typeof LayoutGrid;
   children: ReactNode;
