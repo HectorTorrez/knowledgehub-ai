@@ -56,6 +56,33 @@ describe('queryKeys', () => {
     ]);
   });
 
+  it('scopes conversation keys and nested answer queries by organization', () => {
+    const conversations = queryKeys.organizations.conversations.list('org-a');
+    const scopedAnswers = queryKeys.organizations.answers.list(
+      'org-a',
+      'conversation-1',
+    );
+
+    expect(conversations).toEqual([
+      'organizations',
+      'org-a',
+      'conversations',
+      'list',
+    ]);
+    expect(scopedAnswers.slice(0, 5)).toEqual([
+      'organizations',
+      'org-a',
+      'answers',
+      'list',
+      'conversation',
+    ]);
+    expect(
+      queryKeys.organizations.conversations.detail('org-a', 'conversation-1'),
+    ).not.toEqual(
+      queryKeys.organizations.conversations.detail('org-b', 'conversation-1'),
+    );
+  });
+
   it('keys the ready-documents picker under the list prefix so invalidations reach it', () => {
     const list = queryKeys.organizations.documents.list('org-a');
     const ready = queryKeys.organizations.documents.ready('org-a');
