@@ -1,5 +1,6 @@
-import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronsUpDown, LogOut } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { Building2, Check, ChevronsUpDown, LogOut } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Brand } from '~/components/brand';
@@ -16,12 +17,23 @@ import {
 } from '~/components/ui/dropdown-menu';
 import { useLogout, useSession } from '~/hooks/use-auth';
 import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
+import { organizationsApi } from '~/lib/api/organizations';
+import { queryKeys } from '~/lib/api/query-keys';
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const session = useSession();
   const signOut = useLogout();
   const navigate = useNavigate();
+  const params = useParams({ strict: false });
+  const activeOrganizationId = params.organizationId;
   const [signOutError, setSignOutError] = useState<unknown>(null);
+
+  const organizations = useQuery({
+    queryKey: queryKeys.organizations.list(),
+    queryFn: () => organizationsApi.list(),
+    enabled: activeOrganizationId !== undefined,
+    staleTime: 30_000,
+  });
 
   useWebMcpTools();
 
@@ -57,9 +69,21 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       </a>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link to="/organizations" className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Brand />
-          </Link>
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+            <Link
+              to="/organizations"
+              className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Brand />
+            </Link>
+            {activeOrganizationId !== undefined &&
+            organizations.data !== undefined ? (
+              <OrganizationSwitcher
+                organizationId={activeOrganizationId}
+                organizations={organizations.data.organizations}
+              />
+            ) : null}
+          </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
             {user ? (
@@ -112,6 +136,66 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         {children}
       </main>
     </div>
+  );
+}
+
+function OrganizationSwitcher({
+  organizationId,
+  organizations,
+}: Readonly<{
+  organizationId: string;
+  organizations: Array<{ id: string; name: string }>;
+}>) {
+  const navigate = useNavigate();
+  const active = organizations.find(
+    (organization) => organization.id === organizationId,
+  );
+
+  if (active === undefined) {
+    return null;
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="h-9 min-w-0 gap-2 px-2"
+          aria-label={`Switch organization, currently ${active.name}`}
+        >
+          <Building2 className="size-4 shrink-0 text-muted-foreground" />
+          <span className="hidden max-w-40 truncate text-sm md:inline">
+            {active.name}
+          </span>
+          <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuLabel>Organization</DropdownMenuLabel>
+        {organizations.map((organization) => (
+          <DropdownMenuItem
+            key={organization.id}
+            onSelect={() => {
+              if (organization.id !== organizationId) {
+                void navigate({
+                  to: '/organizations/$organizationId',
+                  params: { organizationId: organization.id },
+                });
+              }
+            }}
+          >
+            <span className="min-w-0 flex-1 truncate">{organization.name}</span>
+            {organization.id === organizationId ? (
+              <Check className="size-4" />
+            ) : null}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/organizations">All organizations</Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
