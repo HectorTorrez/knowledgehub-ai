@@ -20,6 +20,7 @@ export const searchSchema = z
       .min(1, 'limit must be at least 1')
       .max(SEARCH_MAX_LIMIT, `limit must be at most ${SEARCH_MAX_LIMIT}`)
       .default(SEARCH_DEFAULT_LIMIT),
+    documentId: z.uuid('documentId must be a UUID').optional(),
   })
   .strict();
 

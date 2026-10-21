@@ -48,6 +48,7 @@ export class SearchService {
         organizationId,
         text: input.q,
         limit: input.limit,
+        ...(input.documentId ? { documentId: input.documentId } : {}),
       });
     } catch (error) {
       throw mapSearchError(error);
