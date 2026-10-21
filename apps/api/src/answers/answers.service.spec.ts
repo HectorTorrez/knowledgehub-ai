@@ -18,6 +18,9 @@ import type {
   RetrievalService,
 } from '../retrieval/retrieval.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { AggregationService } from '../aggregation/aggregation.service.js';
+import type { FactsConfig } from '../facts/facts.config.js';
+import type { ContractTotalsResponse } from '@knowledgehub/shared-types';
 import type { AnswerConfig } from './answer.config.js';
 import type { CatalogDocumentRow } from './answer-catalog.js';
 import {
@@ -134,6 +137,8 @@ function createService(options: {
   providerImpl?: AnswerProvider['generate'];
   configOverrides?: Partial<Record<string, unknown>>;
   usageImpl?: () => Promise<void>;
+  factsEnabled?: boolean;
+  aggregateImpl?: AggregationService['contractTotals'];
 } = {}) {
   const { retrieval, search } = createRetrieval(
     options.retrievalImpl ?? (async () => options.chunks ?? [CHUNK]),
@@ -148,16 +153,61 @@ function createService(options: {
   const usage = {
     recordAnswer: vi.fn(options.usageImpl ?? (async () => undefined)),
   };
+  const aggregation = {
+    contractTotals: vi.fn(
+      options.aggregateImpl ??
+        (async () => {
+          throw new Error('Unexpected aggregate call');
+        }),
+    ),
+  } as unknown as AggregationService;
+  const factsConfig = {
+    enabled: options.factsEnabled ?? false,
+  } as unknown as FactsConfig;
   const service = new AnswersService(
     provider,
     retrieval,
     config,
     prisma as unknown as PrismaService,
     usage as unknown as UsageService,
+    aggregation,
+    factsConfig,
   );
 
-  return { service, search, generate, config, prisma, usage };
+  return {
+    service,
+    search,
+    generate,
+    config,
+    prisma,
+    usage,
+    aggregation,
+  };
 }
+
+const AGGREGATE_RESPONSE: ContractTotalsResponse = {
+  status: 'complete',
+  coverage: { documents: 1, extracted: 1, failed: 0, pending: 0 },
+  collapsedDuplicates: 0,
+  totalFacts: 110,
+  totals: [
+    { currency: 'USD', scale: 2, totalMinor: '10280749', contractCount: 110 },
+  ],
+  sources: [
+    {
+      documentId: 'doc-a',
+      documentTitle: 'Contracts',
+      currency: 'USD',
+      scale: 2,
+      subtotalMinor: '10280749',
+      contractCount: 110,
+      pageNumber: 1,
+      chunkIndex: 0,
+      excerpt: '1143 Plan Personalizado $500.00 28/07/2026',
+    },
+  ],
+  breakdown: [],
+};
 
 describe('AnswersService', () => {
   beforeEach(() => {
@@ -167,6 +217,60 @@ describe('AnswersService', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('answers a total question from facts without calling the provider', async () => {
+    const { service, search, generate, usage } = createService({
+      factsEnabled: true,
+      aggregateImpl: async () => AGGREGATE_RESPONSE,
+    });
+
+    const response = await service.answer(
+      'org-1',
+      USER_ID,
+      'dame la suma de montos totales',
+    );
+
+    expect(response.status).toBe('answered');
+    if (response.status === 'answered') {
+      expect(response.answer).toMatch(/102[.,]807[.,]49/);
+      expect(response.answer).toContain('110');
+      expect(response.citations).toHaveLength(1);
+      expect(response.citations[0]?.documentId).toBe('doc-a');
+    }
+
+    expect(search).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
+    expect(usage.recordAnswer).not.toHaveBeenCalled();
+  });
+
+  it('falls back to retrieval when the aggregate has no facts', async () => {
+    const { service, search, generate } = createService({
+      factsEnabled: true,
+      aggregateImpl: async () => ({
+        ...AGGREGATE_RESPONSE,
+        totalFacts: 0,
+        totals: [],
+        sources: [],
+      }),
+    });
+
+    await service.answer('org-1', USER_ID, 'dame la suma de montos totales');
+
+    expect(search).toHaveBeenCalled();
+    expect(generate).toHaveBeenCalled();
+  });
+
+  it('does not aggregate a question about one contract', async () => {
+    const { service, search, aggregation } = createService({
+      factsEnabled: true,
+      aggregateImpl: async () => AGGREGATE_RESPONSE,
+    });
+
+    await service.answer('org-1', USER_ID, 'What is the total of contract 1143?');
+
+    expect(aggregation.contractTotals).not.toHaveBeenCalled();
+    expect(search).toHaveBeenCalled();
   });
 
   it('fails closed with 503 and touches nothing when answers are disabled', async () => {

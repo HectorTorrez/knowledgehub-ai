@@ -21,6 +21,14 @@ import {
   DEFAULT_OPENAI_BASE_URL,
   EMBEDDING_VECTOR_DIMENSIONS,
 } from '../embeddings/embedding-policy.js';
+import {
+  DEFAULT_FACTS_BACKFILL_BATCH,
+  DEFAULT_FACTS_CURRENCIES,
+  DEFAULT_FACTS_MAX_INPUT_CHARS,
+  DEFAULT_FACTS_MAX_OUTPUT_TOKENS,
+  DEFAULT_FACTS_TIMEOUT_MS,
+  MAX_FACTS_OUTPUT_TOKENS,
+} from '../facts/facts.config.js';
 
 const envObjectSchema = z.object({
   NODE_ENV: z
@@ -190,6 +198,40 @@ const envObjectSchema = z.object({
     .max(MAX_ANSWER_HISTORY_MAX_CHARS)
     .default(DEFAULT_ANSWER_HISTORY_MAX_CHARS),
 
+  FACTS_ENABLED: z.enum(['true', 'false']).default('false'),
+  FACTS_BACKFILL_ENABLED: z.enum(['true', 'false']).default('true'),
+  FACTS_MODEL: z.string().min(1).default(DEFAULT_ANSWER_MODEL),
+  FACTS_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_FACTS_TIMEOUT_MS),
+  FACTS_MAX_INPUT_CHARS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(100_000)
+    .default(DEFAULT_FACTS_MAX_INPUT_CHARS),
+  FACTS_MAX_OUTPUT_TOKENS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_FACTS_OUTPUT_TOKENS)
+    .default(DEFAULT_FACTS_MAX_OUTPUT_TOKENS),
+  FACTS_CURRENCIES: z
+    .string()
+    .regex(
+      /^[A-Z]{3}(,[A-Z]{3})*$/,
+      'FACTS_CURRENCIES must be a comma-separated list of ISO 4217 codes',
+    )
+    .default(DEFAULT_FACTS_CURRENCIES),
+  FACTS_BACKFILL_BATCH: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(DEFAULT_FACTS_BACKFILL_BATCH),
+
   RATE_LIMIT_LOGIN_PER_MINUTE: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_LOGIN_ACCOUNT_PER_MINUTE: z.coerce
     .number()
@@ -295,6 +337,14 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: ['OPENAI_API_KEY'],
       message: 'OPENAI_API_KEY is required when answer generation is enabled',
+    });
+  }
+
+  if (env.FACTS_ENABLED === 'true' && env.OPENAI_API_KEY === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['OPENAI_API_KEY'],
+      message: 'OPENAI_API_KEY is required when fact extraction is enabled',
     });
   }
 

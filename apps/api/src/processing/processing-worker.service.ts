@@ -6,6 +6,7 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { FactsService } from '../facts/facts.service.js';
 import {
   OBJECT_STORAGE,
   type ObjectStorage,
@@ -59,6 +60,7 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
     private readonly extractor: DocumentTextExtractor,
     private readonly chunks: DocumentChunkStore,
     private readonly config: ProcessingConfig,
+    private readonly facts: FactsService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
@@ -123,6 +125,22 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
       const stored = await this.chunks.replaceForGeneration(ownership, drafts);
       if (!stored || lease.lost) {
         return;
+      }
+
+      if (this.facts.enabled) {
+        await this.facts.extractForDocument(
+          {
+            organizationId: job.organizationId,
+            documentId: job.documentId,
+            documentGeneration: job.documentGeneration,
+          },
+          extracted.pages,
+          drafts,
+        );
+
+        if (lease.lost) {
+          return;
+        }
       }
 
       await this.jobs.publishExtraction(ownership, extracted);

@@ -532,3 +532,71 @@ export interface SearchResult {
 export interface SearchResponse {
   results: SearchResult[];
 }
+
+/**
+ * Coverage of a totals query. `complete` requires every document in scope to
+ * have READY facts; any FAILED or PENDING document forces `partial`, so a total
+ * is never silently short.
+ */
+export interface AggregateCoverage {
+  documents: number;
+  extracted: number;
+  failed: number;
+  pending: number;
+}
+
+/**
+ * Total for one currency. `totalMinor` is the integer amount in minor units as a
+ * string, because JSON cannot represent a 64-bit integer safely.
+ */
+export interface AggregateCurrencyTotal {
+  currency: string;
+  scale: number;
+  totalMinor: string;
+  contractCount: number;
+}
+
+/** One deduplicated contract fact behind a total, with its citation coordinates. */
+export interface AggregateFact {
+  contractId: string;
+  label: string;
+  amountMinor: string;
+  currency: string;
+  scale: number;
+  documentId: string;
+  documentTitle: string;
+  pageNumber: number;
+  chunkIndex: number | null;
+  excerpt: string;
+}
+
+/**
+ * Per-document provenance of a total. One entry per document and currency, so a
+ * deterministic answer can cite every document that contributed.
+ */
+export interface AggregateSource {
+  documentId: string;
+  documentTitle: string;
+  currency: string;
+  scale: number;
+  subtotalMinor: string;
+  contractCount: number;
+  pageNumber: number;
+  chunkIndex: number | null;
+  excerpt: string;
+}
+
+/**
+ * Response body of `GET /organizations/:organizationId/aggregates/contract-totals`.
+ * Totals are per currency and never converted; `breakdown` is a page of the
+ * deduplicated facts, while the totals cover the whole scope.
+ */
+export interface ContractTotalsResponse {
+  status: 'complete' | 'partial';
+  coverage: AggregateCoverage;
+  collapsedDuplicates: number;
+  totalFacts: number;
+  totals: AggregateCurrencyTotal[];
+  sources: AggregateSource[];
+  breakdown: AggregateFact[];
+}

@@ -25,6 +25,9 @@ import {
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsageService } from '../rate-limit/usage.service.js';
+import { AggregationService } from '../aggregation/aggregation.service.js';
+import { FactsConfig } from '../facts/facts.config.js';
+import { buildAggregateAnswer, isAggregateQuestion } from './aggregate-answer.js';
 import {
   EmbeddingRejectedError,
   EmbeddingResponseError,
@@ -155,6 +158,8 @@ export class AnswersService {
     private readonly config: AnswerConfig,
     private readonly prisma: PrismaService,
     private readonly usage: UsageService,
+    private readonly aggregation: AggregationService,
+    private readonly factsConfig: FactsConfig,
   ) {}
 
   async answer(
@@ -384,6 +389,18 @@ export class AnswersService {
       await this.assertDocumentAnswerable(organizationId, documentId);
     }
 
+    const aggregate = await this.aggregateAnswer(
+      organizationId,
+      question,
+      documentId,
+    );
+
+    if (aggregate) {
+      event.sourceCount = aggregate.citations.length;
+      event.promptChars = aggregate.answer?.length ?? 0;
+      return aggregate;
+    }
+
     const [sources, catalogRows] = await Promise.all([
       this.retrieveSources(organizationId, question, documentId),
       this.loadDocumentCatalogRows(organizationId, documentId),
@@ -427,6 +444,28 @@ export class AnswersService {
       answer: contract.answer,
       citations: buildCitations(contract.markers, allSources),
     };
+  }
+
+  private async aggregateAnswer(
+    organizationId: string,
+    question: string,
+    documentId?: string,
+  ): Promise<AnswerResponse | null> {
+    if (!this.factsConfig.enabled || !isAggregateQuestion(question)) {
+      return null;
+    }
+
+    const aggregate = await this.aggregation.contractTotals(organizationId, {
+      ...(documentId ? { documentId } : {}),
+      limit: 1,
+      offset: 0,
+    });
+
+    if (aggregate.totalFacts === 0 || aggregate.sources.length === 0) {
+      return null;
+    }
+
+    return buildAggregateAnswer(aggregate, question);
   }
 
   private log(event: AnswerLogEvent): void {
