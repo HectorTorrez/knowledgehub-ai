@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Brand } from '~/components/brand';
 import { ErrorNotice } from '~/components/route-states';
+import { ThemeToggle } from '~/components/theme-toggle';
 import { Button } from '~/components/ui/button';
 import {
   DropdownMenu,
@@ -59,40 +60,43 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           <Link to="/organizations" className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Brand />
           </Link>
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 gap-2 px-2">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
-                    {initialsFor(user.firstName, user.lastName, user.email)}
-                  </span>
-                  <span className="hidden text-sm sm:inline-block">
-                    {displayNameFor(user.firstName, user.lastName, user.email)}
-                  </span>
-                  <ChevronsUpDown className="size-3.5 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60">
-                <DropdownMenuLabel className="flex flex-col gap-0.5">
-                  <span>
-                    {displayNameFor(user.firstName, user.lastName, user.email)}
-                  </span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {user.email}
-                  </span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() => void handleSignOut()}
-                  disabled={signOut.isPending}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <LogOut />
-                  {signOut.isPending ? 'Signing out…' : 'Sign out'}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-9 gap-2 px-2">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+                      {initialsFor(user.firstName, user.lastName, user.email)}
+                    </span>
+                    <span className="hidden text-sm sm:inline-block">
+                      {displayNameFor(user.firstName, user.lastName, user.email)}
+                    </span>
+                    <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuLabel className="flex flex-col gap-0.5">
+                    <span>
+                      {displayNameFor(user.firstName, user.lastName, user.email)}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {user.email}
+                    </span>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => void handleSignOut()}
+                    disabled={signOut.isPending}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <LogOut />
+                    {signOut.isPending ? 'Signing out…' : 'Sign out'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
         </div>
       </header>
       {signOutError ? (
