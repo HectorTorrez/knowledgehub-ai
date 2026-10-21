@@ -504,7 +504,7 @@ function DocumentsPage() {
                 value={statusFilter}
                 onValueChange={(value) => setStatusFilter(value as StatusFilter)}
               >
-                <SelectTrigger className="sm:w-44" aria-label="Filter by status">
+                <SelectTrigger className="w-full sm:w-44" aria-label="Filter by status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -519,7 +519,7 @@ function DocumentsPage() {
                 value={order}
                 onValueChange={(value) => setOrder(value as DocumentOrder)}
               >
-                <SelectTrigger className="sm:w-40" aria-label="Sort documents">
+                <SelectTrigger className="w-full sm:w-40" aria-label="Sort documents">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -598,43 +598,47 @@ function DocumentsPage() {
                     {rows.map((document) => (
                       <li
                         key={document.id}
-                        className="flex items-center gap-4 px-6 py-4"
+                        className="flex items-start gap-2 px-4 py-4 sm:items-center sm:gap-4 sm:px-6"
                       >
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                          <FileText className="size-5" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <Link
-                              to="/organizations/$organizationId/documents/$documentId"
-                              params={{ organizationId, documentId: document.id }}
-                              className="truncate text-sm font-medium hover:underline"
+                        <Link
+                          to="/organizations/$organizationId/documents/$documentId"
+                          params={{ organizationId, documentId: document.id }}
+                          className="flex min-w-0 flex-1 items-start gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:items-center sm:gap-4"
+                        >
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                            <FileText className="size-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span
+                              className="block text-sm font-medium break-words line-clamp-2 sm:line-clamp-1"
                               title={document.title}
                             >
                               {document.title}
-                            </Link>
-                            <DocumentStatusBadge status={document.status} />
-                          </div>
-                          <p
-                            className="mt-0.5 truncate text-xs text-muted-foreground"
-                            title={document.originalFileName ?? undefined}
-                          >
-                            {document.originalFileName ?? 'Upload pending'}
-                            {document.sizeBytes !== null
-                              ? ` · ${formatBytes(document.sizeBytes)}`
-                              : ''}
-                          </p>
-                          {document.status === 'FAILED' ? (
-                            <p className="mt-0.5 text-xs text-destructive">
-                              {document.failureKind === 'VERIFICATION'
-                                ? 'Upload verification failed'
-                                : 'Processing failed'}
-                              {document.failureReason
-                                ? `: ${document.failureReason}`
-                                : ''}
-                            </p>
-                          ) : null}
-                        </div>
+                            </span>
+                            <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                              <DocumentStatusBadge status={document.status} />
+                              <span
+                                className="min-w-0 truncate text-xs text-muted-foreground"
+                                title={document.originalFileName ?? undefined}
+                              >
+                                {document.originalFileName ?? 'Upload pending'}
+                                {document.sizeBytes !== null
+                                  ? ` · ${formatBytes(document.sizeBytes)}`
+                                  : ''}
+                              </span>
+                            </span>
+                            {document.status === 'FAILED' ? (
+                              <span className="mt-1 block text-xs break-words text-destructive">
+                                {document.failureKind === 'VERIFICATION'
+                                  ? 'Upload verification failed'
+                                  : 'Processing failed'}
+                                {document.failureReason
+                                  ? `: ${document.failureReason}`
+                                  : ''}
+                              </span>
+                            ) : null}
+                          </span>
+                        </Link>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button

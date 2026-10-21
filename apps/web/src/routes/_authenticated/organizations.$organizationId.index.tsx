@@ -347,7 +347,7 @@ function OrganizationOverviewPage() {
 
       <Dialog open={addMemberOpen} onOpenChange={handleAddMemberOpenChange}>
         <Card>
-          <div className="flex items-start justify-between gap-4 p-6 pb-0">
+          <div className="flex flex-col items-start gap-3 p-6 pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="space-y-1.5">
               <h2 className="font-semibold leading-none tracking-tight">Members</h2>
               <p className="text-sm text-muted-foreground">
@@ -389,13 +389,13 @@ function OrganizationOverviewPage() {
                 {members.data.members.map((member) => (
                   <li
                     key={member.userId}
-                    className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                    className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
                         {initialsFor(member.firstName, member.lastName)}
                       </span>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
                           {member.firstName} {member.lastName}
                           {member.userId === currentUserId ? (
@@ -409,7 +409,7 @@ function OrganizationOverviewPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
                       {isOwner && member.userId !== currentUserId ? (
                         <Select
                           value={member.role}

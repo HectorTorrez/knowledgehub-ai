@@ -152,6 +152,11 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === `/organizations/org-1/documents/${DOCUMENT.id}`) {
+      await route.fulfill(json({ document: DOCUMENT }));
+      return;
+    }
+
     if (path === '/organizations/org-1/conversations' && method === 'GET') {
       await route.fulfill(
         json({
