@@ -296,7 +296,10 @@ function LatestAnswerCard({
           </div>
 
           {latest.response.status === 'answered' ? (
-            <AnswerBody text={latest.response.answer} />
+            <AnswerBody
+              text={latest.response.answer}
+              sourceIdPrefix="latest-answer"
+            />
           ) : (
             <InsufficientEvidence />
           )}
@@ -307,6 +310,7 @@ function LatestAnswerCard({
         <SourcesList
           citations={latest.response.citations}
           organizationId={organizationId}
+          sourceIdPrefix="latest-answer"
         />
       ) : null}
     </div>
@@ -405,7 +409,10 @@ function ExpandedAnswer({
   return (
     <div className="border-t px-4 py-4 sm:px-6">
       {answer.status === 'answered' ? (
-        <AnswerBody text={answer.answer ?? ''} />
+        <AnswerBody
+          text={answer.answer ?? ''}
+          sourceIdPrefix={`answer-${answer.id}`}
+        />
       ) : (
         <InsufficientEvidence />
       )}
@@ -415,6 +422,7 @@ function ExpandedAnswer({
           <SourcesList
             citations={answer.citations}
             organizationId={organizationId}
+            sourceIdPrefix={`answer-${answer.id}`}
           />
         </div>
       ) : null}

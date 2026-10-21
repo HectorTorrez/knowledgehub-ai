@@ -1,8 +1,4 @@
-import type {
-  AnswerResponse,
-  AnswerSummary,
-  ConversationSummary,
-} from '@knowledgehub/shared-types';
+import type { ConversationSummary } from '@knowledgehub/shared-types';
 import {
   useInfiniteQuery,
   useMutation,
@@ -11,29 +7,25 @@ import {
 } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
-  ChevronDown,
-  LoaderCircle,
-  MessageSquarePlus,
-  Send,
-  Trash2,
+  ArrowUpRight,
+  MessageSquareText,
+  PanelLeft,
+  SquarePen,
 } from 'lucide-react';
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AnswerActions, AnswerFeedback } from '~/components/answer-actions';
-import { AnswerThread } from '~/components/answer-thread';
 import {
   AnswerBody,
   InsufficientEvidence,
   SourcesList,
 } from '~/components/answer-content';
-import { DocumentScopeSelect } from '~/components/document-scope-select';
-import { PageHeader } from '~/components/page-header';
+import { AskComposer } from '~/components/ask-composer';
+import {
+  ConversationMessages,
+  type AskedQuestion,
+} from '~/components/ask-messages';
+import { AnswerThread } from '~/components/answer-thread';
+import { ConversationRail } from '~/components/conversation-rail';
 import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
@@ -45,9 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
-import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
-import { Textarea } from '~/components/ui/textarea';
 import { useToast } from '~/components/ui/toast';
 import { useAnswerStream } from '~/hooks/use-answer-stream';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
@@ -58,8 +48,7 @@ import { queryKeys } from '~/lib/api/query-keys';
 import { ALL_DOCUMENTS, resolveDocumentScope } from '~/lib/document-scope';
 import { formatDateTime } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
-import { cn } from '~/lib/utils';
-import { questionSchema, QUESTION_MAX_LENGTH } from '~/lib/validation';
+import { questionSchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/ask',
@@ -105,12 +94,6 @@ const SUGGESTED_QUESTIONS = [
   'What are the most important deadlines or dates?',
 ];
 
-interface AskedQuestion {
-  question: string;
-  documentId: string | undefined;
-  scopeLabel: string;
-}
-
 function AskPage() {
   const { organizationId } = Route.useParams();
   const {
@@ -136,8 +119,11 @@ function AskPage() {
   >(presetConversationId ?? null);
   const [asked, setAsked] = useState<AskedQuestion | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(
+    null,
+  );
   const [showConversations, setShowConversations] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const ready = useReadyDocuments(organizationId);
   const scope = resolveDocumentScope(selection, ready.documents);
@@ -149,6 +135,17 @@ function AskPage() {
       conversationsApi.list(organizationId, { cursor: pageParam, limit: 25 }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+
+  const activeConversationDetail = useQuery({
+    queryKey: queryKeys.organizations.conversations.detail(
+      organizationId,
+      activeConversationId ?? '',
+    ),
+    queryFn: () =>
+      conversationsApi.detail(organizationId, activeConversationId ?? ''),
+    enabled: activeConversationId !== null,
+    staleTime: 30_000,
   });
 
   const createConversation = useMutation({
@@ -231,24 +228,6 @@ function AskPage() {
     await stream.ask(questionText, scope.documentId, conversationId);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void submit();
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key !== 'Enter' || event.shiftKey) {
-      return;
-    }
-
-    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
-      return;
-    }
-
-    event.preventDefault();
-    void submit();
-  }
-
   function updateConversationSearch(conversationId: string | undefined) {
     void navigate({
       to: '/organizations/$organizationId/ask',
@@ -287,6 +266,22 @@ function AskPage() {
     setShowConversations(false);
   }
 
+  function changeQuestion(value: string) {
+    setQuestion(value);
+    writeAskDraft(
+      organizationId,
+      activeConversationId ?? undefined,
+      value,
+    );
+  }
+
+  function applySuggestion(suggestion: string) {
+    changeQuestion(suggestion);
+    window.requestAnimationFrame(() => {
+      document.getElementById('ask-question')?.focus();
+    });
+  }
+
   async function handleDelete() {
     if (deleteTarget === null) {
       return;
@@ -302,16 +297,31 @@ function AskPage() {
   }
 
   const streaming = stream.status === 'streaming';
-  const conversationRows =
-    conversations.data?.pages.flatMap((page) => page.conversations) ?? [];
+  const conversationRows = useMemo(
+    () =>
+      conversations.data?.pages.flatMap((page) => page.conversations) ?? [],
+    [conversations.data],
+  );
+  const activeConversation = useMemo(
+    () =>
+      conversationRows.find(
+        (conversation) => conversation.id === activeConversationId,
+      ),
+    [conversationRows, activeConversationId],
+  );
+  const conversationTitle =
+    activeConversation?.title?.trim() ||
+    activeConversationDetail.data?.conversation.title?.trim() ||
+    'New conversation';
+  const heading =
+    activeConversationId === null ? 'Ask a question' : conversationTitle;
+  const subtitle =
+    activeConversationId === null
+      ? 'Answers are grounded in your documents and cite their sources.'
+      : 'Follow-ups keep the context of this conversation.';
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Ask a question"
-        description="Answers are grounded in the documents you choose and cite their sources. Follow-ups keep the conversation context."
-      />
-
       {permalinkAnswerId !== undefined ? (
         <PermalinkAnswer
           organizationId={organizationId}
@@ -319,288 +329,148 @@ function AskPage() {
         />
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="h-fit min-w-0 rounded-xl border bg-card lg:sticky lg:top-20">
-          <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
-            <button
-              type="button"
-              onClick={() => setShowConversations((open) => !open)}
-              aria-expanded={showConversations}
-              aria-controls="conversation-list"
-              className="flex min-h-11 min-w-0 items-center gap-1 rounded-md py-2 -my-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+      <div className="grid h-[calc(100dvh-12rem)] grid-cols-1 overflow-hidden rounded-xl border bg-card shadow-sm sm:h-[calc(100dvh-14.5rem)] lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="hidden min-h-0 min-w-0 border-r bg-muted/20 lg:block">
+          <ConversationRail
+            conversations={conversationRows}
+            activeConversationId={activeConversationId}
+            listId="conversation-list"
+            isPending={conversations.isPending}
+            isError={conversations.isError}
+            error={conversations.error}
+            hasNextPage={conversations.hasNextPage}
+            isFetchingNextPage={conversations.isFetchingNextPage}
+            onFetchNextPage={() => void conversations.fetchNextPage()}
+            onNew={startNewConversation}
+            onSelect={selectConversation}
+            onDelete={(conversation) => {
+              removeConversation.reset();
+              setDeleteTarget(conversation);
+            }}
+            onOpenHistory={() => setShowHistory(true)}
+          />
+        </aside>
+
+        <div className="flex min-h-0 min-w-0 flex-col">
+          <div className="flex shrink-0 items-center gap-1 border-b px-2 py-2 sm:px-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Conversations"
+              className="lg:hidden"
+              onClick={() => setShowConversations(true)}
             >
-              <h2 className="truncate text-sm font-semibold">Conversations</h2>
-              <ChevronDown
-                className={cn(
-                  'size-4 shrink-0 text-muted-foreground transition-transform',
-                  showConversations && 'rotate-180',
-                )}
-              />
-            </button>
-            <h2 className="hidden truncate text-sm font-semibold lg:block">
-              Conversations
-            </h2>
+              <PanelLeft className="size-4" />
+            </Button>
+
+            <div className="min-w-0 flex-1 px-1">
+              <h1 className="truncate text-sm font-semibold sm:text-base">
+                {heading}
+              </h1>
+              <p className="hidden truncate text-[11px] text-muted-foreground sm:block sm:text-xs">
+                {subtitle}
+              </p>
+            </div>
+
             <Button
               variant="ghost"
               size="icon"
               aria-label="New conversation"
+              className="lg:hidden"
               onClick={startNewConversation}
             >
-              <MessageSquarePlus className="size-4" />
+              <SquarePen className="size-4" />
             </Button>
           </div>
 
-          <div
-            id="conversation-list"
-            className={cn(
-              'max-h-72 overflow-y-auto overscroll-contain p-2 lg:block lg:max-h-[calc(100dvh-14rem)]',
-              !showConversations && 'hidden',
-            )}
-          >
-            {conversations.isPending ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <Skeleton key={index} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : null}
-
-            {conversations.isError ? (
-              <ErrorNotice error={conversations.error} />
-            ) : null}
-
-            {!conversations.isPending && conversationRows.length === 0 ? (
-              <p className="px-2 py-4 text-xs text-muted-foreground">
-                Your conversations will appear here.
-              </p>
-            ) : null}
-
-            <ul className="space-y-1">
-              {conversationRows.map((conversation) => (
-                <li key={conversation.id}>
-                  <div
-                    className={cn(
-                      'group flex items-center gap-1 rounded-md',
-                      conversation.id === activeConversationId
-                        ? 'bg-muted'
-                        : 'hover:bg-muted/60',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => selectConversation(conversation.id)}
-                      aria-current={
-                        conversation.id === activeConversationId
-                          ? 'true'
-                          : undefined
-                      }
-                      className="min-w-0 flex-1 rounded-md px-2 py-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                    >
-                      <span className="block truncate text-sm">
-                        {conversation.title ?? 'New conversation'}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {formatDateTime(conversation.createdAt)}
-                      </span>
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Delete ${
-                        conversation.title ?? 'this conversation'
-                      }`}
-                      className="mr-1 size-11 text-muted-foreground opacity-100 hover:text-destructive sm:size-8 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-                      onClick={() => setDeleteTarget(conversation)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            {conversations.hasNextPage ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-2 w-full"
-                onClick={() => conversations.fetchNextPage()}
-                disabled={conversations.isFetchingNextPage}
-              >
-                {conversations.isFetchingNextPage ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : null}
-                Load older
-              </Button>
-            ) : null}
-          </div>
-        </aside>
-
-        <div className="flex min-w-0 flex-col gap-6">
-          <div
-            className={cn(
-              activeConversationId === null
-                ? 'order-1'
-                : 'order-2 lg:order-1',
-            )}
-          >
-            {activeConversationId === null ? (
-              <Card>
-                <CardContent className="space-y-4 p-4 sm:p-6">
-                  <div className="space-y-1">
-                    <h2 className="font-semibold">Start a conversation</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Ask a question below. Follow-ups use the earlier turns as
-                      context, and every answer cites its sources.
-                    </p>
-                  </div>
-
-                  {ready.documents.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                        Try asking
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {SUGGESTED_QUESTIONS.map((suggestion) => (
-                          <Button
-                            key={suggestion}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-auto max-w-full justify-start whitespace-normal py-2 text-left"
-                            onClick={() => setQuestion(suggestion)}
-                          >
-                            {suggestion}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <Button asChild variant="outline" size="sm">
-                      <Link
-                        to="/organizations/$organizationId/documents"
-                        params={{ organizationId }}
-                      >
-                        Upload a document first
-                      </Link>
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <ConversationMessages
-                organizationId={organizationId}
-                conversationId={activeConversationId}
-                pending={asked}
-                stream={{
-                  status: stream.status,
-                  answerStatus: stream.answerStatus,
-                  text: stream.text,
-                  citations: stream.citations,
-                }}
-              />
-            )}
-          </div>
-
-          <Card
-            className={
-              activeConversationId === null
-                ? 'order-2'
-                : 'order-1 lg:order-2'
-            }
-          >
-            <CardContent className="p-4 sm:p-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {validationError ? (
-                  <ErrorNotice error={new Error(validationError)} />
-                ) : null}
-                {stream.status === 'error' ? (
-                  <ErrorNotice error={stream.error} />
-                ) : null}
-                {createConversation.isError ? (
-                  <ErrorNotice error={createConversation.error} />
-                ) : null}
-                {removeConversation.isError ? (
-                  <ErrorNotice error={removeConversation.error} />
-                ) : null}
-
-                <div className="space-y-2">
-                  <Label htmlFor="document-scope">Answer from</Label>
-                  <DocumentScopeSelect
-                    documents={ready.documents}
-                    value={scope.documentId ?? ALL_DOCUMENTS}
-                    onValueChange={setSelection}
-                    disabled={ready.query.isPending || streaming}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {scopeHint(ready.query.isPending, ready.documents.length)}
-                  </p>
-                  {ready.query.isError ? (
-                    <ErrorNotice error={ready.query.error} />
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="question">Your question</Label>
-                  <Textarea
-                    id="question"
-                    rows={4}
-                    maxLength={QUESTION_MAX_LENGTH}
-                    value={question}
-                    onChange={(event) => {
-                      setQuestion(event.target.value);
-                      writeAskDraft(
-                        organizationId,
-                        activeConversationId ?? undefined,
-                        event.target.value,
-                      );
-                    }}
-                    onKeyDown={handleKeyDown}
-                    aria-describedby="question-hint"
-                    placeholder="What is the parental leave policy?"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <p id="question-hint" className="text-xs text-muted-foreground">
-                    {question.length}/{QUESTION_MAX_LENGTH} ·{' '}
-                    <span className="hidden sm:inline">
-                      Enter to ask, Shift+Enter for a new line
-                    </span>
-                    <span className="sm:hidden">Tap Ask to send</span>
-                  </p>
-                  <Button
-                    type="submit"
-                    disabled={
-                      streaming ||
-                      question.trim().length === 0 ||
-                      createConversation.isPending
-                    }
-                  >
-                    {streaming || createConversation.isPending ? (
-                      <>
-                        <LoaderCircle className="animate-spin" />
-                        Thinking…
-                      </>
-                    ) : (
-                      <>
-                        <Send />
-                        Ask
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
           {activeConversationId === null ? (
-            <div className="order-3">
-              <AnswerThread organizationId={organizationId} />
-            </div>
-          ) : null}
+            <EmptyConversation
+              organizationId={organizationId}
+              documentsCount={ready.documents.length}
+              documentsPending={ready.query.isPending}
+              onSuggestion={applySuggestion}
+            />
+          ) : (
+            <ConversationMessages
+              organizationId={organizationId}
+              conversationId={activeConversationId}
+              pending={asked}
+              stream={{
+                status: stream.status,
+                answerStatus: stream.answerStatus,
+                text: stream.text,
+                citations: stream.citations,
+              }}
+            />
+          )}
+
+          <AskComposer
+            organizationId={organizationId}
+            documents={ready.documents}
+            documentId={scope.documentId}
+            question={question}
+            onQuestionChange={changeQuestion}
+            onDocumentChange={setSelection}
+            onSubmit={() => void submit()}
+            onStop={stream.cancel}
+            streaming={streaming}
+            submitting={createConversation.isPending}
+            documentsPending={ready.query.isPending}
+            validationError={validationError}
+            streamError={stream.error}
+            createError={createConversation.error}
+          />
         </div>
       </div>
+
+      <Dialog open={showConversations} onOpenChange={setShowConversations}>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-sm">
+          <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12">
+            <DialogTitle className="text-base">Conversations</DialogTitle>
+            <DialogDescription className="sr-only">
+              Switch to another conversation or start a new one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1">
+            <ConversationRail
+              conversations={conversationRows}
+              activeConversationId={activeConversationId}
+              listId="conversation-list-mobile"
+              showHeading={false}
+              isPending={conversations.isPending}
+              isError={conversations.isError}
+              error={conversations.error}
+              hasNextPage={conversations.hasNextPage}
+              isFetchingNextPage={conversations.isFetchingNextPage}
+              onFetchNextPage={() => void conversations.fetchNextPage()}
+              onNew={startNewConversation}
+              onSelect={selectConversation}
+              onDelete={(conversation) => {
+                removeConversation.reset();
+                setDeleteTarget(conversation);
+              }}
+              onOpenHistory={() => {
+                setShowConversations(false);
+                setShowHistory(true);
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 sm:px-6">
+            <DialogTitle className="text-base">Question history</DialogTitle>
+            <DialogDescription className="sr-only">
+              Browse the questions asked in this organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+            <AnswerThread organizationId={organizationId} />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={deleteTarget !== null}
@@ -644,6 +514,74 @@ function AskPage() {
   );
 }
 
+function EmptyConversation({
+  organizationId,
+  documentsCount,
+  documentsPending,
+  onSuggestion,
+}: Readonly<{
+  organizationId: string;
+  documentsCount: number;
+  documentsPending: boolean;
+  onSuggestion: (suggestion: string) => void;
+}>) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-8 sm:px-6">
+        <div className="my-auto max-w-xl">
+          <div className="flex size-10 items-center justify-center rounded-xl border bg-muted/50">
+            <MessageSquareText className="size-5 text-muted-foreground" />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold tracking-tight sm:text-xl">
+            Ask your documents anything
+          </h2>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+            {documentsCount > 0
+              ? `Search ${countLabel(documentsCount)} and get an answer with the pages it came from.`
+              : 'Upload a document and get answers grounded in its contents, with citations.'}
+          </p>
+
+          {documentsPending ? (
+            <Skeleton className="mt-6 h-24 w-full rounded-xl" />
+          ) : documentsCount > 0 ? (
+            <div className="mt-6 space-y-2">
+              <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                Try asking
+              </p>
+              <div className="grid gap-2">
+                {SUGGESTED_QUESTIONS.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => onSuggestion(suggestion)}
+                    className="group flex items-center justify-between gap-3 rounded-lg border bg-background px-3.5 py-3 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <span>{suggestion}</span>
+                    <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Button asChild variant="outline" className="mt-5">
+              <Link
+                to="/organizations/$organizationId/documents"
+                params={{ organizationId }}
+              >
+                Upload a document first
+              </Link>
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function countLabel(count: number): string {
+  return count === 1 ? '1 ready document' : `${count} ready documents`;
+}
+
 function PermalinkAnswer({
   organizationId,
   answerId,
@@ -681,7 +619,10 @@ function PermalinkAnswer({
               </p>
             </div>
             {detail.data.answer.status === 'answered' ? (
-              <AnswerBody text={detail.data.answer.answer ?? ''} />
+              <AnswerBody
+                text={detail.data.answer.answer ?? ''}
+                sourceIdPrefix={`shared-${answerId}`}
+              />
             ) : (
               <InsufficientEvidence />
             )}
@@ -689,6 +630,7 @@ function PermalinkAnswer({
               <SourcesList
                 citations={detail.data.answer.citations}
                 organizationId={organizationId}
+                sourceIdPrefix={`shared-${answerId}`}
               />
             ) : null}
             <div className="flex justify-end gap-1">
@@ -711,246 +653,4 @@ function PermalinkAnswer({
       </CardContent>
     </Card>
   );
-}
-
-interface StreamSnapshot {
-  status: 'idle' | 'streaming' | 'done' | 'error';
-  answerStatus: AnswerResponse['status'] | null;
-  text: string;
-  citations: AnswerResponse['citations'];
-}
-
-function ConversationMessages({
-  organizationId,
-  conversationId,
-  pending,
-  stream,
-}: Readonly<{
-  organizationId: string;
-  conversationId: string;
-  pending: AskedQuestion | null;
-  stream: StreamSnapshot;
-}>) {
-  const endRef = useRef<HTMLDivElement>(null);
-
-  const answers = useInfiniteQuery({
-    queryKey: queryKeys.organizations.answers.list(
-      organizationId,
-      conversationId,
-    ),
-    queryFn: ({ pageParam }) =>
-      answersApi.list(organizationId, {
-        conversationId,
-        cursor: pageParam,
-        limit: 25,
-      }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-  });
-
-  const rows = useMemo(
-    () =>
-      (answers.data?.pages.flatMap((page) => page.answers) ?? [])
-        .slice()
-        .reverse(),
-    [answers.data],
-  );
-
-  const persisted = useMemo(
-    () => new Set(rows.map((row) => row.question)),
-    [rows],
-  );
-  const pendingVisible =
-    pending !== null &&
-    stream.status !== 'error' &&
-    (!persisted.has(pending.question) || stream.status === 'streaming');
-
-  useEffect(() => {
-    if (stream.status !== 'done') {
-      return;
-    }
-
-    const prefersReducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches;
-
-    endRef.current?.scrollIntoView({
-      behavior: prefersReducedMotion ? 'auto' : 'smooth',
-      block: 'end',
-    });
-  }, [stream.status, rows.length]);
-
-  return (
-    <section aria-label="Conversation" className="space-y-4">
-      {answers.isError ? <ErrorNotice error={answers.error} /> : null}
-
-      {answers.isPending && rows.length === 0 && !pendingVisible ? (
-        <Skeleton className="h-32 w-full rounded-xl" />
-      ) : null}
-
-      {answers.hasNextPage ? (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => answers.fetchNextPage()}
-            disabled={answers.isFetchingNextPage}
-          >
-            {answers.isFetchingNextPage ? (
-              <LoaderCircle className="animate-spin" />
-            ) : null}
-            Load earlier questions
-          </Button>
-        </div>
-      ) : null}
-
-      {rows.length === 0 && !pendingVisible && !answers.isPending ? (
-        <p className="text-sm text-muted-foreground">
-          This conversation has no questions yet.
-        </p>
-      ) : null}
-
-      <ol className="space-y-6">
-        {rows.map((answer) => (
-          <li key={answer.id}>
-            <PersistedAnswer
-              organizationId={organizationId}
-              answer={answer}
-            />
-          </li>
-        ))}
-
-        {pendingVisible && pending !== null ? (
-          <li>
-            <PendingAnswer pending={pending} stream={stream} />
-          </li>
-        ) : null}
-      </ol>
-
-      <div ref={endRef} />
-    </section>
-  );
-}
-
-function PersistedAnswer({
-  organizationId,
-  answer,
-}: Readonly<{ organizationId: string; answer: AnswerSummary }>) {
-  const detail = useQuery({
-    queryKey: queryKeys.organizations.answers.detail(organizationId, answer.id),
-    queryFn: () => answersApi.detail(organizationId, answer.id),
-    staleTime: Infinity,
-  });
-
-  return (
-    <article className="space-y-3">
-      <div className="space-y-1">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Question
-        </p>
-        <p className="text-sm font-medium">{answer.question}</p>
-        <p className="text-xs text-muted-foreground">
-          {formatDateTime(answer.createdAt)}
-        </p>
-      </div>
-
-      {detail.isPending ? (
-        <Skeleton className="h-24 w-full rounded-xl" />
-      ) : null}
-
-      {detail.isError ? <ErrorNotice error={detail.error} /> : null}
-
-      {detail.data ? (
-        <>
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              {detail.data.answer.status === 'answered' ? (
-                <AnswerBody text={detail.data.answer.answer ?? ''} />
-              ) : (
-                <InsufficientEvidence />
-              )}
-            </CardContent>
-          </Card>
-          {detail.data.answer.citations.length > 0 ? (
-            <SourcesList
-              citations={detail.data.answer.citations}
-              organizationId={organizationId}
-            />
-          ) : null}
-          <div className="flex justify-end gap-1">
-            <AnswerFeedback
-              organizationId={organizationId}
-              answerId={detail.data.answer.id}
-              initial={detail.data.answer.feedback}
-            />
-            <AnswerActions
-              organizationId={organizationId}
-              answerId={detail.data.answer.id}
-              question={detail.data.answer.question}
-              answer={detail.data.answer.answer}
-              status={detail.data.answer.status}
-              citations={detail.data.answer.citations}
-            />
-          </div>
-        </>
-      ) : null}
-    </article>
-  );
-}
-
-function PendingAnswer({
-  pending,
-  stream,
-}: Readonly<{ pending: AskedQuestion; stream: StreamSnapshot }>) {
-  return (
-    <article className="space-y-3">
-      <div className="space-y-1">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Question
-        </p>
-        <p className="text-sm font-medium">{pending.question}</p>
-        <p className="text-xs text-muted-foreground">
-          Answered from {pending.scopeLabel}
-        </p>
-      </div>
-
-      <Card>
-        <CardContent role="status" aria-live="polite" className="space-y-3 p-4 sm:p-6">
-          {stream.answerStatus === 'insufficient_evidence' ? (
-            <InsufficientEvidence />
-          ) : stream.text.length > 0 ? (
-            <AnswerBody text={stream.text} />
-          ) : (
-            <span className="flex items-center gap-2 text-sm text-muted-foreground">
-              <LoaderCircle className="size-4 animate-spin" />
-              Searching {pending.scopeLabel}…
-            </span>
-          )}
-
-          {stream.status === 'streaming' && stream.text.length > 0 ? (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <LoaderCircle className="size-3.5 animate-spin" />
-              Writing…
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {stream.citations.length > 0 ? (
-        <SourcesList citations={stream.citations} />
-      ) : null}
-    </article>
-  );
-}
-
-function scopeHint(isPending: boolean, readyCount: number): string {
-  if (isPending) {
-    return 'Loading this organization’s documents…';
-  }
-
-  if (readyCount === 0) {
-    return 'No documents are ready yet — upload one to ask questions about it.';
-  }
-
-  return 'Search every document, or narrow this question to one.';
 }

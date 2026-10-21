@@ -63,6 +63,7 @@ export function AnswerActions({
         variant="ghost"
         size="icon"
         aria-label={`Copy answer to “${question}”`}
+        title="Copy answer"
         onClick={() =>
           void copy(
             buildAnswerMarkdown({ question, answer, status, citations }),
@@ -81,6 +82,7 @@ export function AnswerActions({
           variant="ghost"
           size="icon"
           aria-label={`Copy link to “${question}”`}
+          title="Copy link"
           onClick={() =>
             void copy(
               answerPermalink(
@@ -184,6 +186,7 @@ export function AnswerFeedback({
         variant="ghost"
         size="icon"
         aria-label="Helpful"
+        title="Helpful"
         aria-pressed={feedback?.value === 'UP'}
         disabled={pending}
         onClick={() => toggle('UP')}
@@ -199,6 +202,7 @@ export function AnswerFeedback({
         variant="ghost"
         size="icon"
         aria-label="Not helpful"
+        title="Not helpful"
         aria-pressed={feedback?.value === 'DOWN'}
         disabled={pending}
         onClick={() => toggle('DOWN')}
