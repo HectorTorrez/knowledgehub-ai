@@ -115,7 +115,7 @@ function OrganizationLayout() {
             to={tab.to}
             params={{ organizationId }}
             activeOptions={{ exact: tab.exact ?? false }}
-            className="flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-1.5 text-[0.6875rem] font-medium transition-colors"
+            className="flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-1.5 text-[0.6875rem] font-medium transition-colors active:bg-accent/60"
             inactiveProps={{ className: 'text-muted-foreground' }}
             activeProps={{
               className: 'text-foreground',

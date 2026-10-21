@@ -237,10 +237,16 @@ function AskPage() {
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      void submit();
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return;
     }
+
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      return;
+    }
+
+    event.preventDefault();
+    void submit();
   }
 
   function updateConversationSearch(conversationId: string | undefined) {
@@ -321,7 +327,7 @@ function AskPage() {
               onClick={() => setShowConversations((open) => !open)}
               aria-expanded={showConversations}
               aria-controls="conversation-list"
-              className="flex min-w-0 items-center gap-1 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+              className="flex min-h-11 min-w-0 items-center gap-1 rounded-md py-2 -my-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
             >
               <h2 className="truncate text-sm font-semibold">Conversations</h2>
               <ChevronDown
@@ -347,7 +353,7 @@ function AskPage() {
           <div
             id="conversation-list"
             className={cn(
-              'max-h-72 overflow-y-auto p-2 lg:block lg:max-h-[calc(100dvh-14rem)]',
+              'max-h-72 overflow-y-auto overscroll-contain p-2 lg:block lg:max-h-[calc(100dvh-14rem)]',
               !showConversations && 'hidden',
             )}
           >
@@ -440,7 +446,7 @@ function AskPage() {
           >
             {activeConversationId === null ? (
               <Card>
-                <CardContent className="space-y-4 p-6">
+                <CardContent className="space-y-4 p-4 sm:p-6">
                   <div className="space-y-1">
                     <h2 className="font-semibold">Start a conversation</h2>
                     <p className="text-sm text-muted-foreground">
@@ -503,7 +509,7 @@ function AskPage() {
                 : 'order-1 lg:order-2'
             }
           >
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 {validationError ? (
                   <ErrorNotice error={new Error(validationError)} />
@@ -557,8 +563,11 @@ function AskPage() {
 
                 <div className="flex items-center justify-between gap-4">
                   <p id="question-hint" className="text-xs text-muted-foreground">
-                    {question.length}/{QUESTION_MAX_LENGTH} · Enter to ask,
-                    Shift+Enter for a new line
+                    {question.length}/{QUESTION_MAX_LENGTH} ·{' '}
+                    <span className="hidden sm:inline">
+                      Enter to ask, Shift+Enter for a new line
+                    </span>
+                    <span className="sm:hidden">Tap Ask to send</span>
                   </p>
                   <Button
                     type="submit"
@@ -646,7 +655,7 @@ function PermalinkAnswer({
 
   return (
     <Card className="border-primary/30">
-      <CardContent className="space-y-4 p-6">
+      <CardContent className="space-y-4 p-4 sm:p-6">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Shared answer
@@ -854,7 +863,7 @@ function PersistedAnswer({
       {detail.data ? (
         <>
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               {detail.data.answer.status === 'answered' ? (
                 <AnswerBody text={detail.data.answer.answer ?? ''} />
               ) : (
@@ -906,7 +915,7 @@ function PendingAnswer({
       </div>
 
       <Card>
-        <CardContent role="status" aria-live="polite" className="space-y-3 p-6">
+        <CardContent role="status" aria-live="polite" className="space-y-3 p-4 sm:p-6">
           {stream.answerStatus === 'insufficient_evidence' ? (
             <InsufficientEvidence />
           ) : stream.text.length > 0 ? (

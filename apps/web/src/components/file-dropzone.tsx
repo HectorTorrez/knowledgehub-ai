@@ -59,7 +59,7 @@ export function FileDropzone({
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
       className={cn(
-        'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-6 py-8 text-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-8 text-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-6',
         disabled && 'cursor-not-allowed opacity-60',
         dragging ? 'border-primary bg-accent/50' : 'border-input hover:bg-accent/40',
       )}
@@ -85,15 +85,13 @@ export function FileDropzone({
           </p>
           <p className="text-xs text-muted-foreground">
             {formatBytes(files.reduce((total, file) => total + file.size, 0))} ·
-            click or drop to add more
+            choose more
           </p>
         </>
       ) : (
         <>
           <UploadCloud className="size-8 text-muted-foreground" />
-          <p className="text-sm font-medium">
-            Drop your files here, or click to browse
-          </p>
+          <p className="text-sm font-medium">Choose files to upload</p>
           <p className="text-xs text-muted-foreground">
             PDF, plain text, or Markdown · choose several at once
           </p>

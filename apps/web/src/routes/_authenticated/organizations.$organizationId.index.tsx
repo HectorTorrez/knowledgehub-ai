@@ -347,7 +347,7 @@ function OrganizationOverviewPage() {
 
       <Dialog open={addMemberOpen} onOpenChange={handleAddMemberOpenChange}>
         <Card>
-          <div className="flex flex-col items-start gap-3 p-6 pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="flex flex-col items-start gap-3 p-4 pb-0 sm:flex-row sm:p-6 sm:pb-0 sm:items-start sm:justify-between sm:gap-4">
             <div className="space-y-1.5">
               <h2 className="font-semibold leading-none tracking-tight">Members</h2>
               <p className="text-sm text-muted-foreground">
@@ -365,7 +365,7 @@ function OrganizationOverviewPage() {
             ) : null}
           </div>
 
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             {members.isPending ? (
               <div className="space-y-3">
                 {Array.from({ length: 2 }).map((_, index) => (

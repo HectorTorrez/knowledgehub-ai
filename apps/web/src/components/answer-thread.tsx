@@ -251,7 +251,7 @@ function LatestAnswerCard({
   return (
     <div className="space-y-3">
       <Card>
-        <CardContent className="space-y-4 p-6">
+        <CardContent className="space-y-4 p-4 sm:p-6">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-1">
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -328,7 +328,7 @@ function HistoryRow({
 }>) {
   return (
     <li>
-      <div className="flex items-center gap-2 px-6 py-4">
+      <div className="flex items-center gap-2 px-4 py-4 sm:px-6">
         <button
           type="button"
           onClick={onToggle}
@@ -386,7 +386,7 @@ function ExpandedAnswer({
 
   if (detail.isPending) {
     return (
-      <div className="border-t px-6 py-4">
+      <div className="border-t px-4 py-4 sm:px-6">
         <Skeleton className="h-16 w-full" />
       </div>
     );
@@ -394,7 +394,7 @@ function ExpandedAnswer({
 
   if (detail.isError) {
     return (
-      <div className="border-t px-6 py-4">
+      <div className="border-t px-4 py-4 sm:px-6">
         <ErrorNotice error={detail.error} />
       </div>
     );
@@ -403,7 +403,7 @@ function ExpandedAnswer({
   const answer = detail.data.answer;
 
   return (
-    <div className="border-t px-6 py-4">
+    <div className="border-t px-4 py-4 sm:px-6">
       {answer.status === 'answered' ? (
         <AnswerBody text={answer.answer ?? ''} />
       ) : (
