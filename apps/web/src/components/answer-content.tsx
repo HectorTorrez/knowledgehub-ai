@@ -1,4 +1,5 @@
 import type { AnswerCitation } from '@knowledgehub/shared-types';
+import { Link } from '@tanstack/react-router';
 import { Check, Copy, SearchX } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
@@ -79,7 +80,11 @@ export function InsufficientEvidence() {
 
 export function SourcesList({
   citations,
-}: Readonly<{ citations: AnswerCitation[] }>) {
+  organizationId,
+}: Readonly<{
+  citations: AnswerCitation[];
+  organizationId?: string;
+}>) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold">Sources</h3>
@@ -94,9 +99,23 @@ export function SourcesList({
               <span className="flex size-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[11px] font-semibold text-primary">
                 {citation.marker}
               </span>
-              <p className="min-w-0 flex-1 truncate text-sm font-medium">
-                {citation.documentTitle}
-              </p>
+              {organizationId === undefined ? (
+                <p className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {citation.documentTitle}
+                </p>
+              ) : (
+                <Link
+                  to="/organizations/$organizationId/documents/$documentId"
+                  params={{
+                    organizationId,
+                    documentId: citation.documentId,
+                  }}
+                  className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
+                  title={`Open ${citation.documentTitle}`}
+                >
+                  {citation.documentTitle}
+                </Link>
+              )}
               <span className="shrink-0 text-xs text-muted-foreground">
                 Page {citation.pageNumber}
               </span>
