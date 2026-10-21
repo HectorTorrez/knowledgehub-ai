@@ -53,6 +53,7 @@ export function ConversationMessages({
   stream: StreamSnapshot;
 }>) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
   const pendingQuestionRef = useRef<string | null>(null);
@@ -93,6 +94,34 @@ export function ConversationMessages({
   const scrollToEnd = useCallback((behavior: ScrollBehavior) => {
     endRef.current?.scrollIntoView({ behavior, block: 'end' });
   }, []);
+
+  const pinToEnd = useCallback(() => {
+    const element = scrollRef.current;
+
+    if (element === null) {
+      return;
+    }
+
+    element.scrollTop = element.scrollHeight;
+  }, []);
+
+  useEffect(() => {
+    const element = contentRef.current;
+
+    if (element === null) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (pinnedRef.current) {
+        pinToEnd();
+      }
+    });
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [pinToEnd]);
 
   function handleScroll() {
     const element = scrollRef.current;
@@ -157,7 +186,10 @@ export function ConversationMessages({
         onScroll={handleScroll}
         className="h-full overflow-y-auto overscroll-contain"
       >
-        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-6">
+        <div
+          ref={contentRef}
+          className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-6"
+        >
           {answers.isError ? <ErrorNotice error={answers.error} /> : null}
 
           {answers.isPending && rows.length === 0 && !pendingVisible ? (
