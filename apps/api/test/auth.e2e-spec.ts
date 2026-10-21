@@ -155,6 +155,17 @@ describe('POST /auth/register (e2e)', () => {
     expect(storedHash).not.toBe(rawRefresh);
   });
 
+  it('accepts a registration that carries stale auth cookies without a CSRF token', async () => {
+    const body = validBody();
+    trackedEmails.add(body.email);
+
+    const response = await register(body)
+      .set('Cookie', [`${ACCESS_TOKEN_COOKIE}=stale-access-token`])
+      .expect(201);
+
+    expect(response.body.user.email).toBe(body.email);
+  });
+
   it('issues a JavaScript-readable CSRF cookie when browser authentication is enabled', async () => {
     const body = validBody();
     trackedEmails.add(body.email);
@@ -603,6 +614,16 @@ describe('POST /auth/login (e2e)', () => {
     expect(cookieValue(cookies, CSRF_COOKIE)).toMatch(
       /^[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/,
     );
+  });
+
+  it('accepts a login that carries stale auth cookies without a CSRF token', async () => {
+    const email = await createUser();
+
+    const response = await login({ email, password: PASSWORD })
+      .set('Cookie', [`${ACCESS_TOKEN_COOKIE}=stale-access-token`])
+      .expect(200);
+
+    expect(response.body.user.email).toBe(email);
   });
 
   it('looks up the email case-insensitively and with surrounding whitespace normalized', async () => {

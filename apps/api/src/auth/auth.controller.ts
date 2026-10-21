@@ -32,7 +32,7 @@ import {
   buildClearRefreshCookieOptions,
   buildRefreshCookieOptions,
 } from './cookies.js';
-import { EnforceCsrfWhenBrowserAuthDisabled } from './csrf.guard.js';
+import { EnforceCsrfWhenBrowserAuthDisabled, SkipCsrf } from './csrf.guard.js';
 import {
   CSRF_COOKIE,
   buildClearCsrfCookieOptions,
@@ -64,6 +64,7 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @SkipCsrf()
   @UseGuards(RateLimitGuard)
   @RateLimit('login')
   async register(
@@ -83,6 +84,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @SkipCsrf()
   @UseGuards(RateLimitGuard)
   @RateLimit('login', 'loginAccount')
   async login(
