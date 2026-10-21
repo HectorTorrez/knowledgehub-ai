@@ -7,7 +7,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import {
   FileText,
   LoaderCircle,
@@ -466,12 +466,14 @@ function DocumentsPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <p
-                              className="truncate text-sm font-medium"
+                            <Link
+                              to="/organizations/$organizationId/documents/$documentId"
+                              params={{ organizationId, documentId: document.id }}
+                              className="truncate text-sm font-medium hover:underline"
                               title={document.title}
                             >
                               {document.title}
-                            </p>
+                            </Link>
                             <DocumentStatusBadge status={document.status} />
                           </div>
                           <p

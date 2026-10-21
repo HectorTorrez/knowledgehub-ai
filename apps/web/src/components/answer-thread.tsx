@@ -93,6 +93,7 @@ export function AnswerThread({
     <section className="space-y-4">
       {latest ? (
         <LatestAnswerCard
+          organizationId={organizationId}
           latest={latest}
           onRequestDelete={
             newestMatch
@@ -200,9 +201,14 @@ export function AnswerThread({
 }
 
 function LatestAnswerCard({
+  organizationId,
   latest,
   onRequestDelete,
-}: Readonly<{ latest: LatestAnswer; onRequestDelete?: () => void }>) {
+}: Readonly<{
+  organizationId: string;
+  latest: LatestAnswer;
+  onRequestDelete?: () => void;
+}>) {
   return (
     <div className="space-y-3">
       <Card>
@@ -239,7 +245,10 @@ function LatestAnswerCard({
       </Card>
 
       {latest.response.citations.length > 0 ? (
-        <SourcesList citations={latest.response.citations} />
+        <SourcesList
+          citations={latest.response.citations}
+          organizationId={organizationId}
+        />
       ) : null}
     </div>
   );
@@ -344,7 +353,10 @@ function ExpandedAnswer({
 
       {answer.citations.length > 0 ? (
         <div className="mt-4">
-          <SourcesList citations={answer.citations} />
+          <SourcesList
+            citations={answer.citations}
+            organizationId={organizationId}
+          />
         </div>
       ) : null}
     </div>
