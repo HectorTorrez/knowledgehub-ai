@@ -31,7 +31,6 @@ import {
   InsufficientEvidence,
   SourcesList,
 } from '~/components/answer-content';
-import { EmptyState } from '~/components/empty-state';
 import { DocumentScopeSelect } from '~/components/document-scope-select';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
@@ -87,6 +86,12 @@ export const Route = createFileRoute(
   }),
   component: AskPage,
 });
+
+const SUGGESTED_QUESTIONS = [
+  'Summarize the key points in these documents.',
+  'What policies should every new employee know?',
+  'What are the most important deadlines or dates?',
+];
 
 interface AskedQuestion {
   question: string;
@@ -362,11 +367,47 @@ function AskPage() {
 
         <div className="space-y-6">
           {activeConversationId === null ? (
-            <EmptyState
-              icon={MessageSquarePlus}
-              title="Start a conversation"
-              description="Ask a question below. Follow-ups use the earlier turns as context, and every answer cites its sources."
-            />
+            <Card>
+              <CardContent className="space-y-4 p-6">
+                <div className="space-y-1">
+                  <h2 className="font-semibold">Start a conversation</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Ask a question below. Follow-ups use the earlier turns as
+                    context, and every answer cites its sources.
+                  </p>
+                </div>
+
+                {ready.documents.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      Try asking
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {SUGGESTED_QUESTIONS.map((suggestion) => (
+                        <Button
+                          key={suggestion}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setQuestion(suggestion)}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Button asChild variant="outline" size="sm">
+                    <Link
+                      to="/organizations/$organizationId/documents"
+                      params={{ organizationId }}
+                    >
+                      Upload a document first
+                    </Link>
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           ) : (
             <ConversationMessages
               organizationId={organizationId}

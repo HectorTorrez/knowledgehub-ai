@@ -21,7 +21,13 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
 import { FileDropzone } from '~/components/file-dropzone';
@@ -532,19 +538,37 @@ function DocumentsPage() {
                 }
               />
             ) : (
-              <EmptyState
-                icon={FileText}
-                title="No documents yet"
-                description="Upload a document to start asking questions about it."
-                action={
+              <Card>
+                <CardContent className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+                  <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <FileText className="size-6" />
+                  </span>
+                  <div className="space-y-1">
+                    <h2 className="font-semibold">Get to your first answer</h2>
+                    <p className="max-w-md text-sm text-muted-foreground">
+                      Upload a document, let KnowledgeHub process it, then ask
+                      questions grounded in its contents.
+                    </p>
+                  </div>
+                  <ol className="grid w-full max-w-lg gap-3 text-left sm:grid-cols-3">
+                    <OnboardingStep number={1} title="Upload">
+                      Add a PDF, text, or Markdown file.
+                    </OnboardingStep>
+                    <OnboardingStep number={2} title="Wait for Ready">
+                      Processing extracts and embeds the text.
+                    </OnboardingStep>
+                    <OnboardingStep number={3} title="Ask">
+                      Answers cite the passages they use.
+                    </OnboardingStep>
+                  </ol>
                   <DialogTrigger asChild>
                     <Button>
                       <Upload />
-                      Upload document
+                      Upload your first document
                     </Button>
                   </DialogTrigger>
-                }
-              />
+                </CardContent>
+              </Card>
             )
           ) : null}
 
@@ -878,4 +902,24 @@ function isAbortError(error: unknown): boolean {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'The upload failed.';
+}
+
+function OnboardingStep({
+  number,
+  title,
+  children,
+}: Readonly<{
+  number: number;
+  title: string;
+  children: ReactNode;
+}>) {
+  return (
+    <li className="rounded-lg border p-3">
+      <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+        {number}
+      </span>
+      <p className="mt-2 text-sm font-medium">{title}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{children}</p>
+    </li>
+  );
 }
