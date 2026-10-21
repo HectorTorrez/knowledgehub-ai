@@ -38,6 +38,7 @@ describe('validateEnv', () => {
     expect(env.STORAGE_REGION).toBe('auto');
     expect(env.STORAGE_FORCE_PATH_STYLE).toBe('false');
     expect(env.STORAGE_UPLOAD_TTL_SECONDS).toBe(900);
+    expect(env.STORAGE_DOWNLOAD_TTL_SECONDS).toBe(900);
     expect(env.STORAGE_BUCKET).toBeUndefined();
     expect(env.STORAGE_ENDPOINT).toBeUndefined();
     expect(env.STORAGE_ACCESS_KEY_ID).toBeUndefined();
@@ -335,6 +336,15 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ ...validEnv, STORAGE_UPLOAD_TTL_SECONDS: 'soon' }),
     ).toThrow(/STORAGE_UPLOAD_TTL_SECONDS/);
+  });
+
+  it('rejects an invalid storage download TTL', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_DOWNLOAD_TTL_SECONDS: '0' }),
+    ).toThrow(/STORAGE_DOWNLOAD_TTL_SECONDS/);
+    expect(() =>
+      validateEnv({ ...validEnv, STORAGE_DOWNLOAD_TTL_SECONDS: 'soon' }),
+    ).toThrow(/STORAGE_DOWNLOAD_TTL_SECONDS/);
   });
 
   it('rejects embedding dimensions that disagree with the stored vector column', () => {

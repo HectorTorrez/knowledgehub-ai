@@ -17,6 +17,7 @@ describe('FakeObjectStorage', () => {
     const storage: ObjectStorage = new FakeObjectStorage();
 
     expect(storage.createPresignedUpload).toBeTypeOf('function');
+    expect(storage.createPresignedDownload).toBeTypeOf('function');
     expect(storage.inspectObject).toBeTypeOf('function');
     expect(storage.readObjectPrefix).toBeTypeOf('function');
     expect(storage.readObject).toBeTypeOf('function');
@@ -67,6 +68,40 @@ describe('FakeObjectStorage', () => {
     const second = await storage.createPresignedUpload(input);
 
     expect(first).toEqual(second);
+  });
+
+  it('returns a deterministic GET download URL and records each call', async () => {
+    const storage = new FakeObjectStorage();
+
+    const first = await storage.createPresignedDownload({
+      key: input.key,
+      expiresInSeconds: 900,
+    });
+    const second = await storage.createPresignedDownload({
+      key: input.key,
+      expiresInSeconds: 60,
+    });
+
+    expect(first).toEqual({
+      url: `https://fake-object-storage.test/${input.key}?download=1`,
+      expiresAt: new Date('2026-01-01T00:15:00.000Z'),
+    });
+    expect(second).toEqual({
+      url: `https://fake-object-storage.test/${input.key}?download=1`,
+      expiresAt: new Date('2026-01-01T00:01:00.000Z'),
+    });
+    expect(storage.downloadCalls).toEqual([
+      {
+        key: input.key,
+        expiresInSeconds: 900,
+        expiresAt: new Date('2026-01-01T00:15:00.000Z'),
+      },
+      {
+        key: input.key,
+        expiresInSeconds: 60,
+        expiresAt: new Date('2026-01-01T00:01:00.000Z'),
+      },
+    ]);
   });
 
   it('reports absent objects as null', async () => {

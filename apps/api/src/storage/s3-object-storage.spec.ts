@@ -157,6 +157,80 @@ describe('S3ObjectStorage.createPresignedUpload', () => {
   });
 });
 
+describe('S3ObjectStorage.createPresignedDownload', () => {
+  beforeEach(() => {
+    getSignedUrl.mockReset();
+    getSignedUrl.mockResolvedValue('https://storage.test/bucket/download');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('binds the configured bucket and key into a GetObject command', async () => {
+    const { adapter } = createAdapter();
+
+    const result = await adapter.createPresignedDownload({
+      key: input.key,
+      expiresInSeconds: 900,
+    });
+
+    expect(result).toEqual({
+      url: 'https://storage.test/bucket/download',
+      expiresAt: expect.any(Date),
+    });
+
+    const command = getSignedUrl.mock.calls[0][1] as GetObjectCommand;
+    expect(command).toBeInstanceOf(GetObjectCommand);
+    expect(command.input).toEqual({
+      Bucket: 'knowledgehub-documents',
+      Key: input.key,
+    });
+  });
+
+  it('passes the requested expiry to the presigner', async () => {
+    const { adapter, client } = createAdapter();
+
+    await adapter.createPresignedDownload({
+      key: input.key,
+      expiresInSeconds: 120,
+    });
+
+    const [signedClient, , options] = getSignedUrl.mock.calls[0] as [
+      S3Client,
+      GetObjectCommand,
+      { expiresIn: number },
+    ];
+    expect(signedClient).toBe(client);
+    expect(options.expiresIn).toBe(120);
+  });
+
+  it('derives expiresAt from the requested expiry', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    const { adapter } = createAdapter();
+
+    const result = await adapter.createPresignedDownload({
+      key: input.key,
+      expiresInSeconds: 900,
+    });
+
+    expect(result.expiresAt.toISOString()).toBe('2026-01-01T00:15:00.000Z');
+  });
+
+  it('propagates a presigner failure to the caller', async () => {
+    getSignedUrl.mockRejectedValue(new Error('signing failed'));
+    const { adapter } = createAdapter();
+
+    await expect(
+      adapter.createPresignedDownload({
+        key: input.key,
+        expiresInSeconds: 900,
+      }),
+    ).rejects.toThrow('signing failed');
+  });
+});
+
 describe('S3ObjectStorage.inspectObject', () => {
   it('issues a HeadObject for the configured bucket and key and maps the metadata', async () => {
     const { adapter, send } = createSendingAdapter();

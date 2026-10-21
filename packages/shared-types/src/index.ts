@@ -361,6 +361,19 @@ export interface DocumentUploadUrlResponse {
 }
 
 /**
+ * Response body of
+ * `GET /organizations/:organizationId/documents/:documentId/download`.
+ *
+ * The URL is a short-lived presigned object read. It is issued only for a
+ * document whose verified original file still exists. There is no separate
+ * storage-key field: this URL is the only way to read the file.
+ */
+export interface DocumentDownloadUrlResponse {
+  url: string;
+  expiresAt: string;
+}
+
+/**
  * Request body of
  * `POST /organizations/:organizationId/documents/:documentId/upload-complete`.
  *

@@ -1,6 +1,7 @@
 import type {
   CreateDocumentRequest,
   DocumentDetailResponse,
+  DocumentDownloadUrlResponse,
   DocumentListResponse,
   DocumentStatus,
   DocumentUploadCompleteRequest,
@@ -71,6 +72,16 @@ export const documentsApi = {
   ): Promise<DocumentDetailResponse> {
     return apiFetch<DocumentDetailResponse>(
       `${documentsPath(organizationId)}/${documentId}`,
+      { authRecovery: true },
+    );
+  },
+
+  downloadUrl(
+    organizationId: string,
+    documentId: string,
+  ): Promise<DocumentDownloadUrlResponse> {
+    return apiFetch<DocumentDownloadUrlResponse>(
+      `${documentsPath(organizationId)}/${documentId}/download`,
       { authRecovery: true },
     );
   },

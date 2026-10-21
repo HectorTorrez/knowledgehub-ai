@@ -16,6 +16,8 @@ import {
   type ListedObject,
   type ObjectMetadata,
   type ObjectStorage,
+  type PresignedDownload,
+  type PresignedDownloadInput,
   type PresignedUpload,
   type PresignedUploadInput,
   type ReadObjectInput,
@@ -120,6 +122,26 @@ export class S3ObjectStorage implements ObjectStorage {
       url,
       method: 'PUT',
       headers: { 'Content-Type': input.contentType },
+      expiresAt: new Date(
+        Date.now() + input.expiresInSeconds * MS_PER_SECOND,
+      ),
+    };
+  }
+
+  async createPresignedDownload(
+    input: PresignedDownloadInput,
+  ): Promise<PresignedDownload> {
+    const command = new GetObjectCommand({
+      Bucket: this.config.bucket,
+      Key: input.key,
+    });
+
+    const url = await getSignedUrl(this.client, command, {
+      expiresIn: input.expiresInSeconds,
+    });
+
+    return {
+      url,
       expiresAt: new Date(
         Date.now() + input.expiresInSeconds * MS_PER_SECOND,
       ),

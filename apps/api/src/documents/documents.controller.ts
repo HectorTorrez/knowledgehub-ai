@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import type {
   DocumentDetailResponse,
+  DocumentDownloadUrlResponse,
   DocumentListResponse,
   DocumentUploadUrlResponse,
 } from '@knowledgehub/shared-types';
@@ -80,6 +81,17 @@ export class DocumentsController {
     @Req() request: OrganizationRequest,
   ): Promise<DocumentDetailResponse> {
     return this.documents.getDetail(
+      requireOrganizationContext(request).organizationId,
+      documentId,
+    );
+  }
+
+  @Get(':documentId/download')
+  download(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Req() request: OrganizationRequest,
+  ): Promise<DocumentDownloadUrlResponse> {
+    return this.documents.createDownloadUrl(
       requireOrganizationContext(request).organizationId,
       documentId,
     );
