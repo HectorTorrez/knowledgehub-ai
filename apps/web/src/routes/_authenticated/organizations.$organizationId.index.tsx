@@ -1,7 +1,10 @@
-import type { OrganizationRole } from '@knowledgehub/shared-types';
+import type {
+  OrganizationInvitationDetail,
+  OrganizationRole,
+} from '@knowledgehub/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { Trash2, UserPlus } from 'lucide-react';
+import { Copy, Mail, Trash2, UserPlus } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { ErrorNotice } from '~/components/route-states';
@@ -35,9 +38,11 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { useSession } from '~/hooks/use-auth';
+import { invitationsApi } from '~/lib/api/invitations';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
-import { formatDate, formatRole } from '~/lib/format';
+import { isNotFound } from '~/lib/api/errors';
+import { formatDate, formatDateTime, formatRole } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { memberEmailSchema } from '~/lib/validation';
 
@@ -66,6 +71,8 @@ function OrganizationOverviewPage() {
   const [email, setEmail] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [inviteResult, setInviteResult] =
+    useState<OrganizationInvitationDetail | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<MemberToRemove | null>(null);
 
   const currentUserId =
@@ -81,6 +88,12 @@ function OrganizationOverviewPage() {
   });
 
   const isOwner = organization.data?.organization.role === 'OWNER';
+
+  const invitations = useQuery({
+    queryKey: queryKeys.organizations.invitations.list(organizationId),
+    queryFn: () => invitationsApi.list(organizationId),
+    enabled: isOwner,
+  });
 
   const addMember = useMutation({
     mutationFn: (input: { organizationId: string; email: string }) =>
@@ -122,6 +135,35 @@ function OrganizationOverviewPage() {
     },
   });
 
+  const createInvitation = useMutation({
+    mutationFn: (input: { organizationId: string; email: string }) =>
+      invitationsApi.create(input.organizationId, { email: input.email }),
+    onSuccess: (data, variables) => {
+      setInviteResult(data.invitation);
+      setEmail('');
+
+      return client.invalidateQueries({
+        queryKey: queryKeys.organizations.invitations.list(
+          variables.organizationId,
+        ),
+      });
+    },
+  });
+
+  const revokeInvitation = useMutation({
+    mutationFn: (input: { organizationId: string; invitationId: string }) =>
+      invitationsApi.revoke(input.organizationId, input.invitationId),
+    onSuccess: (_data, variables) => {
+      toast({ variant: 'success', title: 'Invitation revoked' });
+
+      return client.invalidateQueries({
+        queryKey: queryKeys.organizations.invitations.list(
+          variables.organizationId,
+        ),
+      });
+    },
+  });
+
   const removeMember = useMutation({
     mutationFn: (input: { organizationId: string; userId: string }) =>
       organizationsApi.removeMember(input.organizationId, input.userId),
@@ -149,8 +191,50 @@ function OrganizationOverviewPage() {
       await addMember.mutateAsync({ organizationId, email: result.data.email });
       setEmail('');
       setAddMemberOpen(false);
-    } catch {
+    } catch (error) {
+      if (!isNotFound(error)) {
+        return;
+      }
+
+      addMember.reset();
+
+      try {
+        await createInvitation.mutateAsync({
+          organizationId,
+          email: result.data.email,
+        });
+      } catch {
+        return;
+      }
+    }
+  }
+
+  function handleAddMemberOpenChange(open: boolean) {
+    setAddMemberOpen(open);
+
+    if (!open) {
+      setEmail('');
+      setValidationError(null);
+      setInviteResult(null);
+      addMember.reset();
+      createInvitation.reset();
+    }
+  }
+
+  async function copyInviteLink() {
+    if (inviteResult === null) {
       return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteLink(inviteResult.token));
+      toast({ variant: 'success', title: 'Invitation link copied' });
+    } catch {
+      toast({
+        variant: 'error',
+        title: 'Could not copy the link',
+        description: 'Select the link and copy it manually.',
+      });
     }
   }
 
@@ -192,13 +276,14 @@ function OrganizationOverviewPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
+      <Dialog open={addMemberOpen} onOpenChange={handleAddMemberOpenChange}>
         <Card>
           <div className="flex items-start justify-between gap-4 p-6 pb-0">
             <div className="space-y-1.5">
               <h2 className="font-semibold leading-none tracking-tight">Members</h2>
               <p className="text-sm text-muted-foreground">
-                People who can access this organization.
+                People who can access this organization. If someone has no
+                account yet, adding them creates a shareable invitation.
               </p>
             </div>
             {isOwner ? (
@@ -318,41 +403,164 @@ function OrganizationOverviewPage() {
           <DialogHeader>
             <DialogTitle>Add a member</DialogTitle>
             <DialogDescription>
-              The person must already have a KnowledgeHub AI account. They join
-              as a MEMBER.
+              If the person already has an account, they join immediately as a
+              MEMBER. Otherwise we create an invitation you can share.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleAddMember} className="space-y-4" noValidate>
-            {validationError ? (
-              <ErrorNotice error={new Error(validationError)} />
-            ) : null}
-            {addMember.isError ? <ErrorNotice error={addMember.error} /> : null}
-            <div className="space-y-2">
-              <Label htmlFor="member-email">Email</Label>
-              <Input
-                id="member-email"
-                type="email"
-                autoFocus
-                placeholder="teammate@example.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
+
+          {inviteResult !== null ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-success/40 bg-success/5 p-3 text-sm">
+                <p className="font-medium">
+                  Invitation ready for {inviteResult.email}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Share this one-time link. It expires on{' '}
+                  {formatDateTime(inviteResult.expiresAt)}.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invite-link">Invitation link</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="invite-link"
+                    readOnly
+                    value={inviteLink(inviteResult.token)}
+                    onFocus={(event) => event.target.select()}
+                  />
+                  <Button type="button" variant="outline" onClick={() => void copyInviteLink()}>
+                    <Copy />
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  onClick={() => handleAddMemberOpenChange(false)}
+                >
+                  Done
+                </Button>
+              </DialogFooter>
             </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAddMemberOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={addMember.isPending}>
-                {addMember.isPending ? 'Adding…' : 'Add member'}
-              </Button>
-            </DialogFooter>
-          </form>
+          ) : (
+            <form onSubmit={handleAddMember} className="space-y-4" noValidate>
+              {validationError ? (
+                <ErrorNotice error={new Error(validationError)} />
+              ) : null}
+              {addMember.isError && !isNotFound(addMember.error) ? (
+                <ErrorNotice error={addMember.error} />
+              ) : null}
+              {createInvitation.isError ? (
+                <ErrorNotice error={createInvitation.error} />
+              ) : null}
+              <div className="space-y-2">
+                <Label htmlFor="member-email">Email</Label>
+                <Input
+                  id="member-email"
+                  type="email"
+                  autoFocus
+                  placeholder="teammate@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleAddMemberOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={addMember.isPending || createInvitation.isPending}
+                >
+                  {addMember.isPending || createInvitation.isPending
+                    ? 'Adding…'
+                    : 'Add or invite'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
+
+      {isOwner ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="size-4 text-muted-foreground" />
+              Pending invitations
+            </CardTitle>
+            <CardDescription>
+              Invitations that have not been accepted yet.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {invitations.isPending ? (
+              <div className="space-y-3">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <Skeleton key={index} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : null}
+
+            {invitations.isError ? (
+              <ErrorNotice error={invitations.error} />
+            ) : null}
+
+            {invitations.data && invitations.data.invitations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No pending invitations. Add an email above to create one.
+              </p>
+            ) : null}
+
+            {invitations.data && invitations.data.invitations.length > 0 ? (
+              <ul className="divide-y">
+                {invitations.data.invitations.map((invitation) => (
+                  <li
+                    key={invitation.id}
+                    className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {invitation.email}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Expires {formatDateTime(invitation.expiresAt)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={
+                        revokeInvitation.isPending &&
+                        revokeInvitation.variables?.invitationId ===
+                          invitation.id
+                      }
+                      onClick={() =>
+                        revokeInvitation.mutate({
+                          organizationId,
+                          invitationId: invitation.id,
+                        })
+                      }
+                    >
+                      Revoke
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {revokeInvitation.isError ? (
+              <ErrorNotice error={revokeInvitation.error} />
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Dialog
         open={memberToRemove !== null}
@@ -408,4 +616,8 @@ function DetailItem({
 
 function initialsFor(firstName: string, lastName: string): string {
   return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase();
+}
+
+function inviteLink(token: string): string {
+  return `${window.location.origin}/invitations/accept?token=${encodeURIComponent(token)}`;
 }

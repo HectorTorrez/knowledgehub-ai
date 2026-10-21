@@ -37,6 +37,10 @@ export const queryKeys = {
       ['organizations', organizationId, 'detail'] as const,
     members: (organizationId: string) =>
       ['organizations', organizationId, 'members'] as const,
+    invitations: {
+      list: (organizationId: string) =>
+        ['organizations', organizationId, 'invitations', 'list'] as const,
+    },
     documents: {
       all: (organizationId: string) =>
         ['organizations', organizationId, 'documents'] as const,
