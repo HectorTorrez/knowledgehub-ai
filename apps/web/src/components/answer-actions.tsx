@@ -1,8 +1,17 @@
-import type { AnswerCitation, AnswerResponse } from '@knowledgehub/shared-types';
-import { Check, Copy, Link2 } from 'lucide-react';
+import type {
+  AnswerCitation,
+  AnswerFeedbackSummary,
+  AnswerFeedbackValue,
+  AnswerResponse,
+} from '@knowledgehub/shared-types';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Check, Copy, Link2, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { useToast } from '~/components/ui/toast';
+import { answersApi } from '~/lib/api/answers';
+import { queryKeys } from '~/lib/api/query-keys';
+import { cn } from '~/lib/utils';
 import {
   answerPermalink,
   buildAnswerMarkdown,
@@ -90,6 +99,117 @@ export function AnswerActions({
           )}
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+export function AnswerFeedback({
+  organizationId,
+  answerId,
+  initial,
+}: Readonly<{
+  organizationId: string;
+  answerId: string;
+  initial?: AnswerFeedbackSummary | null;
+}>) {
+  const client = useQueryClient();
+  const { toast } = useToast();
+  const [feedback, setFeedback] = useState<AnswerFeedbackSummary | null>(
+    initial ?? null,
+  );
+
+  const rate = useMutation({
+    mutationFn: (value: AnswerFeedbackValue) =>
+      answersApi.setFeedback(organizationId, answerId, { value }),
+    onSuccess: (data) => {
+      setFeedback(data.feedback);
+    },
+    onError: () => {
+      toast({
+        variant: 'error',
+        title: 'Could not save your feedback',
+        description: 'Try again in a moment.',
+      });
+    },
+    onSettled: () =>
+      client.invalidateQueries({
+        queryKey: queryKeys.organizations.answers.detail(
+          organizationId,
+          answerId,
+        ),
+      }),
+  });
+
+  const clear = useMutation({
+    mutationFn: () => answersApi.clearFeedback(organizationId, answerId),
+    onSuccess: () => setFeedback(null),
+    onError: () => {
+      toast({
+        variant: 'error',
+        title: 'Could not remove your feedback',
+        description: 'Try again in a moment.',
+      });
+    },
+    onSettled: () =>
+      client.invalidateQueries({
+        queryKey: queryKeys.organizations.answers.detail(
+          organizationId,
+          answerId,
+        ),
+      }),
+  });
+
+  const pending = rate.isPending || clear.isPending;
+
+  function toggle(value: AnswerFeedbackValue) {
+    if (pending) {
+      return;
+    }
+
+    if (feedback?.value === value) {
+      clear.mutate();
+      return;
+    }
+
+    rate.mutate(value);
+  }
+
+  return (
+    <div
+      role="group"
+      aria-label="Rate this answer"
+      className="flex items-center gap-1"
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Helpful"
+        aria-pressed={feedback?.value === 'UP'}
+        disabled={pending}
+        onClick={() => toggle('UP')}
+      >
+        <ThumbsUp
+          className={cn(
+            'size-4',
+            feedback?.value === 'UP' && 'fill-current text-success',
+          )}
+        />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Not helpful"
+        aria-pressed={feedback?.value === 'DOWN'}
+        disabled={pending}
+        onClick={() => toggle('DOWN')}
+      >
+        <ThumbsDown
+          className={cn(
+            'size-4',
+            feedback?.value === 'DOWN' && 'fill-current text-destructive',
+          )}
+        />
+      </Button>
     </div>
   );
 }

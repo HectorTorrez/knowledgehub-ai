@@ -32,10 +32,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions    AuthSession[]
-  memberships Membership[]
-  documents   Document[]
-  answers     Answer[]
+  sessions       AuthSession[]
+  memberships    Membership[]
+  documents      Document[]
+  answers        Answer[]
+  answerFeedback AnswerFeedback[]
 }
 
 /// A single login on a single device. This is the unit of revocation: revoking
@@ -385,8 +386,36 @@ model Answer {
 
   createdAt DateTime @default(now())
 
+  feedback AnswerFeedback[]
+
   @@index([organizationId, createdAt])
   @@index([conversationId, createdAt])
+}
+
+enum AnswerFeedbackValue {
+  UP
+  DOWN
+}
+
+/// One person's rating of one answer. Unique per answer and user, so a person
+/// can change or remove their rating but never stack several on one answer.
+model AnswerFeedback {
+  id String @id @default(uuid()) @db.Uuid
+
+  answerId String @db.Uuid
+  answer   Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  value   AnswerFeedbackValue
+  comment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([answerId, userId])
+  @@index([answerId])
 }
 
 /// A conversation groups a set of answers asked in sequence, so a follow-up can

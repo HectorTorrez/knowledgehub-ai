@@ -8,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   Req,
   StreamableFile,
@@ -15,6 +16,7 @@ import {
 } from '@nestjs/common';
 import type {
   AnswerDetailResponse,
+  AnswerFeedbackResponse,
   AnswerListResponse,
   AnswerResponse,
 } from '@knowledgehub/shared-types';
@@ -35,6 +37,10 @@ import {
   listAnswersSchema,
   type ListAnswersInput,
 } from './dto/list-answers.schema.js';
+import {
+  setAnswerFeedbackSchema,
+  type SetAnswerFeedbackInput,
+} from './dto/set-answer-feedback.schema.js';
 import { AnswersService } from './answers.service.js';
 
 @Controller('organizations/:organizationId/answers')
@@ -85,9 +91,45 @@ export class AnswersController {
     @Param('answerId', ParseUUIDPipe) answerId: string,
     @Req() request: OrganizationRequest,
   ): Promise<AnswerDetailResponse> {
+    const context = requireOrganizationContext(request);
+
     return this.answers.getDetail(
-      requireOrganizationContext(request).organizationId,
+      context.organizationId,
       answerId,
+      context.userId,
+    );
+  }
+
+  @Put(':answerId/feedback')
+  @HttpCode(HttpStatus.OK)
+  setFeedback(
+    @Param('answerId', ParseUUIDPipe) answerId: string,
+    @Body(new ZodValidationPipe(setAnswerFeedbackSchema))
+    body: SetAnswerFeedbackInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<AnswerFeedbackResponse> {
+    const context = requireOrganizationContext(request);
+
+    return this.answers.setFeedback(
+      context.organizationId,
+      answerId,
+      context.userId,
+      body,
+    );
+  }
+
+  @Delete(':answerId/feedback')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  clearFeedback(
+    @Param('answerId', ParseUUIDPipe) answerId: string,
+    @Req() request: OrganizationRequest,
+  ): Promise<void> {
+    const context = requireOrganizationContext(request);
+
+    return this.answers.clearFeedback(
+      context.organizationId,
+      answerId,
+      context.userId,
     );
   }
 

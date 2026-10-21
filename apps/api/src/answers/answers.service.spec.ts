@@ -103,6 +103,13 @@ function createPrisma() {
       findFirst: vi.fn(async (_args?: unknown) => null as unknown),
       deleteMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
+    answerFeedback: {
+      upsert: vi.fn(async (_args?: unknown) => ({
+        value: 'UP',
+        comment: null,
+      })),
+      deleteMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
+    },
     conversation: {
       findFirst: vi.fn(
         async (): Promise<{ id: string } | null> => ({ id: 'conversation-1' }),
@@ -909,7 +916,7 @@ describe('AnswersService', () => {
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
     });
 
-    const result = await service.getDetail('org-1', 'answer-1');
+    const result = await service.getDetail('org-1', 'answer-1', USER_ID);
 
     expect(prisma.answer.findFirst).toHaveBeenCalledWith({
       where: { id: 'answer-1', organizationId: 'org-1' },
@@ -919,12 +926,54 @@ describe('AnswersService', () => {
     expect(result.answer.citations).toHaveLength(1);
   });
 
+  it('stores the caller feedback for an answer in the organization', async () => {
+    const { service, prisma } = createService();
+    prisma.answer.findFirst.mockResolvedValueOnce({ id: 'answer-1' });
+
+    const result = await service.setFeedback('org-1', 'answer-1', USER_ID, {
+      value: 'UP',
+    });
+
+    expect(prisma.answerFeedback.upsert).toHaveBeenCalledWith({
+      where: { answerId_userId: { answerId: 'answer-1', userId: USER_ID } },
+      create: {
+        answerId: 'answer-1',
+        userId: USER_ID,
+        value: 'UP',
+        comment: null,
+      },
+      update: { value: 'UP', comment: null },
+      select: { value: true, comment: true },
+    });
+    expect(result.feedback).toEqual({ value: 'UP', comment: null });
+  });
+
+  it('clears the caller feedback', async () => {
+    const { service, prisma } = createService();
+    prisma.answer.findFirst.mockResolvedValueOnce({ id: 'answer-1' });
+
+    await service.clearFeedback('org-1', 'answer-1', USER_ID);
+
+    expect(prisma.answerFeedback.deleteMany).toHaveBeenCalledWith({
+      where: { answerId: 'answer-1', userId: USER_ID },
+    });
+  });
+
+  it('rejects feedback for an answer outside the organization', async () => {
+    const { service, prisma } = createService();
+
+    await expect(
+      service.setFeedback('org-1', 'answer-other', USER_ID, { value: 'DOWN' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.answerFeedback.upsert).not.toHaveBeenCalled();
+  });
+
   it('returns 404 for a detail outside the organization', async () => {
     const { service, prisma } = createService();
     prisma.answer.findFirst.mockResolvedValueOnce(null);
 
     await expect(
-      service.getDetail('org-1', 'answer-1'),
+      service.getDetail('org-1', 'answer-1', USER_ID),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 

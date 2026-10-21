@@ -12,6 +12,7 @@ import type {
   AnswerCitation,
   AnswerDetail,
   AnswerDetailResponse,
+  AnswerFeedbackResponse,
   AnswerListResponse,
   AnswerResponse,
   AnswerSummary,
@@ -52,6 +53,7 @@ import {
 import { buildAnswerPrompt, type AnswerPrompt, type ConversationTurn } from './answer-prompt.js';
 import { AnswerConfig } from './answer.config.js';
 import type { ListAnswersInput } from './dto/list-answers.schema.js';
+import type { SetAnswerFeedbackInput } from './dto/set-answer-feedback.schema.js';
 
 const SERVICE_UNAVAILABLE_MESSAGE =
   'The answer service is temporarily unavailable';
@@ -112,6 +114,7 @@ interface AnswerProjection {
   citations: unknown;
   conversationId: string | null;
   createdAt: Date;
+  feedback?: Array<{ value: 'UP' | 'DOWN'; comment: string | null }>;
 }
 
 function toAnswerSummary(row: AnswerProjection): AnswerSummary {
@@ -133,6 +136,7 @@ function toAnswerDetail(row: AnswerProjection): AnswerDetail {
     citations: toCitations(row.citations),
     conversationId: row.conversationId,
     createdAt: row.createdAt.toISOString(),
+    feedback: row.feedback?.[0] ?? null,
   };
 }
 
@@ -249,10 +253,18 @@ export class AnswersService {
   async getDetail(
     organizationId: string,
     answerId: string,
+    userId: string,
   ): Promise<AnswerDetailResponse> {
     const row = await this.prisma.answer.findFirst({
       where: { id: answerId, organizationId },
-      select: ANSWER_SELECT,
+      select: {
+        ...ANSWER_SELECT,
+        feedback: {
+          where: { userId },
+          select: { value: true, comment: true },
+          take: 1,
+        },
+      },
     });
 
     if (!row) {
@@ -260,6 +272,58 @@ export class AnswersService {
     }
 
     return { answer: toAnswerDetail(row) };
+  }
+
+  async setFeedback(
+    organizationId: string,
+    answerId: string,
+    userId: string,
+    input: SetAnswerFeedbackInput,
+  ): Promise<AnswerFeedbackResponse> {
+    await this.assertAnswerInOrganization(organizationId, answerId);
+
+    const feedback = await this.prisma.answerFeedback.upsert({
+      where: { answerId_userId: { answerId, userId } },
+      create: {
+        answerId,
+        userId,
+        value: input.value,
+        comment: input.comment ?? null,
+      },
+      update: {
+        value: input.value,
+        comment: input.comment ?? null,
+      },
+      select: { value: true, comment: true },
+    });
+
+    return { feedback };
+  }
+
+  async clearFeedback(
+    organizationId: string,
+    answerId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.assertAnswerInOrganization(organizationId, answerId);
+
+    await this.prisma.answerFeedback.deleteMany({
+      where: { answerId, userId },
+    });
+  }
+
+  private async assertAnswerInOrganization(
+    organizationId: string,
+    answerId: string,
+  ): Promise<void> {
+    const answer = await this.prisma.answer.findFirst({
+      where: { id: answerId, organizationId },
+      select: { id: true },
+    });
+
+    if (!answer) {
+      throw new NotFoundException('Answer not found');
+    }
   }
 
   async delete(organizationId: string, answerId: string): Promise<void> {
