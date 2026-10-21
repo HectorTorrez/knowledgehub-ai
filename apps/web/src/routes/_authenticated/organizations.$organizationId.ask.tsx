@@ -9,7 +9,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   LoaderCircle,
   MessageSquarePlus,
@@ -51,6 +51,7 @@ import { useToast } from '~/components/ui/toast';
 import { useAnswerStream } from '~/hooks/use-answer-stream';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { answersApi } from '~/lib/api/answers';
+import { clearAskDraft, readAskDraft, writeAskDraft } from '~/lib/ask-draft';
 import { conversationsApi } from '~/lib/api/conversations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { ALL_DOCUMENTS, resolveDocumentScope } from '~/lib/document-scope';
@@ -70,7 +71,12 @@ export const Route = createFileRoute(
     }),
   validateSearch: (
     search: Record<string, unknown>,
-  ): { answer?: string; q?: string; documentId?: string } => ({
+  ): {
+    answer?: string;
+    q?: string;
+    documentId?: string;
+    conversation?: string;
+  } => ({
     answer:
       typeof search.answer === 'string' && search.answer.trim().length > 0
         ? search.answer
@@ -82,6 +88,11 @@ export const Route = createFileRoute(
     documentId:
       typeof search.documentId === 'string' && search.documentId.trim().length > 0
         ? search.documentId
+        : undefined,
+    conversation:
+      typeof search.conversation === 'string' &&
+      search.conversation.trim().length > 0
+        ? search.conversation
         : undefined,
   }),
   component: AskPage,
@@ -105,16 +116,23 @@ function AskPage() {
     answer: permalinkAnswerId,
     q: presetQuestion,
     documentId: presetDocumentId,
+    conversation: presetConversationId,
   } = Route.useSearch();
+  const search = Route.useSearch();
+  const navigate = useNavigate();
   const client = useQueryClient();
   const { toast } = useToast();
-  const [question, setQuestion] = useState(presetQuestion ?? '');
+  const [question, setQuestion] = useState(
+    () =>
+      presetQuestion ??
+      readAskDraft(organizationId, presetConversationId),
+  );
   const [selection, setSelection] = useState(
     presetDocumentId ?? ALL_DOCUMENTS,
   );
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
-  >(null);
+  >(presetConversationId ?? null);
   const [asked, setAsked] = useState<AskedQuestion | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
@@ -193,6 +211,7 @@ function AskPage() {
         const created = await createConversation.mutateAsync();
         conversationId = created.conversation.id;
         setActiveConversationId(conversationId);
+        updateConversationSearch(conversationId);
       } catch {
         return;
       }
@@ -203,6 +222,8 @@ function AskPage() {
       documentId: scope.documentId,
       scopeLabel: scope.label,
     });
+    clearAskDraft(organizationId, activeConversationId ?? undefined);
+    clearAskDraft(organizationId, conversationId);
     setQuestion('');
 
     await stream.ask(questionText, scope.documentId, conversationId);
@@ -220,11 +241,25 @@ function AskPage() {
     }
   }
 
+  function updateConversationSearch(conversationId: string | undefined) {
+    void navigate({
+      to: '/organizations/$organizationId/ask',
+      params: { organizationId },
+      search: {
+        ...search,
+        conversation: conversationId,
+        answer: undefined,
+      },
+      replace: true,
+    });
+  }
+
   function startNewConversation() {
     stream.reset();
     setAsked(null);
     setActiveConversationId(null);
-    setQuestion('');
+    updateConversationSearch(undefined);
+    setQuestion(readAskDraft(organizationId));
     setValidationError(null);
   }
 
@@ -236,7 +271,8 @@ function AskPage() {
     stream.reset();
     setAsked(null);
     setActiveConversationId(conversationId);
-    setQuestion('');
+    updateConversationSearch(conversationId);
+    setQuestion(readAskDraft(organizationId, conversationId));
     setValidationError(null);
   }
 
@@ -247,6 +283,7 @@ function AskPage() {
 
     try {
       await removeConversation.mutateAsync(deleteTarget.id);
+      clearAskDraft(organizationId, deleteTarget.id);
       setDeleteTarget(null);
     } catch {
       return;
@@ -461,7 +498,14 @@ function AskPage() {
                     rows={4}
                     maxLength={QUESTION_MAX_LENGTH}
                     value={question}
-                    onChange={(event) => setQuestion(event.target.value)}
+                    onChange={(event) => {
+                      setQuestion(event.target.value);
+                      writeAskDraft(
+                        organizationId,
+                        activeConversationId ?? undefined,
+                        event.target.value,
+                      );
+                    }}
                     onKeyDown={handleKeyDown}
                     aria-describedby="question-hint"
                     placeholder="What is the parental leave policy?"
