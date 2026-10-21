@@ -5,6 +5,7 @@ import type {
   MemberListResponse,
   OrganizationDetailResponse,
   OrganizationListResponse,
+  OrganizationUsageResponse,
   UpdateMemberRoleRequest,
   UpdateMemberRoleResponse,
   UpdateOrganizationRequest,
@@ -50,6 +51,13 @@ export const organizationsApi = {
     return apiFetch<void>(
       `${ORGANIZATIONS_PATH}/${organizationId}/leave`,
       { method: 'POST', authRecovery: true },
+    );
+  },
+
+  usage(organizationId: string): Promise<OrganizationUsageResponse> {
+    return apiFetch<OrganizationUsageResponse>(
+      `${ORGANIZATIONS_PATH}/${organizationId}/usage`,
+      { authRecovery: true },
     );
   },
 
