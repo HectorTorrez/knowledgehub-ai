@@ -26,3 +26,22 @@ export function formatDate(iso: string): string {
 export function formatRole(role: OrganizationRole): string {
   return role === 'OWNER' ? 'Owner' : 'Member';
 }
+
+export function formatMinorAmount(
+  amountMinor: string,
+  currency: string,
+  scale: number,
+): string {
+  const value = Number(amountMinor) / 10 ** scale;
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: scale,
+      maximumFractionDigits: scale,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(scale)} ${currency}`;
+  }
+}

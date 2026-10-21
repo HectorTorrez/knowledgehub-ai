@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { AggregationModule } from '../aggregation/aggregation.module.js';
 import { AuthModule } from '../auth/auth.module.js';
+import { FactsModule } from '../facts/facts.module.js';
 import { OrganizationsModule } from '../organizations/organizations.module.js';
 import { RetrievalModule } from '../retrieval/retrieval.module.js';
 import { AnswerConfig } from './answer.config.js';
@@ -14,7 +16,13 @@ import { ConversationsService } from './conversations.service.js';
 import { OpenAiAnswerProvider } from './openai-answer-provider.js';
 
 @Module({
-  imports: [AuthModule, OrganizationsModule, RetrievalModule],
+  imports: [
+    AuthModule,
+    OrganizationsModule,
+    RetrievalModule,
+    AggregationModule,
+    FactsModule,
+  ],
   controllers: [AnswersController, ConversationsController],
   providers: [
     AnswerConfig,

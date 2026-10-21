@@ -128,7 +128,7 @@ export function SourcesList({
       <ol className="space-y-3">
         {citations.map((citation) => (
           <li
-            key={`${citation.documentId}-${citation.chunkIndex}`}
+            key={`${citation.marker}-${citation.documentId}-${citation.chunkIndex}`}
             id={sourceId(sourceIdPrefix, citation.marker)}
             className="scroll-mt-[calc(5rem+env(safe-area-inset-top))] rounded-lg border p-4"
           >
@@ -214,7 +214,7 @@ export function AnswerSources({
         >
           {citations.map((citation) => (
             <li
-              key={`${citation.documentId}-${citation.chunkIndex}`}
+              key={`${citation.marker}-${citation.documentId}-${citation.chunkIndex}`}
               id={sourceId(sourceIdPrefix, citation.marker)}
               className="scroll-mt-4 rounded-lg border bg-background p-3"
             >

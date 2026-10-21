@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AggregationModule } from './aggregation/aggregation.module.js';
 import { AnswersModule } from './answers/answers.module.js';
 import { SecurityAuditModule } from './audit/security-audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -30,6 +31,7 @@ import { SearchModule } from './search/search.module.js';
     RetrievalModule,
     SearchModule,
     AnswersModule,
+    AggregationModule,
     MetricsModule,
   ],
 })

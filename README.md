@@ -736,6 +736,164 @@ blank query.
 Search consumes the same retrieval pipeline as grounded answers but returns the
 matched passages directly, with no model completion.
 
+## Contract totals
+
+`GET /organizations/:organizationId/aggregates/contract-totals` sums the
+contract totals extracted from the organization's documents. It does not call a
+completion model: the amount of every contract is parsed by the server at
+ingestion and summed by the database.
+
+```
+GET /organizations/:organizationId/aggregates/contract-totals
+    ?documentId=<uuid>&currency=USD&limit=<n>&offset=<n>
+```
+
+`currency` is an optional ISO 4217 filter; `documentId` narrows the scope to one
+ready document; `limit` defaults to 50 and caps at 200 and applies only to
+`breakdown`. Totals always cover the whole scope.
+
+```json
+{
+  "status": "complete",
+  "coverage": { "documents": 1, "extracted": 1, "failed": 0, "pending": 0 },
+  "collapsedDuplicates": 0,
+  "totalFacts": 110,
+  "totals": [
+    { "currency": "USD", "scale": 2, "totalMinor": "10280749", "contractCount": 110 }
+  ],
+  "breakdown": [
+    {
+      "contractId": "1143",
+      "label": "Plan Personalizado",
+      "amountMinor": "50000",
+      "currency": "USD",
+      "scale": 2,
+      "documentId": "…",
+      "documentTitle": "Total Contracts Detail",
+      "pageNumber": 1,
+      "chunkIndex": 0,
+      "excerpt": "1143 Plan Personalizado … $500.00 …"
+    }
+  ]
+}
+```
+
+Semantics:
+
+- **Amounts are integers in minor units**, serialized as strings because JSON
+  cannot represent a 64-bit integer safely. `scale` is the currency's decimal
+  places (USD 2, JPY 0).
+- **Totals are per currency and never converted.** A mixed-currency scope
+  returns one block per currency.
+- **Deduplication is by contract id.** When the same id appears in more than one
+  document in scope, the newest document wins and `collapsedDuplicates` reports
+  how many were collapsed.
+- **Coverage is part of the contract.** `complete` requires every ready document
+  in scope to have `factsStatus = READY`. A document that is `PENDING` or
+  `FAILED` forces `partial`; its extracted facts still contribute, so the total
+  is a labeled lower bound, never a silently short number.
+- **Tenant isolation:** the organization comes from the route, every query
+  filters by it, and a `documentId` from another organization returns `404`.
+  A document that is not `READY` returns `409`.
+
+### Totals in the ask flow
+
+When `FACTS_ENABLED=true` and a question clearly asks for an aggregate ("suma",
+"monto total", "gran total", "total of all", "grand total"), the answer
+endpoint answers deterministically from the facts instead of calling the
+completion model. The response keeps the normal `answered` shape:
+
+```json
+{
+  "status": "answered",
+  "answer": "El total en USD es 102.807,49 US$ sobre 110 contratos [1].",
+  "citations": [{ "marker": 1, "documentId": "…", "excerpt": "1138 Contrato …" }]
+}
+```
+
+- The text is rendered by the server, in the language of the question, with one
+  sentence per currency and one citation per contributing document.
+- A partial scope appends an explicit coverage caveat to the answer.
+- No embedding, completion or answer quota is consumed: the amount comes from
+  the database.
+- A question about one specific record ("the total of contract 1143") is **not**
+  treated as an aggregate; it goes through the normal retrieval pipeline.
+- If the organization has no facts yet, the question falls back to the normal
+  answer path.
+
+### Extraction
+
+With `FACTS_ENABLED=true`, processing extracts facts before the document becomes
+`READY`. A document is only considered a contract source when at least one page
+contains a total column header (`Monto Total`, `Total`, `Total del contrato`,
+`Contract total`); otherwise it is marked `READY` with zero facts, so shipment
+logs and invoices do not leak into contract totals. For a contract document, the
+pipeline runs one completion per non-empty page. The prompt asks for one fact per
+contract row with the contract id, the label, the amount **copied verbatim**, the
+ISO currency, and the exact row text as evidence. The server then:
+
+1. verifies the evidence appears verbatim on the page;
+2. verifies the amount text is part of the evidence and reparses it, so the
+   model never supplies the number that is summed;
+3. resolves the chunk that contains the row for citations;
+4. rejects any fact that fails a check.
+
+The model is never asked to compute or convert an amount.
+
+**Coverage check.** Every money token printed on the page must fall inside the
+evidence of an extracted row. If one does not, the page is retried once with the
+text around the missing amounts as a hint. If the retry still leaves a token
+uncovered, the facts are stored and the document is marked `FAILED` with
+`FactCoverageIncomplete`, which surfaces as `partial` coverage instead of a
+wrong total.
+
+A transient provider failure leaves the document `PENDING` so the backfill can
+retry it; extraction failure never fails the document itself. A `READY`
+document with `factsStatus = PENDING` is processed by the in-process backfill
+(`FACTS_BACKFILL_ENABLED`, batches of `FACTS_BACKFILL_BATCH`) on startup.
+
+### Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `FACTS_ENABLED` | `false` | Extracts facts during processing and mounts the aggregates endpoint. Requires `OPENAI_API_KEY`. |
+| `FACTS_BACKFILL_ENABLED` | `true` | Extracts facts for ready documents still `PENDING`. |
+| `FACTS_MODEL` | `gpt-4.1-mini` | Model used for extraction. |
+| `FACTS_TIMEOUT_MS` | `60000` | Timeout for one page extraction. |
+| `FACTS_MAX_INPUT_CHARS` | `20000` | Largest page sent for extraction. |
+| `FACTS_MAX_OUTPUT_TOKENS` | `8000` | Completion cap (1–16,000). |
+| `FACTS_CURRENCIES` | `USD` | ISO 4217 allow-list, comma-separated. |
+| `FACTS_BACKFILL_BATCH` | `5` | Documents processed per backfill batch. |
+
+Errors:
+
+| Condition | Status | Body message |
+| --- | --- | --- |
+| Fact aggregation disabled | `503` | Fact aggregation is not enabled |
+| Document from another organization | `404` | Document not found |
+| Document not `READY` | `409` | Document is not ready to aggregate |
+| Malformed query | `400` | validation detail |
+
+### Limitations
+
+- **One fact shape.** Only contract totals are modeled. Other money columns are
+  not extracted yet.
+- **Table-shaped documents.** Extraction is prompt-driven; a document whose
+  layout defeats the model ends up `FAILED` and forces `partial`, not a wrong
+  total. Scanned PDFs need OCR first.
+- **The total column must be labeled.** A contract table whose amount column is
+  named something other than `Monto Total`, `Total`, `Total del contrato` or
+  `Contract total` is treated as a non-contract document and contributes zero
+  facts.
+- **No cross-currency conversion.**
+- **Cross-document identity is a policy.** Contract ids are assumed unique
+  within an organization; the newest document wins on a collision.
+- **Ingestion cost rises** by one completion per non-empty page (plus at most
+  one retry per page).
+- **Aggregate detection is lexical.** Only questions with an explicit aggregate
+  cue are routed to the deterministic total; a differently worded question may
+  still go through the normal answer pipeline and be refused.
+
 ## Grounded answers
 
 `POST /organizations/:organizationId/answers` answers a question from the

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, FileText, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { ContractTotalsCard } from '~/components/contract-totals-card';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
@@ -271,6 +272,13 @@ function DocumentDetailPage() {
             </Button>
           </CardContent>
         </Card>
+      ) : null}
+
+      {entry.status === 'READY' ? (
+        <ContractTotalsCard
+          organizationId={organizationId}
+          documentId={documentId}
+        />
       ) : null}
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>

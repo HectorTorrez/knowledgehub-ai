@@ -168,6 +168,21 @@ enum AnswerStatus {
   insufficient_evidence
 }
 
+/// Extraction state of the structured facts for a document generation.
+/// PENDING and FAILED force any total that includes the document to `partial`;
+/// only READY documents may contribute to a `complete` total.
+enum FactsStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+/// Kinds of structured fact extracted from a document. `CONTRACT_TOTAL` is the
+/// contract's own total column, never a value recomputed from other columns.
+enum FactType {
+  CONTRACT_TOTAL
+}
+
 /// Queue state of a durable document processing job. QUEUED and CLAIMED are
 /// active (a document in PROCESSING has exactly one); SUCCEEDED and FAILED are
 /// terminal.
@@ -231,15 +246,24 @@ model Document {
   /// Which stage produced `failureReason`. Null unless `status` is FAILED.
   failureKind DocumentFailureKind?
 
+  /// Extraction state of the structured facts for the current generation.
+  /// Independent of document status: a READY document may have failed facts.
+  factsStatus FactsStatus @default(PENDING)
+
+  /// Sanitized reason populated only when `factsStatus` is FAILED.
+  factsFailureReason String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   processingJobs DocumentProcessingJob[]
   extractions    DocumentExtraction[]
   chunks         DocumentChunk[]
+  facts          DocumentFact[]
 
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
+  @@index([organizationId, factsStatus])
 }
 
 /// Durable unit of document processing work, created atomically with the
@@ -355,6 +379,45 @@ model DocumentChunk {
   @@unique([documentId, documentGeneration, chunkIndex])
   @@index([organizationId])
   @@index([documentId, documentGeneration])
+}
+
+/// One structured money fact extracted from one document generation.
+///
+/// IDENTITY — [documentId, documentGeneration, factType, naturalKey] is unique,
+/// so a row seen twice (retried extraction, overlapping windows) collapses to a
+/// single fact, and a stale generation cannot append to the current one.
+///
+/// The amount is stored in minor units as an integer and is always reparsed by
+/// the server from the row's evidence text; the extraction model never supplies
+/// the number that is summed.
+model DocumentFact {
+  id String @id @default(uuid()) @db.Uuid
+
+  organizationId String @db.Uuid
+
+  documentId String   @db.Uuid
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  documentGeneration Int
+
+  factType   FactType
+  naturalKey String
+  label      String
+
+  amountMinor BigInt
+  scale       Int    @default(2)
+  currency    String @db.Char(3)
+
+  pageNumber Int
+  chunkIndex Int?
+
+  evidenceText String
+
+  createdAt DateTime @default(now())
+
+  @@unique([documentId, documentGeneration, factType, naturalKey])
+  @@index([organizationId, factType, currency])
+  @@index([organizationId, documentId, documentGeneration])
 }
 
 /// A persisted answer to a question, owned by the organization it was asked in.

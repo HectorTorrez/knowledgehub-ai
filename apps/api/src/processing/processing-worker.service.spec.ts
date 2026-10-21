@@ -14,6 +14,7 @@ import {
   type ClaimedProcessingJob,
 } from './processing-job.service.js';
 import { DocumentChunkStore } from './document-chunk.store.js';
+import { FactsService } from '../facts/facts.service.js';
 import { ProcessingWorkerService } from './processing-worker.service.js';
 
 const JOB: ClaimedProcessingJob = {
@@ -75,6 +76,7 @@ function createWorker(overrides?: {
     extractor as unknown as DocumentTextExtractor,
     chunks as unknown as DocumentChunkStore,
     config as unknown as ProcessingConfig,
+    { enabled: false } as unknown as FactsService,
     storage as unknown as ObjectStorage,
   );
 

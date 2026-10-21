@@ -105,5 +105,15 @@ export const queryKeys = {
         query ?? '',
         documentId ?? '',
       ] as const,
+    aggregates: {
+      contractTotals: (organizationId: string, documentId: string) =>
+        [
+          'organizations',
+          organizationId,
+          'aggregates',
+          'contract-totals',
+          documentId,
+        ] as const,
+    },
   },
 };
