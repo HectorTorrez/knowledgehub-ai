@@ -81,8 +81,24 @@ services:
         EOF
         mc cors set "local/$$STORAGE_BUCKET" /tmp/cors.xml
 
+  redis:
+    image: redis:7-alpine
+    container_name: knowledgehub-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres-data:
     name: knowledgehub-postgres-data
   minio-data:
     name: knowledgehub-minio-data
+  redis-data:
+    name: knowledgehub-redis-data

@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
 import { validateEnv } from '../config/env.validation.js';
+import { SecurityAuditModule } from '../audit/security-audit.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { RateLimitModule } from '../rate-limit/rate-limit.module.js';
 import { AnswerConfig } from './answer.config.js';
@@ -22,6 +23,7 @@ describe('AnswersModule wiring', () => {
           validate: validateEnv,
         }),
         PrismaModule,
+        SecurityAuditModule,
         RateLimitModule,
         AnswersModule,
       ],

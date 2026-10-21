@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_EXTRACTABLE_BYTES } from '../../processing/processing-limits.policy.js';
 import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
   MAX_UPLOAD_BYTES,
@@ -102,8 +103,9 @@ describe('createUploadUrlSchema', () => {
 });
 
 describe('upload policy', () => {
-  it('pins the cap at exactly two billion bytes', () => {
-    expect(MAX_UPLOAD_BYTES).toBe(2_000_000_000);
+  it('pins the upload cap to the extraction limit', () => {
+    expect(MAX_UPLOAD_BYTES).toBe(25 * 1024 * 1024);
+    expect(MAX_UPLOAD_BYTES).toBe(MAX_EXTRACTABLE_BYTES);
   });
 
   it('allows exactly PDF, plain text, and Markdown', () => {

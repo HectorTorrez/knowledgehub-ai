@@ -9,8 +9,9 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { OBJECT_STORAGE, type ObjectStorage } from './object-storage.port.js';
 import { StorageConfig } from './storage.config.js';
 
-const VERIFIED_SEGMENT = '/verified/';
 const LIST_PREFIX = 'organizations/';
+const DOCUMENT_OBJECT_KEY =
+  /^organizations\/[^/]+\/documents\/[^/]+\/(?:verified\/)?[^/]+$/;
 
 @Injectable()
 export class StorageSweepService implements OnModuleInit, OnModuleDestroy {
@@ -50,12 +51,12 @@ export class StorageSweepService implements OnModuleInit, OnModuleDestroy {
   }
 
   async sweepOnce(): Promise<number> {
-    const referenced = await this.referencedVerifiedKeys();
+    const referenced = await this.referencedKeys();
     const cutoffMs = Date.now() - this.config.sweepGraceMs;
     let deleted = 0;
 
     for await (const object of this.storage.listObjects(LIST_PREFIX)) {
-      if (!object.key.includes(VERIFIED_SEGMENT)) {
+      if (!DOCUMENT_OBJECT_KEY.test(object.key)) {
         continue;
       }
 
@@ -74,17 +75,29 @@ export class StorageSweepService implements OnModuleInit, OnModuleDestroy {
     return deleted;
   }
 
-  private async referencedVerifiedKeys(): Promise<Set<string>> {
+  private async referencedKeys(): Promise<Set<string>> {
     const rows = await this.prisma.document.findMany({
-      where: { storageKey: { not: null } },
-      select: { storageKey: true },
+      where: {
+        OR: [
+          { storageKey: { not: null } },
+          { uploadStorageKey: { not: null } },
+        ],
+      },
+      select: { storageKey: true, uploadStorageKey: true },
     });
 
-    return new Set(
-      rows
-        .map((row) => row.storageKey)
-        .filter((key): key is string => key !== null),
-    );
+    const keys = new Set<string>();
+
+    for (const row of rows) {
+      if (row.storageKey !== null) {
+        keys.add(row.storageKey);
+      }
+      if (row.uploadStorageKey !== null) {
+        keys.add(row.uploadStorageKey);
+      }
+    }
+
+    return keys;
   }
 
   private async loop(): Promise<void> {

@@ -345,23 +345,41 @@ describe('answers (e2e)', () => {
     expect(answerProvider.calls).toHaveLength(0);
   });
 
-  it('returns insufficient_evidence without calling the provider when nothing clears the similarity floor', async () => {
+  it('answers from the document catalog when nothing clears the similarity floor', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Weak Org');
-    await seedReadyChunk(organizationId, 'unrelated passage', {
+    const documentId = await seedReadyChunk(organizationId, 'unrelated passage', {
       embedding: basis(1),
     });
 
+    answerProvider.generateImpl = async () =>
+      draft({
+        status: 'answered',
+        claims: [
+          {
+            text: 'The organization has one document about architecture.',
+            source: 1,
+          },
+        ],
+      });
+
     const response = await ask(token, organizationId, {
-      question: 'What is alpha?',
+      question: 'Which documents do I have?',
     }).expect(200);
 
-    expect(response.body).toEqual({
-      status: 'insufficient_evidence',
-      answer: null,
-      citations: [],
-    });
-    expect(answerProvider.calls).toHaveLength(0);
+    expect(response.body.status).toBe('answered');
+    expect(response.body.answer).toContain('[1]');
+    expect(response.body.citations).toEqual([
+      {
+        marker: 1,
+        documentId,
+        documentTitle: 'Architecture Notes',
+        pageNumber: 2,
+        chunkIndex: 4,
+        excerpt: 'unrelated passage',
+      },
+    ]);
+    expect(answerProvider.calls).toHaveLength(1);
   });
 
   it('returns the fixed refusal when the model declines', async () => {
@@ -441,7 +459,7 @@ describe('answers (e2e)', () => {
   });
 
   it.each([
-    ['a claim citing an unknown source', { text: 'Malformed claim.', source: 2 }],
+    ['a claim citing an unknown source', { text: 'Malformed claim.', source: 3 }],
     ['a blank claim', { text: '   ', source: 1 }],
     ['a non-integer source', { text: 'Malformed claim.', source: 1.5 }],
   ])(
@@ -709,14 +727,20 @@ describe('answers (e2e)', () => {
       question: 'QUESTION_SECRET_MARKER?',
     }).expect(200);
 
-    expect(log).toHaveBeenCalledTimes(1);
-    const serialized = JSON.stringify(
-      log.mock.calls.map((call) => call[0]),
+    const answerLogs = log.mock.calls.filter(
+      ([entry]) =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        'status' in entry &&
+        'citationCount' in entry,
     );
+
+    expect(answerLogs).toHaveLength(1);
+    const serialized = JSON.stringify(answerLogs);
     expect(serialized).not.toContain('QUESTION_SECRET_MARKER');
     expect(serialized).not.toContain('PASSAGE_SECRET_MARKER');
     expect(serialized).not.toContain('ANSWER_SECRET_MARKER');
-    expect(log.mock.calls[0]![0]).toMatchObject({
+    expect(answerLogs[0]![0]).toMatchObject({
       status: 'answered',
       sourceCount: 1,
       citationCount: 1,

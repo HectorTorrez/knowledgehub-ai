@@ -229,6 +229,12 @@ describe('renderSourceBlock', () => {
     );
   });
 
+  it('escapes quotes so they cannot break the attribute', () => {
+    expect(
+      renderSourceBlock({ ...source, documentTitle: 'A "quoted" title' }),
+    ).toContain('title="A &quot;quoted&quot; title"');
+  });
+
   it('joins multiple sources with a blank line', () => {
     const section = renderSourcesSection([
       source,

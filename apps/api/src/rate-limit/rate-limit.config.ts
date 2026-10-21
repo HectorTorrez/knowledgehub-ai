@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-export type RateLimitScope = 'ip' | 'user' | 'tenant';
+export type RateLimitScope = 'ip' | 'account' | 'user' | 'tenant';
 
 export type RateLimitBudgetName =
   | 'login'
+  | 'loginAccount'
   | 'search'
+  | 'searchUser'
   | 'answerUser'
   | 'answerTenant';
 
@@ -29,10 +31,26 @@ export class RateLimitConfig {
           limit: this.config.getOrThrow<number>('RATE_LIMIT_LOGIN_PER_MINUTE'),
           windowMs: ONE_MINUTE_MS,
         };
+      case 'loginAccount':
+        return {
+          scope: 'account',
+          limit: this.config.getOrThrow<number>(
+            'RATE_LIMIT_LOGIN_ACCOUNT_PER_MINUTE',
+          ),
+          windowMs: ONE_MINUTE_MS,
+        };
       case 'search':
         return {
           scope: 'tenant',
           limit: this.config.getOrThrow<number>('RATE_LIMIT_SEARCH_PER_MINUTE'),
+          windowMs: ONE_MINUTE_MS,
+        };
+      case 'searchUser':
+        return {
+          scope: 'user',
+          limit: this.config.getOrThrow<number>(
+            'RATE_LIMIT_SEARCH_USER_PER_MINUTE',
+          ),
           windowMs: ONE_MINUTE_MS,
         };
       case 'answerUser':

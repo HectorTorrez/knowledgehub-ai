@@ -2,6 +2,7 @@ import { ForbiddenException, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
+import type { SecurityAuditService } from '../audit/security-audit.service.js';
 import type { AuthConfig } from './auth.config.js';
 import { ACCESS_TOKEN_COOKIE } from './cookies.js';
 import { CSRF_COOKIE, CSRF_HEADER, generateCsrfToken } from './csrf.js';
@@ -57,7 +58,11 @@ function buildGuard(
     trustedOrigins: [TRUSTED_ORIGIN],
   } as unknown as AuthConfig;
 
-  return new CsrfGuard(authConfig, new Reflector());
+  return new CsrfGuard(
+    authConfig,
+    new Reflector(),
+    { record: () => undefined } as unknown as SecurityAuditService,
+  );
 }
 
 function validCookieAuth(): { cookies: Record<string, string> } {

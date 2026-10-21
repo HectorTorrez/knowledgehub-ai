@@ -13,6 +13,15 @@ const validStorageEnv = {
   STORAGE_SECRET_ACCESS_KEY: 'b'.repeat(32),
 };
 
+const validProductionEnv = {
+  ...validEnv,
+  ...validStorageEnv,
+  NODE_ENV: 'production',
+  CORS_ORIGIN: 'https://knowledgehub.example.com',
+  PROCESSING_SANDBOX: 'worker',
+  STORAGE_SWEEP_ENABLED: 'true',
+};
+
 describe('validateEnv', () => {
   it('applies safe defaults when optional values are absent', () => {
     const env = validateEnv({ ...validEnv });
@@ -113,11 +122,46 @@ describe('validateEnv', () => {
     expect(env.COOKIE_SECURE).toBe('true');
   });
 
+  it('defaults proxy trust off and accepts an explicit hop count', () => {
+    expect(validateEnv({ ...validEnv }).TRUST_PROXY).toBe('false');
+    expect(validateEnv({ ...validEnv, TRUST_PROXY: '2' }).TRUST_PROXY).toBe('2');
+  });
+
+  it('rejects unsafe proxy trust values', () => {
+    for (const value of ['true', '0', '-1', 'edge']) {
+      expect(() => validateEnv({ ...validEnv, TRUST_PROXY: value })).toThrow(
+        /TRUST_PROXY/,
+      );
+    }
+  });
+
+  it('accepts redis and rediss rate-limit URLs', () => {
+    expect(
+      validateEnv({
+        ...validEnv,
+        RATE_LIMIT_REDIS_URL: 'redis://127.0.0.1:6379',
+      }).RATE_LIMIT_REDIS_URL,
+    ).toBe('redis://127.0.0.1:6379');
+    expect(
+      validateEnv({
+        ...validEnv,
+        RATE_LIMIT_REDIS_URL: 'rediss://:password@redis.example.com:6380',
+      }).RATE_LIMIT_REDIS_URL,
+    ).toBe('rediss://:password@redis.example.com:6380');
+  });
+
+  it('rejects non-redis rate-limit URLs', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        RATE_LIMIT_REDIS_URL: 'http://127.0.0.1:6379',
+      }),
+    ).toThrow(/RATE_LIMIT_REDIS_URL/);
+  });
+
   it('defaults browser authentication off and does not require a CSRF secret', () => {
     const env = validateEnv({
-      ...validEnv,
-      ...validStorageEnv,
-      NODE_ENV: 'production',
+      ...validProductionEnv,
     });
 
     expect(env.BROWSER_AUTH_ENABLED).toBe('false');
@@ -127,9 +171,7 @@ describe('validateEnv', () => {
   it('fails safely when browser authentication is enabled without a CSRF secret', () => {
     expect(() =>
       validateEnv({
-        ...validEnv,
-        ...validStorageEnv,
-        NODE_ENV: 'production',
+        ...validProductionEnv,
         BROWSER_AUTH_ENABLED: 'true',
       }),
     ).toThrow(/CSRF_SECRET/);
@@ -147,9 +189,7 @@ describe('validateEnv', () => {
 
   it('accepts browser authentication when a strong CSRF secret is present', () => {
     const env = validateEnv({
-      ...validEnv,
-      ...validStorageEnv,
-      NODE_ENV: 'production',
+      ...validProductionEnv,
       BROWSER_AUTH_ENABLED: 'true',
       CSRF_SECRET: 'c'.repeat(32),
     });
@@ -165,14 +205,74 @@ describe('validateEnv', () => {
   });
 
   it('accepts a complete storage block in production', () => {
-    const env = validateEnv({
-      ...validEnv,
-      ...validStorageEnv,
-      NODE_ENV: 'production',
-    });
+    const env = validateEnv({ ...validProductionEnv });
 
     expect(env.STORAGE_BUCKET).toBe('knowledgehub-documents');
     expect(env.STORAGE_ENDPOINT).toBe('http://127.0.0.1:9000');
+  });
+
+  it('rejects local CORS origins in production', () => {
+    expect(() =>
+      validateEnv({
+        ...validProductionEnv,
+        CORS_ORIGIN: 'http://localhost:3000,https://knowledgehub.example.com',
+      }),
+    ).toThrow(/CORS_ORIGIN/);
+  });
+
+  it('rejects placeholder JWT and storage secrets in production', () => {
+    expect(() =>
+      validateEnv({
+        ...validProductionEnv,
+        JWT_ACCESS_SECRET: 'replace-me-with-a-random-secret-of-at-least-32-chars',
+      }),
+    ).toThrow(/JWT_ACCESS_SECRET/);
+
+    expect(() =>
+      validateEnv({
+        ...validProductionEnv,
+        STORAGE_SECRET_ACCESS_KEY:
+          'change-me-local-development-minio-secret-value',
+      }),
+    ).toThrow(/STORAGE_SECRET_ACCESS_KEY/);
+  });
+
+  it('rejects placeholder CSRF secrets in production', () => {
+    expect(() =>
+      validateEnv({
+        ...validProductionEnv,
+        BROWSER_AUTH_ENABLED: 'true',
+        CSRF_SECRET: 'replace-me-with-a-random-secret-of-at-least-32-chars',
+      }),
+    ).toThrow(/CSRF_SECRET/);
+  });
+
+  it('rejects placeholder database credentials in production', () => {
+    expect(() =>
+      validateEnv({
+        ...validProductionEnv,
+        DATABASE_URL:
+          'postgresql://knowledgehub:change-me-local-development@127.0.0.1:5432/knowledgehub',
+      }),
+    ).toThrow(/DATABASE_URL/);
+  });
+
+  it('rejects insecure cookies in production', () => {
+    expect(() =>
+      validateEnv({ ...validProductionEnv, COOKIE_SECURE: 'false' }),
+    ).toThrow(/COOKIE_SECURE/);
+  });
+
+  it('requires the worker sandbox in production', () => {
+    expect(() =>
+      validateEnv({ ...validProductionEnv, PROCESSING_SANDBOX: 'inline' }),
+    ).toThrow(/PROCESSING_SANDBOX/);
+  });
+
+  it('requires the storage sweep in production', () => {
+    expect(() =>
+      validateEnv({ ...validProductionEnv, STORAGE_SWEEP_ENABLED: 'false' }),
+    ).toThrow(/STORAGE_SWEEP_ENABLED/);
   });
 
   it('accepts a provider-shaped storage access key shorter than 32 characters', () => {

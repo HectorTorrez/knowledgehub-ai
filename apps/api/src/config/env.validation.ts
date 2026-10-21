@@ -49,6 +49,13 @@ const envObjectSchema = z.object({
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   COOKIE_DOMAIN: z.string().min(1).optional(),
+  TRUST_PROXY: z
+    .string()
+    .regex(
+      /^(false|[1-9]\d*)$/,
+      'TRUST_PROXY must be "false" or a positive number of proxy hops',
+    )
+    .default('false'),
 
   BROWSER_AUTH_ENABLED: z.enum(['true', 'false']).default('false'),
   CSRF_SECRET: z
@@ -184,7 +191,32 @@ const envObjectSchema = z.object({
     .default(DEFAULT_ANSWER_HISTORY_MAX_CHARS),
 
   RATE_LIMIT_LOGIN_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_LOGIN_ACCOUNT_PER_MINUTE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5),
   RATE_LIMIT_SEARCH_PER_MINUTE: z.coerce.number().int().positive().default(60),
+  RATE_LIMIT_SEARCH_USER_PER_MINUTE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30),
+  RATE_LIMIT_REDIS_URL: z
+    .string()
+    .url()
+    .refine(
+      (value) => {
+        try {
+          const protocol = new URL(value).protocol;
+          return protocol === 'redis:' || protocol === 'rediss:';
+        } catch {
+          return false;
+        }
+      },
+      { message: 'RATE_LIMIT_REDIS_URL must be a redis or rediss URL' },
+    )
+    .optional(),
   RATE_LIMIT_ANSWER_USER_PER_MINUTE: z.coerce
     .number()
     .int()
@@ -206,6 +238,29 @@ const PRODUCTION_STORAGE_KEYS = [
   'STORAGE_ACCESS_KEY_ID',
   'STORAGE_SECRET_ACCESS_KEY',
 ] as const;
+
+const PLACEHOLDER_SECRET_PATTERN =
+  /(replace-me|change-me|changeme|placeholder|example-secret|your-secret)/i;
+
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+function isPlaceholderSecret(value: string | undefined): boolean {
+  return value !== undefined && PLACEHOLDER_SECRET_PATTERN.test(value);
+}
+
+function hasLocalOrigin(raw: string): boolean {
+  return raw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .some((origin) => {
+      try {
+        return LOCAL_HOSTNAMES.has(new URL(origin).hostname);
+      } catch {
+        return false;
+      }
+    });
+}
 
 export const envSchema = envObjectSchema.superRefine((env, ctx) => {
   if (env.BROWSER_AUTH_ENABLED === 'true' && env.CSRF_SECRET === undefined) {
@@ -252,6 +307,56 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
           message: `${key} is required when NODE_ENV is production`,
         });
       }
+    }
+
+    for (const key of [
+      'DATABASE_URL',
+      'JWT_ACCESS_SECRET',
+      'CSRF_SECRET',
+      'STORAGE_SECRET_ACCESS_KEY',
+      'OPENAI_API_KEY',
+    ] as const) {
+      if (isPlaceholderSecret(env[key])) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: `${key} still contains a placeholder value`,
+        });
+      }
+    }
+
+    if (hasLocalOrigin(env.CORS_ORIGIN)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CORS_ORIGIN'],
+        message: 'CORS_ORIGIN must not target a local host in production',
+      });
+    }
+
+    if (env.COOKIE_SECURE === 'false') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['COOKIE_SECURE'],
+        message: 'COOKIE_SECURE cannot be false when NODE_ENV is production',
+      });
+    }
+
+    if (env.PROCESSING_SANDBOX !== 'worker') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PROCESSING_SANDBOX'],
+        message:
+          'PROCESSING_SANDBOX must be "worker" when NODE_ENV is production',
+      });
+    }
+
+    if (env.STORAGE_SWEEP_ENABLED !== 'true') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['STORAGE_SWEEP_ENABLED'],
+        message:
+          'STORAGE_SWEEP_ENABLED must be "true" when NODE_ENV is production',
+      });
     }
   }
 });
