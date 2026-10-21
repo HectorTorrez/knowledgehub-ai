@@ -53,8 +53,9 @@ export function ConversationMessages({
   stream: StreamSnapshot;
 }>) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
   const pendingQuestionRef = useRef<string | null>(null);
   const [showJump, setShowJump] = useState(false);
 
@@ -91,8 +92,42 @@ export function ConversationMessages({
     (!persisted.has(pending.question) || stream.status === 'streaming');
 
   const scrollToEnd = useCallback((behavior: ScrollBehavior) => {
-    endRef.current?.scrollIntoView({ behavior, block: 'end' });
+    const element = scrollRef.current;
+
+    if (element === null) {
+      return;
+    }
+
+    element.scrollTo({ top: element.scrollHeight, behavior });
   }, []);
+
+  const pinToEnd = useCallback(() => {
+    const element = scrollRef.current;
+
+    if (element === null) {
+      return;
+    }
+
+    element.scrollTop = element.scrollHeight;
+  }, []);
+
+  useEffect(() => {
+    const element = contentRef.current;
+
+    if (element === null) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (pinnedRef.current) {
+        pinToEnd();
+      }
+    });
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [pinToEnd]);
 
   function handleScroll() {
     const element = scrollRef.current;
@@ -103,15 +138,25 @@ export function ConversationMessages({
 
     const distance =
       element.scrollHeight - element.scrollTop - element.clientHeight;
-    pinnedRef.current = distance < 96;
-    setShowJump(distance > 220);
+    const scrolledUp = element.scrollTop < lastScrollTopRef.current - 1;
+
+    lastScrollTopRef.current = element.scrollTop;
+
+    if (distance < 96) {
+      pinnedRef.current = true;
+    } else if (scrolledUp) {
+      pinnedRef.current = false;
+    }
+
+    setShowJump(!pinnedRef.current && distance > 220);
   }
 
   useEffect(() => {
     pinnedRef.current = true;
+    lastScrollTopRef.current = 0;
     setShowJump(false);
-    scrollToEnd('auto');
-  }, [conversationId, scrollToEnd]);
+    pinToEnd();
+  }, [conversationId, pinToEnd]);
 
   useEffect(() => {
     if (pending === null) {
@@ -126,28 +171,22 @@ export function ConversationMessages({
     pendingQuestionRef.current = pending.question;
     pinnedRef.current = true;
     setShowJump(false);
-    scrollToEnd('smooth');
-  }, [pending, scrollToEnd]);
+    pinToEnd();
+  }, [pending, pinToEnd]);
 
   useEffect(() => {
     if (!pinnedRef.current) {
       return;
     }
 
-    const prefersReducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches;
-
-    scrollToEnd(
-      prefersReducedMotion || stream.status === 'streaming' ? 'auto' : 'smooth',
-    );
+    pinToEnd();
   }, [
     conversationId,
     rows.length,
     pendingVisible,
     stream.text.length,
     stream.status,
-    scrollToEnd,
+    pinToEnd,
   ]);
 
   return (
@@ -157,7 +196,10 @@ export function ConversationMessages({
         onScroll={handleScroll}
         className="h-full overflow-y-auto overscroll-contain"
       >
-        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-6">
+        <div
+          ref={contentRef}
+          className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-6"
+        >
           {answers.isError ? <ErrorNotice error={answers.error} /> : null}
 
           {answers.isPending && rows.length === 0 && !pendingVisible ? (
@@ -207,8 +249,6 @@ export function ConversationMessages({
               </li>
             ) : null}
           </ol>
-
-          <div ref={endRef} className="h-px shrink-0" />
         </div>
       </div>
 
