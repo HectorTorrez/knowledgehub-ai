@@ -1,9 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Req,
   Res,
@@ -41,6 +45,14 @@ import {
   SessionGuard,
   type AuthenticatedRequest,
 } from './session.guard.js';
+import {
+  changePasswordSchema,
+  type ChangePasswordInput,
+} from './dto/change-password.schema.js';
+import {
+  updateProfileSchema,
+  type UpdateProfileInput,
+} from './dto/update-profile.schema.js';
 import { ZodValidationPipe } from './zod-validation.pipe.js';
 
 @Controller('auth')
@@ -86,6 +98,67 @@ export class AuthController {
     this.issueAuthCookies(response, result);
 
     return { user: result.user };
+  }
+
+  @Patch('profile')
+  @UseGuards(SessionGuard)
+  updateProfile(
+    @Body(new ZodValidationPipe(updateProfileSchema))
+    body: UpdateProfileInput,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const userId = request.auth?.userId;
+
+    if (!userId) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    return this.auth.updateProfile(userId, body);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SessionGuard)
+  async changePassword(
+    @Body(new ZodValidationPipe(changePasswordSchema))
+    body: ChangePasswordInput,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    const auth = request.auth;
+
+    if (!auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    await this.auth.changePassword(auth.userId, auth.sessionId, body);
+  }
+
+  @Get('sessions')
+  @UseGuards(SessionGuard)
+  listSessions(@Req() request: AuthenticatedRequest) {
+    const auth = request.auth;
+
+    if (!auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    return this.auth.listSessions(auth.userId, auth.sessionId);
+  }
+
+  @Delete('sessions/:sessionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SessionGuard)
+  async revokeSession(
+    @Param('sessionId', ParseUUIDPipe) sessionId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    const auth = request.auth;
+
+    if (!auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    await this.auth.revokeSession(auth.userId, sessionId, auth.sessionId);
   }
 
   /**

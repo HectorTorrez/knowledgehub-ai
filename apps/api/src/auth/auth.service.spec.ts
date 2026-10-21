@@ -36,6 +36,13 @@ function createHarness(options: HarnessOptions = {}) {
         id: `session-${++sessionCounter}`,
         ...data,
       })),
+      updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
+    },
+    user: {
+      update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+        ...storedUser,
+        ...data,
+      })),
     },
     refreshToken: {
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -49,11 +56,21 @@ function createHarness(options: HarnessOptions = {}) {
 
   const prisma = {
     user: {
-      findUnique: vi.fn(async ({ where }: { where: { email: string } }) =>
-        options.userExists !== false && where.email === storedUser.email
-          ? storedUser
-          : null,
+      findUnique: vi.fn(
+        async ({ where }: { where: { email?: string; id?: string } }) =>
+          options.userExists !== false &&
+          (where.email === storedUser.email || where.id === storedUser.id)
+            ? storedUser
+            : null,
       ),
+      update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+        ...storedUser,
+        ...data,
+      })),
+    },
+    authSession: {
+      findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
+      updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
     $transaction: vi.fn(
       async (callback: (client: typeof tx) => Promise<unknown>) =>
@@ -354,6 +371,10 @@ function createRotationHarness(overrides: RotationOverrides = {}) {
     authSession: {
       updateMany: vi.fn(async () => ({ count: 1 })),
     },
+    authSession: {
+      findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
+      updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
+    },
     $transaction: vi.fn(
       async (callback: (client: typeof tx) => Promise<unknown>) =>
         callback(tx),
@@ -563,5 +584,104 @@ describe('AuthService.logout', () => {
 
     await expect(service.logout(PRESENTED_REFRESH)).resolves.toBeUndefined();
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService profile and sessions', () => {
+  it('updates the caller name', async () => {
+    const { service, prisma } = createHarness();
+
+    const result = await service.updateProfile('user-1', {
+      firstName: 'Grace',
+      lastName: 'Hopper',
+    });
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { firstName: 'Grace', lastName: 'Hopper' },
+    });
+    expect(result.user).toMatchObject({
+      firstName: 'Grace',
+      lastName: 'Hopper',
+    });
+  });
+
+  it('changes the password and revokes the other sessions', async () => {
+    const { service, tx } = createHarness();
+
+    await service.changePassword('user-1', 'session-current', {
+      currentPassword: 'old-password',
+      newPassword: 'a-new-password',
+    });
+
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { passwordHash: 'dummy-password-hash' },
+    });
+    expect(tx.authSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        id: { not: 'session-current' },
+        revokedAt: null,
+      },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('rejects a wrong current password', async () => {
+    const { service } = createHarness({ passwordMatches: false });
+
+    await expect(
+      service.changePassword('user-1', 'session-current', {
+        currentPassword: 'wrong-password',
+        newPassword: 'a-new-password',
+      }),
+    ).rejects.toThrow('Current password is incorrect');
+  });
+
+  it('lists active sessions and marks the current one', async () => {
+    const { service, prisma } = createHarness();
+    const expiresAt = new Date('2026-02-01T00:00:00.000Z');
+    prisma.authSession.findMany.mockResolvedValueOnce([
+      {
+        id: 'session-current',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        lastUsedAt: null,
+        expiresAt,
+        userAgent: 'agent',
+        ipAddress: '127.0.0.1',
+      },
+    ]);
+
+    const result = await service.listSessions('user-1', 'session-current');
+
+    expect(result.sessions).toEqual([
+      {
+        id: 'session-current',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        lastUsedAt: null,
+        expiresAt: expiresAt.toISOString(),
+        userAgent: 'agent',
+        ipAddress: '127.0.0.1',
+        current: true,
+      },
+    ]);
+  });
+
+  it('refuses to revoke the current session', async () => {
+    const { service } = createHarness();
+
+    await expect(
+      service.revokeSession('user-1', 'session-current', 'session-current'),
+    ).rejects.toThrow('Use sign out to end the current session');
+  });
+
+  it('returns 404 when revoking an unknown session', async () => {
+    const { service, prisma } = createHarness();
+    prisma.authSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      service.revokeSession('user-1', 'session-other', 'session-current'),
+    ).rejects.toThrow('Session not found');
   });
 });

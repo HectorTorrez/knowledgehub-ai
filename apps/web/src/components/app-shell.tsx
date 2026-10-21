@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { Building2, Check, ChevronsUpDown, LogOut } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, LogOut, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Brand } from '~/components/brand';
@@ -109,6 +109,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                     </span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">
+                      <Settings />
+                      Account settings
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => void handleSignOut()}
                     disabled={signOut.isPending}

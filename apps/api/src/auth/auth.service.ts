@@ -1,17 +1,24 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { PublicUser } from '@knowledgehub/shared-types';
+import type {
+  AuthSessionListResponse,
+  PublicUser,
+  UpdateProfileResponse,
+} from '@knowledgehub/shared-types';
 import { createHash } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
 import { SecurityAuditService } from '../audit/security-audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { normalizeEmail } from '../users/email.js';
 import { AuthConfig } from './auth.config.js';
+import type { ChangePasswordInput } from './dto/change-password.schema.js';
 import type { LoginInput } from './dto/login.schema.js';
 import type { RegisterInput } from './dto/register.schema.js';
+import type { UpdateProfileInput } from './dto/update-profile.schema.js';
 import { PasswordService } from './password.service.js';
 import { TokenService, type GeneratedRefreshToken } from './token.service.js';
 
@@ -280,6 +287,115 @@ export class AuthService {
         outcome.successor.expiresAt.getTime() - Date.now(),
       ),
     };
+  }
+
+  async updateProfile(
+    userId: string,
+    input: UpdateProfileInput,
+  ): Promise<UpdateProfileResponse> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { firstName: input.firstName, lastName: input.lastName },
+    });
+
+    return { user: toPublicUser(user) };
+  }
+
+  async changePassword(
+    userId: string,
+    sessionId: string,
+    input: ChangePasswordInput,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new UnauthorizedException('Session is no longer active');
+    }
+
+    const matches = await this.passwords.verify(
+      user.passwordHash,
+      input.currentPassword,
+    );
+
+    if (!matches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const passwordHash = await this.passwords.hash(input.newPassword);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      });
+      await tx.authSession.updateMany({
+        where: {
+          userId,
+          id: { not: sessionId },
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      });
+    });
+
+    this.audit.record('auth.password.changed', { userId, sessionId });
+  }
+
+  async listSessions(
+    userId: string,
+    currentSessionId: string,
+  ): Promise<AuthSessionListResponse> {
+    const sessions = await this.prisma.authSession.findMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: [{ lastUsedAt: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        createdAt: true,
+        lastUsedAt: true,
+        expiresAt: true,
+        userAgent: true,
+        ipAddress: true,
+      },
+    });
+
+    return {
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        createdAt: session.createdAt.toISOString(),
+        lastUsedAt: session.lastUsedAt?.toISOString() ?? null,
+        expiresAt: session.expiresAt.toISOString(),
+        userAgent: session.userAgent,
+        ipAddress: session.ipAddress,
+        current: session.id === currentSessionId,
+      })),
+    };
+  }
+
+  async revokeSession(
+    userId: string,
+    sessionId: string,
+    currentSessionId: string,
+  ): Promise<void> {
+    if (sessionId === currentSessionId) {
+      throw new ConflictException(
+        'Use sign out to end the current session',
+      );
+    }
+
+    const revoked = await this.prisma.authSession.updateMany({
+      where: { id: sessionId, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    if (revoked.count === 0) {
+      throw new NotFoundException('Session not found');
+    }
+
+    this.audit.record('auth.session.revoked', { userId, sessionId });
   }
 
   async getSessionUser(userId: string): Promise<PublicUser> {
