@@ -10,6 +10,7 @@ import { apiFetch, apiStream, type RequestOptions } from './client';
 export interface ListAnswersOptions extends RequestOptions {
   cursor?: string;
   limit?: number;
+  conversationId?: string;
 }
 
 export const answersApi = {
@@ -17,10 +18,12 @@ export const answersApi = {
     organizationId: string,
     question: string,
     documentId?: string,
+    conversationId?: string,
   ): Promise<AnswerResponse> {
     const body: AnswerRequest = {
       question,
       ...(documentId ? { documentId } : {}),
+      ...(conversationId ? { conversationId } : {}),
     };
 
     return apiFetch<AnswerResponse>(
@@ -39,6 +42,9 @@ export const answersApi = {
     }
     if (options.cursor) {
       params.set('cursor', options.cursor);
+    }
+    if (options.conversationId) {
+      params.set('conversationId', options.conversationId);
     }
 
     const query = params.toString();
@@ -70,6 +76,7 @@ export async function streamAnswer(
   organizationId: string,
   question: string,
   documentId: string | undefined,
+  conversationId: string | undefined,
   onEvent: (event: AnswerStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -77,6 +84,7 @@ export async function streamAnswer(
     question,
     stream: true,
     ...(documentId ? { documentId } : {}),
+    ...(conversationId ? { conversationId } : {}),
   };
 
   const response = await apiStream(`/organizations/${organizationId}/answers`, {

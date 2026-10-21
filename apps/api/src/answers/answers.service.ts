@@ -291,6 +291,13 @@ export class AnswersService {
           ...(conversationId ? { conversationId } : {}),
         },
       });
+
+      if (conversationId) {
+        await this.prisma.conversation.updateMany({
+          where: { id: conversationId, organizationId, title: null },
+          data: { title: titleFromQuestion(question) },
+        });
+      }
     } catch (error) {
       this.logger.warn('Could not persist the answer to history', error);
     }
@@ -563,4 +570,13 @@ function mapAnswerError(error: unknown): Error {
   }
 
   return error instanceof Error ? error : new Error('The answer step failed');
+}
+
+function titleFromQuestion(question: string): string {
+  const normalized = question.replace(/\s+/g, ' ').trim();
+  const maxLength = 80;
+
+  return normalized.length <= maxLength
+    ? normalized
+    : `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
 }

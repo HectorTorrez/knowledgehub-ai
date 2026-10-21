@@ -16,17 +16,22 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ListConversationsInput } from './dto/list-conversations.schema.js';
 
-const CONVERSATION_SELECT = { id: true, createdAt: true } as const;
+const CONVERSATION_SELECT = { id: true, title: true, createdAt: true } as const;
 
 interface ConversationProjection {
   id: string;
+  title: string | null;
   createdAt: Date;
 }
 
 function toConversationSummary(
   row: ConversationProjection,
 ): ConversationSummary {
-  return { id: row.id, createdAt: row.createdAt.toISOString() };
+  return {
+    id: row.id,
+    title: row.title,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 @Injectable()

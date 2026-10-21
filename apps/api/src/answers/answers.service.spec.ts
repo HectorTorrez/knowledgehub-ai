@@ -107,6 +107,7 @@ function createPrisma() {
       findFirst: vi.fn(
         async (): Promise<{ id: string } | null> => ({ id: 'conversation-1' }),
       ),
+      updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
     document: {
       findFirst: vi.fn(
@@ -366,6 +367,42 @@ describe('AnswersService', () => {
       data: expect.objectContaining({ conversationId: 'conversation-1' }),
     });
     expect(generate).toHaveBeenCalled();
+  });
+
+  it('titles the conversation from its first question', async () => {
+    const { service, prisma } = createService();
+
+    await service.answer(
+      'org-1',
+      USER_ID,
+      '  What   about beta?  ',
+      'conversation-1',
+    );
+
+    expect(prisma.conversation.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'conversation-1',
+        organizationId: 'org-1',
+        title: null,
+      },
+      data: { title: 'What about beta?' },
+    });
+  });
+
+  it('truncates a long question when titling the conversation', async () => {
+    const { service, prisma } = createService();
+    const question = 'a'.repeat(200);
+
+    await service.answer('org-1', USER_ID, question, 'conversation-1');
+
+    expect(prisma.conversation.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'conversation-1',
+        organizationId: 'org-1',
+        title: null,
+      },
+      data: { title: `${'a'.repeat(79)}…` },
+    });
   });
 
   it('rejects a follow-up whose conversation is not in the organization', async () => {
