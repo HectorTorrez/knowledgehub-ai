@@ -1,4 +1,7 @@
-import type { DocumentSummary } from '@knowledgehub/shared-types';
+import type {
+  DocumentStatus,
+  DocumentSummary,
+} from '@knowledgehub/shared-types';
 import {
   useInfiniteQuery,
   useMutation,
@@ -11,10 +14,12 @@ import {
   MoreHorizontal,
   Pencil,
   RefreshCw,
+  Search,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
 import { FileDropzone } from '~/components/file-dropzone';
@@ -39,6 +44,13 @@ import {
 } from '~/components/ui/dropdown-menu';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { documentsApi } from '~/lib/api/documents';
@@ -68,6 +80,11 @@ export const Route = createFileRoute(
 });
 
 const ACTIVE_STATUSES = new Set<DocumentSummary['status']>(['PENDING', 'PROCESSING']);
+const ALL_STATUSES = 'ALL';
+const SEARCH_DEBOUNCE_MS = 300;
+
+type StatusFilter = DocumentStatus | typeof ALL_STATUSES;
+type DocumentOrder = 'createdAt_desc' | 'createdAt_asc';
 
 function DocumentsPage() {
   const { organizationId } = Route.useParams();
@@ -83,11 +100,31 @@ function DocumentsPage() {
   const [renameTitle, setRenameTitle] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
+  const [queryDraft, setQueryDraft] = useState('');
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(ALL_STATUSES);
+  const [order, setOrder] = useState<DocumentOrder>('createdAt_desc');
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setQuery(queryDraft.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [queryDraft]);
+
+  const filters = {
+    ...(query.length > 0 ? { q: query } : {}),
+    ...(statusFilter === ALL_STATUSES ? {} : { status: statusFilter }),
+    order,
+  };
+  const hasFilters =
+    query.length > 0 || statusFilter !== ALL_STATUSES || order !== 'createdAt_desc';
 
   const documents = useInfiniteQuery({
-    queryKey: queryKeys.organizations.documents.list(organizationId),
+    queryKey: queryKeys.organizations.documents.list(organizationId, filters),
     queryFn: ({ pageParam }) =>
-      documentsApi.list(organizationId, { cursor: pageParam }),
+      documentsApi.list(organizationId, { cursor: pageParam, ...filters }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     refetchInterval: (query) => {
@@ -136,7 +173,7 @@ function DocumentsPage() {
     },
     onSettled: (_data, _error, variables) =>
       client.invalidateQueries({
-        queryKey: queryKeys.organizations.documents.list(variables.organizationId),
+        queryKey: queryKeys.organizations.documents.all(variables.organizationId),
       }),
   });
 
@@ -147,7 +184,7 @@ function DocumentsPage() {
       }),
     onSettled: () =>
       client.invalidateQueries({
-        queryKey: queryKeys.organizations.documents.list(organizationId),
+        queryKey: queryKeys.organizations.documents.all(organizationId),
       }),
   });
 
@@ -156,7 +193,7 @@ function DocumentsPage() {
       documentsApi.remove(organizationId, documentId),
     onSettled: () =>
       client.invalidateQueries({
-        queryKey: queryKeys.organizations.documents.list(organizationId),
+        queryKey: queryKeys.organizations.documents.all(organizationId),
       }),
   });
 
@@ -277,6 +314,13 @@ function DocumentsPage() {
   const rows = documents.data?.pages.flatMap((page) => page.documents) ?? [];
   const hasDocuments = rows.length > 0;
 
+  function resetFilters() {
+    setQueryDraft('');
+    setQuery('');
+    setStatusFilter(ALL_STATUSES);
+    setOrder('createdAt_desc');
+  }
+
   return (
     <>
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
@@ -309,6 +353,67 @@ function DocumentsPage() {
 
           {documents.isError ? <ErrorNotice error={documents.error} /> : null}
 
+          <Card>
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={queryDraft}
+                  onChange={(event) => setQueryDraft(event.target.value)}
+                  placeholder="Search documents by title or file name…"
+                  aria-label="Search documents"
+                  maxLength={200}
+                  className="pr-9 pl-9"
+                />
+                {queryDraft.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQueryDraft('');
+                      setQuery('');
+                    }}
+                    aria-label="Clear search"
+                    className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <X className="size-4" />
+                  </button>
+                ) : null}
+              </div>
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+              >
+                <SelectTrigger className="sm:w-44" aria-label="Filter by status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
+                  <SelectItem value="READY">Ready</SelectItem>
+                  <SelectItem value="PROCESSING">Processing</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="FAILED">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={order}
+                onValueChange={(value) => setOrder(value as DocumentOrder)}
+              >
+                <SelectTrigger className="sm:w-40" aria-label="Sort documents">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt_desc">Newest first</SelectItem>
+                  <SelectItem value="createdAt_asc">Oldest first</SelectItem>
+                </SelectContent>
+              </Select>
+              {hasFilters ? (
+                <Button type="button" variant="ghost" onClick={resetFilters}>
+                  Reset
+                </Button>
+              ) : null}
+            </CardContent>
+          </Card>
+
           {documents.isPending ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, index) => (
@@ -318,19 +423,32 @@ function DocumentsPage() {
           ) : null}
 
           {!documents.isPending && !hasDocuments ? (
-            <EmptyState
-              icon={FileText}
-              title="No documents yet"
-              description="Upload a document to start asking questions about it."
-              action={
-                <DialogTrigger asChild>
-                  <Button>
-                    <Upload />
-                    Upload document
+            hasFilters ? (
+              <EmptyState
+                icon={Search}
+                title="No matching documents"
+                description="Try a different search, status, or sort order."
+                action={
+                  <Button variant="outline" onClick={resetFilters}>
+                    Reset filters
                   </Button>
-                </DialogTrigger>
-              }
-            />
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={FileText}
+                title="No documents yet"
+                description="Upload a document to start asking questions about it."
+                action={
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Upload />
+                      Upload document
+                    </Button>
+                  </DialogTrigger>
+                }
+              />
+            )
           ) : null}
 
           {hasDocuments ? (
