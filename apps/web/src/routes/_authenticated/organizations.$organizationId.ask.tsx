@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
+  ChevronDown,
   LoaderCircle,
   MessageSquarePlus,
   Send,
@@ -136,6 +137,7 @@ function AskPage() {
   const [asked, setAsked] = useState<AskedQuestion | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
+  const [showConversations, setShowConversations] = useState(false);
 
   const ready = useReadyDocuments(organizationId);
   const scope = resolveDocumentScope(selection, ready.documents);
@@ -261,10 +263,12 @@ function AskPage() {
     updateConversationSearch(undefined);
     setQuestion(readAskDraft(organizationId));
     setValidationError(null);
+    setShowConversations(false);
   }
 
   function selectConversation(conversationId: string) {
     if (conversationId === activeConversationId) {
+      setShowConversations(false);
       return;
     }
 
@@ -274,6 +278,7 @@ function AskPage() {
     updateConversationSearch(conversationId);
     setQuestion(readAskDraft(organizationId, conversationId));
     setValidationError(null);
+    setShowConversations(false);
   }
 
   async function handleDelete() {
@@ -311,7 +316,24 @@ function AskPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <aside className="h-fit min-w-0 rounded-xl border bg-card lg:sticky lg:top-20">
           <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
-            <h2 className="text-sm font-semibold">Conversations</h2>
+            <button
+              type="button"
+              onClick={() => setShowConversations((open) => !open)}
+              aria-expanded={showConversations}
+              aria-controls="conversation-list"
+              className="flex min-w-0 items-center gap-1 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+            >
+              <h2 className="truncate text-sm font-semibold">Conversations</h2>
+              <ChevronDown
+                className={cn(
+                  'size-4 shrink-0 text-muted-foreground transition-transform',
+                  showConversations && 'rotate-180',
+                )}
+              />
+            </button>
+            <h2 className="hidden truncate text-sm font-semibold lg:block">
+              Conversations
+            </h2>
             <Button
               variant="ghost"
               size="icon"
@@ -322,7 +344,13 @@ function AskPage() {
             </Button>
           </div>
 
-          <div className="max-h-72 overflow-y-auto p-2 lg:max-h-[calc(100dvh-14rem)]">
+          <div
+            id="conversation-list"
+            className={cn(
+              'max-h-72 overflow-y-auto p-2 lg:block lg:max-h-[calc(100dvh-14rem)]',
+              !showConversations && 'hidden',
+            )}
+          >
             {conversations.isPending ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, index) => (
@@ -402,65 +430,79 @@ function AskPage() {
           </div>
         </aside>
 
-        <div className="min-w-0 space-y-6">
-          {activeConversationId === null ? (
-            <Card>
-              <CardContent className="space-y-4 p-6">
-                <div className="space-y-1">
-                  <h2 className="font-semibold">Start a conversation</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Ask a question below. Follow-ups use the earlier turns as
-                    context, and every answer cites its sources.
-                  </p>
-                </div>
-
-                {ready.documents.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      Try asking
+        <div className="flex min-w-0 flex-col gap-6">
+          <div
+            className={cn(
+              activeConversationId === null
+                ? 'order-1'
+                : 'order-2 lg:order-1',
+            )}
+          >
+            {activeConversationId === null ? (
+              <Card>
+                <CardContent className="space-y-4 p-6">
+                  <div className="space-y-1">
+                    <h2 className="font-semibold">Start a conversation</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Ask a question below. Follow-ups use the earlier turns as
+                      context, and every answer cites its sources.
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {SUGGESTED_QUESTIONS.map((suggestion) => (
-                        <Button
-                          key={suggestion}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-auto max-w-full justify-start whitespace-normal py-2 text-left"
-                          onClick={() => setQuestion(suggestion)}
-                        >
-                          {suggestion}
-                        </Button>
-                      ))}
-                    </div>
                   </div>
-                ) : (
-                  <Button asChild variant="outline" size="sm">
-                    <Link
-                      to="/organizations/$organizationId/documents"
-                      params={{ organizationId }}
-                    >
-                      Upload a document first
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <ConversationMessages
-              organizationId={organizationId}
-              conversationId={activeConversationId}
-              pending={asked}
-              stream={{
-                status: stream.status,
-                answerStatus: stream.answerStatus,
-                text: stream.text,
-                citations: stream.citations,
-              }}
-            />
-          )}
 
-          <Card>
+                  {ready.documents.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Try asking
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {SUGGESTED_QUESTIONS.map((suggestion) => (
+                          <Button
+                            key={suggestion}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-auto max-w-full justify-start whitespace-normal py-2 text-left"
+                            onClick={() => setQuestion(suggestion)}
+                          >
+                            {suggestion}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <Button asChild variant="outline" size="sm">
+                      <Link
+                        to="/organizations/$organizationId/documents"
+                        params={{ organizationId }}
+                      >
+                        Upload a document first
+                      </Link>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <ConversationMessages
+                organizationId={organizationId}
+                conversationId={activeConversationId}
+                pending={asked}
+                stream={{
+                  status: stream.status,
+                  answerStatus: stream.answerStatus,
+                  text: stream.text,
+                  citations: stream.citations,
+                }}
+              />
+            )}
+          </div>
+
+          <Card
+            className={
+              activeConversationId === null
+                ? 'order-2'
+                : 'order-1 lg:order-2'
+            }
+          >
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 {validationError ? (
@@ -544,7 +586,9 @@ function AskPage() {
           </Card>
 
           {activeConversationId === null ? (
-            <AnswerThread organizationId={organizationId} />
+            <div className="order-3">
+              <AnswerThread organizationId={organizationId} />
+            </div>
           ) : null}
         </div>
       </div>

@@ -45,7 +45,29 @@ test('keeps organization pages within the mobile viewport', async ({ page }) => 
     await page.waitForLoadState('networkidle');
 
     expect(await overflowingElements(page), path).toEqual([]);
+    expect(await page.locator('h1').count(), path).toBe(1);
   }
+});
+
+test('exposes every organization section in the bottom navigation', async ({
+  page,
+}) => {
+  await mockApi(page, { authenticated: true });
+  await page.goto('/organizations/org-1/documents');
+  await page.waitForLoadState('networkidle');
+
+  const nav = page.getByRole('navigation', { name: 'Organization sections' });
+
+  await expect(nav.getByRole('link')).toHaveCount(5);
+
+  for (const label of ['Overview', 'Documents', 'Ask', 'Search', 'Settings']) {
+    await expect(nav.getByRole('link', { name: label })).toBeVisible();
+  }
+
+  await expect(nav.getByRole('link', { name: 'Documents' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
 });
 
 test('keeps the ask composer and answer inside the mobile viewport', async ({
@@ -65,6 +87,11 @@ test('keeps the ask composer and answer inside the mobile viewport', async ({
   expect(composerBox!.x + composerBox!.width).toBeLessThanOrEqual(
     VIEWPORT.width,
   );
+  expect(composerBox!.y).toBeLessThan(VIEWPORT.height - 56);
+
+  await expect(page.locator('#conversation-list')).toBeHidden();
+  await page.getByRole('button', { name: 'Conversations' }).click();
+  await expect(page.locator('#conversation-list')).toBeVisible();
 
   const answer = page.locator('article [data-slot="card"]').first();
   const answerBox = await answer.boundingBox();

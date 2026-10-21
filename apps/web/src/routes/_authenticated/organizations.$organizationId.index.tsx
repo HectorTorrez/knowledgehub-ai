@@ -7,6 +7,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { Copy, Mail, Trash2, UserPlus } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { EmptyState } from '~/components/empty-state';
+import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -255,6 +256,11 @@ function OrganizationOverviewPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title={organization.data?.organization.name ?? 'Organization'}
+        description="Manage members, invitations, and daily answer usage for this organization."
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Details</CardTitle>

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { Building2, Check, ChevronsUpDown, LogOut, Settings } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, LogOut, Moon, Settings, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Brand } from '~/components/brand';
@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { useLogout, useSession } from '~/hooks/use-auth';
+import { useTheme } from '~/hooks/use-theme';
 import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -23,6 +24,7 @@ import { queryKeys } from '~/lib/api/query-keys';
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const session = useSession();
   const signOut = useLogout();
+  const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const params = useParams({ strict: false });
   const activeOrganizationId = params.organizationId;
@@ -68,13 +70,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         Skip to content
       </a>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">
             <Link
               to="/organizations"
-              className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="shrink-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Brand />
+              <Brand compact />
             </Link>
             {activeOrganizationId !== undefined &&
             organizations.data !== undefined ? (
@@ -85,7 +87,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             ) : null}
           </div>
           <div className="flex items-center gap-1">
-            <ThemeToggle />
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -114,6 +118,10 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       <Settings />
                       Account settings
                     </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={toggleTheme}>
+                    {theme === 'dark' ? <Sun /> : <Moon />}
+                    {theme === 'dark' ? 'Light mode' : 'Dark mode'}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => void handleSignOut()}
