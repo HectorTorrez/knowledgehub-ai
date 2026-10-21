@@ -9,7 +9,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import {
   LoaderCircle,
   MessageSquarePlus,
@@ -24,6 +24,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
+import { AnswerActions } from '~/components/answer-actions';
 import { AnswerThread } from '~/components/answer-thread';
 import {
   AnswerBody,
@@ -68,6 +69,14 @@ export const Route = createFileRoute(
       description:
         "Ask a question and get answers grounded in your organization's documents, with citations.",
     }),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { answer?: string } => ({
+    answer:
+      typeof search.answer === 'string' && search.answer.trim().length > 0
+        ? search.answer
+        : undefined,
+  }),
   component: AskPage,
 });
 
@@ -79,6 +88,7 @@ interface AskedQuestion {
 
 function AskPage() {
   const { organizationId } = Route.useParams();
+  const { answer: permalinkAnswerId } = Route.useSearch();
   const client = useQueryClient();
   const { toast } = useToast();
   const [question, setQuestion] = useState('');
@@ -234,6 +244,13 @@ function AskPage() {
         title="Ask a question"
         description="Answers are grounded in the documents you choose and cite their sources. Follow-ups keep the conversation context."
       />
+
+      {permalinkAnswerId !== undefined ? (
+        <PermalinkAnswer
+          organizationId={organizationId}
+          answerId={permalinkAnswerId}
+        />
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <aside className="h-fit rounded-xl border bg-card lg:sticky lg:top-20">
@@ -474,6 +491,70 @@ function AskPage() {
   );
 }
 
+function PermalinkAnswer({
+  organizationId,
+  answerId,
+}: Readonly<{ organizationId: string; answerId: string }>) {
+  const detail = useQuery({
+    queryKey: queryKeys.organizations.answers.detail(organizationId, answerId),
+    queryFn: () => answersApi.detail(organizationId, answerId),
+  });
+
+  return (
+    <Card className="border-primary/30">
+      <CardContent className="space-y-4 p-6">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Shared answer
+          </p>
+          <Button variant="ghost" size="sm" asChild>
+            <Link
+              to="/organizations/$organizationId/ask"
+              params={{ organizationId }}
+            >
+              Close
+            </Link>
+          </Button>
+        </div>
+
+        {detail.isPending ? <Skeleton className="h-24 w-full" /> : null}
+        {detail.isError ? <ErrorNotice error={detail.error} /> : null}
+        {detail.data ? (
+          <>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{detail.data.answer.question}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatDateTime(detail.data.answer.createdAt)}
+              </p>
+            </div>
+            {detail.data.answer.status === 'answered' ? (
+              <AnswerBody text={detail.data.answer.answer ?? ''} />
+            ) : (
+              <InsufficientEvidence />
+            )}
+            {detail.data.answer.citations.length > 0 ? (
+              <SourcesList
+                citations={detail.data.answer.citations}
+                organizationId={organizationId}
+              />
+            ) : null}
+            <div className="flex justify-end">
+              <AnswerActions
+                organizationId={organizationId}
+                answerId={detail.data.answer.id}
+                question={detail.data.answer.question}
+                answer={detail.data.answer.answer}
+                status={detail.data.answer.status}
+                citations={detail.data.answer.citations}
+              />
+            </div>
+          </>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface StreamSnapshot {
   status: 'idle' | 'streaming' | 'done' | 'error';
   answerStatus: AnswerResponse['status'] | null;
@@ -638,6 +719,16 @@ function PersistedAnswer({
               organizationId={organizationId}
             />
           ) : null}
+          <div className="flex justify-end">
+            <AnswerActions
+              organizationId={organizationId}
+              answerId={detail.data.answer.id}
+              question={detail.data.answer.question}
+              answer={detail.data.answer.answer}
+              status={detail.data.answer.status}
+              citations={detail.data.answer.citations}
+            />
+          </div>
         </>
       ) : null}
     </article>
