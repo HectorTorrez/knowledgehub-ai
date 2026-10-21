@@ -38,6 +38,22 @@ function lastHeaders(): Headers {
   return new Headers(lastInit().headers);
 }
 
+describe('apiFetch error handling', () => {
+  it('exposes a Retry-After header as retryAfterSeconds', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        { statusCode: 429, message: 'Too many requests' },
+        { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '12' } },
+      ),
+    );
+
+    await expect(apiFetch('/organizations/abc/answers')).rejects.toMatchObject({
+      status: 429,
+      retryAfterSeconds: 12,
+    });
+  });
+});
+
 describe('resolveUrl', () => {
   it('resolves a relative API path against the configured origin', () => {
     expect(resolveUrl('/health')).toBe(`${API_ORIGIN}/health`);

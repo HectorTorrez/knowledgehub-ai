@@ -1,6 +1,6 @@
 import { LoaderCircle } from 'lucide-react';
 import { Brand } from '~/components/brand';
-import { isApiError } from '~/lib/api/errors';
+import { isApiError, isRateLimited } from '~/lib/api/errors';
 
 export function RoutePending() {
   return (
@@ -24,6 +24,9 @@ export function ErrorNotice({ error }: Readonly<{ error: unknown }>) {
       ? error.message
       : 'Something went wrong.';
   const validationErrors = isApiError(error) ? error.validationErrors : [];
+  const retryAfterSeconds = isRateLimited(error)
+    ? error.retryAfterSeconds
+    : undefined;
 
   return (
     <div
@@ -31,6 +34,11 @@ export function ErrorNotice({ error }: Readonly<{ error: unknown }>) {
       className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
     >
       <p className="font-medium text-destructive">{message}</p>
+      {retryAfterSeconds !== undefined ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {retryMessage(retryAfterSeconds)}
+        </p>
+      ) : null}
       {validationErrors.length > 1 ? (
         <ul className="mt-2 list-disc pl-5 text-muted-foreground">
           {validationErrors.map((entry) => (
@@ -40,4 +48,18 @@ export function ErrorNotice({ error }: Readonly<{ error: unknown }>) {
       ) : null}
     </div>
   );
+}
+
+function retryMessage(seconds: number): string {
+  if (seconds <= 0) {
+    return 'You can try again now.';
+  }
+
+  if (seconds < 60) {
+    return `Try again in ${seconds} second${seconds === 1 ? '' : 's'}.`;
+  }
+
+  const minutes = Math.ceil(seconds / 60);
+
+  return `Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
 }
