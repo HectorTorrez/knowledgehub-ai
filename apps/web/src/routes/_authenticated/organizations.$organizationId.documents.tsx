@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
   Pencil,
   RefreshCw,
+  RotateCcw,
   Search,
   Trash2,
   TriangleAlert,
@@ -357,6 +358,22 @@ function DocumentsPage() {
       }),
   });
 
+  const reprocess = useMutation({
+    mutationFn: (documentId: string) =>
+      documentsApi.reprocess(organizationId, documentId),
+    onSuccess: () => {
+      toast({
+        variant: 'success',
+        title: 'Reprocessing started',
+        description: 'The document was queued again for processing.',
+      });
+
+      return client.invalidateQueries({
+        queryKey: queryKeys.organizations.documents.all(organizationId),
+      });
+    },
+  });
+
   const remove = useMutation({
     mutationFn: (documentId: string) =>
       documentsApi.remove(organizationId, documentId),
@@ -455,6 +472,7 @@ function DocumentsPage() {
           />
 
           {documents.isError ? <ErrorNotice error={documents.error} /> : null}
+          {reprocess.isError ? <ErrorNotice error={reprocess.error} /> : null}
 
           <Card>
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
@@ -628,6 +646,15 @@ function DocumentsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {document.status === 'FAILED' ? (
+                              <DropdownMenuItem
+                                onSelect={() => reprocess.mutate(document.id)}
+                                disabled={reprocess.isPending}
+                              >
+                                <RotateCcw />
+                                Retry processing
+                              </DropdownMenuItem>
+                            ) : null}
                             <DropdownMenuItem onSelect={() => openRename(document)}>
                               <Pencil />
                               Rename

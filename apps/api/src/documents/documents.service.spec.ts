@@ -99,7 +99,7 @@ interface UpdateManyArgs {
     id: string;
     organizationId: string;
     uploadStorageKey?: string;
-    status?: { in: DocumentStatus[] };
+    status?: DocumentStatus | { in: DocumentStatus[] };
   };
   data: Record<string, unknown>;
 }
@@ -177,7 +177,10 @@ function createCompletionHarness(
           where.uploadStorageKey === undefined ||
           where.uploadStorageKey === state.uploadStorageKey;
         const matchesStatus =
-          where.status === undefined || where.status.in.includes(state.status);
+          where.status === undefined ||
+          (typeof where.status === 'string'
+            ? state.status === where.status
+            : where.status.in.includes(state.status));
         const matches =
           where.id === state.id &&
           where.organizationId === state.organizationId &&
@@ -1317,5 +1320,98 @@ describe('DocumentsService.completeUpload', () => {
 
     expect(state.status).toBe('PROCESSING');
     expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
+  });
+});
+
+describe('DocumentsService.reprocess', () => {
+  const VERIFIED_KEY = 'organizations/org-1/documents/doc-1/verified/token';
+
+  function failedRecord(): DocumentRecord {
+    return documentRecord({
+      status: 'FAILED',
+      failureKind: 'PROCESSING',
+      failureReason: 'NO_EXTRACTABLE_TEXT',
+      uploadStorageKey: null,
+      storageKey: VERIFIED_KEY,
+      contentType: 'application/pdf',
+      sizeBytes: 12,
+      generation: 2,
+    });
+  }
+
+  it('requeues a failed document and bumps its generation', async () => {
+    const storage = new FakeObjectStorage();
+    storage.putObject(VERIFIED_KEY, 'plain text', 'application/pdf');
+    const { service, prisma } = createCompletionHarness(failedRecord(), storage);
+
+    const result = await service.reprocess('org-1', 'doc-1');
+
+    expect(result.document.status).toBe('PROCESSING');
+    expect(prisma.document.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'doc-1',
+        organizationId: 'org-1',
+        status: 'FAILED',
+        storageKey: VERIFIED_KEY,
+      },
+      data: expect.objectContaining({
+        status: 'PROCESSING',
+        generation: { increment: 1 },
+        failureKind: null,
+        failureReason: null,
+      }),
+    });
+    expect(prisma.documentProcessingJob.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        documentId: 'doc-1',
+        organizationId: 'org-1',
+        documentGeneration: 3,
+        verifiedStorageKey: VERIFIED_KEY,
+        state: 'QUEUED',
+        attempt: 0,
+      }),
+    });
+  });
+
+  it('returns 404 outside the organization', async () => {
+    const { service, prisma } = createCompletionHarness();
+    prisma.document.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.reprocess('org-2', 'doc-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects a document that is not failed', async () => {
+    const { service } = createCompletionHarness(
+      documentRecord({ status: 'READY', storageKey: VERIFIED_KEY }),
+    );
+
+    await expect(service.reprocess('org-1', 'doc-1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('rejects a failed upload that never reached verified storage', async () => {
+    const { service } = createCompletionHarness(
+      documentRecord({
+        status: 'FAILED',
+        failureKind: 'VERIFICATION',
+        uploadStorageKey: STAGING_KEY,
+        storageKey: null,
+      }),
+    );
+
+    await expect(service.reprocess('org-1', 'doc-1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('rejects when the verified object is gone', async () => {
+    const { service } = createCompletionHarness(failedRecord());
+
+    await expect(service.reprocess('org-1', 'doc-1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 });

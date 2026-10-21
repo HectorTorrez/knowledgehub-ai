@@ -37,3 +37,13 @@ export function isDocumentStagingKey(
   const token = key.slice(prefix.length);
   return token.length > 0 && !token.includes('/');
 }
+
+export function isDocumentVerifiedKey(
+  key: string,
+  organizationId: string,
+  documentId: string,
+): boolean {
+  const prefix = `${documentPrefix(organizationId, documentId)}/verified/`;
+
+  return key.startsWith(prefix) && key.slice(prefix.length).length > 0;
+}

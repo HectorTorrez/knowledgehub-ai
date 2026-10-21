@@ -39,6 +39,7 @@ import {
   createDocumentStorageKey,
   createVerifiedStorageKey,
   isDocumentStagingKey,
+  isDocumentVerifiedKey,
 } from './upload-key.js';
 import {
   MAX_UPLOAD_BYTES,
@@ -200,6 +201,90 @@ export class DocumentsService {
       document.uploadStorageKey,
       document.storageKey,
     ]);
+  }
+
+  async reprocess(
+    organizationId: string,
+    documentId: string,
+  ): Promise<DocumentDetailResponse> {
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, organizationId },
+      select: {
+        id: true,
+        status: true,
+        storageKey: true,
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (document.status !== 'FAILED') {
+      throw new ConflictException('Only failed documents can be reprocessed');
+    }
+
+    if (
+      !document.storageKey ||
+      !isDocumentVerifiedKey(document.storageKey, organizationId, documentId)
+    ) {
+      throw new ConflictException(
+        'The uploaded file is no longer available. Delete this document and upload it again.',
+      );
+    }
+
+    const verifiedKey = document.storageKey;
+    const inspected = await this.runStorage(() =>
+      this.storage.inspectObject(verifiedKey),
+    );
+
+    if (!inspected) {
+      throw new ConflictException(
+        'The uploaded file is no longer available. Delete this document and upload it again.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.document.updateMany({
+        where: {
+          id: documentId,
+          organizationId,
+          status: 'FAILED',
+          storageKey: verifiedKey,
+        },
+        data: {
+          status: 'PROCESSING',
+          generation: { increment: 1 },
+          failureReason: null,
+          failureKind: null,
+        },
+      });
+
+      if (updated.count === 0) {
+        return false;
+      }
+
+      const transitioned = await tx.document.findFirstOrThrow({
+        where: { id: documentId, organizationId },
+        select: { generation: true },
+      });
+
+      await tx.documentProcessingJob.create({
+        data: {
+          documentId,
+          organizationId,
+          documentGeneration: transitioned.generation,
+          verifiedStorageKey: verifiedKey,
+          state: 'QUEUED',
+          attempt: 0,
+          maxAttempts: PROCESSING_MAX_ATTEMPTS,
+        },
+      });
+
+      return true;
+    });
+
+    return this.readDocument(organizationId, documentId);
   }
 
   async getDetail(

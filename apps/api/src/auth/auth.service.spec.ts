@@ -369,9 +369,6 @@ function createRotationHarness(overrides: RotationOverrides = {}) {
       ),
     },
     authSession: {
-      updateMany: vi.fn(async () => ({ count: 1 })),
-    },
-    authSession: {
       findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
       updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
