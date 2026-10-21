@@ -126,6 +126,13 @@ test('keeps the ask composer and answer inside the mobile viewport', async ({
   await expect(page.locator('#conversation-list')).toBeHidden();
   await page.getByRole('button', { name: 'Conversations' }).click();
   await expect(page.locator('#conversation-list')).toBeVisible();
+  await expect(page.getByText('Tap Ask to send')).toBeVisible();
+
+  const answerBody = page.getByText('You get twenty days').first();
+  const fontSize = await answerBody.evaluate(
+    (element) => getComputedStyle(element).fontSize,
+  );
+  expect(fontSize).toBe('16px');
 
   const answer = page.locator('article [data-slot="card"]').first();
   const answerBox = await answer.boundingBox();
@@ -176,6 +183,7 @@ test('fits a queued upload dialog inside the mobile viewport', async ({
   await mockApi(page, { authenticated: true });
   await page.goto('/organizations/org-1/documents');
   await page.getByRole('button', { name: /Upload document/ }).click();
+  await expect(page.getByText('Choose files to upload')).toBeVisible();
   await page.locator('input[type=file]').setInputFiles([
     {
       name: 'employee-handbook-2026-final.pdf',

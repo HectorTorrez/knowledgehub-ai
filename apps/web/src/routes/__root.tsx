@@ -10,6 +10,7 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ToastProvider } from '~/components/ui/toast';
+import { useTheme } from '~/hooks/use-theme';
 import { DEFAULT_TITLE, SITE_NAME, pageHead } from '~/lib/seo';
 import appCss from '~/styles/app.css?url';
 
@@ -53,11 +54,18 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   return (
     <RootDocument>
+      <ThemeInitializer />
       <ToastProvider>
         <Outlet />
       </ToastProvider>
     </RootDocument>
   );
+}
+
+function ThemeInitializer() {
+  useTheme();
+
+  return null;
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {

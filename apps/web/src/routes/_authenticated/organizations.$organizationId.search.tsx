@@ -124,8 +124,7 @@ function SearchPage() {
             placeholder="Search your documents…"
             aria-label="Search query"
             maxLength={SEARCH_QUERY_MAX_LENGTH}
-            className="pr-9 pl-9"
-            autoFocus
+            className="pr-12 pl-9 sm:pr-9"
           />
           {draft.length > 0 ? (
             <button

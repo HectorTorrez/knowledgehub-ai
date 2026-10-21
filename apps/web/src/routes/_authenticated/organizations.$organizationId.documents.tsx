@@ -481,10 +481,10 @@ function DocumentsPage() {
                 <Input
                   value={queryDraft}
                   onChange={(event) => setQueryDraft(event.target.value)}
-                  placeholder="Search documents by title or file name…"
+                  placeholder="Search documents…"
                   aria-label="Search documents"
                   maxLength={200}
-                  className="pr-9 pl-9"
+                  className="pr-12 pl-9 sm:pr-9"
                 />
                 {queryDraft.length > 0 ? (
                   <button
@@ -557,7 +557,7 @@ function DocumentsPage() {
               />
             ) : (
               <Card>
-                <CardContent className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+                <CardContent className="flex flex-col items-center gap-4 px-4 py-10 text-center sm:px-6">
                   <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <FileText className="size-6" />
                   </span>

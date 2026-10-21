@@ -8,7 +8,7 @@ export function AnswerBody({ text }: Readonly<{ text: string }>) {
   const parts = text.split(/(\[\d+\])/g);
 
   return (
-    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+    <p className="text-base leading-relaxed break-words whitespace-pre-wrap sm:text-sm">
       {parts.map((part, index) => {
         const match = /^\[(\d+)\]$/.exec(part);
 
@@ -93,7 +93,7 @@ export function SourcesList({
           <li
             key={`${citation.documentId}-${citation.chunkIndex}`}
             id={`source-${citation.marker}`}
-            className="scroll-mt-20 rounded-lg border p-4"
+            className="scroll-mt-[calc(5rem+env(safe-area-inset-top))] rounded-lg border p-4"
           >
             <div className="flex items-center gap-2">
               <span className="flex size-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[11px] font-semibold text-primary">

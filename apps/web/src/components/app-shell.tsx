@@ -145,7 +145,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto max-w-6xl py-8 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] outline-none sm:px-6"
+        className="mx-auto max-w-6xl py-6 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] outline-none sm:px-6 sm:py-8"
       >
         {children}
       </main>
