@@ -45,11 +45,16 @@ export function AnswerThread({
   const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AnswerSummary | null>(null);
+  const [scope, setScope] = useState<'me' | 'organization'>('me');
 
   const history = useInfiniteQuery({
-    queryKey: queryKeys.organizations.answers.list(organizationId),
+    queryKey: queryKeys.organizations.answers.list(
+      organizationId,
+      undefined,
+      scope,
+    ),
     queryFn: ({ pageParam }) =>
-      answersApi.list(organizationId, { cursor: pageParam }),
+      answersApi.list(organizationId, { cursor: pageParam, askedBy: scope }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
@@ -122,6 +127,36 @@ export function AnswerThread({
           Questions you ask will appear here so you can revisit their answers.
         </p>
       ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {scope === 'me'
+            ? 'Questions you asked in this organization.'
+            : 'Questions asked by everyone in this organization.'}
+        </p>
+        <div
+          role="group"
+          aria-label="History scope"
+          className="flex items-center gap-1 rounded-lg border p-1"
+        >
+          <Button
+            variant={scope === 'me' ? 'secondary' : 'ghost'}
+            size="sm"
+            aria-pressed={scope === 'me'}
+            onClick={() => setScope('me')}
+          >
+            Your questions
+          </Button>
+          <Button
+            variant={scope === 'organization' ? 'secondary' : 'ghost'}
+            size="sm"
+            aria-pressed={scope === 'organization'}
+            onClick={() => setScope('organization')}
+          >
+            Everyone
+          </Button>
+        </div>
+      </div>
 
       {earlier.length > 0 ? (
         <div className="space-y-3">

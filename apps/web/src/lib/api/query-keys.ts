@@ -68,9 +68,19 @@ export const queryKeys = {
         ] as const,
     },
     answers: {
-      list: (organizationId: string, conversationId?: string) =>
+      list: (
+        organizationId: string,
+        conversationId?: string,
+        askedBy?: 'me' | 'organization',
+      ) =>
         conversationId === undefined
-          ? (['organizations', organizationId, 'answers', 'list'] as const)
+          ? ([
+              'organizations',
+              organizationId,
+              'answers',
+              'list',
+              askedBy ?? '',
+            ] as const)
           : ([
               'organizations',
               organizationId,
@@ -78,6 +88,7 @@ export const queryKeys = {
               'list',
               'conversation',
               conversationId,
+              askedBy ?? '',
             ] as const),
       detail: (organizationId: string, answerId: string) =>
         ['organizations', organizationId, 'answers', 'detail', answerId] as const,

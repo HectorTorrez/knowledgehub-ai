@@ -80,10 +80,9 @@ export class AnswersController {
     query: ListAnswersInput,
     @Req() request: OrganizationRequest,
   ): Promise<AnswerListResponse> {
-    return this.answers.list(
-      requireOrganizationContext(request).organizationId,
-      query,
-    );
+    const context = requireOrganizationContext(request);
+
+    return this.answers.list(context.organizationId, context.userId, query);
   }
 
   @Get(':answerId')

@@ -9,6 +9,7 @@ describe('listAnswersSchema', () => {
   it('defaults the limit when omitted', () => {
     expect(listAnswersSchema.parse({})).toEqual({
       limit: ANSWER_LIST_DEFAULT_LIMIT,
+      askedBy: 'organization',
     });
   });
 
@@ -26,6 +27,13 @@ describe('listAnswersSchema', () => {
   it('accepts an optional cursor and rejects an empty one', () => {
     expect(listAnswersSchema.parse({ cursor: 'opaque' }).cursor).toBe('opaque');
     expect(listAnswersSchema.safeParse({ cursor: '' }).success).toBe(false);
+  });
+
+  it('accepts a personal history scope and rejects unknown scopes', () => {
+    expect(listAnswersSchema.parse({ askedBy: 'me' }).askedBy).toBe('me');
+    expect(listAnswersSchema.safeParse({ askedBy: 'everyone' }).success).toBe(
+      false,
+    );
   });
 
   it('rejects unknown properties', () => {
