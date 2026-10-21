@@ -209,6 +209,10 @@ function createHarness(options: HarnessOptions = {}) {
         organizations.push(organization);
         return organization;
       }),
+      update: vi.fn(async ({ data }: { data: { name: string } }) =>
+        organizationRecord('org-1', data.name),
+      ),
+      delete: vi.fn(async () => organizationRecord('org-1', 'Acme')),
     },
     membership: {
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -1486,5 +1490,80 @@ describe('OrganizationsService lock wait bounding', () => {
     });
     await remove.service.removeMember(organizationContext(), TARGET_USER_ID);
     expectLockWaitBounded(remove.tx);
+  });
+});
+
+describe('OrganizationsService.updateName', () => {
+  it('renames the organization for an owner', async () => {
+    const { service, tx } = createHarness();
+
+    const result = await service.updateName(organizationContext(), {
+      name: 'Renamed',
+    });
+
+    expect(tx.organization.update).toHaveBeenCalledWith({
+      where: { id: 'org-1' },
+      data: { name: 'Renamed' },
+    });
+    expect(result.organization).toMatchObject({
+      id: 'org-1',
+      name: 'Renamed',
+      role: 'OWNER',
+    });
+  });
+
+  it('rejects a rename from a member', async () => {
+    const { service, tx } = createHarness({ actorMembership: { role: 'MEMBER' } });
+
+    await expect(
+      service.updateName(organizationContext('MEMBER'), { name: 'Nope' }),
+    ).rejects.toThrow('Only an organization owner can rename the organization');
+    expect(tx.organization.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('OrganizationsService.deleteOrganization', () => {
+  it('deletes the organization for an owner', async () => {
+    const { service, tx } = createHarness();
+
+    await service.deleteOrganization(organizationContext());
+
+    expect(tx.organization.delete).toHaveBeenCalledWith({
+      where: { id: 'org-1' },
+    });
+  });
+});
+
+describe('OrganizationsService.leave', () => {
+  it('removes the caller membership', async () => {
+    const { service, tx } = createHarness({ actorMembership: { role: 'MEMBER' } });
+
+    await service.leave(organizationContext('MEMBER'));
+
+    expect(tx.membership.delete).toHaveBeenCalledWith({
+      where: {
+        userId_organizationId: {
+          userId: 'owner-1',
+          organizationId: 'org-1',
+        },
+      },
+    });
+  });
+
+  it('blocks the last owner from leaving', async () => {
+    const { service, tx } = createHarness({ ownerCount: 1 });
+
+    await expect(service.leave(organizationContext())).rejects.toThrow(
+      'You are the last owner',
+    );
+    expect(tx.membership.delete).not.toHaveBeenCalled();
+  });
+
+  it('lets an owner leave when another owner remains', async () => {
+    const { service, tx } = createHarness({ ownerCount: 2 });
+
+    await service.leave(organizationContext());
+
+    expect(tx.membership.delete).toHaveBeenCalledTimes(1);
   });
 });

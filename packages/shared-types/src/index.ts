@@ -112,6 +112,11 @@ export interface OrganizationDetailResponse {
   organization: OrganizationSummary;
 }
 
+/** Request body of `PATCH /organizations/:organizationId`. */
+export interface UpdateOrganizationRequest {
+  name: string;
+}
+
 /**
  * A member of an organization. Exposes only the profile fields a client needs
  * to render a member list alongside the member's role; `createdAt` is when the

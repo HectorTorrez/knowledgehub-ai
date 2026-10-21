@@ -22,6 +22,7 @@ import { normalizeEmail } from '../users/email.js';
 import type { AddMemberInput } from './dto/add-member.schema.js';
 import type { CreateOrganizationInput } from './dto/create-organization.schema.js';
 import type { UpdateMemberRoleInput } from './dto/update-member-role.schema.js';
+import type { UpdateOrganizationInput } from './dto/update-organization.schema.js';
 import type {
   AuthorizedOrganization,
   OrganizationContext,
@@ -160,6 +161,81 @@ export class OrganizationsService {
     return {
       organization: toOrganizationSummary(context.organization, context.role),
     };
+  }
+
+  async updateName(
+    context: OrganizationContext,
+    input: UpdateOrganizationInput,
+  ): Promise<OrganizationDetailResponse> {
+    const organization = await this.runMembershipTransaction(async (tx) => {
+      await lockOrganization(tx, context.organizationId);
+      await requireOwner(tx, context, 'rename the organization');
+
+      return tx.organization.update({
+        where: { id: context.organizationId },
+        data: { name: input.name },
+      });
+    });
+
+    return {
+      organization: toOrganizationSummary(
+        organization,
+        MembershipRole.OWNER,
+      ),
+    };
+  }
+
+  async deleteOrganization(context: OrganizationContext): Promise<void> {
+    await this.runMembershipTransaction(async (tx) => {
+      await lockOrganization(tx, context.organizationId);
+      await requireOwner(tx, context, 'delete the organization');
+
+      await tx.organization.delete({ where: { id: context.organizationId } });
+    });
+  }
+
+  async leave(context: OrganizationContext): Promise<void> {
+    await this.runMembershipTransaction(async (tx) => {
+      await lockOrganization(tx, context.organizationId);
+
+      const membership = await tx.membership.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: context.userId,
+            organizationId: context.organizationId,
+          },
+        },
+        select: { role: true },
+      });
+
+      if (!membership) {
+        throw new NotFoundException('You are not a member of this organization');
+      }
+
+      if (membership.role === MembershipRole.OWNER) {
+        const ownerCount = await tx.membership.count({
+          where: {
+            organizationId: context.organizationId,
+            role: MembershipRole.OWNER,
+          },
+        });
+
+        if (ownerCount <= 1) {
+          throw new ConflictException(
+            'You are the last owner. Transfer ownership or delete the organization instead.',
+          );
+        }
+      }
+
+      await tx.membership.delete({
+        where: {
+          userId_organizationId: {
+            userId: context.userId,
+            organizationId: context.organizationId,
+          },
+        },
+      });
+    });
   }
 
   async listMembers(organizationId: string): Promise<MemberListResponse> {

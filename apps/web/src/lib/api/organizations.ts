@@ -7,6 +7,7 @@ import type {
   OrganizationListResponse,
   UpdateMemberRoleRequest,
   UpdateMemberRoleResponse,
+  UpdateOrganizationRequest,
 } from '@knowledgehub/shared-types';
 import { apiFetch, type RequestOptions } from './client';
 
@@ -26,6 +27,30 @@ export const organizationsApi = {
       body: input,
       authRecovery: true,
     });
+  },
+
+  updateName(
+    organizationId: string,
+    input: UpdateOrganizationRequest,
+  ): Promise<OrganizationDetailResponse> {
+    return apiFetch<OrganizationDetailResponse>(
+      `${ORGANIZATIONS_PATH}/${organizationId}`,
+      { method: 'PATCH', body: input, authRecovery: true },
+    );
+  },
+
+  remove(organizationId: string): Promise<void> {
+    return apiFetch<void>(`${ORGANIZATIONS_PATH}/${organizationId}`, {
+      method: 'DELETE',
+      authRecovery: true,
+    });
+  },
+
+  leave(organizationId: string): Promise<void> {
+    return apiFetch<void>(
+      `${ORGANIZATIONS_PATH}/${organizationId}/leave`,
+      { method: 'POST', authRecovery: true },
+    );
   },
 
   detail(organizationId: string): Promise<OrganizationDetailResponse> {
