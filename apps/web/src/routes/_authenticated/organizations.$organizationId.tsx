@@ -71,11 +71,11 @@ function OrganizationLayout() {
   });
 
   return (
-    <div className="space-y-6 pb-24 sm:pb-0">
+    <div className="space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         <Link
           to="/organizations"
-          className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 py-2 -my-2 text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
           All organizations
@@ -139,7 +139,7 @@ function OrganizationTab({ to, exact, icon: Icon, label }: OrganizationTabItem) 
       to={to}
       params={{ organizationId }}
       activeOptions={{ exact: exact ?? false }}
-      className="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors"
+      className="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
       inactiveProps={{
         className: 'border-transparent text-muted-foreground hover:text-foreground',
       }}

@@ -494,7 +494,7 @@ function DocumentsPage() {
                       setQuery('');
                     }}
                     aria-label="Clear search"
-                    className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-sm p-3 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
                   >
                     <X className="size-4" />
                   </button>
@@ -746,7 +746,7 @@ function DocumentsPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="size-7"
+                          className="size-10 sm:size-7"
                           aria-label={`Remove ${item.file.name}`}
                           onClick={() =>
                             setUploadItems((items) =>

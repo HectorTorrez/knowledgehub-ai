@@ -69,7 +69,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-40 border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">
             <Link
@@ -93,7 +93,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-9 gap-2 px-2">
+                  <Button variant="ghost" className="h-11 gap-2 px-2 sm:h-9">
                     <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
                       {initialsFor(user.firstName, user.lastName, user.email)}
                     </span>
@@ -145,7 +145,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto max-w-6xl px-4 py-8 outline-none sm:px-6"
+        className="mx-auto max-w-6xl py-8 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] outline-none sm:px-6"
       >
         {children}
       </main>
@@ -174,7 +174,7 @@ function OrganizationSwitcher({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="h-9 min-w-0 gap-2 px-2"
+          className="h-11 min-w-0 gap-2 px-2 sm:h-9"
           aria-label={`Switch organization, currently ${active.name}`}
         >
           <Building2 className="size-4 shrink-0 text-muted-foreground" />

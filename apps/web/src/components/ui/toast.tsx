@@ -128,7 +128,7 @@ function ToastItem({
         type="button"
         onClick={() => onDismiss(record.id)}
         aria-label="Dismiss notification"
-        className="-m-1 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="-m-2 rounded-sm p-2.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:-m-1 sm:p-1"
       >
         <XIcon className="size-4" />
       </button>
