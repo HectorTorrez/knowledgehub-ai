@@ -5,45 +5,62 @@ import { cn } from '~/lib/utils';
 
 export function FileDropzone({
   accept,
-  file,
-  onFileChange,
+  files,
+  disabled = false,
+  onFilesAdd,
 }: Readonly<{
   accept: string;
-  file: File | null;
-  onFileChange: (file: File | null) => void;
+  files: File[];
+  disabled?: boolean;
+  onFilesAdd: (files: File[]) => void;
 }>) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
   function openPicker() {
-    inputRef.current?.click();
+    if (!disabled) {
+      inputRef.current?.click();
+    }
+  }
+
+  function add(list: FileList | null) {
+    const next = Array.from(list ?? []);
+
+    if (next.length > 0) {
+      onFilesAdd(next);
+    }
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragging(false);
 
-    const dropped = event.dataTransfer.files?.[0];
-    if (dropped) onFileChange(dropped);
+    if (!disabled) {
+      add(event.dataTransfer.files);
+    }
   }
 
   return (
     <div
       role="button"
-      tabIndex={0}
-      aria-label="Choose a file to upload"
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
+      aria-label="Choose files to upload"
       onClick={openPicker}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') openPicker();
       }}
       onDragOver={(event) => {
         event.preventDefault();
-        setDragging(true);
+        if (!disabled) {
+          setDragging(true);
+        }
       }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
       className={cn(
         'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-6 py-8 text-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        disabled && 'cursor-not-allowed opacity-60',
         dragging ? 'border-primary bg-accent/50' : 'border-input hover:bg-accent/40',
       )}
     >
@@ -51,26 +68,34 @@ export function FileDropzone({
         ref={inputRef}
         type="file"
         accept={accept}
+        multiple
         tabIndex={-1}
+        disabled={disabled}
         className="sr-only"
-        onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
+        onChange={(event) => {
+          add(event.target.files);
+          event.target.value = '';
+        }}
       />
-      {file ? (
+      {files.length > 0 ? (
         <>
           <FileText className="size-8 text-muted-foreground" />
-          <p className="max-w-full truncate text-sm font-medium">{file.name}</p>
+          <p className="text-sm font-medium">
+            {files.length} {files.length === 1 ? 'file' : 'files'} ready
+          </p>
           <p className="text-xs text-muted-foreground">
-            {formatBytes(file.size)} · click or drop to replace
+            {formatBytes(files.reduce((total, file) => total + file.size, 0))} ·
+            click or drop to add more
           </p>
         </>
       ) : (
         <>
           <UploadCloud className="size-8 text-muted-foreground" />
           <p className="text-sm font-medium">
-            Drop your file here, or click to browse
+            Drop your files here, or click to browse
           </p>
           <p className="text-xs text-muted-foreground">
-            PDF, plain text, or Markdown
+            PDF, plain text, or Markdown · choose several at once
           </p>
         </>
       )}

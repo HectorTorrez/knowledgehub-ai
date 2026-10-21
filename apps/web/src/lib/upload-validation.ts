@@ -1,4 +1,5 @@
 import { formatBytes } from './format';
+import { DOCUMENT_TITLE_MAX_LENGTH } from './validation';
 import { isAllowedUploadContentType } from './validation';
 
 export const SIGNATURE_PREFIX_BYTES = 1024;
@@ -157,4 +158,11 @@ function isStrictUtf8Text(bytes: Uint8Array): boolean {
   } catch {
     return false;
   }
+}
+
+export function titleFromFileName(fileName: string): string {
+  const stem = fileName.replace(/\.[^.]+$/, '').trim();
+  const title = stem.length > 0 ? stem : fileName.trim();
+
+  return title.slice(0, DOCUMENT_TITLE_MAX_LENGTH) || 'Untitled document';
 }

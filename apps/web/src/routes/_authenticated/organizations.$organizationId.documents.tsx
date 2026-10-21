@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import {
+  CircleCheck,
   FileText,
   LoaderCircle,
   MoreHorizontal,
@@ -16,6 +17,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  TriangleAlert,
   Upload,
   X,
 } from 'lucide-react';
@@ -53,13 +55,14 @@ import {
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
-import { documentsApi } from '~/lib/api/documents';
+import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatBytes } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
 import {
   MAX_PROCESSABLE_UPLOAD_BYTES,
+  titleFromFileName,
   validateUploadFile,
 } from '~/lib/upload-validation';
 import {
@@ -85,17 +88,26 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 type StatusFilter = DocumentStatus | typeof ALL_STATUSES;
 type DocumentOrder = 'createdAt_desc' | 'createdAt_asc';
+type UploadStatus = 'queued' | 'uploading' | 'completed' | 'failed';
+
+interface UploadItem {
+  id: string;
+  file: File;
+  status: UploadStatus;
+  progress: number;
+  error?: string;
+}
 
 function DocumentsPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const { toast } = useToast();
-  const [title, setTitle] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const fileValidationId = useRef(0);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const uploadAbortRef = useRef<AbortController | null>(null);
   const [renameTarget, setRenameTarget] = useState<DocumentSummary | null>(null);
   const [renameTitle, setRenameTitle] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -137,45 +149,196 @@ function DocumentsPage() {
     },
   });
 
-  const upload = useMutation({
-    mutationFn: async (input: {
-      organizationId: string;
-      title: string;
-      file: File;
-      contentType: string;
-    }) => {
-      const created = await documentsApi.create(input.organizationId, {
-        title: input.title,
-      });
-      const documentId = created.document.id;
-      const target = await documentsApi.createUploadUrl(
-        input.organizationId,
-        documentId,
-        {
-          contentType: input.contentType,
-          sizeBytes: input.file.size,
-        },
-      );
+  function updateUploadItem(id: string, patch: Partial<UploadItem>) {
+    setUploadItems((items) =>
+      items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
+  }
 
-      const response = await fetch(target.uploadUrl, {
-        method: target.method,
-        headers: target.headers,
-        body: input.file,
-      });
+  async function addFiles(next: File[]) {
+    setUploadError(null);
+    setValidationError(null);
 
-      if (!response.ok) {
-        throw new Error(`The storage upload failed with status ${response.status}.`);
+    const seen = new Set(uploadItems.map((item) => fileKey(item.file)));
+    const unique = next.filter((file) => {
+      const key = fileKey(file);
+
+      if (seen.has(key)) {
+        return false;
       }
 
-      return documentsApi.completeUpload(input.organizationId, documentId, {
-        originalFileName: input.file.name,
+      seen.add(key);
+      return true;
+    });
+
+    const checked = await Promise.all(
+      unique.map(async (file) => ({
+        file,
+        result: await validateUploadFile(file),
+      })),
+    );
+    const rejected = checked.filter((entry) => !entry.result.ok);
+    const accepted = checked.filter(
+      (entry) => entry.result.ok,
+    ) as Array<{ file: File; result: { ok: true; contentType: string } }>;
+
+    if (rejected.length > 0) {
+      setUploadError(
+        rejected
+          .map(
+            (entry) =>
+              `${entry.file.name}: ${
+                entry.result.ok ? '' : entry.result.message
+              }`,
+          )
+          .join(' '),
+      );
+    }
+
+    if (accepted.length > 0) {
+      setUploadItems((items) => [
+        ...items,
+        ...accepted.map(({ file }) => ({
+          id: `${fileKey(file)}:${crypto.randomUUID()}`,
+          file,
+          status: 'queued' as const,
+          progress: 0,
+        })),
+      ]);
+    }
+  }
+
+  async function startUpload(targets?: UploadItem[]) {
+    const queue = (targets ?? uploadItems).filter(
+      (item) => item.status === 'queued' || item.status === 'failed',
+    );
+
+    if (queue.length === 0 || uploading) {
+      return;
+    }
+
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
+    setUploading(true);
+    setUploadError(null);
+    setUploadItems((items) =>
+      items.map((item) =>
+        queue.some((entry) => entry.id === item.id)
+          ? { ...item, status: 'queued', progress: 0, error: undefined }
+          : item,
+      ),
+    );
+
+    let failures = 0;
+
+    for (const item of queue) {
+      if (controller.signal.aborted) {
+        failures += 1;
+        updateUploadItem(item.id, {
+          status: 'failed',
+          error: 'Upload cancelled.',
+        });
+        break;
+      }
+
+      updateUploadItem(item.id, {
+        status: 'uploading',
+        progress: 0,
+        error: undefined,
       });
-    },
-    onSettled: (_data, _error, variables) =>
-      client.invalidateQueries({
-        queryKey: queryKeys.organizations.documents.all(variables.organizationId),
-      }),
-  });
+
+      const validation = await validateUploadFile(item.file);
+
+      if (!validation.ok) {
+        failures += 1;
+        updateUploadItem(item.id, {
+          status: 'failed',
+          error: validation.message,
+        });
+        continue;
+      }
+
+      try {
+        await uploadFileToDocument(
+          organizationId,
+          titleFromFileName(item.file.name),
+          item.file,
+          {
+            contentType: validation.contentType,
+            signal: controller.signal,
+            onProgress: (fraction) =>
+              updateUploadItem(item.id, { progress: fraction }),
+          },
+        );
+        updateUploadItem(item.id, { status: 'completed', progress: 1 });
+      } catch (error) {
+        failures += 1;
+        updateUploadItem(item.id, {
+          status: 'failed',
+          error: isAbortError(error) ? 'Upload cancelled.' : messageOf(error),
+        });
+
+        if (isAbortError(error)) {
+          break;
+        }
+      }
+    }
+
+    uploadAbortRef.current = null;
+    setUploading(false);
+    await client.invalidateQueries({
+      queryKey: queryKeys.organizations.documents.all(organizationId),
+    });
+
+    if (failures === 0) {
+      toast({
+        variant: 'success',
+        title:
+          queue.length === 1
+            ? 'Document uploaded'
+            : `${queue.length} documents uploaded`,
+        description: 'They are queued for processing.',
+      });
+      setUploadItems([]);
+      setUploadOpen(false);
+      return;
+    }
+
+    setUploadItems((items) =>
+      items.filter((item) => item.status !== 'completed'),
+    );
+    toast({
+      variant: 'error',
+      title: `${queue.length - failures} uploaded, ${failures} failed`,
+      description: 'Fix or retry the failed files before closing.',
+    });
+  }
+
+  async function handleUpload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setValidationError(null);
+
+    if (uploadItems.length === 0) {
+      setValidationError('Choose at least one file to upload.');
+      return;
+    }
+
+    await startUpload();
+  }
+
+  function handleUploadOpenChange(open: boolean) {
+    if (uploading && !open) {
+      return;
+    }
+
+    setUploadOpen(open);
+
+    if (!open) {
+      setUploadItems([]);
+      setUploadError(null);
+      setValidationError(null);
+    }
+  }
 
   const rename = useMutation({
     mutationFn: (input: { documentId: string; title: string }) =>
@@ -196,72 +359,6 @@ function DocumentsPage() {
         queryKey: queryKeys.organizations.documents.all(organizationId),
       }),
   });
-
-  async function handleFileChange(nextFile: File | null) {
-    const validationId = fileValidationId.current + 1;
-    fileValidationId.current = validationId;
-    setFile(nextFile);
-    setFileError(null);
-
-    if (nextFile === null) {
-      return;
-    }
-
-    const result = await validateUploadFile(nextFile);
-
-    if (validationId !== fileValidationId.current) {
-      return;
-    }
-
-    if (!result.ok) {
-      setFileError(result.message);
-    }
-  }
-
-  async function handleUpload(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setValidationError(null);
-    setFileError(null);
-
-    const result = documentTitleSchema.safeParse({ title });
-
-    if (!result.success) {
-      setValidationError(result.error.issues[0]?.message ?? 'A title is required.');
-      return;
-    }
-
-    if (file === null) {
-      setValidationError('Choose a file to upload.');
-      return;
-    }
-
-    const fileResult = await validateUploadFile(file);
-
-    if (!fileResult.ok) {
-      setFileError(fileResult.message);
-      return;
-    }
-
-    try {
-      await upload.mutateAsync({
-        organizationId,
-        title: result.data.title,
-        file,
-        contentType: fileResult.contentType,
-      });
-      toast({
-        variant: 'success',
-        title: 'Document uploaded',
-        description: `“${result.data.title}” is queued for processing.`,
-      });
-      setTitle('');
-      setFile(null);
-      setFileError(null);
-      setUploadOpen(false);
-    } catch {
-      return;
-    }
-  }
 
   function openRename(document: DocumentSummary) {
     setRenameTarget(document);
@@ -323,7 +420,7 @@ function DocumentsPage() {
 
   return (
     <>
-      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+      <Dialog open={uploadOpen} onOpenChange={handleUploadOpenChange}>
         <div className="space-y-8">
           <PageHeader
             title="Documents"
@@ -544,51 +641,139 @@ function DocumentsPage() {
           ) : null}
         </div>
 
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Upload a document</DialogTitle>
+            <DialogTitle>Upload documents</DialogTitle>
             <DialogDescription>
-              Add a PDF, plain text, or Markdown file up to{' '}
-              {formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} to this organization.
+              Add PDF, plain text, or Markdown files up to{' '}
+              {formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} each. Titles are taken
+              from file names and can be changed later.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpload} className="space-y-4" noValidate>
             {validationError ? (
               <ErrorNotice error={new Error(validationError)} />
             ) : null}
-            {upload.isError ? <ErrorNotice error={upload.error} /> : null}
-            <div className="space-y-2">
-              <Label htmlFor="document-title">Title</Label>
-              <Input
-                id="document-title"
-                autoFocus
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Employee handbook"
-              />
-            </div>
-            <div className="space-y-2">
-              <FileDropzone
-                accept={ALLOWED_UPLOAD_CONTENT_TYPES.join(',')}
-                file={file}
-                onFileChange={(nextFile) => void handleFileChange(nextFile)}
-              />
-              {fileError ? (
-                <p role="alert" className="text-xs text-destructive">
-                  {fileError}
-                </p>
-              ) : null}
-            </div>
+            {uploadError ? <ErrorNotice error={new Error(uploadError)} /> : null}
+
+            <FileDropzone
+              accept={ALLOWED_UPLOAD_CONTENT_TYPES.join(',')}
+              files={uploadItems.map((item) => item.file)}
+              disabled={uploading}
+              onFilesAdd={(files) => void addFiles(files)}
+            />
+
+            {uploadItems.length > 0 ? (
+              <ul className="max-h-56 space-y-2 overflow-y-auto">
+                {uploadItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="rounded-md border px-3 py-2 text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="min-w-0 flex-1 truncate"
+                        title={item.file.name}
+                      >
+                        {item.file.name}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatBytes(item.file.size)}
+                      </span>
+                      {item.status === 'completed' ? (
+                        <CircleCheck className="size-4 shrink-0 text-success" />
+                      ) : null}
+                      {item.status === 'failed' ? (
+                        <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                      ) : null}
+                      {item.status !== 'uploading' ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          aria-label={`Remove ${item.file.name}`}
+                          onClick={() =>
+                            setUploadItems((items) =>
+                              items.filter((entry) => entry.id !== item.id),
+                            )
+                          }
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      ) : null}
+                    </div>
+
+                    {item.status === 'uploading' ? (
+                      <div className="mt-2 space-y-1">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full bg-primary transition-[width]"
+                            style={{
+                              width: `${Math.round(item.progress * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Uploading… {Math.round(item.progress * 100)}%
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {item.status === 'queued' ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Queued
+                      </p>
+                    ) : null}
+
+                    {item.status === 'failed' && item.error ? (
+                      <p className="mt-1 text-xs text-destructive">
+                        {item.error}
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
             <DialogFooter>
+              {uploading ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => uploadAbortRef.current?.abort()}
+                >
+                  Cancel upload
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleUploadOpenChange(false)}
+                >
+                  Close
+                </Button>
+              )}
               <Button
-                type="button"
-                variant="outline"
-                onClick={() => setUploadOpen(false)}
+                type="submit"
+                disabled={
+                  uploading ||
+                  uploadItems.filter(
+                    (item) =>
+                      item.status === 'queued' || item.status === 'failed',
+                  ).length === 0
+                }
               >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={upload.isPending}>
-                {upload.isPending ? 'Uploading…' : 'Upload'}
+                {uploading ? (
+                  <>
+                    <LoaderCircle className="animate-spin" />
+                    Uploading…
+                  </>
+                ) : uploadItems.some((item) => item.status === 'failed') ? (
+                  'Retry failed'
+                ) : (
+                  `Upload ${uploadItems.length || ''}`.trim()
+                )}
               </Button>
             </DialogFooter>
           </form>
@@ -676,4 +861,21 @@ function DocumentsPage() {
       </Dialog>
     </>
   );
+}
+
+function fileKey(file: File): string {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name: unknown }).name === 'AbortError'
+  );
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : 'The upload failed.';
 }

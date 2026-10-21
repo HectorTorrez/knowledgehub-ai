@@ -4,6 +4,7 @@ import {
   evaluateUploadSignature,
   MAX_PROCESSABLE_UPLOAD_BYTES,
   resolveUploadContentType,
+  titleFromFileName,
   validateUploadFile,
 } from './upload-validation';
 
@@ -199,5 +200,22 @@ describe('validateUploadFile', () => {
     const result = await validateUploadFile(file);
 
     expect(result.ok ? '' : result.message).toContain('25.0 MB');
+  });
+});
+
+describe('titleFromFileName', () => {
+  it('drops the extension and trims the name', () => {
+    expect(titleFromFileName('Employee Handbook.pdf')).toBe(
+      'Employee Handbook',
+    );
+    expect(titleFromFileName('  notes.md  ')).toBe('notes');
+  });
+
+  it('falls back to the raw name when there is no stem', () => {
+    expect(titleFromFileName('.env')).toBe('.env');
+  });
+
+  it('caps the title at the document title limit', () => {
+    expect(titleFromFileName(`${'a'.repeat(300)}.txt`)).toHaveLength(200);
   });
 });

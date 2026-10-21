@@ -116,27 +116,80 @@ export const documentsApi = {
   },
 };
 
+export interface UploadProgressOptions {
+  contentType: string;
+  signal?: AbortSignal;
+  onProgress?: (fraction: number) => void;
+}
+
 export async function uploadFileToDocument(
   organizationId: string,
-  documentId: string,
+  title: string,
   file: File,
+  options: UploadProgressOptions,
 ): Promise<DocumentDetailResponse> {
+  const created = await documentsApi.create(organizationId, { title });
+  const documentId = created.document.id;
   const target = await documentsApi.createUploadUrl(organizationId, documentId, {
-    contentType: file.type || 'application/octet-stream',
+    contentType: options.contentType,
     sizeBytes: file.size,
   });
 
-  const response = await fetch(target.uploadUrl, {
-    method: target.method,
-    headers: target.headers,
-    body: file,
-  });
-
-  if (!response.ok) {
-    throw new Error(`The storage upload failed with status ${response.status}.`);
-  }
+  await putFileWithProgress(target, file, options);
 
   return documentsApi.completeUpload(organizationId, documentId, {
     originalFileName: file.name,
+  });
+}
+
+function putFileWithProgress(
+  target: DocumentUploadUrlResponse,
+  file: File,
+  options: UploadProgressOptions,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (options.signal?.aborted === true) {
+      reject(new DOMException('The upload was cancelled.', 'AbortError'));
+      return;
+    }
+
+    const request = new XMLHttpRequest();
+    request.open(target.method, target.uploadUrl);
+
+    for (const [name, value] of Object.entries(target.headers)) {
+      request.setRequestHeader(name, value);
+    }
+
+    request.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        options.onProgress?.(event.loaded / event.total);
+      }
+    });
+
+    request.addEventListener('load', () => {
+      if (request.status >= 200 && request.status < 300) {
+        options.onProgress?.(1);
+        resolve();
+        return;
+      }
+
+      reject(
+        new Error(`The storage upload failed with status ${request.status}.`),
+      );
+    });
+
+    request.addEventListener('error', () => {
+      reject(new Error('The storage upload failed.'));
+    });
+
+    request.addEventListener('abort', () => {
+      reject(new DOMException('The upload was cancelled.', 'AbortError'));
+    });
+
+    options.signal?.addEventListener('abort', () => request.abort(), {
+      once: true,
+    });
+
+    request.send(file);
   });
 }
