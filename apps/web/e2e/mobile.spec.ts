@@ -100,6 +100,42 @@ test('keeps the ask composer and answer inside the mobile viewport', async ({
   expect(answerBox!.x + answerBox!.width).toBeLessThanOrEqual(VIEWPORT.width);
 });
 
+test('gives document and member names room on small screens', async ({
+  page,
+}) => {
+  await mockApi(page, { authenticated: true });
+
+  await page.goto('/organizations/org-1/documents');
+  await page.waitForLoadState('networkidle');
+
+  const documentLink = page.getByRole('link', { name: /Handbook/ });
+  const documentBox = await documentLink.boundingBox();
+
+  expect(documentBox).not.toBeNull();
+  expect(documentBox!.width).toBeGreaterThan(160);
+
+  await page.goto('/organizations/org-1');
+  await page.waitForLoadState('networkidle');
+
+  const memberName = page.locator('main li p').first();
+  const memberBox = await memberName.boundingBox();
+
+  expect(memberBox).not.toBeNull();
+  expect(memberBox!.width).toBeGreaterThan(150);
+});
+
+test('opens the document detail page from the documents list', async ({
+  page,
+}) => {
+  await mockApi(page, { authenticated: true });
+  await page.goto('/organizations/org-1/documents/doc-1');
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.getByRole('heading', { name: 'Handbook' })).toBeVisible();
+  await expect(page.getByText('Original file')).toBeVisible();
+  expect(await overflowingElements(page)).toEqual([]);
+});
+
 test('fits a queued upload dialog inside the mobile viewport', async ({
   page,
 }) => {

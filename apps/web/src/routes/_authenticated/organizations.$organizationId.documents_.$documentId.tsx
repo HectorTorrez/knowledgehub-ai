@@ -26,7 +26,7 @@ import { pageHead } from '~/lib/seo';
 import { documentTitleSchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
-  '/_authenticated/organizations/$organizationId/documents/$documentId',
+  '/_authenticated/organizations/$organizationId/documents_/$documentId',
 )({
   head: () =>
     pageHead({
@@ -175,7 +175,7 @@ function DocumentDetailPage() {
         title={entry.title}
         description="The file, processing state, and metadata behind this document."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {entry.status === 'FAILED' ? (
               <Button
                 variant="outline"
