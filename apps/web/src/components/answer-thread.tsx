@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { ChevronDown, LoaderCircle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { AnswerActions } from '~/components/answer-actions';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime } from '~/lib/format';
@@ -94,6 +95,7 @@ export function AnswerThread({
       {latest ? (
         <LatestAnswerCard
           organizationId={organizationId}
+          answerId={newestMatch?.id}
           latest={latest}
           onRequestDelete={
             newestMatch
@@ -202,10 +204,12 @@ export function AnswerThread({
 
 function LatestAnswerCard({
   organizationId,
+  answerId,
   latest,
   onRequestDelete,
 }: Readonly<{
   organizationId: string;
+  answerId?: string;
   latest: LatestAnswer;
   onRequestDelete?: () => void;
 }>) {
@@ -223,17 +227,31 @@ function LatestAnswerCard({
                 Answered from {latest.scopeLabel}
               </p>
             </div>
-            {onRequestDelete ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onRequestDelete}
-                aria-label={`Remove “${latest.question}” from history`}
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-1">
+              <AnswerActions
+                organizationId={organizationId}
+                answerId={answerId}
+                question={latest.question}
+                answer={
+                  latest.response.status === 'answered'
+                    ? latest.response.answer
+                    : null
+                }
+                status={latest.response.status}
+                citations={latest.response.citations}
+              />
+              {onRequestDelete ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onRequestDelete}
+                  aria-label={`Remove “${latest.question}” from history`}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           {latest.response.status === 'answered' ? (
@@ -359,6 +377,17 @@ function ExpandedAnswer({
           />
         </div>
       ) : null}
+
+      <div className="mt-3 flex justify-end">
+        <AnswerActions
+          organizationId={organizationId}
+          answerId={answer.id}
+          question={answer.question}
+          answer={answer.answer}
+          status={answer.status}
+          citations={answer.citations}
+        />
+      </div>
     </div>
   );
 }
