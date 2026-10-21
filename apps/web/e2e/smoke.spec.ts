@@ -39,6 +39,22 @@ test('signs in and browses an organization', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'No matching documents' })).toBeVisible();
 });
 
+test('opens the original file at the cited page', async ({ page }) => {
+  await mockApi(page, { authenticated: true });
+
+  await page.goto('/organizations/org-1/documents/doc-1?page=3');
+
+  await expect(page.getByRole('heading', { name: 'Handbook' })).toBeVisible();
+  await expect(page.getByText('Page 3', { exact: true })).toBeVisible();
+
+  const open = page.getByRole('link', { name: 'Open page 3' });
+  await expect(open).toBeVisible();
+  await expect(open).toHaveAttribute(
+    'href',
+    'https://fake-object-storage.test/handbook.pdf#page=3',
+  );
+});
+
 test('asks a question and renders the streamed answer with its source', async ({ page }) => {
   let asked = false;
   await mockApi(page, {
@@ -58,5 +74,7 @@ test('asks a question and renders the streamed answer with its source', async ({
   await expect(page.getByText('You get twenty days')).toBeVisible();
 
   await page.getByRole('button', { name: /Sources/ }).first().click();
-  await expect(page.getByRole('link', { name: 'Handbook' })).toBeVisible();
+  const source = page.getByRole('link', { name: 'Handbook' });
+  await expect(source).toBeVisible();
+  await expect(source).toHaveAttribute('href', /page=3/);
 });

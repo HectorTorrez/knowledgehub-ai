@@ -5,6 +5,8 @@ import {
   type ListedObject,
   type ObjectMetadata,
   type ObjectStorage,
+  type PresignedDownload,
+  type PresignedDownloadInput,
   type PresignedUpload,
   type PresignedUploadInput,
   type ReadObjectInput,
@@ -21,6 +23,12 @@ export interface RecordedPresignedUpload {
   expiresAt: Date;
 }
 
+export interface RecordedPresignedDownload {
+  key: string;
+  expiresInSeconds: number;
+  expiresAt: Date;
+}
+
 interface StoredObject {
   bytes: Uint8Array;
   contentType: string | null;
@@ -33,6 +41,7 @@ function versionOf(bytes: Uint8Array): string {
 
 export class FakeObjectStorage implements ObjectStorage {
   readonly calls: RecordedPresignedUpload[] = [];
+  readonly downloadCalls: RecordedPresignedDownload[] = [];
   onPresign: (() => Promise<void> | void) | null = null;
   onInspectObject: ((key: string) => void) | null = null;
   onReadObjectPrefix: ((input: ReadObjectPrefixInput) => void) | null = null;
@@ -79,6 +88,25 @@ export class FakeObjectStorage implements ObjectStorage {
       url: `https://fake-object-storage.test/${input.key}`,
       method: 'PUT',
       headers: { 'Content-Type': input.contentType },
+      expiresAt,
+    };
+  }
+
+  async createPresignedDownload(
+    input: PresignedDownloadInput,
+  ): Promise<PresignedDownload> {
+    const expiresAt = new Date(
+      FAKE_NOW_MS + input.expiresInSeconds * MS_PER_SECOND,
+    );
+
+    this.downloadCalls.push({
+      key: input.key,
+      expiresInSeconds: input.expiresInSeconds,
+      expiresAt,
+    });
+
+    return {
+      url: `https://fake-object-storage.test/${input.key}?download=1`,
       expiresAt,
     };
   }

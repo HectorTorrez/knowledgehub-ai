@@ -127,7 +127,8 @@ The Compose services read these variables from the root `.env`:
 `apps/api/.env` holds the API's own storage settings, which must match the
 MinIO service: `STORAGE_BUCKET`, `STORAGE_ENDPOINT`
 (`http://127.0.0.1:9000`), `STORAGE_REGION`, `STORAGE_FORCE_PATH_STYLE`
-(`true` for MinIO), `STORAGE_UPLOAD_TTL_SECONDS` (presigned-URL lifetime),
+(`true` for MinIO), `STORAGE_UPLOAD_TTL_SECONDS` and
+`STORAGE_DOWNLOAD_TTL_SECONDS` (presigned-URL lifetimes),
 `STORAGE_ACCESS_KEY_ID` and `STORAGE_SECRET_ACCESS_KEY`. Keep
 `STORAGE_ACCESS_KEY_ID` equal to `MINIO_ROOT_USER` and
 `STORAGE_SECRET_ACCESS_KEY` equal to `MINIO_ROOT_PASSWORD`. The API fails to
@@ -411,6 +412,7 @@ an unauthenticated request returns `401`, an authenticated non-member returns
 POST   /organizations/:organizationId/documents
 GET    /organizations/:organizationId/documents
 GET    /organizations/:organizationId/documents/:documentId
+GET    /organizations/:organizationId/documents/:documentId/download
 PATCH  /organizations/:organizationId/documents/:documentId
 DELETE /organizations/:organizationId/documents/:documentId
 POST   /organizations/:organizationId/documents/:documentId/upload-url
@@ -418,9 +420,9 @@ POST   /organizations/:organizationId/documents/:documentId/upload-complete
 ```
 
 Any organization member — `OWNER` or `MEMBER` — may create, list, read, rename,
-delete, upload, and complete documents. A document belongs to its organization,
-not to the user who registered it: the uploader is recorded for provenance only
-and never scopes access.
+download, delete, upload, and complete documents. A document belongs to its
+organization, not to the user who registered it: the uploader is recorded for
+provenance only and never scopes access.
 
 ### POST /organizations/:organizationId/documents → 201
 
@@ -442,6 +444,21 @@ size (1–100, default 25); the optional `cursor` query parameter is the opaque
 Returns `{ document }` (`DocumentDetailResponse`). The document is looked up by
 both id and organization, so a document that exists only in another
 organization returns `404`.
+
+### GET /organizations/:organizationId/documents/:documentId/download → 200
+
+Returns `{ url, expiresAt }` (`DocumentDownloadUrlResponse`) — a short-lived
+presigned `GET` for the document's verified original file. `expiresAt` is the
+ISO timestamp after which the URL stops working; the lifetime is configured by
+`STORAGE_DOWNLOAD_TTL_SECONDS` (default 900). There is no separate storage-key
+field: this URL is the only way to read the file.
+
+A document has a verified original only after `upload-complete` has copied the
+staging object into verified storage. A document that is still `PENDING`, or
+whose upload failed verification, returns `409`; so does a verified document
+whose object has disappeared from storage. Membership works as for the other
+document endpoints: `401` unauthenticated, `403` non-member, and `404` for a
+document that exists only in another organization.
 
 ### PATCH /organizations/:organizationId/documents/:documentId → 200
 

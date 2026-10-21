@@ -152,6 +152,16 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === `/organizations/org-1/documents/${DOCUMENT.id}/download`) {
+      await route.fulfill(
+        json({
+          url: `https://fake-object-storage.test/${DOCUMENT.originalFileName}`,
+          expiresAt: '2099-01-01T00:00:00.000Z',
+        }),
+      );
+      return;
+    }
+
     if (path === `/organizations/org-1/documents/${DOCUMENT.id}`) {
       await route.fulfill(json({ document: DOCUMENT }));
       return;
