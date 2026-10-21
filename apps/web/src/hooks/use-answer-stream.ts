@@ -24,8 +24,14 @@ export function useAnswerStream(organizationId: string) {
   const [state, setState] = useState<AnswerStreamState>(IDLE_STATE);
   const abortRef = useRef<AbortController | null>(null);
 
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setState(IDLE_STATE);
+  }, []);
+
   const ask = useCallback(
-    async (question: string, documentId?: string) => {
+    async (question: string, documentId?: string, conversationId?: string) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -37,6 +43,7 @@ export function useAnswerStream(organizationId: string) {
           organizationId,
           question,
           documentId,
+          conversationId,
           (event) => {
             setState((current) => {
               switch (event.type) {
@@ -73,5 +80,5 @@ export function useAnswerStream(organizationId: string) {
     return () => abortRef.current?.abort();
   }, []);
 
-  return { ...state, ask };
+  return { ...state, ask, reset };
 }

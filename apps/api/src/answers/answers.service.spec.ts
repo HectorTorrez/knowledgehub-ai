@@ -107,6 +107,7 @@ function createPrisma() {
       findFirst: vi.fn(
         async (): Promise<{ id: string } | null> => ({ id: 'conversation-1' }),
       ),
+      updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
     document: {
       findFirst: vi.fn(

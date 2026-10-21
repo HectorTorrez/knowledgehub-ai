@@ -398,6 +398,10 @@ model Conversation {
   organizationId String       @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  /// Derived from the first question asked in the conversation. Null until the
+  /// first turn is persisted, so a freshly created conversation has no title.
+  title String?
+
   answers Answer[]
 
   createdAt DateTime @default(now())

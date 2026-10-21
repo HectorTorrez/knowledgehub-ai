@@ -14,7 +14,8 @@ function buildService(options: {
   const prisma = {
     conversation: {
       create: vi.fn(
-        options.create ?? (async () => ({ id: 'c1', createdAt: CREATED_AT })),
+        options.create ??
+          (async () => ({ id: 'c1', title: null, createdAt: CREATED_AT })),
       ),
       findMany: vi.fn(options.findMany ?? (async () => [] as unknown[])),
       findFirst: vi.fn(options.findFirst ?? (async () => null as unknown)),
@@ -33,23 +34,27 @@ describe('ConversationsService', () => {
 
     expect(prisma.conversation.create).toHaveBeenCalledWith({
       data: { organizationId: 'org-1' },
-      select: { id: true, createdAt: true },
+      select: { id: true, title: true, createdAt: true },
     });
     expect(result).toEqual({
-      conversation: { id: 'c1', createdAt: '2026-01-01T00:00:00.000Z' },
+      conversation: {
+        id: 'c1',
+        title: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
     });
   });
 
   it('looks up a detail by id and organization', async () => {
     const { service, prisma } = buildService({
-      findFirst: async () => ({ id: 'c1', createdAt: CREATED_AT }),
+      findFirst: async () => ({ id: 'c1', title: 'Alpha', createdAt: CREATED_AT }),
     });
 
     await service.getDetail('org-1', 'c1');
 
     expect(prisma.conversation.findFirst).toHaveBeenCalledWith({
       where: { id: 'c1', organizationId: 'org-1' },
-      select: { id: true, createdAt: true },
+      select: { id: true, title: true, createdAt: true },
     });
   });
 
