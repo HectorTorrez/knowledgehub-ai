@@ -32,9 +32,25 @@ describe('searchSchema', () => {
     ).toBe(false);
   });
 
-  it('rejects unknown properties', () => {
+  it('accepts a document filter and rejects an invalid id', () => {
     expect(
-      searchSchema.safeParse({ q: 'hello', documentId: 'x' }).success,
+      searchSchema.parse({
+        q: 'hello',
+        documentId: '00000000-0000-4000-8000-000000000001',
+      }),
+    ).toEqual({
+      q: 'hello',
+      limit: SEARCH_DEFAULT_LIMIT,
+      documentId: '00000000-0000-4000-8000-000000000001',
+    });
+    expect(
+      searchSchema.safeParse({ q: 'hello', documentId: 'not-a-uuid' }).success,
     ).toBe(false);
+  });
+
+  it('rejects unknown properties', () => {
+    expect(searchSchema.safeParse({ q: 'hello', extra: 'x' }).success).toBe(
+      false,
+    );
   });
 });

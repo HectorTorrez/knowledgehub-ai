@@ -71,10 +71,18 @@ export const Route = createFileRoute(
     }),
   validateSearch: (
     search: Record<string, unknown>,
-  ): { answer?: string } => ({
+  ): { answer?: string; q?: string; documentId?: string } => ({
     answer:
       typeof search.answer === 'string' && search.answer.trim().length > 0
         ? search.answer
+        : undefined,
+    q:
+      typeof search.q === 'string' && search.q.trim().length > 0
+        ? search.q
+        : undefined,
+    documentId:
+      typeof search.documentId === 'string' && search.documentId.trim().length > 0
+        ? search.documentId
         : undefined,
   }),
   component: AskPage,
@@ -88,11 +96,17 @@ interface AskedQuestion {
 
 function AskPage() {
   const { organizationId } = Route.useParams();
-  const { answer: permalinkAnswerId } = Route.useSearch();
+  const {
+    answer: permalinkAnswerId,
+    q: presetQuestion,
+    documentId: presetDocumentId,
+  } = Route.useSearch();
   const client = useQueryClient();
   const { toast } = useToast();
-  const [question, setQuestion] = useState('');
-  const [selection, setSelection] = useState(ALL_DOCUMENTS);
+  const [question, setQuestion] = useState(presetQuestion ?? '');
+  const [selection, setSelection] = useState(
+    presetDocumentId ?? ALL_DOCUMENTS,
+  );
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
   >(null);

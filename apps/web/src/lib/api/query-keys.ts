@@ -80,7 +80,17 @@ export const queryKeys = {
       detail: (organizationId: string, answerId: string) =>
         ['organizations', organizationId, 'answers', 'detail', answerId] as const,
     },
-    search: (organizationId: string, query: string | null) =>
-      ['organizations', organizationId, 'search', query ?? ''] as const,
+    search: (
+      organizationId: string,
+      query: string | null,
+      documentId?: string,
+    ) =>
+      [
+        'organizations',
+        organizationId,
+        'search',
+        query ?? '',
+        documentId ?? '',
+      ] as const,
   },
 };
