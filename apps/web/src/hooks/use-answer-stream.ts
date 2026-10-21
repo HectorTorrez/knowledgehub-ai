@@ -30,6 +30,14 @@ export function useAnswerStream(organizationId: string) {
     setState(IDLE_STATE);
   }, []);
 
+  const cancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setState((current) =>
+      current.status === 'streaming' ? { ...current, status: 'done' } : current,
+    );
+  }, []);
+
   const ask = useCallback(
     async (question: string, documentId?: string, conversationId?: string) => {
       abortRef.current?.abort();
@@ -80,5 +88,5 @@ export function useAnswerStream(organizationId: string) {
     return () => abortRef.current?.abort();
   }, []);
 
-  return { ...state, ask, reset };
+  return { ...state, ask, reset, cancel };
 }

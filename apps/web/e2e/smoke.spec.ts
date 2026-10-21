@@ -56,5 +56,7 @@ test('asks a question and renders the streamed answer with its source', async ({
 
   await expect.poll(() => asked).toBe(true);
   await expect(page.getByText('You get twenty days')).toBeVisible();
+
+  await page.getByRole('button', { name: /Sources/ }).first().click();
   await expect(page.getByRole('link', { name: 'Handbook' })).toBeVisible();
 });

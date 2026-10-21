@@ -111,9 +111,7 @@ test('keeps the ask composer and answer inside the mobile viewport', async ({
   await page.goto('/organizations/org-1/ask?conversation=conversation-1');
   await page.waitForLoadState('networkidle');
 
-  const composer = page
-    .getByLabel('Your question')
-    .locator('xpath=ancestor::*[@data-slot="card"][1]');
+  const composer = page.getByRole('form', { name: 'Ask a question' });
   const composerBox = await composer.boundingBox();
 
   expect(composerBox).not.toBeNull();
@@ -122,10 +120,13 @@ test('keeps the ask composer and answer inside the mobile viewport', async ({
     VIEWPORT.width,
   );
   expect(composerBox!.y).toBeLessThan(VIEWPORT.height - 56);
+  expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(
+    VIEWPORT.height - 56,
+  );
 
-  await expect(page.locator('#conversation-list')).toBeHidden();
+  await expect(page.locator('#conversation-list-mobile')).toBeHidden();
   await page.getByRole('button', { name: 'Conversations' }).click();
-  await expect(page.locator('#conversation-list')).toBeVisible();
+  await expect(page.locator('#conversation-list-mobile')).toBeVisible();
   await expect(page.getByText('Tap Ask to send')).toBeVisible();
 
   const answerBody = page.getByText('You get twenty days').first();

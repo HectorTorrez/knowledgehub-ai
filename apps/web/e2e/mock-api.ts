@@ -157,6 +157,19 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === '/organizations/org-1/conversations/conversation-1') {
+      await route.fulfill(
+        json({
+          conversation: {
+            id: 'conversation-1',
+            title: 'How much leave do I get?',
+            createdAt: CREATED_AT,
+          },
+        }),
+      );
+      return;
+    }
+
     if (path === '/organizations/org-1/conversations' && method === 'GET') {
       await route.fulfill(
         json({
