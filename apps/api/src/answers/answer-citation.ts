@@ -147,7 +147,7 @@ function parseClaims(
 
 const SENTENCE_END = /([.!?…])$/;
 
-function renderClaim(claim: AnswerClaim): string {
+export function renderClaim(claim: AnswerClaim): string {
   const marker = `[${claim.source}]`;
 
   return SENTENCE_END.test(claim.text)

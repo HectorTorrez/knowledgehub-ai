@@ -16,11 +16,21 @@ export interface AnswerGeneration {
   usage: AnswerUsage;
 }
 
+export type AnswerGenerationChunk =
+  | { type: 'delta'; text: string }
+  | { type: 'done'; usage: AnswerUsage };
+
 export interface AnswerProvider {
   generate(
     prompt: AnswerPrompt,
     options: AnswerGenerationOptions,
   ): Promise<AnswerGeneration>;
+
+  stream?(
+    prompt: AnswerPrompt,
+    options: AnswerGenerationOptions,
+    signal?: AbortSignal,
+  ): AsyncGenerator<AnswerGenerationChunk>;
 }
 
 export type AnswerRejectionSource = 'configuration' | 'request';

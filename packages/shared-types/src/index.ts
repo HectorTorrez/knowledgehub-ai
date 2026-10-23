@@ -425,14 +425,16 @@ export type AnswerResponse =
 
 /**
  * One event in the streamed answer response (`application/x-ndjson`). A stream
- * emits a leading `status`, zero or more `delta` chunks of the validated answer
- * prose, and a trailing `citations` event. The answer is still fully validated
- * before streaming begins; streaming never leaks unvalidated provider output.
+ * emits a `status` event, zero or more `delta` chunks of validated answer prose,
+ * and `citations` events as sources resolve. An `error` event may terminate a
+ * stream after it has started; it carries no provider details and the partial
+ * prose before it is not persisted.
  */
 export type AnswerStreamEvent =
   | { type: 'status'; status: AnswerResponse['status'] }
   | { type: 'delta'; text: string }
-  | { type: 'citations'; citations: AnswerCitation[] };
+  | { type: 'citations'; citations: AnswerCitation[] }
+  | { type: 'error'; message: string };
 
 /**
  * Row in the persisted answer history. Carries the question and outcome without
