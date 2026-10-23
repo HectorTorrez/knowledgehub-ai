@@ -78,10 +78,20 @@ function organizationContext(
   };
 }
 
-function storageConfig(uploadTtlSeconds = 900): StorageConfig {
+function storageConfig(
+  uploadTtlSeconds = 900,
+  downloadTtlSeconds = 900,
+): StorageConfig {
   const config = {
-    getOrThrow: (key: string) =>
-      key === 'STORAGE_UPLOAD_TTL_SECONDS' ? uploadTtlSeconds : undefined,
+    getOrThrow: (key: string) => {
+      if (key === 'STORAGE_UPLOAD_TTL_SECONDS') {
+        return uploadTtlSeconds;
+      }
+      if (key === 'STORAGE_DOWNLOAD_TTL_SECONDS') {
+        return downloadTtlSeconds;
+      }
+      return undefined;
+    },
   } as unknown as ConfigService;
 
   return new StorageConfig(config);
@@ -92,6 +102,7 @@ interface HarnessOptions {
   rows?: DocumentRecord[];
   findFirst?: DocumentRecord | null;
   uploadTtlSeconds?: number;
+  downloadTtlSeconds?: number;
 }
 
 interface UpdateManyArgs {
@@ -152,7 +163,7 @@ function createHarness(options: HarnessOptions = {}) {
   const service = new DocumentsService(
     prisma as unknown as PrismaService,
     storage,
-    storageConfig(options.uploadTtlSeconds),
+    storageConfig(options.uploadTtlSeconds, options.downloadTtlSeconds),
   );
 
   return { service, prisma, storage };
@@ -527,6 +538,128 @@ describe('DocumentsService.getDetail', () => {
     expect(serialized).not.toContain('uploadStorageKey');
     expect(serialized).not.toContain('uploadedById');
     expect(serialized).not.toContain('organizationId');
+  });
+});
+
+describe('DocumentsService.createDownloadUrl', () => {
+  const VERIFIED_KEY = 'organizations/org-1/documents/doc-1/verified/token';
+
+  function downloadHarness(
+    overrides: Partial<DocumentRecord> = {},
+    options: HarnessOptions = {},
+    seedObject = true,
+  ) {
+    const harness = createHarness({
+      ...options,
+      findFirst:
+        options.findFirst === undefined
+          ? documentRecord({
+              status: 'READY',
+              storageKey: VERIFIED_KEY,
+              ...overrides,
+            })
+          : options.findFirst,
+    });
+
+    if (seedObject) {
+      harness.storage.putObject(VERIFIED_KEY, '%PDF-1.4', 'application/pdf');
+    }
+
+    return harness;
+  }
+
+  it('returns only the presigned URL and its expiration', async () => {
+    const { service } = downloadHarness();
+
+    const result = await service.createDownloadUrl('org-1', 'doc-1');
+
+    expect(Object.keys(result).sort()).toEqual(['expiresAt', 'url']);
+    expect(result.url).toBe(
+      `https://fake-object-storage.test/${VERIFIED_KEY}?download=1`,
+    );
+    expect(result.expiresAt).toBe('2026-01-01T00:15:00.000Z');
+    expect(result).not.toHaveProperty('storageKey');
+  });
+
+  it('looks the document up by both document id and organization id', async () => {
+    const { service, prisma } = downloadHarness();
+
+    await service.createDownloadUrl('org-1', 'doc-1');
+
+    expect(prisma.document.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'doc-1', organizationId: 'org-1' },
+      }),
+    );
+  });
+
+  it('returns 404 when the document does not exist in the organization', async () => {
+    const { service } = createHarness({ findFirst: null });
+
+    await expect(
+      service.createDownloadUrl('org-1', 'doc-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects a document without a verified original file', async () => {
+    const { service, storage } = downloadHarness({ storageKey: null });
+
+    await expect(
+      service.createDownloadUrl('org-1', 'doc-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(storage.downloadCalls).toHaveLength(0);
+  });
+
+  it('rejects a storage key that is not a verified key for this document', async () => {
+    const { service, storage } = downloadHarness({ storageKey: STAGING_KEY });
+
+    await expect(
+      service.createDownloadUrl('org-1', 'doc-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(storage.downloadCalls).toHaveLength(0);
+  });
+
+  it('rejects a key that belongs to another document', async () => {
+    const { service, storage } = downloadHarness({
+      storageKey: 'organizations/org-1/documents/doc-2/verified/token',
+    });
+
+    await expect(
+      service.createDownloadUrl('org-1', 'doc-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(storage.downloadCalls).toHaveLength(0);
+  });
+
+  it('rejects a verified key whose object is gone', async () => {
+    const { service, storage } = downloadHarness({}, {}, false);
+
+    await expect(
+      service.createDownloadUrl('org-1', 'doc-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(storage.downloadCalls).toHaveLength(0);
+  });
+
+  it('passes the configured download TTL to the storage port', async () => {
+    const { service, storage } = downloadHarness(
+      {},
+      { downloadTtlSeconds: 120 },
+    );
+
+    await service.createDownloadUrl('org-1', 'doc-1');
+
+    expect(storage.downloadCalls[0].expiresInSeconds).toBe(120);
+  });
+
+  it('maps storage failures to 503 without issuing a URL', async () => {
+    const { service, storage } = downloadHarness();
+    storage.onInspectObject = () => {
+      throw new Error('storage down');
+    };
+
+    await expect(
+      service.createDownloadUrl('org-1', 'doc-1'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(storage.downloadCalls).toHaveLength(0);
   });
 });
 

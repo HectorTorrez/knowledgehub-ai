@@ -147,8 +147,9 @@ export function SourcesList({
                     organizationId,
                     documentId: citation.documentId,
                   }}
+                  search={{ page: citation.pageNumber }}
                   className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
-                  title={`Open ${citation.documentTitle}`}
+                  title={`Open ${citation.documentTitle} at page ${citation.pageNumber}`}
                 >
                   {citation.documentTitle}
                 </Link>
@@ -233,8 +234,9 @@ export function AnswerSources({
                       organizationId,
                       documentId: citation.documentId,
                     }}
+                    search={{ page: citation.pageNumber }}
                     className="min-w-0 flex-1 truncate text-xs font-medium hover:underline"
-                    title={`Open ${citation.documentTitle}`}
+                    title={`Open ${citation.documentTitle} at page ${citation.pageNumber}`}
                   >
                     {citation.documentTitle}
                   </Link>

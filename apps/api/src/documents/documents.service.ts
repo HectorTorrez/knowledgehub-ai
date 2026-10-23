@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import type {
   DocumentDetailResponse,
+  DocumentDownloadUrlResponse,
   DocumentFailureKind,
   DocumentListResponse,
   DocumentStatus,
@@ -292,6 +293,51 @@ export class DocumentsService {
     documentId: string,
   ): Promise<DocumentDetailResponse> {
     return this.readDocument(organizationId, documentId);
+  }
+
+  async createDownloadUrl(
+    organizationId: string,
+    documentId: string,
+  ): Promise<DocumentDownloadUrlResponse> {
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, organizationId },
+      select: { storageKey: true },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    const storageKey = document.storageKey;
+
+    if (
+      !storageKey ||
+      !isDocumentVerifiedKey(storageKey, organizationId, documentId)
+    ) {
+      throw new ConflictException(
+        'The original file is not available for this document',
+      );
+    }
+
+    const inspected = await this.runStorage(() =>
+      this.storage.inspectObject(storageKey),
+    );
+
+    if (!inspected) {
+      throw new ConflictException(
+        'The original file is no longer available. Delete this document and upload it again.',
+      );
+    }
+
+    const download = await this.storage.createPresignedDownload({
+      key: storageKey,
+      expiresInSeconds: this.storageConfig.downloadTtlSeconds,
+    });
+
+    return {
+      url: download.url,
+      expiresAt: download.expiresAt.toISOString(),
+    };
   }
 
   async createUploadUrl(
