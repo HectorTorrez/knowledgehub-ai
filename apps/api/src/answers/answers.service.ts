@@ -15,6 +15,7 @@ import type {
   AnswerFeedbackResponse,
   AnswerListResponse,
   AnswerResponse,
+  AnswerStreamEvent,
   AnswerSummary,
 } from '@knowledgehub/shared-types';
 import {
@@ -39,7 +40,13 @@ import {
   MAX_CATALOG_DOCUMENTS,
   type CatalogDocumentRow,
 } from './answer-catalog.js';
-import { buildCitations, validateAnswerContract } from './answer-citation.js';
+import { AnswerStreamParser } from './answer-claim-stream.js';
+import {
+  buildCitations,
+  renderClaim,
+  validateAnswerContract,
+} from './answer-citation.js';
+import { toAnswerStreamEvents } from './answer-stream.js';
 import {
   assembleContext,
   type AnswerSource,
@@ -85,6 +92,10 @@ interface AnswerLogEvent {
   outputTokens: number | null;
   errorName?: string;
 }
+
+type AnswerPlan =
+  | { kind: 'direct'; response: AnswerResponse }
+  | { kind: 'generate'; prompt: AnswerPrompt; sources: AnswerSource[] };
 
 function withCause<T extends Error>(exception: T, cause: unknown): T {
   exception.cause = cause;
@@ -170,19 +181,7 @@ export class AnswersService {
     documentId?: string,
   ): Promise<AnswerResponse> {
     const startedAt = Date.now();
-    const event: AnswerLogEvent = {
-      status: 'error',
-      organizationId,
-      userId,
-      model: this.config.model,
-      sourceCount: 0,
-      catalogCount: 0,
-      promptChars: 0,
-      citationCount: 0,
-      durationMs: 0,
-      inputTokens: null,
-      outputTokens: null,
-    };
+    const event = this.createLogEvent(organizationId, userId);
 
     try {
       let history: ConversationTurn[] = [];
@@ -222,6 +221,241 @@ export class AnswersService {
       event.durationMs = Date.now() - startedAt;
       this.log(event);
     }
+  }
+
+  async *answerStream(
+    organizationId: string,
+    userId: string,
+    question: string,
+    conversationId?: string,
+    documentId?: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<AnswerStreamEvent, void, void> {
+    const startedAt = Date.now();
+    const event = this.createLogEvent(organizationId, userId);
+
+    try {
+      let history: ConversationTurn[] = [];
+
+      if (conversationId) {
+        await this.assertConversationInOrganization(
+          conversationId,
+          organizationId,
+        );
+        history = await this.loadConversationHistory(
+          organizationId,
+          conversationId,
+        );
+      }
+
+      const plan = await this.planAnswer(
+        organizationId,
+        question,
+        event,
+        history,
+        documentId,
+      );
+
+      let response: AnswerResponse;
+
+      if (plan.kind === 'direct') {
+        response = plan.response;
+        yield* toAnswerStreamEvents(response);
+      } else if (this.provider.stream) {
+        response = yield* this.streamGeneration(plan, event, signal);
+      } else {
+        response = await this.generateAnswer(plan, event);
+        yield* toAnswerStreamEvents(response);
+      }
+
+      event.status = response.status;
+      event.citationCount = response.citations.length;
+      await this.persistAnswer(
+        organizationId,
+        userId,
+        question,
+        response,
+        conversationId,
+      );
+    } catch (error) {
+      event.errorName = errorNameOf(error);
+      throw error;
+    } finally {
+      event.durationMs = Date.now() - startedAt;
+      this.log(event);
+    }
+  }
+
+  private createLogEvent(
+    organizationId: string,
+    userId: string,
+  ): AnswerLogEvent {
+    return {
+      status: 'error',
+      organizationId,
+      userId,
+      model: this.config.model,
+      sourceCount: 0,
+      catalogCount: 0,
+      promptChars: 0,
+      citationCount: 0,
+      durationMs: 0,
+      inputTokens: null,
+      outputTokens: null,
+    };
+  }
+
+  private async generateAnswer(
+    plan: { prompt: AnswerPrompt; sources: AnswerSource[] },
+    event: AnswerLogEvent,
+  ): Promise<AnswerResponse> {
+    const generation = await this.generate(plan.prompt);
+    event.inputTokens = generation.usage.inputTokens;
+    event.outputTokens = generation.usage.outputTokens;
+
+    return this.answerFromDraft(generation.draft, plan.sources);
+  }
+
+  private async *streamGeneration(
+    plan: { prompt: AnswerPrompt; sources: AnswerSource[] },
+    event: AnswerLogEvent,
+    signal?: AbortSignal,
+  ): AsyncGenerator<AnswerStreamEvent, AnswerResponse, void> {
+    const stream = this.provider.stream;
+
+    if (!stream) {
+      throw new ServiceUnavailableException(SERVICE_UNAVAILABLE_MESSAGE);
+    }
+
+    const parser = new AnswerStreamParser();
+    const seen = new Set<string>();
+    const markers = new Set<number>();
+    const parts: string[] = [];
+    let status: AnswerResponse['status'] | null = null;
+    let lastCitations = '';
+
+    try {
+      for await (const chunk of stream.call(
+        this.provider,
+        plan.prompt,
+        { maxOutputTokens: this.config.maxOutputTokens },
+        signal,
+      )) {
+        if (chunk.type === 'done') {
+          event.inputTokens = chunk.usage.inputTokens;
+          event.outputTokens = chunk.usage.outputTokens;
+          continue;
+        }
+
+        const claims = parser.push(chunk.text);
+
+        if (status === null && parser.answerStatus !== null) {
+          status = parser.answerStatus;
+          yield { type: 'status', status };
+        }
+
+        for (const claim of claims) {
+          const text = claim.text.trim();
+
+          if (text.length === 0 || seen.has(text)) {
+            continue;
+          }
+
+          if (
+            !Number.isInteger(claim.source) ||
+            claim.source < 1 ||
+            claim.source > plan.sources.length
+          ) {
+            throw new BadGatewayException('The answer could not be grounded');
+          }
+
+          seen.add(text);
+          const rendered = renderClaim({ text, source: claim.source });
+          parts.push(rendered);
+          yield {
+            type: 'delta',
+            text: parts.length === 1 ? rendered : ` ${rendered}`,
+          };
+
+          if (!markers.has(claim.source)) {
+            markers.add(claim.source);
+            const citations = buildCitations([...markers], plan.sources);
+            const serialized = JSON.stringify(citations);
+
+            if (serialized !== lastCitations) {
+              lastCitations = serialized;
+              yield { type: 'citations', citations };
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
+
+      throw mapAnswerError(error);
+    }
+
+    const response = this.parseStreamedResponse(parser.draft, plan.sources);
+
+    if (status === null) {
+      yield { type: 'status', status: response.status };
+    }
+
+    if (
+      response.status === 'answered' &&
+      parts.join(' ') !== response.answer
+    ) {
+      throw new BadGatewayException('The answer could not be grounded');
+    }
+
+    if (JSON.stringify(response.citations) !== lastCitations) {
+      yield { type: 'citations', citations: response.citations };
+    }
+
+    return response;
+  }
+
+  private parseStreamedResponse(
+    draft: string,
+    sources: AnswerSource[],
+  ): AnswerResponse {
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(draft);
+    } catch (error) {
+      throw mapAnswerError(
+        new AnswerResponseError(
+          'The answer provider streamed an incomplete answer',
+          { cause: error },
+        ),
+      );
+    }
+
+    return this.answerFromDraft(parsed, sources);
+  }
+
+  private answerFromDraft(
+    draft: unknown,
+    sources: AnswerSource[],
+  ): AnswerResponse {
+    const contract = validateAnswerContract(draft, sources);
+
+    if (!contract.ok) {
+      throw new BadGatewayException('The answer could not be grounded');
+    }
+
+    if (contract.status === 'insufficient_evidence') {
+      return { ...INSUFFICIENT_EVIDENCE_RESPONSE };
+    }
+
+    return {
+      status: 'answered',
+      answer: contract.answer,
+      citations: buildCitations(contract.markers, sources),
+    };
   }
 
   async list(
@@ -381,6 +615,26 @@ export class AnswersService {
     history: ConversationTurn[],
     documentId?: string,
   ): Promise<AnswerResponse> {
+    const plan = await this.planAnswer(
+      organizationId,
+      question,
+      event,
+      history,
+      documentId,
+    );
+
+    return plan.kind === 'direct'
+      ? plan.response
+      : this.generateAnswer(plan, event);
+  }
+
+  private async planAnswer(
+    organizationId: string,
+    question: string,
+    event: AnswerLogEvent,
+    history: ConversationTurn[],
+    documentId?: string,
+  ): Promise<AnswerPlan> {
     if (!this.config.enabled) {
       throw new ServiceUnavailableException('Answer generation is not enabled');
     }
@@ -398,7 +652,7 @@ export class AnswersService {
     if (aggregate) {
       event.sourceCount = aggregate.citations.length;
       event.promptChars = aggregate.answer?.length ?? 0;
-      return aggregate;
+      return { kind: 'direct', response: aggregate };
     }
 
     const [sources, catalogRows] = await Promise.all([
@@ -416,7 +670,10 @@ export class AnswersService {
     event.catalogCount = catalog.sources.length;
 
     if (sources.length === 0 && catalog.sources.length === 0) {
-      return { ...INSUFFICIENT_EVIDENCE_RESPONSE };
+      return {
+        kind: 'direct',
+        response: { ...INSUFFICIENT_EVIDENCE_RESPONSE },
+      };
     }
 
     await this.usage.recordAnswer(organizationId);
@@ -424,25 +681,10 @@ export class AnswersService {
     const prompt = buildAnswerPrompt(question, sources, history, catalog);
     event.promptChars = prompt.system.length + prompt.user.length;
 
-    const generation = await this.generate(prompt);
-    event.inputTokens = generation.usage.inputTokens;
-    event.outputTokens = generation.usage.outputTokens;
-
-    const allSources = [...sources, ...catalog.sources];
-    const contract = validateAnswerContract(generation.draft, allSources);
-
-    if (!contract.ok) {
-      throw new BadGatewayException('The answer could not be grounded');
-    }
-
-    if (contract.status === 'insufficient_evidence') {
-      return { ...INSUFFICIENT_EVIDENCE_RESPONSE };
-    }
-
     return {
-      status: 'answered',
-      answer: contract.answer,
-      citations: buildCitations(contract.markers, allSources),
+      kind: 'generate',
+      prompt,
+      sources: [...sources, ...catalog.sources],
     };
   }
 

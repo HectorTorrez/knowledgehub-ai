@@ -132,24 +132,28 @@ async function consumeNdjson(
   const decoder = new TextDecoder();
   let buffer = '';
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-
-    buffer += decoder.decode(value, { stream: true });
-
-    let newlineIndex = buffer.indexOf('\n');
-    while (newlineIndex >= 0) {
-      const line = buffer.slice(0, newlineIndex).trim();
-      buffer = buffer.slice(newlineIndex + 1);
-
-      if (line.length > 0) {
-        onEvent(JSON.parse(line) as AnswerStreamEvent);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
       }
 
-      newlineIndex = buffer.indexOf('\n');
+      buffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex = buffer.indexOf('\n');
+      while (newlineIndex >= 0) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+
+        if (line.length > 0) {
+          onEvent(JSON.parse(line) as AnswerStreamEvent);
+        }
+
+        newlineIndex = buffer.indexOf('\n');
+      }
     }
+  } finally {
+    await reader.cancel().catch(() => undefined);
   }
 }

@@ -1,5 +1,6 @@
 import type {
   AnswerGeneration,
+  AnswerGenerationChunk,
   AnswerGenerationOptions,
   AnswerProvider,
 } from '../../src/answers/answer-provider.port.js';
@@ -22,5 +23,17 @@ export class FakeAnswerProvider implements AnswerProvider {
   ): Promise<AnswerGeneration> {
     this.calls.push({ prompt, options });
     return this.generateImpl(prompt, options);
+  }
+
+  async *stream(
+    prompt: AnswerPrompt,
+    options: AnswerGenerationOptions,
+  ): AsyncGenerator<AnswerGenerationChunk> {
+    this.calls.push({ prompt, options });
+
+    const generation = await this.generateImpl(prompt, options);
+
+    yield { type: 'delta', text: JSON.stringify(generation.draft) };
+    yield { type: 'done', usage: generation.usage };
   }
 }

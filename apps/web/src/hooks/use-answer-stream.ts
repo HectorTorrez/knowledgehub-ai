@@ -53,6 +53,10 @@ export function useAnswerStream(organizationId: string) {
           documentId,
           conversationId,
           (event) => {
+            if (event.type === 'error') {
+              throw new Error(event.message);
+            }
+
             setState((current) => {
               switch (event.type) {
                 case 'status':

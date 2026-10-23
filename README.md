@@ -977,11 +977,14 @@ Body (strict; unknown fields return `400`):
 accepted.
 
 An optional `stream` boolean selects a streamed response
-(`application/x-ndjson`) instead of the single JSON body: a `status` event, one
-or more `delta` events carrying chunks of the validated answer, and a trailing
-`citations` event. The answer is still fully validated before streaming begins;
-streaming never emits unvalidated provider output and does not reduce the
-embedding-plus-completion latency.
+(`application/x-ndjson`) instead of the single JSON body: a `status` event,
+`delta` events carrying answer prose as the provider produces it, and
+`citations` events as each cited source resolves. Streaming begins as soon as
+retrieval finishes and the provider responds, so it reduces perceived and total
+latency. Each complete claim is checked against the supplied sources before it
+is emitted, and the final contract is re-validated before the answer is
+persisted. If the final check fails after output has started, the stream ends
+with an `error` event and the partial answer is not persisted.
 
 `200` — answered:
 
@@ -1173,10 +1176,13 @@ proof of entailment; human review remains necessary.
   `ANSWER_HISTORY_MAX_CHARS`; there is no retrieval over history and no
   vector store. Each turn's retrieval is still run fresh from the current
   question.
-- **Streaming is post-validation.** The streamed response renders the validated
-  answer progressively but still waits for the full completion, so it improves
-  perceived latency, not total latency. Streaming never emits unvalidated
-  provider output.
+- **Streaming is claim-level.** The provider completion is streamed and each
+  complete claim is emitted once its text and source pass validation, so the
+  answer renders progressively. The final contract is re-validated after the
+  completion; a late failure ends the stream with an `error` event, so partial
+  prose can be visible before the stream fails.
+- **Cancelling aborts the provider request.** A cancelled or disconnected stream
+  is not persisted, so the partial answer does not appear in history.
 - **No automated entailment evaluation.**
 - **The similarity floor is a heuristic** and is model- and corpus-dependent.
 - **The document catalog is bounded.** Only the 20 most recent `READY`

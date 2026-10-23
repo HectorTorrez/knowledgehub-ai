@@ -1,5 +1,3 @@
-import { StreamableFile } from '@nestjs/common';
-import { Readable } from 'node:stream';
 import type {
   AnswerResponse,
   AnswerStreamEvent,
@@ -23,16 +21,6 @@ export function toAnswerStreamEvents(
   events.push({ type: 'citations', citations: answer.citations });
 
   return events;
-}
-
-export function toAnswerNdjsonStream(answer: AnswerResponse): StreamableFile {
-  const lines = toAnswerStreamEvents(answer).map(
-    (event) => `${JSON.stringify(event)}\n`,
-  );
-
-  return new StreamableFile(Readable.from(lines), {
-    type: 'application/x-ndjson',
-  });
 }
 
 function chunkText(text: string, size: number): string[] {

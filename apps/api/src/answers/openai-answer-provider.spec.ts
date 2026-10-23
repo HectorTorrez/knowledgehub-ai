@@ -4,6 +4,7 @@ import {
   AnswerResponseError,
   AnswerUnavailableError,
   type AnswerGeneration,
+  type AnswerGenerationChunk,
   type AnswerProvider,
 } from './answer-provider.port.js';
 import type { AnswerPrompt } from './answer-prompt.js';
@@ -55,6 +56,43 @@ function createProvider(
 
 function generate(provider: AnswerProvider): Promise<AnswerGeneration> {
   return provider.generate(PROMPT, { maxOutputTokens: MAX_OUTPUT_TOKENS });
+}
+
+function event(content: string): string {
+  return `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+}
+
+function streamingResponse(chunks: string[]): AnswerHttpResponse {
+  const encoder = new TextEncoder();
+
+  return {
+    ok: true,
+    status: 200,
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+
+        controller.close();
+      },
+    }),
+    json: async () => ({}),
+  };
+}
+
+async function consume(
+  provider: OpenAiAnswerProvider,
+): Promise<AnswerGenerationChunk[]> {
+  const chunks: AnswerGenerationChunk[] = [];
+
+  for await (const chunk of provider.stream!(PROMPT, {
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+  })) {
+    chunks.push(chunk);
+  }
+
+  return chunks;
 }
 
 describe('parseAnswerResponse', () => {
@@ -316,5 +354,84 @@ describe('OpenAiAnswerProvider', () => {
       API_KEY,
     );
     expect(String(error.cause ?? '')).not.toContain(API_KEY);
+  });
+});
+
+describe('OpenAiAnswerProvider streaming', () => {
+  it('requests a stream and yields content deltas with final usage', async () => {
+    const fetchImpl = vi.fn<AnswerFetch>(async () =>
+      streamingResponse([
+        event('{"status":"answered",'),
+        event('"claims":[{"text":"Alpha.","source":1}]}'),
+        'data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":3}}\n\n',
+        'data: [DONE]\n\n',
+      ]),
+    );
+
+    await expect(consume(createProvider(fetchImpl))).resolves.toEqual([
+      { type: 'delta', text: '{"status":"answered",' },
+      {
+        type: 'delta',
+        text: '"claims":[{"text":"Alpha.","source":1}]}',
+      },
+      {
+        type: 'done',
+        usage: { inputTokens: 12, outputTokens: 3 },
+      },
+    ]);
+
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const body = JSON.parse(init.body) as Record<string, unknown>;
+    expect(body.stream).toBe(true);
+    expect(body.stream_options).toEqual({ include_usage: true });
+  });
+
+  it('reassembles an event split across transport chunks', async () => {
+    const payload = event('Alpha.');
+    const fetchImpl = vi.fn<AnswerFetch>(async () =>
+      streamingResponse([
+        payload.slice(0, 12),
+        payload.slice(12, 30),
+        payload.slice(30),
+        'data: [DONE]\n\n',
+      ]),
+    );
+
+    await expect(consume(createProvider(fetchImpl))).resolves.toEqual([
+      { type: 'delta', text: 'Alpha.' },
+      { type: 'done', usage: { inputTokens: null, outputTokens: null } },
+    ]);
+  });
+
+  it('maps an HTTP failure before the stream starts', async () => {
+    const fetchImpl = vi.fn<AnswerFetch>(async () =>
+      response(502, { error: { message: 'busy' } }),
+    );
+
+    await expect(consume(createProvider(fetchImpl))).rejects.toBeInstanceOf(
+      AnswerUnavailableError,
+    );
+  });
+
+  it('rejects a stream event that is not JSON', async () => {
+    const fetchImpl = vi.fn<AnswerFetch>(async () =>
+      streamingResponse(['data: not-json\n\n']),
+    );
+
+    await expect(consume(createProvider(fetchImpl))).rejects.toBeInstanceOf(
+      AnswerResponseError,
+    );
+  });
+
+  it('rejects a streaming response without a body', async () => {
+    const fetchImpl = vi.fn<AnswerFetch>(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    }));
+
+    await expect(consume(createProvider(fetchImpl))).rejects.toBeInstanceOf(
+      AnswerResponseError,
+    );
   });
 });

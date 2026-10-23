@@ -1,7 +1,6 @@
-import { StreamableFile } from '@nestjs/common';
 import type { AnswerResponse } from '@knowledgehub/shared-types';
 import { describe, expect, it } from 'vitest';
-import { toAnswerNdjsonStream, toAnswerStreamEvents } from './answer-stream.js';
+import { toAnswerStreamEvents } from './answer-stream.js';
 
 const ANSWERED: AnswerResponse = {
   status: 'answered',
@@ -61,10 +60,3 @@ describe('toAnswerStreamEvents', () => {
   });
 });
 
-describe('toAnswerNdjsonStream', () => {
-  it('returns a StreamableFile typed as ndjson', () => {
-    const file = toAnswerNdjsonStream(REFUSED);
-
-    expect(file).toBeInstanceOf(StreamableFile);
-  });
-});

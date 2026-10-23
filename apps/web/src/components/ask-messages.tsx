@@ -88,8 +88,9 @@ export function ConversationMessages({
   );
   const pendingVisible =
     pending !== null &&
-    stream.status !== 'error' &&
-    (!persisted.has(pending.question) || stream.status === 'streaming');
+    (!persisted.has(pending.question) ||
+      stream.status === 'streaming' ||
+      (stream.status === 'error' && stream.text.length > 0));
 
   const scrollToEnd = useCallback((behavior: ScrollBehavior) => {
     const element = scrollRef.current;

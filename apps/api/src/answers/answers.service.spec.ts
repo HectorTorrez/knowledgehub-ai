@@ -20,13 +20,17 @@ import type {
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { AggregationService } from '../aggregation/aggregation.service.js';
 import type { FactsConfig } from '../facts/facts.config.js';
-import type { ContractTotalsResponse } from '@knowledgehub/shared-types';
+import type {
+  AnswerStreamEvent,
+  ContractTotalsResponse,
+} from '@knowledgehub/shared-types';
 import type { AnswerConfig } from './answer.config.js';
 import type { CatalogDocumentRow } from './answer-catalog.js';
 import {
   AnswerRejectedError,
   AnswerResponseError,
   AnswerUnavailableError,
+  type AnswerGenerationChunk,
   type AnswerProvider,
   type AnswerUsage,
 } from './answer-provider.port.js';
@@ -93,9 +97,45 @@ function createProvider(
       status: 'answered',
       claims: [{ text: 'Retries are bounded.', source: 1 }],
     }),
+  streamImpl?: AnswerProvider['stream'],
 ) {
   const generate = vi.fn(impl);
-  return { provider: { generate } as AnswerProvider, generate };
+  const stream = streamImpl ? vi.fn(streamImpl) : undefined;
+  const provider = {
+    generate,
+    ...(stream ? { stream } : {}),
+  } as AnswerProvider;
+
+  return { provider, generate, stream };
+}
+
+function answerStream(
+  deltas: string[],
+): AsyncGenerator<AnswerGenerationChunk> {
+  async function* generate(): AsyncGenerator<AnswerGenerationChunk> {
+    for (const text of deltas) {
+      yield { type: 'delta', text };
+    }
+
+    yield {
+      type: 'done',
+      usage: { inputTokens: 12, outputTokens: 3 },
+    };
+  }
+
+  return generate();
+}
+
+async function collectStream(
+  events: AsyncGenerator<AnswerStreamEvent>,
+): Promise<AnswerStreamEvent[]> {
+  const collected: AnswerStreamEvent[] = [];
+
+  for await (const event of events) {
+    collected.push(event);
+  }
+
+  return collected;
 }
 
 function createPrisma() {
@@ -135,6 +175,7 @@ function createService(options: {
   catalogTotal?: number;
   retrievalImpl?: RetrievalService['search'];
   providerImpl?: AnswerProvider['generate'];
+  streamImpl?: AnswerProvider['stream'];
   configOverrides?: Partial<Record<string, unknown>>;
   usageImpl?: () => Promise<void>;
   factsEnabled?: boolean;
@@ -143,7 +184,10 @@ function createService(options: {
   const { retrieval, search } = createRetrieval(
     options.retrievalImpl ?? (async () => options.chunks ?? [CHUNK]),
   );
-  const { provider, generate } = createProvider(options.providerImpl);
+  const { provider, generate, stream } = createProvider(
+    options.providerImpl,
+    options.streamImpl,
+  );
   const config = createConfig(options.configOverrides);
   const prisma = createPrisma();
   prisma.document.findMany.mockResolvedValue(options.catalog ?? []);
@@ -178,6 +222,7 @@ function createService(options: {
     service,
     search,
     generate,
+    stream,
     config,
     prisma,
     usage,
@@ -351,6 +396,120 @@ describe('AnswersService', () => {
       citations: [],
     });
     expect(generate).not.toHaveBeenCalled();
+  });
+
+  it('streams validated claims as the provider produces them and then persists', async () => {
+    const { service, prisma, generate, stream } = createService({
+      streamImpl: () =>
+        answerStream([
+          '{"status":"answered","claims":[',
+          '{"text":"Retries are bounded.","source":1}',
+          ']}',
+        ]),
+    });
+
+    await expect(
+      collectStream(service.answerStream('org-1', USER_ID, 'What is alpha?')),
+    ).resolves.toEqual([
+      { type: 'status', status: 'answered' },
+      { type: 'delta', text: 'Retries are bounded [1].' },
+      {
+        type: 'citations',
+        citations: [
+          {
+            marker: 1,
+            documentId: 'doc-1',
+            documentTitle: 'Architecture Notes',
+            pageNumber: 2,
+            chunkIndex: 4,
+            excerpt: 'Processing retries are bounded by maxAttempts.',
+          },
+        ],
+      },
+    ]);
+
+    expect(generate).not.toHaveBeenCalled();
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(prisma.answer.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          question: 'What is alpha?',
+          status: 'answered',
+          answer: 'Retries are bounded [1].',
+        }),
+      }),
+    );
+  });
+
+  it('streams a refusal without emitting prose', async () => {
+    const { service, prisma } = createService({
+      streamImpl: () =>
+        answerStream([
+          '{"status":"insufficient_evidence","claims":null}',
+        ]),
+    });
+
+    await expect(
+      collectStream(service.answerStream('org-1', USER_ID, 'What is alpha?')),
+    ).resolves.toEqual([
+      { type: 'status', status: 'insufficient_evidence' },
+      { type: 'citations', citations: [] },
+    ]);
+
+    expect(prisma.answer.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'insufficient_evidence',
+          answer: null,
+        }),
+      }),
+    );
+  });
+
+  it('rejects a streamed claim that cites an unknown source', async () => {
+    const { service, prisma } = createService({
+      streamImpl: () =>
+        answerStream([
+          '{"status":"answered","claims":[{"text":"Retries.","source":9}]}',
+        ]),
+    });
+
+    await expect(
+      collectStream(service.answerStream('org-1', USER_ID, 'What is alpha?')),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+    expect(prisma.answer.create).not.toHaveBeenCalled();
+  });
+
+  it('streams a validated answer when the provider cannot stream', async () => {
+    const { service, stream } = createService({
+      providerImpl: async () =>
+        generation({
+          status: 'answered',
+          claims: [{ text: 'Retries are bounded.', source: 1 }],
+        }),
+    });
+
+    await expect(
+      collectStream(service.answerStream('org-1', USER_ID, 'What is alpha?')),
+    ).resolves.toEqual([
+      { type: 'status', status: 'answered' },
+      { type: 'delta', text: 'Retries are bounded [1].' },
+      {
+        type: 'citations',
+        citations: [
+          {
+            marker: 1,
+            documentId: 'doc-1',
+            documentTitle: 'Architecture Notes',
+            pageNumber: 2,
+            chunkIndex: 4,
+            excerpt: 'Processing retries are bounded by maxAttempts.',
+          },
+        ],
+      },
+    ]);
+
+    expect(stream).toBeUndefined();
   });
 
   it('answers document-inventory questions from the catalog when no passage clears the floor', async () => {

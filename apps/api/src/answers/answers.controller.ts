@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
   Param,
   ParseUUIDPipe,
@@ -11,9 +12,10 @@ import {
   Put,
   Query,
   Req,
-  StreamableFile,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import type {
   AnswerDetailResponse,
   AnswerFeedbackResponse,
@@ -26,9 +28,9 @@ import { OrganizationMembershipGuard } from '../organizations/organization-membe
 import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import {
   requireOrganizationContext,
+  type OrganizationContext,
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
-import { toAnswerNdjsonStream } from './answer-stream.js';
 import {
   answerQuestionSchema,
   type AnswerQuestionInput,
@@ -56,22 +58,103 @@ export class AnswersController {
     @Body(new ZodValidationPipe(answerQuestionSchema))
     body: AnswerQuestionInput,
     @Req() request: OrganizationRequest,
-  ): Promise<AnswerResponse | StreamableFile> {
+    @Res() response: Response,
+  ): Promise<void> {
     const context = requireOrganizationContext(request);
 
-    const result = await this.answers.answer(
+    if (!body.stream) {
+      const result: AnswerResponse = await this.answers.answer(
+        context.organizationId,
+        context.userId,
+        body.question,
+        body.conversationId,
+        body.documentId,
+      );
+
+      response.json(result);
+      return;
+    }
+
+    await this.streamAnswer(context, body, request, response);
+  }
+
+  private async streamAnswer(
+    context: OrganizationContext,
+    body: AnswerQuestionInput,
+    request: OrganizationRequest,
+    response: Response,
+  ): Promise<void> {
+    const abort = new AbortController();
+    const onAbort = () => {
+      if (!response.writableEnded) {
+        abort.abort();
+      }
+    };
+
+    request.on('aborted', onAbort);
+    response.on('close', onAbort);
+    response.on('error', onAbort);
+
+    const events = this.answers.answerStream(
       context.organizationId,
       context.userId,
       body.question,
       body.conversationId,
       body.documentId,
+      abort.signal,
     );
 
-    if (body.stream) {
-      return toAnswerNdjsonStream(result);
-    }
+    let started = false;
+    const start = () => {
+      started = true;
+      response.status(HttpStatus.OK);
+      response.setHeader(
+        'Content-Type',
+        'application/x-ndjson; charset=utf-8',
+      );
+      response.setHeader('Cache-Control', 'no-store');
+      response.setHeader('X-Accel-Buffering', 'no');
+      response.flushHeaders();
+    };
 
-    return result;
+    try {
+      for await (const event of events) {
+        if (!started) {
+          start();
+        }
+
+        response.write(`${JSON.stringify(event)}\n`);
+      }
+
+      if (!started) {
+        start();
+      }
+
+      response.end();
+    } catch (error) {
+      if (abort.signal.aborted) {
+        return;
+      }
+
+      if (!started) {
+        throw error;
+      }
+
+      response.write(
+        `${JSON.stringify({
+          type: 'error',
+          message:
+            error instanceof HttpException
+              ? error.message
+              : 'The answer stream failed',
+        })}\n`,
+      );
+      response.end();
+    } finally {
+      request.off('aborted', onAbort);
+      response.off('close', onAbort);
+      response.off('error', onAbort);
+    }
   }
 
   @Get()
