@@ -1,4 +1,3 @@
-import { AuthLayout } from '~/components/auth-layout';
 import {
   createFileRoute,
   Link,
@@ -7,6 +6,7 @@ import {
 } from '@tanstack/react-router';
 import { CircleCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { AuthLayout } from '~/components/auth-layout';
 import { Brand } from '~/components/brand';
 import { PasswordInput } from '~/components/password-input';
 import { ErrorNotice } from '~/components/route-states';
@@ -86,102 +86,102 @@ function RegisterPage() {
 
   return (
     <AuthLayout>
-        <div className="flex justify-center lg:hidden">
-          <Brand />
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">Create your account</CardTitle>
-            <CardDescription>
-              Start asking questions across your organization&apos;s documents.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-              {validationError ? (
-                <ErrorNotice error={new Error(validationError)} />
-              ) : null}
-              {register.isError ? <ErrorNotice error={register.error} /> : null}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First name</Label>
-                  <Input
-                    id="firstName"
-                    autoComplete="given-name"
-                    autoFocus
-                    value={form.firstName}
-                    onChange={(event) => update('firstName', event.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last name</Label>
-                  <Input
-                    id="lastName"
-                    autoComplete="family-name"
-                    value={form.lastName}
-                    onChange={(event) => update('lastName', event.target.value)}
-                  />
-                </div>
-              </div>
+      <div className="flex justify-center lg:hidden">
+        <Brand />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">Create your account</CardTitle>
+          <CardDescription>
+            Start asking questions across your organization&apos;s documents.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {validationError ? (
+              <ErrorNotice error={new Error(validationError)} />
+            ) : null}
+            {register.isError ? <ErrorNotice error={register.error} /> : null}
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="firstName">First name</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={form.email}
-                  onChange={(event) => update('email', event.target.value)}
+                  id="firstName"
+                  autoComplete="given-name"
+                  autoFocus
+                  value={form.firstName}
+                  onChange={(event) => update('firstName', event.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <PasswordInput
-                  id="password"
-                  name="password"
-                  autoComplete="new-password"
-                  value={form.password}
-                  onChange={(value) => update('password', value)}
-                  describedBy="password-hint"
+                <Label htmlFor="lastName">Last name</Label>
+                <Input
+                  id="lastName"
+                  autoComplete="family-name"
+                  value={form.lastName}
+                  onChange={(event) => update('lastName', event.target.value)}
                 />
-                <p
-                  id="password-hint"
-                  className={cn(
-                    'flex items-center gap-1 text-xs',
-                    meetsMinimumLength
-                      ? 'text-success'
-                      : 'text-muted-foreground',
-                  )}
-                >
-                  {meetsMinimumLength ? (
-                    <CircleCheck className="size-3.5" />
-                  ) : null}
-                  {meetsMinimumLength
-                    ? 'Meets the minimum password length.'
-                    : `At least ${PASSWORD_MIN_LENGTH} characters.`}
-                </p>
               </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={register.isPending}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={(event) => update('email', event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <PasswordInput
+                id="password"
+                name="password"
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(value) => update('password', value)}
+                describedBy="password-hint"
+              />
+              <p
+                id="password-hint"
+                className={cn(
+                  'flex items-center gap-1 text-xs',
+                  meetsMinimumLength
+                    ? 'text-success'
+                    : 'text-muted-foreground',
+                )}
               >
-                {register.isPending ? 'Creating account…' : 'Create account'}
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter>
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link
-                to="/login"
-                className="font-medium text-foreground underline underline-offset-4"
-              >
-                Sign in
-              </Link>
-            </p>
-          </CardFooter>
-        </Card>
+                {meetsMinimumLength ? (
+                  <CircleCheck className="size-3.5" />
+                ) : null}
+                {meetsMinimumLength
+                  ? 'Meets the minimum password length.'
+                  : `At least ${PASSWORD_MIN_LENGTH} characters.`}
+              </p>
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={register.isPending}
+            >
+              {register.isPending ? 'Creating account…' : 'Create account'}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter>
+          <p className="text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link
+              to="/login"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Sign in
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
     </AuthLayout>
   );
 }

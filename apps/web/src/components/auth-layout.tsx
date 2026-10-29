@@ -4,8 +4,8 @@ import { Brand } from '~/components/brand';
 
 export function AuthLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-12 pb-[max(3rem,env(safe-area-inset-bottom))] lg:grid lg:grid-cols-2 lg:p-0">
-      <div className="hidden h-full flex-col justify-between bg-brand p-10 text-brand-foreground lg:flex">
+    <main className="flex min-h-dvh items-center justify-center px-4 py-12 pb-[max(3rem,env(safe-area-inset-bottom))] lg:grid lg:grid-cols-2 lg:items-stretch lg:p-0">
+      <div className="hidden flex-col justify-between bg-brand p-10 text-brand-foreground lg:flex lg:min-h-dvh">
         <Brand inverted />
         <div className="space-y-8">
           <h1 className="max-w-md text-4xl font-semibold tracking-tight">
