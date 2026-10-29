@@ -177,7 +177,7 @@ function DocumentDetailPage() {
 
       <PageHeader
         title={entry.title}
-        description={`${entry.originalFileName ?? 'Upload pending'} · ${entry.sizeBytes === null ? '—' : formatBytes(entry.sizeBytes)} · ${formatDateTime(entry.createdAt)}`}
+        description="The file, processing state, and metadata behind this document."
         eyebrow={<DocumentStatusBadge status={entry.status} />}
         action={
           <div className="flex flex-wrap items-center gap-2">
