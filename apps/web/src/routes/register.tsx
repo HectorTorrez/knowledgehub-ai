@@ -1,3 +1,4 @@
+import { AuthLayout } from '~/components/auth-layout';
 import {
   createFileRoute,
   Link,
@@ -84,9 +85,8 @@ function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-12 pb-[max(3rem,env(safe-area-inset-bottom))]">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex justify-center">
+    <AuthLayout>
+        <div className="flex justify-center lg:hidden">
           <Brand />
         </div>
         <Card>
@@ -182,7 +182,6 @@ function RegisterPage() {
             </p>
           </CardFooter>
         </Card>
-      </div>
-    </main>
+    </AuthLayout>
   );
 }
