@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import {
-  ArrowLeft,
   FileText,
   LayoutGrid,
   MessageSquareText,
@@ -10,7 +9,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ErrorNotice } from '~/components/route-states';
-import { Skeleton } from '~/components/ui/skeleton';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 
@@ -72,26 +70,6 @@ function OrganizationLayout() {
 
   return (
     <div className="space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        <Link
-          to="/organizations"
-          className="inline-flex items-center gap-1 py-2 -my-2 text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-          All organizations
-        </Link>
-        <span aria-hidden="true" className="text-muted-foreground">
-          /
-        </span>
-        {organization.isPending ? (
-          <Skeleton className="h-4 w-32" />
-        ) : (
-          <span className="min-w-0 truncate font-medium">
-            {organization.data?.organization.name ?? 'Organization'}
-          </span>
-        )}
-      </div>
-
       {organization.isError ? <ErrorNotice error={organization.error} /> : null}
 
       <nav
@@ -118,7 +96,7 @@ function OrganizationLayout() {
             className="flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-1.5 text-[0.6875rem] font-medium transition-colors active:bg-accent/60"
             inactiveProps={{ className: 'text-muted-foreground' }}
             activeProps={{
-              className: 'text-foreground',
+              className: 'rounded-xl bg-primary/10 text-primary',
               'aria-current': 'page',
             }}
           >
@@ -144,7 +122,7 @@ function OrganizationTab({ to, exact, icon: Icon, label }: OrganizationTabItem) 
         className: 'border-transparent text-muted-foreground hover:text-foreground',
       }}
       activeProps={{
-        className: 'border-primary text-foreground',
+        className: 'border-brand text-brand',
         'aria-current': 'page',
       }}
     >

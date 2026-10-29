@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Brand } from '~/components/brand';
 import { ErrorNotice } from '~/components/route-states';
+import { Skeleton } from '~/components/ui/skeleton';
 import { ThemeToggle } from '~/components/theme-toggle';
 import { Button } from '~/components/ui/button';
 import {
@@ -84,6 +85,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 organizationId={activeOrganizationId}
                 organizations={organizations.data.organizations}
               />
+            ) : activeOrganizationId !== undefined && organizations.isPending ? (
+              <Skeleton className="ml-2 h-9 w-10 sm:w-32" />
             ) : null}
           </div>
           <div className="flex items-center gap-1">
@@ -178,7 +181,7 @@ function OrganizationSwitcher({
           aria-label={`Switch organization, currently ${active.name}`}
         >
           <Building2 className="size-4 shrink-0 text-muted-foreground" />
-          <span className="hidden max-w-40 truncate text-sm md:inline">
+          <span className="hidden max-w-40 truncate text-sm sm:inline">
             {active.name}
           </span>
           <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
