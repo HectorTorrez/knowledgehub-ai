@@ -753,7 +753,7 @@ function StatTile({
 }>) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-4">
+      <CardContent className="flex items-center gap-3 p-4 pt-4 sm:p-6 sm:pt-6">
         <div className="rounded-lg bg-brand/10 p-2 text-brand">
           <Icon className="size-5" />
         </div>
