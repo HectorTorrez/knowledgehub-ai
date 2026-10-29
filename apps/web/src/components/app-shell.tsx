@@ -181,7 +181,7 @@ function OrganizationSwitcher({
           aria-label={`Switch organization, currently ${active.name}`}
         >
           <Building2 className="size-4 shrink-0 text-muted-foreground" />
-          <span className="hidden max-w-40 truncate text-sm sm:inline">
+          <span className="max-w-28 truncate text-sm sm:max-w-40">
             {active.name}
           </span>
           <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />

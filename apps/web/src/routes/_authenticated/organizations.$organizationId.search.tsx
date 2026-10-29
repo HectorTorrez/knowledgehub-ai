@@ -8,7 +8,7 @@ import {
   Sparkles,
   X as XIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
@@ -24,6 +24,7 @@ import {
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
+import { useSlashFocus } from '~/hooks/use-slash-focus';
 import { queryKeys } from '~/lib/api/query-keys';
 import { searchApi } from '~/lib/api/search';
 import { ALL_DOCUMENTS } from '~/lib/document-scope';
@@ -50,16 +51,7 @@ export const Route = createFileRoute(
 function SearchPage() {
   const { organizationId } = Route.useParams();
   const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    function focusSearch(event: KeyboardEvent) {
-      const target = event.target;
-      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)))) return;
-      event.preventDefault();
-      inputRef.current?.focus();
-    }
-    window.addEventListener('keydown', focusSearch);
-    return () => window.removeEventListener('keydown', focusSearch);
-  }, []);
+  useSlashFocus(inputRef);
   const [draft, setDraft] = useState('');
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [selection, setSelection] = useState(ALL_DOCUMENTS);

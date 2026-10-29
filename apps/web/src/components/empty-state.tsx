@@ -25,7 +25,12 @@ export function EmptyState({
           {description}
         </p>
       ) : null}
-      {action || secondaryAction ? <div className="mt-5 flex flex-wrap justify-center gap-2">{action}{secondaryAction}</div> : null}
+      {action || secondaryAction ? (
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          {action}
+          {secondaryAction}
+        </div>
+      ) : null}
     </div>
   );
 }
