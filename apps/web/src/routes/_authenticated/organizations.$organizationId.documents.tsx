@@ -471,7 +471,17 @@ function DocumentsPage() {
             }
           />
 
-          {documents.isError ? <ErrorNotice error={documents.error} /> : null}
+          {documents.isError ? (
+
+            <ErrorNotice
+
+              error={documents.error}
+
+              onRetry={() => void documents.refetch()}
+
+            />
+
+          ) : null}
           {reprocess.isError ? <ErrorNotice error={reprocess.error} /> : null}
 
           <Card>

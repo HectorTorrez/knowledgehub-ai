@@ -110,7 +110,10 @@ function OrganizationsPage() {
         />
 
         {organizations.isError ? (
-          <ErrorNotice error={organizations.error} />
+          <ErrorNotice
+            error={organizations.error}
+            onRetry={() => void organizations.refetch()}
+          />
         ) : null}
 
         {organizations.isPending ? (

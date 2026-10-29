@@ -173,7 +173,12 @@ function SearchPage() {
       </form>
 
       {validationError ? <ErrorNotice error={new Error(validationError)} /> : null}
-      {results.isError ? <ErrorNotice error={results.error} onRetry={() => void results.refetch()} /> : null}
+      {results.isError ? (
+        <ErrorNotice
+          error={results.error}
+          onRetry={() => void results.refetch()}
+        />
+      ) : null}
 
       {submitted === null ? (
         <div className="space-y-6">

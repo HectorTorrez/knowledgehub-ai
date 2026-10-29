@@ -24,6 +24,7 @@ export function ConversationRail({
   error,
   hasNextPage,
   isFetchingNextPage,
+  onRetry,
   onFetchNextPage,
   onNew,
   onSelect,
@@ -39,6 +40,7 @@ export function ConversationRail({
   error: unknown;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
+  onRetry: () => void;
   onFetchNextPage: () => void;
   onNew: () => void;
   onSelect: (conversationId: string) => void;
@@ -83,7 +85,7 @@ export function ConversationRail({
           </div>
         ) : null}
 
-        {isError ? <ErrorNotice error={error} /> : null}
+        {isError ? <ErrorNotice error={error} onRetry={onRetry} /> : null}
 
         {!isPending && !isError && conversations.length === 0 ? (
           <p className="px-2 py-4 text-xs leading-relaxed text-muted-foreground">
@@ -158,7 +160,7 @@ function ConversationRailItem({
     <div
       className={cn(
         'group flex items-center gap-1 rounded-lg pr-1 transition-colors',
-        active ? 'bg-muted' : 'hover:bg-muted/60',
+        active ? 'bg-brand/10' : 'hover:bg-muted/60',
       )}
     >
       <button
@@ -170,7 +172,7 @@ function ConversationRailItem({
         <span
           className={cn(
             'block truncate text-sm',
-            active ? 'font-medium text-foreground' : 'text-foreground/90',
+            active ? 'font-medium text-brand' : 'text-foreground/90',
           )}
         >
           {title}

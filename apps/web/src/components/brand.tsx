@@ -7,7 +7,7 @@ export function Brand({
 }: Readonly<{ className?: string; compact?: boolean }>) {
   return (
     <span className={cn('inline-flex items-center gap-2', className)}>
-      <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+      <span className="flex size-7 items-center justify-center rounded-md bg-brand text-brand-foreground">
         <Library className="size-4" />
       </span>
       <span className="font-semibold tracking-tight">

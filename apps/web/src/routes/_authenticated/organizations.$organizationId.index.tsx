@@ -265,6 +265,12 @@ function OrganizationOverviewPage() {
         <CardHeader>
           <CardTitle>Details</CardTitle>
           <CardDescription>Summary of this organization.</CardDescription>
+          {organization.isError ? (
+            <ErrorNotice
+              error={organization.error}
+              onRetry={() => void organization.refetch()}
+            />
+          ) : null}
         </CardHeader>
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -300,7 +306,12 @@ function OrganizationOverviewPage() {
           {usage.isPending ? (
             <Skeleton className="h-12 w-full" />
           ) : null}
-          {usage.isError ? <ErrorNotice error={usage.error} /> : null}
+          {usage.isError ? (
+            <ErrorNotice
+              error={usage.error}
+              onRetry={() => void usage.refetch()}
+            />
+          ) : null}
           {usage.data ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -374,7 +385,17 @@ function OrganizationOverviewPage() {
               </div>
             ) : null}
 
-            {members.isError ? <ErrorNotice error={members.error} /> : null}
+            {members.isError ? (
+
+              <ErrorNotice
+
+                error={members.error}
+
+                onRetry={() => void members.refetch()}
+
+              />
+
+            ) : null}
 
             {members.data && members.data.members.length === 0 ? (
               <EmptyState
@@ -577,7 +598,10 @@ function OrganizationOverviewPage() {
             ) : null}
 
             {invitations.isError ? (
-              <ErrorNotice error={invitations.error} />
+              <ErrorNotice
+                error={invitations.error}
+                onRetry={() => void invitations.refetch()}
+              />
             ) : null}
 
             {invitations.data && invitations.data.invitations.length === 0 ? (

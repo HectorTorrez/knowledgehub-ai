@@ -70,7 +70,12 @@ function OrganizationLayout() {
 
   return (
     <div className="space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0">
-      {organization.isError ? <ErrorNotice error={organization.error} /> : null}
+      {organization.isError ? (
+        <ErrorNotice
+          error={organization.error}
+          onRetry={() => void organization.refetch()}
+        />
+      ) : null}
 
       <nav
         aria-label="Organization sections"

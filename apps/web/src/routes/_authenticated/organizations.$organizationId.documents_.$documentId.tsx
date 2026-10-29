@@ -161,7 +161,10 @@ function DocumentDetailPage() {
     return (
       <div className="space-y-6">
         <BackLink organizationId={organizationId} />
-        <ErrorNotice error={document.error} />
+        <ErrorNotice
+          error={document.error}
+          onRetry={() => void document.refetch()}
+        />
       </div>
     );
   }
