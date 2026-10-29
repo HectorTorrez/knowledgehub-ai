@@ -125,7 +125,12 @@ function OrganizationSettingsPage() {
   }
 
   if (organization.isError) {
-    return <ErrorNotice error={organization.error} />;
+    return (
+      <ErrorNotice
+        error={organization.error}
+        onRetry={() => void organization.refetch()}
+      />
+    );
   }
 
   return (

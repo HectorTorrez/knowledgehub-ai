@@ -113,7 +113,12 @@ export function AnswerThread({
         />
       ) : null}
 
-      {history.isError ? <ErrorNotice error={history.error} /> : null}
+      {history.isError ? (
+        <ErrorNotice
+          error={history.error}
+          onRetry={() => void history.refetch()}
+        />
+      ) : null}
       {remove.isError && deleteTarget === null ? (
         <ErrorNotice error={remove.error} />
       ) : null}
@@ -399,7 +404,10 @@ function ExpandedAnswer({
   if (detail.isError) {
     return (
       <div className="border-t px-4 py-4 sm:px-6">
-        <ErrorNotice error={detail.error} />
+        <ErrorNotice
+          error={detail.error}
+          onRetry={() => void detail.refetch()}
+        />
       </div>
     );
   }

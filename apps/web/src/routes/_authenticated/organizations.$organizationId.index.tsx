@@ -3,9 +3,22 @@ import type {
   OrganizationRole,
 } from '@knowledgehub/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
-import { Copy, Mail, Trash2, UserPlus } from 'lucide-react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import {
+  CalendarDays,
+  Copy,
+  FileText,
+  Mail,
+  MessageSquareText,
+  Search,
+  Shield,
+  Trash2,
+  Upload,
+  UserPlus,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
@@ -39,6 +52,7 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { useSession } from '~/hooks/use-auth';
+import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { invitationsApi } from '~/lib/api/invitations';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -70,6 +84,7 @@ function OrganizationOverviewPage() {
   const client = useQueryClient();
   const { toast } = useToast();
   const session = useSession();
+  const readyDocuments = useReadyDocuments(organizationId);
   const [email, setEmail] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
@@ -258,35 +273,76 @@ function OrganizationOverviewPage() {
     <div className="space-y-6">
       <PageHeader
         title={organization.data?.organization.name ?? 'Organization'}
-        description="Manage members, invitations, and daily answer usage for this organization."
+        description="Your organization at a glance: documents, members, and today's answer usage."
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Details</CardTitle>
-          <CardDescription>Summary of this organization.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <DetailItem label="Name">
-              {organization.data?.organization.name ?? '—'}
-            </DetailItem>
-            <DetailItem label="Your role">
-              {organization.data
-                ? formatRole(organization.data.organization.role)
-                : '—'}
-            </DetailItem>
-            <DetailItem label="Members">
-              {members.data?.members.length ?? '—'}
-            </DetailItem>
-            <DetailItem label="Created">
-              {organization.data
-                ? formatDate(organization.data.organization.createdAt)
-                : '—'}
-            </DetailItem>
-          </dl>
-        </CardContent>
-      </Card>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          icon={FileText}
+          label="Ready documents"
+          value={readyDocumentsLabel(
+            readyDocuments.documents.length,
+            readyDocuments.query.data?.nextCursor != null,
+          )}
+          pending={readyDocuments.query.isPending}
+        />
+        <StatTile
+          icon={Users}
+          label="Members"
+          value={members.data?.members.length ?? '—'}
+          pending={members.isPending}
+        />
+        <StatTile
+          icon={Shield}
+          label="Your role"
+          value={
+            organization.data
+              ? formatRole(organization.data.organization.role)
+              : '—'
+          }
+          pending={organization.isPending}
+        />
+        <StatTile
+          icon={CalendarDays}
+          label="Created"
+          value={
+            organization.data
+              ? formatDate(organization.data.organization.createdAt)
+              : '—'
+          }
+          pending={organization.isPending}
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
+          <Link
+            to="/organizations/$organizationId/documents"
+            params={{ organizationId }}
+          >
+            <Upload />
+            Upload a document
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
+          <Link
+            to="/organizations/$organizationId/ask"
+            params={{ organizationId }}
+          >
+            <MessageSquareText />
+            Ask a question
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
+          <Link
+            to="/organizations/$organizationId/search"
+            params={{ organizationId }}
+          >
+            <Search />
+            Search documents
+          </Link>
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
@@ -300,7 +356,12 @@ function OrganizationOverviewPage() {
           {usage.isPending ? (
             <Skeleton className="h-12 w-full" />
           ) : null}
-          {usage.isError ? <ErrorNotice error={usage.error} /> : null}
+          {usage.isError ? (
+            <ErrorNotice
+              error={usage.error}
+              onRetry={() => void usage.refetch()}
+            />
+          ) : null}
           {usage.data ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -374,7 +435,12 @@ function OrganizationOverviewPage() {
               </div>
             ) : null}
 
-            {members.isError ? <ErrorNotice error={members.error} /> : null}
+            {members.isError ? (
+              <ErrorNotice
+                error={members.error}
+                onRetry={() => void members.refetch()}
+              />
+            ) : null}
 
             {members.data && members.data.members.length === 0 ? (
               <EmptyState
@@ -577,7 +643,10 @@ function OrganizationOverviewPage() {
             ) : null}
 
             {invitations.isError ? (
-              <ErrorNotice error={invitations.error} />
+              <ErrorNotice
+                error={invitations.error}
+                onRetry={() => void invitations.refetch()}
+              />
             ) : null}
 
             {invitations.data && invitations.data.invitations.length === 0 ? (
@@ -671,15 +740,33 @@ function OrganizationOverviewPage() {
   );
 }
 
-function DetailItem({
+function StatTile({
+  icon: Icon,
   label,
-  children,
-}: Readonly<{ label: string; children: ReactNode }>) {
+  value,
+  pending,
+}: Readonly<{
+  icon: LucideIcon;
+  label: string;
+  value: string | number;
+  pending: boolean;
+}>) {
   return (
-    <div className="space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm font-medium">{children}</dd>
-    </div>
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4 pt-4 sm:p-6 sm:pt-6">
+        <div className="rounded-lg bg-brand/10 p-2 text-brand">
+          <Icon className="size-5" />
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          {pending ? (
+            <Skeleton className="h-8 w-16" />
+          ) : (
+            <p className="text-2xl font-semibold tracking-tight">{value}</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -689,4 +776,8 @@ function initialsFor(firstName: string, lastName: string): string {
 
 function inviteLink(token: string): string {
   return `${window.location.origin}/invitations/accept?token=${encodeURIComponent(token)}`;
+}
+
+function readyDocumentsLabel(count: number, hasMore: boolean): string | number {
+  return hasMore ? `${count}+` : count;
 }

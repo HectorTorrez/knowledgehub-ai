@@ -201,7 +201,12 @@ export function ConversationMessages({
           ref={contentRef}
           className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-6"
         >
-          {answers.isError ? <ErrorNotice error={answers.error} /> : null}
+          {answers.isError ? (
+            <ErrorNotice
+              error={answers.error}
+              onRetry={() => void answers.refetch()}
+            />
+          ) : null}
 
           {answers.isPending && rows.length === 0 && !pendingVisible ? (
             <div className="space-y-3">
@@ -300,7 +305,10 @@ function PersistedTurn({
           heading="KnowledgeHub"
           meta={formatDateTime(answer.createdAt)}
         >
-          <ErrorNotice error={detail.error} />
+          <ErrorNotice
+            error={detail.error}
+            onRetry={() => void detail.refetch()}
+          />
         </AssistantFrame>
       ) : null}
 

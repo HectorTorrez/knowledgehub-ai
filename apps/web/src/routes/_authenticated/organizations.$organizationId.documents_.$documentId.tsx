@@ -161,7 +161,10 @@ function DocumentDetailPage() {
     return (
       <div className="space-y-6">
         <BackLink organizationId={organizationId} />
-        <ErrorNotice error={document.error} />
+        <ErrorNotice
+          error={document.error}
+          onRetry={() => void document.refetch()}
+        />
       </div>
     );
   }
@@ -175,6 +178,7 @@ function DocumentDetailPage() {
       <PageHeader
         title={entry.title}
         description="The file, processing state, and metadata behind this document."
+        eyebrow={<DocumentStatusBadge status={entry.status} />}
         action={
           <div className="flex flex-wrap items-center gap-2">
             {entry.status === 'FAILED' ? (

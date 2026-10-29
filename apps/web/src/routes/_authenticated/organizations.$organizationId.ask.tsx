@@ -340,6 +340,7 @@ function AskPage() {
             error={conversations.error}
             hasNextPage={conversations.hasNextPage}
             isFetchingNextPage={conversations.isFetchingNextPage}
+            onRetry={() => void conversations.refetch()}
             onFetchNextPage={() => void conversations.fetchNextPage()}
             onNew={startNewConversation}
             onSelect={selectConversation}
@@ -442,6 +443,7 @@ function AskPage() {
               error={conversations.error}
               hasNextPage={conversations.hasNextPage}
               isFetchingNextPage={conversations.isFetchingNextPage}
+              onRetry={() => void conversations.refetch()}
               onFetchNextPage={() => void conversations.fetchNextPage()}
               onNew={startNewConversation}
               onSelect={selectConversation}
@@ -529,8 +531,8 @@ function EmptyConversation({
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-8 sm:px-6">
         <div className="my-auto max-w-xl">
-          <div className="flex size-10 items-center justify-center rounded-xl border bg-muted/50">
-            <MessageSquareText className="size-5 text-muted-foreground" />
+          <div className="flex size-10 items-center justify-center rounded-xl border border-brand/20 bg-brand/10">
+            <MessageSquareText className="size-5 text-brand" />
           </div>
           <h2 className="mt-4 text-lg font-semibold tracking-tight sm:text-xl">
             Ask your documents anything
@@ -609,7 +611,12 @@ function PermalinkAnswer({
         </div>
 
         {detail.isPending ? <Skeleton className="h-24 w-full" /> : null}
-        {detail.isError ? <ErrorNotice error={detail.error} /> : null}
+        {detail.isError ? (
+          <ErrorNotice
+            error={detail.error}
+            onRetry={() => void detail.refetch()}
+          />
+        ) : null}
         {detail.data ? (
           <>
             <div className="space-y-1">

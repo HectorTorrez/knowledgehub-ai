@@ -8,7 +8,7 @@ import {
   Sparkles,
   X as XIcon,
 } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
@@ -24,6 +24,7 @@ import {
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
+import { useSlashFocus } from '~/hooks/use-slash-focus';
 import { queryKeys } from '~/lib/api/query-keys';
 import { searchApi } from '~/lib/api/search';
 import { ALL_DOCUMENTS } from '~/lib/document-scope';
@@ -49,6 +50,8 @@ export const Route = createFileRoute(
 
 function SearchPage() {
   const { organizationId } = Route.useParams();
+  const inputRef = useRef<HTMLInputElement>(null);
+  useSlashFocus(inputRef);
   const [draft, setDraft] = useState('');
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [selection, setSelection] = useState(ALL_DOCUMENTS);
@@ -119,6 +122,7 @@ function SearchPage() {
         <div className="relative flex-1">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            ref={inputRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Search your documents…"
@@ -169,7 +173,12 @@ function SearchPage() {
       </form>
 
       {validationError ? <ErrorNotice error={new Error(validationError)} /> : null}
-      {results.isError ? <ErrorNotice error={results.error} /> : null}
+      {results.isError ? (
+        <ErrorNotice
+          error={results.error}
+          onRetry={() => void results.refetch()}
+        />
+      ) : null}
 
       {submitted === null ? (
         <div className="space-y-6">
@@ -197,6 +206,7 @@ function SearchPage() {
                     key={query}
                     variant="outline"
                     size="sm"
+                    className="min-h-11 rounded-full sm:min-h-0"
                     onClick={() => {
                       setDraft(query);
                       runSearch(query);

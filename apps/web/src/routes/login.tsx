@@ -5,6 +5,7 @@ import {
   useRouter,
 } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
+import { AuthLayout } from '~/components/auth-layout';
 import { Brand } from '~/components/brand';
 import { PasswordInput } from '~/components/password-input';
 import { ErrorNotice } from '~/components/route-states';
@@ -91,69 +92,67 @@ function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-12 pb-[max(3rem,env(safe-area-inset-bottom))]">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex justify-center">
-          <Brand />
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">Sign in</CardTitle>
-            <CardDescription>
-              Use your KnowledgeHub AI account to continue.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-              {validationError ? (
-                <ErrorNotice error={new Error(validationError)} />
-              ) : null}
-              {login.isError ? <ErrorNotice error={login.error} /> : null}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  autoFocus
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <PasswordInput
-                  id="password"
-                  name="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={setPassword}
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={login.isPending}
-              >
-                {login.isPending ? 'Signing in…' : 'Sign in'}
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter>
-            <p className="text-sm text-muted-foreground">
-              No account?{' '}
-              <Link
-                to="/register"
-                className="font-medium text-foreground underline underline-offset-4"
-              >
-                Create one
-              </Link>
-            </p>
-          </CardFooter>
-        </Card>
+    <AuthLayout>
+      <div className="flex justify-center lg:hidden">
+        <Brand />
       </div>
-    </main>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">Sign in</CardTitle>
+          <CardDescription>
+            Use your KnowledgeHub AI account to continue.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {validationError ? (
+              <ErrorNotice error={new Error(validationError)} />
+            ) : null}
+            {login.isError ? <ErrorNotice error={login.error} /> : null}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                autoFocus
+                placeholder="you@example.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <PasswordInput
+                id="password"
+                name="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={setPassword}
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={login.isPending}
+            >
+              {login.isPending ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter>
+          <p className="text-sm text-muted-foreground">
+            No account?{' '}
+            <Link
+              to="/register"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Create one
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+    </AuthLayout>
   );
 }

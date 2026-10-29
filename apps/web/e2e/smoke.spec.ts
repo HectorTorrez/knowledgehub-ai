@@ -26,8 +26,12 @@ test('signs in and browses an organization', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Acme' })).toBeVisible();
   await expect(page.getByText('Daily answer usage', { exact: true })).toBeVisible();
   await expect(page.getByText('2 of 100 answers')).toBeVisible();
+  await expect(page.getByText('Ready documents')).toBeVisible();
+  await expect(page.getByText('Ready documents').locator('..')).toContainText('1');
+  await expect(page.getByText('Your role').locator('..')).toContainText('Owner');
+  await expect(page.getByText('Created', { exact: true })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Documents' }).click();
+  await page.getByRole('link', { name: 'Documents', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Handbook' })).toBeVisible();
 

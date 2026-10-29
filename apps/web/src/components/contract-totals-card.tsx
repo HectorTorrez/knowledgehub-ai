@@ -60,12 +60,10 @@ export function ContractTotalsCard({
         ) : null}
 
         {totals.isError ? (
-          <div className="space-y-3">
-            <ErrorNotice error={totals.error} />
-            <Button variant="outline" onClick={() => void totals.refetch()}>
-              Try again
-            </Button>
-          </div>
+          <ErrorNotice
+            error={totals.error}
+            onRetry={() => void totals.refetch()}
+          />
         ) : null}
 
         {totals.data ? (

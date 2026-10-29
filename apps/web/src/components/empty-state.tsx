@@ -6,11 +6,13 @@ export function EmptyState({
   title,
   description,
   action,
+  secondaryAction,
 }: Readonly<{
   icon: LucideIcon;
   title: string;
   description?: string;
   action?: ReactNode;
+  secondaryAction?: ReactNode;
 }>) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-12 text-center">
@@ -23,7 +25,12 @@ export function EmptyState({
           {description}
         </p>
       ) : null}
-      {action ? <div className="mt-5">{action}</div> : null}
+      {action || secondaryAction ? (
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          {action}
+          {secondaryAction}
+        </div>
+      ) : null}
     </div>
   );
 }

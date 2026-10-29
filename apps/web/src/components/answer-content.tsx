@@ -62,7 +62,7 @@ export function CitationMarker({
         event.preventDefault();
         onSelect(marker);
       }}
-      className="relative mx-0.5 inline-flex h-4 min-w-4 translate-y-[-1px] items-center justify-center rounded-sm bg-primary/10 px-1 align-middle text-[10px] leading-none font-semibold text-primary transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-primary/20"
+      className="relative mx-0.5 inline-flex h-4 min-w-4 translate-y-[-1px] items-center justify-center rounded-sm bg-brand/10 px-1 align-middle text-[10px] leading-none font-semibold text-brand transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none after:absolute after:-inset-2 after:content-[''] hover:bg-brand/20"
     >
       {marker}
     </a>
@@ -133,7 +133,7 @@ export function SourcesList({
             className="scroll-mt-[calc(5rem+env(safe-area-inset-top))] rounded-lg border p-4"
           >
             <div className="flex items-center gap-2">
-              <span className="flex size-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[11px] font-semibold text-primary">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded bg-brand/10 text-[11px] font-semibold text-brand">
                 {citation.marker}
               </span>
               {organizationId === undefined ? (
@@ -219,7 +219,7 @@ export function AnswerSources({
               className="scroll-mt-4 rounded-lg border bg-background p-3"
             >
               <div className="flex items-center gap-2">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[11px] font-semibold text-primary">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded bg-brand/10 text-[11px] font-semibold text-brand">
                   {citation.marker}
                 </span>
                 {organizationId === undefined ? (

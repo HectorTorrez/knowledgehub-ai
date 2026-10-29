@@ -1,6 +1,7 @@
 import { FileText, UploadCloud } from 'lucide-react';
 import { useRef, useState, type DragEvent } from 'react';
 import { formatBytes } from '~/lib/format';
+import { MAX_PROCESSABLE_UPLOAD_BYTES } from '~/lib/upload-validation';
 import { cn } from '~/lib/utils';
 
 export function FileDropzone({
@@ -48,6 +49,7 @@ export function FileDropzone({
       aria-label="Choose files to upload"
       onClick={openPicker}
       onKeyDown={(event) => {
+        if (event.key === ' ') event.preventDefault();
         if (event.key === 'Enter' || event.key === ' ') openPicker();
       }}
       onDragOver={(event) => {
@@ -61,7 +63,7 @@ export function FileDropzone({
       className={cn(
         'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-8 text-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-6',
         disabled && 'cursor-not-allowed opacity-60',
-        dragging ? 'border-primary bg-accent/50' : 'border-input hover:bg-accent/40',
+        dragging ? 'border-brand bg-brand/5' : 'border-input hover:bg-accent/40',
       )}
     >
       <input
@@ -79,9 +81,13 @@ export function FileDropzone({
       />
       {files.length > 0 ? (
         <>
-          <FileText className="size-8 text-muted-foreground" />
+          <FileText
+            className={cn('size-8', dragging ? 'text-brand' : 'text-muted-foreground')}
+          />
           <p className="text-sm font-medium">
-            {files.length} {files.length === 1 ? 'file' : 'files'} ready
+            {dragging
+              ? 'Drop files to upload'
+              : `${files.length} ${files.length === 1 ? 'file' : 'files'} ready`}
           </p>
           <p className="text-xs text-muted-foreground">
             {formatBytes(files.reduce((total, file) => total + file.size, 0))} ·
@@ -90,10 +96,15 @@ export function FileDropzone({
         </>
       ) : (
         <>
-          <UploadCloud className="size-8 text-muted-foreground" />
-          <p className="text-sm font-medium">Choose files to upload</p>
+          <UploadCloud
+            className={cn('size-8', dragging ? 'text-brand' : 'text-muted-foreground')}
+          />
+          <p className="text-sm font-medium">
+            {dragging ? 'Drop files to upload' : 'Choose files to upload'}
+          </p>
           <p className="text-xs text-muted-foreground">
-            PDF, plain text, or Markdown · choose several at once
+            PDF, plain text, or Markdown · up to{' '}
+            {formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} each
           </p>
         </>
       )}

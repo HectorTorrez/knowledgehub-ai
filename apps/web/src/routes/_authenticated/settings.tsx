@@ -278,7 +278,10 @@ function AccountSettingsPage() {
             <Skeleton className="h-24 w-full" />
           ) : null}
           {sessions.isError ? (
-            <ErrorNotice error={sessions.error} />
+            <ErrorNotice
+              error={sessions.error}
+              onRetry={() => void sessions.refetch()}
+            />
           ) : null}
           {revokeSession.isError ? (
             <ErrorNotice error={revokeSession.error} />

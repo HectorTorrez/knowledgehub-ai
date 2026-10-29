@@ -46,7 +46,7 @@ export function DocumentStatusBadge({
       <Icon
         className={cn(
           'size-3.5',
-          status === 'PROCESSING' && 'animate-spin',
+          status === 'PROCESSING' && 'animate-spin motion-reduce:animate-none',
         )}
       />
       {config.label}
