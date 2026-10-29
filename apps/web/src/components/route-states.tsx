@@ -1,4 +1,5 @@
 import { LoaderCircle } from 'lucide-react';
+import { Button } from '~/components/ui/button';
 import { Brand } from '~/components/brand';
 import { isApiError, isRateLimited } from '~/lib/api/errors';
 
@@ -17,7 +18,7 @@ export function RoutePending() {
   );
 }
 
-export function ErrorNotice({ error }: Readonly<{ error: unknown }>) {
+export function ErrorNotice({ error, onRetry }: Readonly<{ error: unknown; onRetry?: () => void }>) {
   const message = isApiError(error)
     ? error.message
     : error instanceof Error
@@ -39,6 +40,7 @@ export function ErrorNotice({ error }: Readonly<{ error: unknown }>) {
           {retryMessage(retryAfterSeconds)}
         </p>
       ) : null}
+      {onRetry ? <Button variant="outline" size="sm" className="mt-3 min-h-11 sm:min-h-0" onClick={onRetry}>Try again</Button> : null}
       {validationErrors.length > 1 ? (
         <ul className="mt-2 list-disc pl-5 text-muted-foreground">
           {validationErrors.map((entry) => (
