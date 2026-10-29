@@ -280,7 +280,10 @@ function OrganizationOverviewPage() {
         <StatTile
           icon={FileText}
           label="Ready documents"
-          value={readyDocuments.query.data?.nextCursor != null ? `${readyDocuments.documents.length}+` : readyDocuments.documents.length}
+          value={readyDocumentsLabel(
+            readyDocuments.documents.length,
+            readyDocuments.query.data?.nextCursor != null,
+          )}
           pending={readyDocuments.query.isPending}
         />
         <StatTile
@@ -292,32 +295,49 @@ function OrganizationOverviewPage() {
         <StatTile
           icon={Shield}
           label="Your role"
-          value={organization.data ? formatRole(organization.data.organization.role) : '—'}
+          value={
+            organization.data
+              ? formatRole(organization.data.organization.role)
+              : '—'
+          }
           pending={organization.isPending}
         />
         <StatTile
           icon={CalendarDays}
           label="Created"
-          value={organization.data ? formatDate(organization.data.organization.createdAt) : '—'}
+          value={
+            organization.data
+              ? formatDate(organization.data.organization.createdAt)
+              : '—'
+          }
           pending={organization.isPending}
         />
       </div>
 
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
-          <Link to="/organizations/$organizationId/documents" params={{ organizationId }}>
+          <Link
+            to="/organizations/$organizationId/documents"
+            params={{ organizationId }}
+          >
             <Upload />
             Upload a document
           </Link>
         </Button>
         <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
-          <Link to="/organizations/$organizationId/ask" params={{ organizationId }}>
+          <Link
+            to="/organizations/$organizationId/ask"
+            params={{ organizationId }}
+          >
             <MessageSquareText />
             Ask a question
           </Link>
         </Button>
         <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
-          <Link to="/organizations/$organizationId/search" params={{ organizationId }}>
+          <Link
+            to="/organizations/$organizationId/search"
+            params={{ organizationId }}
+          >
             <Search />
             Search documents
           </Link>
@@ -720,7 +740,12 @@ function OrganizationOverviewPage() {
   );
 }
 
-function StatTile({ icon: Icon, label, value, pending }: Readonly<{
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  pending,
+}: Readonly<{
   icon: LucideIcon;
   label: string;
   value: string | number;
@@ -751,4 +776,8 @@ function initialsFor(firstName: string, lastName: string): string {
 
 function inviteLink(token: string): string {
   return `${window.location.origin}/invitations/accept?token=${encodeURIComponent(token)}`;
+}
+
+function readyDocumentsLabel(count: number, hasMore: boolean): string | number {
+  return hasMore ? `${count}+` : count;
 }
