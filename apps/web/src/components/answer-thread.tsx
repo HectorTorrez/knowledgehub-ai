@@ -114,15 +114,10 @@ export function AnswerThread({
       ) : null}
 
       {history.isError ? (
-
         <ErrorNotice
-
           error={history.error}
-
           onRetry={() => void history.refetch()}
-
         />
-
       ) : null}
       {remove.isError && deleteTarget === null ? (
         <ErrorNotice error={remove.error} />

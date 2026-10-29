@@ -177,7 +177,8 @@ function DocumentDetailPage() {
 
       <PageHeader
         title={entry.title}
-        description="The file, processing state, and metadata behind this document."
+        description={`${entry.originalFileName ?? 'Upload pending'} · ${entry.sizeBytes === null ? '—' : formatBytes(entry.sizeBytes)} · ${formatDateTime(entry.createdAt)}`}
+        eyebrow={<DocumentStatusBadge status={entry.status} />}
         action={
           <div className="flex flex-wrap items-center gap-2">
             {entry.status === 'FAILED' ? (

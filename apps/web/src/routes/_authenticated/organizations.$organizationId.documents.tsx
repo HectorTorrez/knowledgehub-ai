@@ -64,7 +64,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
-import { formatBytes } from '~/lib/format';
+import { formatBytes, formatDate } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
 import {
@@ -472,15 +472,10 @@ function DocumentsPage() {
           />
 
           {documents.isError ? (
-
             <ErrorNotice
-
               error={documents.error}
-
               onRetry={() => void documents.refetch()}
-
             />
-
           ) : null}
           {reprocess.isError ? <ErrorNotice error={reprocess.error} /> : null}
 
@@ -615,7 +610,14 @@ function DocumentsPage() {
                           params={{ organizationId, documentId: document.id }}
                           className="flex min-w-0 flex-1 items-start gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:items-center sm:gap-4"
                         >
-                          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                          <span
+                            className={cn(
+                              'flex size-10 shrink-0 items-center justify-center rounded-md',
+                              document.status === 'READY'
+                                ? 'bg-brand/10 text-brand'
+                                : 'bg-muted text-muted-foreground',
+                            )}
+                          >
                             <FileText className="size-5" />
                           </span>
                           <span className="min-w-0 flex-1">
@@ -635,6 +637,7 @@ function DocumentsPage() {
                                 {document.sizeBytes !== null
                                   ? ` · ${formatBytes(document.sizeBytes)}`
                                   : ''}
+                                {` · ${formatDate(document.createdAt)}`}
                               </span>
                             </span>
                             {document.status === 'FAILED' ? (

@@ -265,12 +265,6 @@ function OrganizationOverviewPage() {
         <CardHeader>
           <CardTitle>Details</CardTitle>
           <CardDescription>Summary of this organization.</CardDescription>
-          {organization.isError ? (
-            <ErrorNotice
-              error={organization.error}
-              onRetry={() => void organization.refetch()}
-            />
-          ) : null}
         </CardHeader>
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -386,15 +380,10 @@ function OrganizationOverviewPage() {
             ) : null}
 
             {members.isError ? (
-
               <ErrorNotice
-
                 error={members.error}
-
                 onRetry={() => void members.refetch()}
-
               />
-
             ) : null}
 
             {members.data && members.data.members.length === 0 ? (
