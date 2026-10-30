@@ -181,6 +181,7 @@ enum FactsStatus {
 /// contract's own total column, never a value recomputed from other columns.
 enum FactType {
   CONTRACT_TOTAL
+  NUMERIC_VALUE
 }
 
 /// Queue state of a durable document processing job. QUEUED and CLAIMED are
@@ -407,7 +408,15 @@ model DocumentFact {
 
   amountMinor BigInt
   scale       Int    @default(2)
-  currency    String @db.Char(3)
+  currency    String? @db.Char(3)
+
+  field       String?
+  fieldLabel  String?
+  unit        String?
+  entityId    String?
+  entityLabel String?
+  occurredOn  DateTime? @db.Date
+  isTotal     Boolean @default(false)
 
   pageNumber Int
   chunkIndex Int?
@@ -418,6 +427,7 @@ model DocumentFact {
 
   @@unique([documentId, documentGeneration, factType, naturalKey])
   @@index([organizationId, factType, currency])
+  @@index([organizationId, factType, field])
   @@index([organizationId, documentId, documentGeneration])
 }
 
