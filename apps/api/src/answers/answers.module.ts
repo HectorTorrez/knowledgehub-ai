@@ -1,3 +1,5 @@
+import { QUERY_REWRITER } from './query-rewriter.port.js';
+import { OpenAiQueryRewriter } from './openai-query-rewriter.js';
 import { Module } from '@nestjs/common';
 import { AggregationModule } from '../aggregation/aggregation.module.js';
 import { AuthModule } from '../auth/auth.module.js';
@@ -26,6 +28,13 @@ import { OpenAiAnswerProvider } from './openai-answer-provider.js';
   controllers: [AnswersController, ConversationsController],
   providers: [
     AnswerConfig,
+    {
+      provide: QUERY_REWRITER,
+      inject: [AnswerConfig],
+      useFactory: (config: AnswerConfig) => new OpenAiQueryRewriter({
+        apiKey: config.apiKey, model: config.model, timeoutMs: config.timeoutMs, baseUrl: config.baseUrl,
+      }),
+    },
     AnswersService,
     ConversationsService,
     {

@@ -85,7 +85,7 @@ export function buildAnswerPrompt(
   };
 }
 
-function renderConversationSection(history: ConversationTurn[]): string {
+export function renderConversationSection(history: ConversationTurn[]): string {
   const turns = history.map(
     (turn, index) =>
       `<turn index="${index + 1}">\nUser: ${escapeConversationText(turn.question)}\nAssistant: ${escapeConversationText(turn.answer)}\n</turn>`,

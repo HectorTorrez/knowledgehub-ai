@@ -1,3 +1,4 @@
+import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
 import { randomUUID } from 'node:crypto';
 import {
   BadGatewayException,
@@ -283,7 +284,7 @@ describe('answers evaluation (real providers)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    }).overrideProvider(QUERY_REWRITER).useValue({ rewrite: async (question: string) => question }).compile();
 
     app = moduleRef.createNestApplication();
     await app.init();

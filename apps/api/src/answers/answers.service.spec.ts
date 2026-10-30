@@ -184,6 +184,7 @@ function createService(options: {
   usageImpl?: () => Promise<void>;
   factsEnabled?: boolean;
   aggregateImpl?: AggregationService['contractTotals'];
+  rewriteImpl?: (question: string) => Promise<string>;
 } = {}) {
   const { retrieval, search } = createRetrieval(
     options.retrievalImpl ?? (async () => options.chunks ?? [CHUNK]),
@@ -212,6 +213,7 @@ function createService(options: {
   const factsConfig = {
     enabled: options.factsEnabled ?? false,
   } as unknown as FactsConfig;
+  const rewrite = vi.fn(options.rewriteImpl ?? (async (question: string) => question));
   const service = new AnswersService(
     provider,
     retrieval,
@@ -220,10 +222,12 @@ function createService(options: {
     usage as unknown as UsageService,
     aggregation,
     factsConfig,
+    { rewrite },
   );
 
   return {
     service,
+    rewrite,
     search,
     generate,
     stream,
@@ -657,6 +661,28 @@ describe('AnswersService', () => {
       data: expect.objectContaining({ conversationId: 'conversation-1' }),
     });
     expect(generate).toHaveBeenCalled();
+  });
+
+  it('rewrites follow-ups only for retrieval', async () => {
+    const { service, prisma, search, generate, rewrite } = createService({ rewriteImpl: async () => 'standalone query' });
+    prisma.answer.findMany.mockResolvedValueOnce([{ question: 'First?', answer: 'Answer.' }]);
+    await service.answer('org-1', USER_ID, 'And second?', 'conversation-1');
+    expect(rewrite).toHaveBeenCalledOnce();
+    expect(search).toHaveBeenCalledWith(expect.objectContaining({ text: 'standalone query' }));
+    expect(generate.mock.calls[0]![0].user).toContain('Question:\nAnd second?');
+  });
+
+  it('skips rewriting without history', async () => {
+    const { service, rewrite } = createService();
+    await service.answer('org-1', USER_ID, 'First?');
+    expect(rewrite).not.toHaveBeenCalled();
+  });
+
+  it.each([async () => { throw new Error('offline'); }, async () => '  '])('falls back when rewriting fails', async (rewriteImpl) => {
+    const { service, prisma, search } = createService({ rewriteImpl });
+    prisma.answer.findMany.mockResolvedValueOnce([{ question: 'First?', answer: 'Answer.' }]);
+    await service.answer('org-1', USER_ID, 'And second?', 'conversation-1');
+    expect(search).toHaveBeenCalledWith(expect.objectContaining({ text: 'And second?' }));
   });
 
   it('titles the conversation from its first question', async () => {

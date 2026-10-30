@@ -1,3 +1,4 @@
+import { QUERY_REWRITER, type QueryRewriter } from './query-rewriter.port.js';
 import {
   BadGatewayException,
   BadRequestException,
@@ -174,6 +175,8 @@ export class AnswersService {
     private readonly usage: UsageService,
     private readonly aggregation: AggregationService,
     private readonly factsConfig: FactsConfig,
+    @Inject(QUERY_REWRITER)
+    private readonly queryRewriter: QueryRewriter,
   ) {}
 
   async answer(
@@ -658,8 +661,19 @@ export class AnswersService {
       return { kind: 'direct', response: aggregate };
     }
 
+    let retrievalQuery = question;
+    if (history.length > 0) {
+      try {
+        const rewritten = (await this.queryRewriter.rewrite(question, history)).trim();
+        if (!rewritten) throw new Error('Empty retrieval query');
+        retrievalQuery = rewritten;
+      } catch {
+        this.logger.warn('Query rewriting failed; using the original question');
+      }
+    }
+
     const [sources, catalogRows] = await Promise.all([
-      this.retrieveSources(organizationId, question, documentId),
+      this.retrieveSources(organizationId, retrievalQuery, documentId),
       this.loadDocumentCatalogRows(organizationId, documentId),
     ]);
 
