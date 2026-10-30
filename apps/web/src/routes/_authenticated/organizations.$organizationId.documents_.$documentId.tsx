@@ -1,7 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, FileText, Pencil, RotateCcw, Trash2 } from 'lucide-react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import {
+  ArrowLeft,
+  BookOpen,
+  ExternalLink,
+  FileText,
+  Pencil,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react';
+import {
+  useState,
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { ContractTotalsCard } from '~/components/contract-totals-card';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { PageHeader } from '~/components/page-header';
@@ -35,6 +48,19 @@ export const Route = createFileRoute(
       description:
         'Inspect a document, its processing status, and the file it was uploaded from.',
     }),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { page?: number } => {
+    const raw = search.page;
+    const page =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string'
+          ? Number(raw)
+          : Number.NaN;
+
+    return Number.isInteger(page) && page > 0 ? { page } : {};
+  },
   component: DocumentDetailPage,
 });
 
@@ -59,6 +85,61 @@ function DocumentDetailPage() {
       return data && ACTIVE_STATUSES.has(data.document.status) ? 3000 : false;
     },
   });
+
+  const { page } = Route.useSearch();
+  const originalAvailable =
+    document.data !== undefined &&
+    document.data.document.status !== 'PENDING' &&
+    document.data.document.failureKind !== 'VERIFICATION';
+
+  const download = useQuery({
+    queryKey: queryKeys.organizations.documents.download(
+      organizationId,
+      documentId,
+    ),
+    queryFn: () => documentsApi.downloadUrl(organizationId, documentId),
+    enabled: originalAvailable,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+
+  async function openOriginal(
+    event: MouseEvent<HTMLAnchorElement>,
+  ): Promise<void> {
+    const current = download.data;
+
+    if (
+      current === undefined ||
+      Date.parse(current.expiresAt) - Date.now() > 60_000
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const tab = window.open('about:blank', '_blank');
+
+    if (tab !== null) {
+      tab.opener = null;
+    }
+
+    const refreshed = await download.refetch();
+
+    if (refreshed.isError || refreshed.data === undefined) {
+      tab?.close();
+      return;
+    }
+
+    const url = withPage(refreshed.data.url, page);
+
+    if (tab !== null) {
+      tab.location.replace(url);
+      return;
+    }
+
+    window.location.assign(url);
+  }
 
   const rename = useMutation({
     mutationFn: (title: string) =>
@@ -181,6 +262,19 @@ function DocumentDetailPage() {
         eyebrow={<DocumentStatusBadge status={entry.status} />}
         action={
           <div className="flex flex-wrap items-center gap-2">
+            {download.data ? (
+              <Button variant="outline" asChild>
+                <a
+                  href={withPage(download.data.url, page)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => void openOriginal(event)}
+                >
+                  <ExternalLink />
+                  {page === undefined ? 'Open original' : `Open page ${page}`}
+                </a>
+              </Button>
+            ) : null}
             {entry.status === 'FAILED' ? (
               <Button
                 variant="outline"
@@ -202,6 +296,35 @@ function DocumentDetailPage() {
           </div>
         }
       />
+
+      {originalAvailable && download.isError ? (
+        <p className="text-sm text-muted-foreground">
+          The original file is not available right now.{' '}
+          <button
+            type="button"
+            className="font-medium underline underline-offset-4"
+            onClick={() => void download.refetch()}
+          >
+            Try again
+          </button>
+        </p>
+      ) : null}
+
+      {page !== undefined && originalAvailable ? (
+        <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
+          <BookOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Page {page}</p>
+            <p className="text-sm text-muted-foreground">
+              {download.data
+                ? `Open page ${page} in the original file to check the passage it came from.`
+                : download.isError
+                  ? 'The original file is not available right now.'
+                  : 'The original file is loading.'}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {reprocess.isError ? <ErrorNotice error={reprocess.error} /> : null}
 
@@ -365,6 +488,10 @@ function BackLink({ organizationId }: Readonly<{ organizationId: string }>) {
       All documents
     </Link>
   );
+}
+
+function withPage(url: string, page?: number): string {
+  return page === undefined ? url : `${url}#page=${page}`;
 }
 
 function DetailItem({

@@ -105,6 +105,15 @@ describe('documents (e2e)', () => {
       .get(`/organizations/${organizationId}/documents/${documentId}`)
       .set(bearer(token));
 
+  const getDownloadUrl = (
+    token: string,
+    organizationId: string,
+    documentId: string,
+  ) =>
+    request(app.getHttpServer())
+      .get(`/organizations/${organizationId}/documents/${documentId}/download`)
+      .set(bearer(token));
+
   const renameDocument = (
     token: string,
     organizationId: string,
@@ -219,6 +228,9 @@ describe('documents (e2e)', () => {
       .expect(401);
     await request(app.getHttpServer())
       .get(`/organizations/${organizationId}/documents/${documentId}`)
+      .expect(401);
+    await request(app.getHttpServer())
+      .get(`/organizations/${organizationId}/documents/${documentId}/download`)
       .expect(401);
     await request(app.getHttpServer())
       .post(
@@ -725,6 +737,117 @@ describe('documents (e2e)', () => {
       for (const malformed of ['not-a-uuid', '123', 'null']) {
         await getDocument(token, organizationId, malformed).expect(400);
       }
+    });
+  });
+
+  describe('download', () => {
+    beforeEach(() => {
+      storage.downloadCalls.length = 0;
+    });
+
+    const createVerifiedDocument = async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(
+        token,
+        'Download Org',
+      );
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+      const documentId = created.body.document.id as string;
+
+      await createUploadUrl(token, organizationId, documentId, {
+        contentType: 'application/pdf',
+      }).expect(200);
+
+      const pending = await loadDocument(documentId);
+      storage.putObject(
+        pending.uploadStorageKey as string,
+        '%PDF-1.7\noriginal body',
+        'application/pdf',
+      );
+
+      await completeUpload(token, organizationId, documentId).expect(200);
+      const verified = await loadDocument(documentId);
+
+      return {
+        token,
+        organizationId,
+        documentId,
+        verifiedKey: verified.storageKey as string,
+      };
+    };
+
+    it('returns a presigned read URL for a document with a verified original', async () => {
+      const { token, organizationId, documentId, verifiedKey } =
+        await createVerifiedDocument();
+
+      const response = await getDownloadUrl(
+        token,
+        organizationId,
+        documentId,
+      ).expect(200);
+
+      expect(response.body).toEqual({
+        url: `https://fake-object-storage.test/${verifiedKey}?download=1`,
+        expiresAt: expect.any(String),
+      });
+      expect(new Date(response.body.expiresAt).toISOString()).toBe(
+        response.body.expiresAt,
+      );
+      expect(Object.keys(response.body).sort()).toEqual(
+        ['expiresAt', 'url'].sort(),
+      );
+      expect(storage.downloadCalls).toHaveLength(1);
+      expect(storage.downloadCalls[0].key).toBe(verifiedKey);
+    });
+
+    it('rejects a document whose upload has not been verified with 409', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Pending Org');
+      const created = await createDocument(token, organizationId, {
+        title: 'Report',
+      }).expect(201);
+
+      await getDownloadUrl(
+        token,
+        organizationId,
+        created.body.document.id as string,
+      ).expect(409);
+    });
+
+    it('rejects a verified document whose object is gone with 409', async () => {
+      const { token, organizationId, documentId, verifiedKey } =
+        await createVerifiedDocument();
+      storage.removeObject(verifiedKey);
+
+      await getDownloadUrl(token, organizationId, documentId).expect(409);
+      expect(storage.downloadCalls).toHaveLength(0);
+    });
+
+    it('returns 404 for a document in another organization', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Other Org');
+
+      await getDownloadUrl(token, organizationId, randomUUID()).expect(404);
+    });
+
+    it('returns 403 for an authenticated non-member', async () => {
+      const { organizationId, documentId } = await createVerifiedDocument();
+      const outsider = await registerUser();
+
+      await getDownloadUrl(
+        outsider.token,
+        organizationId,
+        documentId,
+      ).expect(403);
+    });
+
+    it('rejects a malformed document id with 400', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Malformed Org');
+
+      await getDownloadUrl(token, organizationId, 'not-a-uuid').expect(400);
     });
   });
 

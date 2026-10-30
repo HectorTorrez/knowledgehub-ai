@@ -52,6 +52,14 @@ export const queryKeys = {
         ['organizations', organizationId, 'documents', 'list', 'ready'] as const,
       detail: (organizationId: string, documentId: string) =>
         ['organizations', organizationId, 'documents', 'detail', documentId] as const,
+      download: (organizationId: string, documentId: string) =>
+        [
+          'organizations',
+          organizationId,
+          'documents',
+          'download',
+          documentId,
+        ] as const,
     },
     conversations: {
       all: (organizationId: string) =>
