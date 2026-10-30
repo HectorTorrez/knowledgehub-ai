@@ -1,4 +1,3 @@
-import { QUERY_REWRITER, type QueryRewriter } from './query-rewriter.port.js';
 import {
   BadGatewayException,
   BadRequestException,
@@ -39,6 +38,7 @@ import { RetrievalService } from '../retrieval/retrieval.service.js';
 import { MAX_RETRIEVAL_LIMIT } from '../retrieval/retrieval-policy.js';
 import { diversify } from '../retrieval/diversify.js';
 import { expandNeighbours } from './expand-neighbours.js';
+import { QUERY_REWRITER, type QueryRewriter } from './query-rewriter.port.js';
 import {
   buildDocumentCatalog,
   MAX_CATALOG_DOCUMENTS,
@@ -661,16 +661,7 @@ export class AnswersService {
       return { kind: 'direct', response: aggregate };
     }
 
-    let retrievalQuery = question;
-    if (history.length > 0) {
-      try {
-        const rewritten = (await this.queryRewriter.rewrite(question, history)).trim();
-        if (!rewritten) throw new Error('Empty retrieval query');
-        retrievalQuery = rewritten;
-      } catch {
-        this.logger.warn('Query rewriting failed; using the original question');
-      }
-    }
+    const retrievalQuery = await this.retrievalQuery(question, history);
 
     const [sources, catalogRows] = await Promise.all([
       this.retrieveSources(organizationId, retrievalQuery, documentId),
@@ -734,6 +725,29 @@ export class AnswersService {
     }
 
     this.logger.log(event);
+  }
+
+  private async retrievalQuery(
+    question: string,
+    history: ConversationTurn[],
+  ): Promise<string> {
+    if (history.length === 0) {
+      return question;
+    }
+
+    try {
+      const rewritten = (
+        await this.queryRewriter.rewrite(question, history)
+      ).trim();
+
+      if (rewritten.length > 0) {
+        return rewritten;
+      }
+    } catch (error) {
+      this.logger.warn('Query rewriting failed', error);
+    }
+
+    return question;
   }
 
   private async retrieveSources(
