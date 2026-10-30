@@ -2,7 +2,8 @@ export type EvalKind =
   | 'single_source'
   | 'multi_source'
   | 'distractor'
-  | 'unanswerable';
+  | 'unanswerable'
+  | 'calculation';
 
 export interface CitationRef {
   documentTitle: string;
@@ -13,8 +14,10 @@ export interface EvalQuestion {
   id: string;
   question: string;
   kind: EvalKind;
+  history?: Array<{ question: string; answer: string }>;
   expected: CitationRef[];
   supporting: CitationRef[];
+  expectedValue?: string;
 }
 
 export type OutcomeStatus = 'answered' | 'insufficient_evidence' | 'error';
@@ -26,6 +29,7 @@ export interface QuestionOutcome {
   citations: CitationRef[];
   expected: CitationRef[];
   supporting: CitationRef[];
+  expectedValue?: string;
   answer: string | null;
   violation: string | null;
   latencyMs: number;
@@ -38,10 +42,12 @@ export interface EvalMetrics {
   answered: number;
   refused: number;
   errored: number;
+  calculationAccuracy: number | null;
   citationPrecision: number | null;
   citationRecall: number | null;
   exactMatchRate: number | null;
   groundingHitRate: number | null;
+  documentHitRate: number | null;
   structuralIntegrity: number;
   refusalAccuracy: number | null;
   falseRefusalRate: number | null;
@@ -80,6 +86,7 @@ export interface OutcomeScore {
   precision: number | null;
   recall: number | null;
   groundingHit: boolean | null;
+  documentHit: boolean | null;
 }
 
 export function scoreOutcome(outcome: QuestionOutcome): OutcomeScore {
@@ -89,6 +96,11 @@ export function scoreOutcome(outcome: QuestionOutcome): OutcomeScore {
   const hits = intersectionSize(cited, expected);
 
   return {
+    documentHit: outcome.expected.length === 0
+      ? null
+      : outcome.citations.some((citation) =>
+          outcome.expected.some((item) => item.documentTitle === citation.documentTitle),
+        ),
     precision: cited.size === 0 ? null : hits / cited.size,
     recall: expected.size === 0 ? null : hits / expected.size,
     groundingHit:
@@ -117,7 +129,23 @@ function sumTokens(
   return outcomes.reduce((total, outcome) => total + (outcome[field] ?? 0), 0);
 }
 
+function collapseSpaces(value: string): string {
+  return value.replace(/\s+/gu, ' ');
+}
+
+export function containsValue(
+  answer: string | null | undefined,
+  expected: string,
+): boolean {
+  return (
+    answer !== null &&
+    answer !== undefined &&
+    collapseSpaces(answer).includes(collapseSpaces(expected))
+  );
+}
+
 export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
+  const calculations = outcomes.filter((outcome) => outcome.kind === 'calculation');
   const answerable = outcomes.filter((outcome) => outcome.expected.length > 0);
   const unanswerable = outcomes.filter((outcome) => outcome.expected.length === 0);
   const answered = outcomes.filter((outcome) => outcome.status === 'answered');
@@ -182,6 +210,13 @@ export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
       (outcome) => outcome.status === 'insufficient_evidence',
     ).length,
     errored: outcomes.filter((outcome) => outcome.status === 'error').length,
+    calculationAccuracy: calculations.length === 0
+      ? null
+      : calculations.filter((outcome) =>
+          outcome.status === 'answered' &&
+          outcome.expectedValue !== undefined &&
+          containsValue(outcome.answer, outcome.expectedValue),
+        ).length / calculations.length,
     citationPrecision: citedTotal === 0 ? null : citedHits / citedTotal,
     citationRecall: expectedTotal === 0 ? null : expectedHits / expectedTotal,
     exactMatchRate: answerable.length === 0 ? null : exactMatches / answerable.length,
@@ -189,6 +224,9 @@ export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
       answeredAnswerable.length === 0
         ? null
         : groundingHits / answeredAnswerable.length,
+    documentHitRate: answerable.length === 0
+      ? null
+      : answerable.filter((outcome) => scoreOutcome(outcome).documentHit).length / answerable.length,
     structuralIntegrity:
       outcomes.length === 0 ? 1 : 1 - violations.length / outcomes.length,
     refusalAccuracy:

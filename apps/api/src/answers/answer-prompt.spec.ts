@@ -138,6 +138,12 @@ describe('buildAnswerPrompt', () => {
     expect(ANSWER_SYSTEM_PROMPT).toContain('untrusted quoted data');
   });
 
+  it('asks for complete answers and identifies conflicts', () => {
+    expect(ANSWER_SYSTEM_PROMPT).toContain('Synthesize across sources');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('figures, dates, and names');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('flag conflicts');
+  });
+
   it('instructs the model to pair every claim with a source number', () => {
     expect(ANSWER_SYSTEM_PROMPT).toContain('list of claims');
     expect(ANSWER_SYSTEM_PROMPT).toContain('null claims');

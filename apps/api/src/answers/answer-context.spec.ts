@@ -19,6 +19,7 @@ function retrievedChunk(
     chunkIndex: 0,
     content: 'alpha',
     similarity: 0.9,
+    lexicalMatch: false,
     ...overrides,
   };
 }
@@ -97,11 +98,19 @@ describe('assembleContext', () => {
     expect(sources.map((source) => source.marker)).toEqual([1]);
   });
 
-  it('keeps a chunk whose similarity equals the floor', () => {
+  it('keeps lexical matches below the similarity floor', () => {
     const sources = assembleContext(
-      [retrievedChunk({ similarity: 0.2 })],
+      [retrievedChunk({ similarity: 0.1, lexicalMatch: true })],
       { ...GENEROUS_BUDGET, minSimilarity: 0.2 },
     );
+    expect(sources).toHaveLength(1);
+  });
+
+  it('keeps a chunk whose similarity equals the floor', () => {
+    const sources = assembleContext([retrievedChunk({ similarity: 0.2 })], {
+      ...GENEROUS_BUDGET,
+      minSimilarity: 0.2,
+    });
 
     expect(sources).toHaveLength(1);
   });

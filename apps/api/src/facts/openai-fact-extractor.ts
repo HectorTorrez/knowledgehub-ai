@@ -7,11 +7,18 @@ import {
   type FactExtractionUsage,
   FactExtractionUnavailableError,
   type FactExtractor,
+  type NumericExtractionResult,
+  type NumericFactDraft,
 } from './fact-extractor.port.js';
 import {
   buildFactExtractionPrompt,
   FACT_RESPONSE_FORMAT,
+  type FactExtractionPrompt,
 } from './fact-extraction-prompt.js';
+import {
+  buildNumericPrompt,
+  NUMERIC_RESPONSE_FORMAT,
+} from './numeric-extraction-prompt.js';
 import type { ExtractedFactDraft } from './facts.policy.js';
 
 export interface FactHttpResponse {
@@ -55,7 +62,7 @@ function readString(entry: Record<string, unknown>, key: string): string {
   return value;
 }
 
-export function parseFactResponse(payload: unknown): ExtractedFactDraft[] {
+function parseFactEntries(payload: unknown): Record<string, unknown>[] {
   if (
     !isRecord(payload) ||
     !Array.isArray(payload.choices) ||
@@ -107,11 +114,38 @@ export function parseFactResponse(payload: unknown): ExtractedFactDraft[] {
       throw new FactExtractionResponseError('A fact entry is not an object');
     }
 
+    return entry;
+  });
+}
+
+export function parseFactResponse(payload: unknown): ExtractedFactDraft[] {
+  return parseFactEntries(payload).map((entry) => ({
+    contractId: readString(entry, 'contractId'),
+    label: readString(entry, 'label'),
+    amountText: readString(entry, 'amountText'),
+    currency: readString(entry, 'currency'),
+    evidenceText: readString(entry, 'evidenceText'),
+  }));
+}
+
+export function parseNumericResponse(payload: unknown): NumericFactDraft[] {
+  return parseFactEntries(payload).map((entry) => {
+    if (typeof entry.isTotal !== 'boolean') {
+      throw new FactExtractionResponseError(
+        'A numeric fact entry has no total flag',
+      );
+    }
+
     return {
-      contractId: readString(entry, 'contractId'),
-      label: readString(entry, 'label'),
-      amountText: readString(entry, 'amountText'),
+      field: readString(entry, 'field'),
+      fieldLabel: readString(entry, 'fieldLabel'),
+      valueText: readString(entry, 'valueText'),
       currency: readString(entry, 'currency'),
+      unit: readString(entry, 'unit'),
+      entityId: readString(entry, 'entityId'),
+      entityLabel: readString(entry, 'entityLabel'),
+      date: readString(entry, 'date'),
+      isTotal: entry.isTotal,
       evidenceText: readString(entry, 'evidenceText'),
     };
   });
@@ -145,21 +179,10 @@ export class OpenAiFactExtractor implements FactExtractor {
     page: FactExtractionPage,
     options: FactExtractionOptions = {},
   ): Promise<FactExtractionResult> {
-    const response = await this.send(page, options.hint);
-
-    if (!response.ok) {
-      throw this.httpError(response.status);
-    }
-
-    let payload: unknown;
-    try {
-      payload = await response.json();
-    } catch (error) {
-      throw new FactExtractionResponseError(
-        'The fact provider returned a malformed response body',
-        { cause: error },
-      );
-    }
+    const payload = await this.request(
+      buildFactExtractionPrompt(page, options.hint),
+      FACT_RESPONSE_FORMAT,
+    );
 
     return {
       facts: parseFactResponse(payload),
@@ -167,11 +190,44 @@ export class OpenAiFactExtractor implements FactExtractor {
     };
   }
 
-  private async send(
+  async extractNumeric(
     page: FactExtractionPage,
-    hint?: string,
+  ): Promise<NumericExtractionResult> {
+    const payload = await this.request(
+      buildNumericPrompt(page),
+      NUMERIC_RESPONSE_FORMAT,
+    );
+
+    return {
+      facts: parseNumericResponse(payload),
+      usage: parseFactUsage(payload),
+    };
+  }
+
+  private async request(
+    prompt: FactExtractionPrompt,
+    responseFormat: object,
+  ): Promise<unknown> {
+    const response = await this.send(prompt, responseFormat);
+
+    if (!response.ok) {
+      throw this.httpError(response.status);
+    }
+
+    try {
+      return await response.json();
+    } catch (error) {
+      throw new FactExtractionResponseError(
+        'The fact provider returned a malformed response body',
+        { cause: error },
+      );
+    }
+  }
+
+  private async send(
+    prompt: FactExtractionPrompt,
+    responseFormat: object,
   ): Promise<FactHttpResponse> {
-    const prompt = buildFactExtractionPrompt(page, hint);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.options.timeoutMs);
     timer.unref?.();
@@ -192,7 +248,7 @@ export class OpenAiFactExtractor implements FactExtractor {
               { role: 'user', content: prompt.user },
             ],
             max_completion_tokens: this.options.maxOutputTokens,
-            response_format: FACT_RESPONSE_FORMAT,
+            response_format: responseFormat,
           }),
           signal: controller.signal,
         },

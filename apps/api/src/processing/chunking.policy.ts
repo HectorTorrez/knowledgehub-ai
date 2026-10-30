@@ -23,10 +23,17 @@ export class ChunkLimitExceededError extends Error {
   }
 }
 
+export function chunkEmbeddingInput(
+  documentTitle: string,
+  chunk: Pick<DocumentChunkDraft, 'pageNumber' | 'content'>,
+): string {
+  return `${documentTitle} — page ${chunk.pageNumber}\n${chunk.content}`;
+}
+
 const MIN_SNAPPABLE_CHUNK_CHARACTERS = CHUNK_TARGET_CHARACTERS / 2;
 
 function normalizePageText(content: string): string {
-  return content.replace(/\s+/g, ' ').trim();
+  return content.replace(/\r\n?/g, '\n').split('\n').map((line) => line.replace(/[^\S\n]+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function chunkBoundary(text: string, start: number, windowEnd: number): number {
@@ -34,9 +41,19 @@ function chunkBoundary(text: string, start: number, windowEnd: number): number {
     return text.length;
   }
 
-  const space = text.lastIndexOf(' ', windowEnd);
+  const window = text.slice(start, windowEnd);
+  const paragraph = window.lastIndexOf('\n\n');
+  const sentences = [...window.matchAll(/[.!?]["')\]]?(?=\s)/g)];
+  const sentence = sentences.at(-1);
+  const sentenceEnd = sentence ? sentence.index + sentence[0].length : -1;
+  const word = Math.max(window.lastIndexOf(' '), window.lastIndexOf('\n'));
 
-  return space - start >= MIN_SNAPPABLE_CHUNK_CHARACTERS ? space : windowEnd;
+  for (const boundary of [paragraph, sentenceEnd, word]) {
+    if (boundary >= MIN_SNAPPABLE_CHUNK_CHARACTERS) {
+      return start + boundary;
+    }
+  }
+  return windowEnd;
 }
 
 export function chunkPages(pages: ChunkablePage[]): DocumentChunkDraft[] {

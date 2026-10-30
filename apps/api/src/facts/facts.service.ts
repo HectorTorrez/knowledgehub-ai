@@ -22,6 +22,7 @@ import {
   type StoredChunk,
   type StoredPage,
 } from './facts.store.js';
+import { validateNumericDraft } from './numeric-value.js';
 
 class FactLimitExceededError extends Error {
   constructor(message: string) {
@@ -55,8 +56,10 @@ function dedupeByNaturalKey(facts: FactRecord[]): FactRecord[] {
   const byKey = new Map<string, FactRecord>();
 
   for (const fact of facts) {
-    if (!byKey.has(fact.naturalKey)) {
-      byKey.set(fact.naturalKey, fact);
+    const key = `${fact.factType ?? 'CONTRACT_TOTAL'}:${fact.naturalKey}`;
+
+    if (!byKey.has(key)) {
+      byKey.set(key, fact);
     }
   }
 
@@ -87,15 +90,14 @@ export class FactsService {
     }
 
     try {
-      if (!pages.some((page) => hasContractTotalHeader(page.content))) {
-        return await this.store.replaceForDocument(target, [], {
-          status: 'READY',
-        });
-      }
-
+      const hasContractHeader = pages.some((page) =>
+        hasContractTotalHeader(page.content),
+      );
       const currencies = this.config.currencies;
       const facts: FactRecord[] = [];
       let draftCount = 0;
+      let contractDraftCount = 0;
+      let contractFactCount = 0;
       let coverageIncomplete = false;
 
       const readPage = async (page: StoredPage, hint?: string) => {
@@ -151,29 +153,49 @@ export class FactsService {
           continue;
         }
 
-        let result = await readPage(page);
-        draftCount += result.drafts;
+        if (hasContractHeader) {
+          let result = await readPage(page);
+          draftCount += result.drafts;
+          contractDraftCount += result.drafts;
 
-        if (result.uncovered.length > 0) {
-          const contexts = moneyTokenContexts(page.content, [
-            ...new Set(result.uncovered),
-          ]);
-          const retry = await readPage(
-            page,
-            `The previous pass missed the rows containing these amounts: ${contexts.join(
-              ' | ',
-            )}. Return one fact per contract row, including every one of those rows with its amount exactly as printed.`,
-          );
-          draftCount += retry.drafts;
+          if (result.uncovered.length > 0) {
+            const contexts = moneyTokenContexts(page.content, [
+              ...new Set(result.uncovered),
+            ]);
+            const retry = await readPage(
+              page,
+              `The previous pass missed the rows containing these amounts: ${contexts.join(
+                ' | ',
+              )}. Return one fact per contract row, including every one of those rows with its amount exactly as printed.`,
+            );
+            draftCount += retry.drafts;
+            contractDraftCount += retry.drafts;
 
-          if (
-            retry.uncovered.length < result.uncovered.length ||
-            (retry.uncovered.length === result.uncovered.length &&
-              retry.facts.length > result.facts.length)
-          ) {
-            result = retry;
+            if (
+              retry.uncovered.length < result.uncovered.length ||
+              (retry.uncovered.length === result.uncovered.length &&
+                retry.facts.length > result.facts.length)
+            ) {
+              result = retry;
+            }
           }
+
+          if (draftCount > MAX_FACTS_PER_DOCUMENT) {
+            throw new FactLimitExceededError(
+              'The document produced too many fact drafts',
+            );
+          }
+
+          if (result.uncovered.length > 0) {
+            coverageIncomplete = true;
+          }
+
+          facts.push(...result.facts);
+          contractFactCount += result.facts.length;
         }
+
+        const numericFacts = await this.extractNumericPage(page, chunks);
+        draftCount += numericFacts.drafts;
 
         if (draftCount > MAX_FACTS_PER_DOCUMENT) {
           throw new FactLimitExceededError(
@@ -181,11 +203,7 @@ export class FactsService {
           );
         }
 
-        if (result.uncovered.length > 0) {
-          coverageIncomplete = true;
-        }
-
-        facts.push(...result.facts);
+        facts.push(...numericFacts.facts);
 
         if (facts.length > MAX_FACTS_PER_DOCUMENT) {
           throw new FactLimitExceededError(
@@ -194,7 +212,7 @@ export class FactsService {
         }
       }
 
-      if (draftCount > 0 && facts.length === 0) {
+      if (contractDraftCount > 0 && contractFactCount === 0) {
         throw new FactsRejectedError(
           'The extraction returned drafts but none could be validated',
         );
@@ -229,5 +247,63 @@ export class FactsService {
 
       return false;
     }
+  }
+
+  private async extractNumericPage(
+    page: StoredPage,
+    chunks: StoredChunk[],
+  ): Promise<{ facts: FactRecord[]; drafts: number }> {
+    let drafts;
+
+    try {
+      drafts = (
+        await this.extractor.extractNumeric({
+          pageNumber: page.pageNumber,
+          content: page.content,
+        })
+      ).facts;
+    } catch (error) {
+      if (error instanceof FactExtractionUnavailableError) {
+        throw error;
+      }
+
+      this.logger.warn(
+        `Numeric extraction failed on page ${page.pageNumber}`,
+        error,
+      );
+
+      return { facts: [], drafts: 0 };
+    }
+
+    const facts = drafts.flatMap((draft, index) => {
+      const fact = validateNumericDraft(
+        draft,
+        page.content,
+        this.config.currencies,
+        page.pageNumber,
+        index,
+      );
+
+      return fact
+        ? [
+            {
+              ...fact,
+              chunkIndex: resolveChunkIndex(
+                chunks,
+                page.pageNumber,
+                fact.evidenceText,
+              ),
+            },
+          ]
+        : [];
+    });
+
+    if (facts.length < drafts.length) {
+      this.logger.log(
+        `Numeric extraction rejected ${drafts.length - facts.length} drafts on page ${page.pageNumber}`,
+      );
+    }
+
+    return { facts, drafts: drafts.length };
   }
 }

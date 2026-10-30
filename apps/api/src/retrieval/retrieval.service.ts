@@ -5,11 +5,14 @@ import {
   EmbeddingResponseError,
   type EmbeddingProvider,
 } from '../embeddings/embedding-provider.port.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   DEFAULT_RETRIEVAL_LIMIT,
+  RETRIEVAL_CANDIDATE_LIMIT,
   assertRetrievalQuery,
 } from './retrieval-policy.js';
+import { fuseRanks } from './rank-fusion.js';
 
 export interface RetrievalQuery {
   organizationId: string;
@@ -26,6 +29,7 @@ export interface RetrievedChunk {
   chunkIndex: number;
   content: string;
   similarity: number;
+  lexicalMatch: boolean;
 }
 
 interface ChunkMatchRow {
@@ -57,54 +61,65 @@ export class RetrievalService {
 
     const vector = await this.embedQuery(query.text);
 
-    const rows = query.documentId
-      ? await this.prisma.$queryRaw<ChunkMatchRow[]>`
-      SELECT
-        c.id AS "chunkId",
-        c."documentId" AS "documentId",
-        d.title AS "title",
-        c."pageNumber" AS "pageNumber",
-        c."chunkIndex" AS "chunkIndex",
-        c.content AS "content",
-        (1 - (c."embedding" <=> ${vectorLiteral(vector)}::vector)) AS "similarity"
+    const documentFilter = query.documentId
+      ? Prisma.sql`AND c."documentId" = ${query.documentId}::uuid`
+      : Prisma.empty;
+    const vectorValue = vectorLiteral(vector);
+    const base = Prisma.sql`
+      SELECT c.id AS "chunkId", c."documentId" AS "documentId",
+        d.title AS "title", c."pageNumber" AS "pageNumber",
+        c."chunkIndex" AS "chunkIndex", c.content AS "content",
+        (1 - (c."embedding" <=> ${vectorValue}::vector)) AS "similarity"
       FROM "DocumentChunk" AS c
       JOIN "Document" AS d ON d.id = c."documentId"
       WHERE c."organizationId" = ${query.organizationId}::uuid
         AND d."organizationId" = ${query.organizationId}::uuid
         AND d.status = 'READY'
         AND d.generation = c."documentGeneration"
-        AND c."documentId" = ${query.documentId}::uuid
-      ORDER BY c."embedding" <=> ${vectorLiteral(vector)}::vector
-      LIMIT ${limit}
-    `
-      : await this.prisma.$queryRaw<ChunkMatchRow[]>`
-      SELECT
-        c.id AS "chunkId",
-        c."documentId" AS "documentId",
-        d.title AS "title",
-        c."pageNumber" AS "pageNumber",
-        c."chunkIndex" AS "chunkIndex",
-        c.content AS "content",
-        (1 - (c."embedding" <=> ${vectorLiteral(vector)}::vector)) AS "similarity"
-      FROM "DocumentChunk" AS c
-      JOIN "Document" AS d ON d.id = c."documentId"
-      WHERE c."organizationId" = ${query.organizationId}::uuid
-        AND d."organizationId" = ${query.organizationId}::uuid
-        AND d.status = 'READY'
-        AND d.generation = c."documentGeneration"
-      ORDER BY c."embedding" <=> ${vectorLiteral(vector)}::vector
-      LIMIT ${limit}
+        ${documentFilter}
     `;
+    const anyTermQuery = Prisma.sql`to_tsquery('simple', array_to_string(tsvector_to_array(to_tsvector('simple', ${query.text})), ' | '))`;
+    const candidateLimit = Math.max(limit, RETRIEVAL_CANDIDATE_LIMIT);
+    const [vectorRows, lexicalRows] = await Promise.all([
+      this.prisma.$queryRaw<ChunkMatchRow[]>(Prisma.sql`${base}
+        ORDER BY c."embedding" <=> ${vectorValue}::vector, c.id
+        LIMIT ${candidateLimit}`),
+      this.prisma.$queryRaw<ChunkMatchRow[]>(Prisma.sql`${base}
+        AND c."searchVector" @@ ${anyTermQuery}
+        ORDER BY ts_rank_cd(c."searchVector", ${anyTermQuery}) DESC, c.id
+        LIMIT ${candidateLimit}`),
+    ]);
+    const lexicalIds = new Set(lexicalRows.map((row) => row.chunkId));
 
-    return rows.map((row) => ({
-      chunkId: row.chunkId,
-      documentId: row.documentId,
-      title: row.title,
-      pageNumber: row.pageNumber,
-      chunkIndex: row.chunkIndex,
-      content: row.content,
-      similarity: row.similarity,
-    }));
+    return fuseRanks([vectorRows, lexicalRows])
+      .slice(0, limit)
+      .map((row) => ({ ...row, lexicalMatch: lexicalIds.has(row.chunkId) }));
+  }
+
+  async neighbours(
+    organizationId: string,
+    chunks: Array<{ chunkId: string }>,
+  ): Promise<
+    Array<{ chunkId: string; documentId: string; chunkIndex: number; content: string }>
+  > {
+    if (chunks.length === 0) {
+      return [];
+    }
+
+    return this.prisma.$queryRaw(Prisma.sql`
+      SELECT c.id AS "chunkId", c."documentId", c."chunkIndex", c.content
+      FROM "DocumentChunk" AS c
+      JOIN "Document" AS d ON d.id = c."documentId"
+      JOIN "DocumentChunk" AS matched ON matched."documentId" = c."documentId"
+        AND matched."documentGeneration" = c."documentGeneration"
+        AND c."chunkIndex" IN (matched."chunkIndex" - 1, matched."chunkIndex" + 1)
+      WHERE c."organizationId" = ${organizationId}::uuid
+        AND d."organizationId" = ${organizationId}::uuid
+        AND matched."organizationId" = ${organizationId}::uuid
+        AND d.status = 'READY'
+        AND d.generation = c."documentGeneration"
+        AND matched.id IN (${Prisma.join(chunks.map((chunk) => Prisma.sql`${chunk.chunkId}::uuid`))})
+    `);
   }
 
   private async embedQuery(text: string): Promise<number[]> {

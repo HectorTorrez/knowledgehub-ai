@@ -25,6 +25,7 @@ const OWNERSHIP = {
 
 const OWNED = {
   documentId: 'doc-from-job',
+  title: 'Example',
   organizationId: 'org-1',
   documentGeneration: 1,
 };
@@ -97,7 +98,7 @@ describe('DocumentChunkStore', () => {
 
     await expect(store.replaceForGeneration(OWNERSHIP, CHUNKS)).resolves.toBe(true);
 
-    expect(embeddings.embed).toHaveBeenCalledWith(['alpha', 'beta']);
+    expect(embeddings.embed).toHaveBeenCalledWith(['Example — page 1\nalpha', 'Example — page 2\nbeta']);
     expect(transaction).toHaveBeenCalledTimes(1);
 
     const preview = sqlOf(previewCalls[0]!);

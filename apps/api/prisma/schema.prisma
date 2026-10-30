@@ -117,12 +117,12 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships Membership[]
-  documents   Document[]
-  answers     Answer[]
-  tenantUsage TenantUsage[]
+  memberships   Membership[]
+  documents     Document[]
+  answers       Answer[]
+  tenantUsage   TenantUsage[]
   conversations Conversation[]
-  invitations  OrganizationInvitation[]
+  invitations   OrganizationInvitation[]
 }
 
 /// Links a user to an organization with a role. The [userId, organizationId]
@@ -181,6 +181,7 @@ enum FactsStatus {
 /// contract's own total column, never a value recomputed from other columns.
 enum FactType {
   CONTRACT_TOTAL
+  NUMERIC_VALUE
 }
 
 /// Queue state of a durable document processing job. QUEUED and CLAIMED are
@@ -371,7 +372,8 @@ model DocumentChunk {
   /// `text-embedding-3-small`). Declared `Unsupported` because Prisma has no
   /// vector type: it is excluded from the generated client and read or written
   /// only through raw SQL. The database enforces NOT NULL and the dimension.
-  embedding Unsupported("vector(1536)")
+  embedding    Unsupported("vector(1536)")
+  searchVector Unsupported("tsvector")?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -406,7 +408,15 @@ model DocumentFact {
 
   amountMinor BigInt
   scale       Int    @default(2)
-  currency    String @db.Char(3)
+  currency    String? @db.Char(3)
+
+  field       String?
+  fieldLabel  String?
+  unit        String?
+  entityId    String?
+  entityLabel String?
+  occurredOn  DateTime? @db.Date
+  isTotal     Boolean @default(false)
 
   pageNumber Int
   chunkIndex Int?
@@ -417,6 +427,7 @@ model DocumentFact {
 
   @@unique([documentId, documentGeneration, factType, naturalKey])
   @@index([organizationId, factType, currency])
+  @@index([organizationId, factType, field])
   @@index([organizationId, documentId, documentGeneration])
 }
 

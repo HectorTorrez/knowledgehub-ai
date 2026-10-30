@@ -1,3 +1,5 @@
+import { CALCULATION_PLANNER } from '../src/answers/calculation-planner.port.js';
+import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
 import { randomUUID } from 'node:crypto';
 import { Logger, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -18,6 +20,7 @@ import {
 } from '../src/embeddings/embedding-provider.port.js';
 import { EMBEDDING_VECTOR_DIMENSIONS } from '../src/embeddings/embedding-policy.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { DEFAULT_ANSWER_MAX_OUTPUT_TOKENS } from '../src/answers/answer-policy.js';
 import { FakeAnswerProvider } from './support/fake-answer-provider.js';
 
 const PASSWORD = 'correct horse battery staple';
@@ -204,6 +207,10 @@ describe('answers (e2e)', () => {
     })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue(embeddings)
+      .overrideProvider(CALCULATION_PLANNER)
+      .useValue({ plan: async () => ({ kind: 'none' }) })
+      .overrideProvider(QUERY_REWRITER)
+      .useValue({ rewrite: async (question: string) => question })
       .overrideProvider(ANSWER_PROVIDER)
       .useValue(answerProvider)
       .compile();
@@ -319,7 +326,7 @@ describe('answers (e2e)', () => {
     const { prompt, options } = answerProvider.calls[0]!;
     expect(prompt.user).toContain('Processing retries are bounded by maxAttempts.');
     expect(prompt.user).toContain('How are retries bounded?');
-    expect(options.maxOutputTokens).toBe(700);
+    expect(options.maxOutputTokens).toBe(DEFAULT_ANSWER_MAX_OUTPUT_TOKENS);
 
     const serialized = JSON.stringify(response.body);
     expect(serialized).not.toContain('storageKey');

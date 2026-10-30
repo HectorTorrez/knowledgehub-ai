@@ -23,8 +23,12 @@ import {
   type EmbeddingProvider,
 } from '../src/embeddings/embedding-provider.port.js';
 import { EMBEDDING_VECTOR_DIMENSIONS } from '../src/embeddings/embedding-policy.js';
+import {
+  chunkEmbeddingInput,
+  chunkPages,
+} from '../src/processing/chunking.policy.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { allCorpusPages } from './answers-eval/corpus.js';
+import { allCorpusPages, EVAL_FACTS } from './answers-eval/corpus.js';
 import {
   computeMetrics,
   type EvalQuestion,
@@ -195,11 +199,24 @@ async function seedCorpus(
 ): Promise<string> {
   const embeddings = app.get<EmbeddingProvider>(EMBEDDING_PROVIDER);
   const pages = allCorpusPages();
-  const vectors = await embeddings.embed(pages.map((page) => page.text));
+  const chunks = [...new Set(pages.map((page) => page.documentTitle))].flatMap(
+    (documentTitle) =>
+      chunkPages(
+        pages
+          .filter((page) => page.documentTitle === documentTitle)
+          .map((page) => ({
+            pageNumber: page.pageNumber,
+            content: page.text,
+          })),
+      ).map((chunk) => ({ ...chunk, documentTitle })),
+  );
+  const vectors = await embeddings.embed(
+    chunks.map((chunk) => chunkEmbeddingInput(chunk.documentTitle, chunk)),
+  );
 
-  if (vectors.length !== pages.length) {
+  if (vectors.length !== chunks.length) {
     throw new Error(
-      `The embedding provider returned ${vectors.length} vectors for ${pages.length} pages`,
+      `The embedding provider returned ${vectors.length} vectors for ${chunks.length} chunks`,
     );
   }
 
@@ -208,7 +225,7 @@ async function seedCorpus(
   });
   const documents = new Map<string, string>();
 
-  for (const [index, page] of pages.entries()) {
+  for (const [index, page] of chunks.entries()) {
     const vector = vectors[index];
 
     if (
@@ -231,7 +248,7 @@ async function seedCorpus(
           status: 'READY',
           generation: 1,
           contentType: 'text/plain',
-          sizeBytes: page.text.length,
+          sizeBytes: page.content.length,
         },
       });
 
@@ -250,14 +267,35 @@ async function seedCorpus(
         ${organization.id}::uuid,
         1,
         ${page.pageNumber},
-        ${page.pageNumber - 1},
-        ${page.text},
-        ${page.text.length},
+        ${page.chunkIndex},
+        ${page.content},
+        ${page.content.length},
         ${vectorLiteral(vector)}::vector,
         now(),
         now()
       )
     `;
+  }
+
+  for (const fact of EVAL_FACTS) {
+    const documentId = documents.get(fact.documentTitle);
+    if (!documentId) {
+      throw new Error(`Missing document: ${fact.documentTitle}`);
+    }
+    const { documentTitle: _documentTitle, ...data } = fact;
+    await prisma.documentFact.create({
+      data: {
+        ...data,
+        organizationId: organization.id,
+        documentId,
+        documentGeneration: 1,
+        factType: 'NUMERIC_VALUE',
+        naturalKey: `${fact.field}:${fact.entityId}`,
+        label: fact.fieldLabel,
+        pageNumber: 1,
+        chunkIndex: 0,
+      },
+    });
   }
 
   return organization.id;
@@ -280,6 +318,7 @@ describe('answers evaluation (real providers)', () => {
 
   beforeAll(async () => {
     assertEnvironment();
+    process.env.FACTS_ENABLED = 'true';
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -322,10 +361,31 @@ describe('answers evaluation (real providers)', () => {
     let thrown: unknown = null;
 
     try {
+      let conversationId: string | undefined;
+
+      if (item.history?.length) {
+        const conversation = await prisma.conversation.create({
+          data: { organizationId: organizationId as string },
+        });
+        conversationId = conversation.id;
+        for (const turn of item.history) {
+          await prisma.answer.create({
+            data: {
+              organizationId: organizationId as string,
+              conversationId,
+              question: turn.question,
+              answer: turn.answer,
+              status: 'answered',
+              citations: [],
+            },
+          });
+        }
+      }
       response = await answers.answer(
         organizationId as string,
         EVAL_USER_ID,
         item.question,
+        conversationId,
       );
     } catch (error) {
       thrown = error;
@@ -340,6 +400,7 @@ describe('answers evaluation (real providers)', () => {
       kind: item.kind,
       expected: item.expected,
       supporting: item.supporting,
+      expectedValue: item.expectedValue,
       latencyMs: event ? Math.round(event.durationMs) : wallMs,
       inputTokens: event?.inputTokens ?? null,
       outputTokens: event?.outputTokens ?? null,

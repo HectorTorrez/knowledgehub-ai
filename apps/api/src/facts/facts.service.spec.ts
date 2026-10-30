@@ -60,6 +60,7 @@ function createService(
       facts: [DRAFT, SECOND_DRAFT],
       usage: usage(),
     })),
+    extractNumeric: vi.fn(async () => ({ facts: [], usage: usage() })),
     ...overrides.extractor,
   } as unknown as FactExtractor;
 
@@ -221,26 +222,98 @@ describe('FactsService', () => {
     );
   });
 
-  it('skips a document whose table is not a contract table', async () => {
-    const { service, extractor, store } = createService();
+  it('runs only the numeric pass on a page without a contract table', async () => {
+    const page = {
+      pageNumber: 1,
+      content:
+        'Guía Fecha Cliente Teléfono Dirección Monto ME-000022 $40.00 Pagado',
+    };
+    const { service, extractor, store } = createService({
+      extractor: {
+        extractNumeric: vi.fn(async () => ({
+          facts: [
+            {
+              field: 'monto',
+              fieldLabel: 'Monto',
+              valueText: '$40.00',
+              currency: 'USD',
+              unit: '',
+              entityId: 'ME-000022',
+              entityLabel: '',
+              date: '',
+              isTotal: false,
+              evidenceText: 'ME-000022 $40.00 Pagado',
+            },
+            {
+              field: 'monto',
+              fieldLabel: 'Monto',
+              valueText: '$99.00',
+              currency: 'USD',
+              unit: '',
+              entityId: '',
+              entityLabel: '',
+              date: '',
+              isTotal: false,
+              evidenceText: 'not on the page $99.00',
+            },
+          ],
+          usage: usage(),
+        })),
+      },
+    });
 
-    const result = await service.extractForDocument(
-      TARGET,
-      [
-        {
-          pageNumber: 1,
-          content:
-            'Guía Fecha Cliente Teléfono Dirección Monto ME-000022 $40.00 Pagado',
-        },
-      ],
-      [],
-    );
+    const result = await service.extractForDocument(TARGET, [page], []);
 
     expect(result).toBe(true);
     expect(extractor.extract).not.toHaveBeenCalled();
-    expect(store.replaceForDocument).toHaveBeenCalledWith(TARGET, [], {
-      status: 'READY',
+    expect(store.replaceForDocument).toHaveBeenCalledWith(
+      TARGET,
+      [
+        expect.objectContaining({
+          factType: 'NUMERIC_VALUE',
+          field: 'monto',
+          amountMinor: 4000n,
+          scale: 2,
+          currency: 'USD',
+          entityId: 'ME-000022',
+        }),
+      ],
+      { status: 'READY' },
+    );
+  });
+
+  it('keeps contract facts when the numeric pass fails on a page', async () => {
+    const { service, store } = createService({
+      extractor: {
+        extractNumeric: vi.fn(async () => {
+          throw new Error('malformed');
+        }),
+      },
     });
+
+    const result = await service.extractForDocument(TARGET, [PAGE], [CHUNK]);
+
+    expect(result).toBe(true);
+    const [, facts, status] = vi.mocked(store.replaceForDocument).mock
+      .calls[0]!;
+    expect(facts).toHaveLength(2);
+    expect(status).toEqual({ status: 'READY' });
+  });
+
+  it('leaves the document pending when the numeric pass is unavailable', async () => {
+    const { service, store } = createService({
+      extractor: {
+        extractNumeric: vi.fn(async () => {
+          throw new FactExtractionUnavailableError('rate limited');
+        }),
+      },
+    });
+
+    const result = await service.extractForDocument(TARGET, [PAGE], [CHUNK]);
+
+    expect(result).toBe(false);
+    expect(store.replaceForDocument).not.toHaveBeenCalled();
+    expect(store.markFailed).not.toHaveBeenCalled();
   });
 
   it('keeps a zero-fact page as a successful extraction', async () => {

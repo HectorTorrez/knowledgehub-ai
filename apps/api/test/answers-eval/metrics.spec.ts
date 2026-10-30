@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { chunkPages } from '../../src/processing/chunking.policy.js';
+import { EVAL_CORPUS } from './corpus.js';
 import {
+  containsValue,
   computeMetrics,
   percentile,
   scoreOutcome,
@@ -46,6 +49,27 @@ describe('computeMetrics', () => {
     expect(metrics.structuralIntegrity).toBe(1);
     expect(metrics.refusalAccuracy).toBe(1);
     expect(metrics.falseRefusalRate).toBe(0);
+  });
+
+  it('scores calculation answers and includes refusals in the denominator', () => {
+    const metrics = computeMetrics([
+      outcome({
+        id: 'correct', kind: 'calculation', expectedValue: '$100.00',
+        answer: 'The sum is $100.00.',
+      }),
+      outcome({
+        id: 'wrong', kind: 'calculation', expectedValue: '$100.00',
+        answer: 'The sum is $10.00.',
+      }),
+      outcome({
+        id: 'refused', kind: 'calculation', expectedValue: '5',
+        status: 'insufficient_evidence',
+      }),
+      outcome({ id: 'other', answer: '$100.00' }),
+    ]);
+
+    expect(metrics.calculationAccuracy).toBe(1 / 3);
+    expect(computeMetrics([]).calculationAccuracy).toBeNull();
   });
 
   it('scores partial citation coverage', () => {
@@ -111,6 +135,18 @@ describe('computeMetrics', () => {
     expect(metrics.structuralIntegrity).toBe(0.5);
   });
 
+  it('scores document hits across pages and includes refusals and errors', () => {
+    const metrics = computeMetrics([
+      outcome({ id: 'hit', expected: [DOC_A], citations: [{ ...DOC_A, pageNumber: 9 }] }),
+      outcome({ id: 'miss', expected: [DOC_A], citations: [DOC_B] }),
+      outcome({ id: 'refused', expected: [DOC_A], status: 'insufficient_evidence' }),
+      outcome({ id: 'error', expected: [DOC_A], status: 'error' }),
+      outcome({ id: 'unanswerable' }),
+    ]);
+    expect(metrics.documentHitRate).toBe(0.25);
+    expect(computeMetrics([]).documentHitRate).toBeNull();
+  });
+
   it('aggregates latency and token usage', () => {
     const metrics = computeMetrics([
       outcome({ id: 'a', latencyMs: 100, inputTokens: 10, outputTokens: 5 }),
@@ -129,7 +165,7 @@ describe('scoreOutcome', () => {
   it('returns nulls when precision, recall, or grounding have no basis', () => {
     expect(
       scoreOutcome(outcome({ id: 'empty' })),
-    ).toEqual({ precision: null, recall: null, groundingHit: null });
+    ).toEqual({ precision: null, recall: null, groundingHit: null, documentHit: null });
   });
 
   it('marks a grounding miss when citations avoid the supporting evidence', () => {
@@ -155,5 +191,32 @@ describe('percentile', () => {
     expect(percentile([40, 10, 30, 20], 0.5)).toBe(20);
     expect(percentile([40, 10, 30, 20], 0.95)).toBe(40);
     expect(percentile([7], 0.95)).toBe(7);
+  });
+});
+
+
+describe('retrieval corpus', () => {
+  it('places the beacon facts in adjacent chunks on the same page', () => {
+    const page = EVAL_CORPUS.find(
+      (document) => document.title === 'Orion Field Manual',
+    )?.pages[0];
+    expect(page).toBeDefined();
+    if (!page) throw new Error('Missing Orion Field Manual page');
+    const chunks = chunkPages([{ pageNumber: page.pageNumber, content: page.text }]);
+    const first = chunks.findIndex((chunk) =>
+      chunk.content.includes('violet calibration token'),
+    );
+    const second = chunks.findIndex((chunk) => chunk.content.includes('43 minutes'));
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(second).toBe(first + 1);
+    expect(chunks.length).toBeGreaterThan(2);
+  });
+});
+
+describe('containsValue', () => {
+  it('matches Intl output that uses non-breaking spaces', () => {
+    expect(containsValue('La suma es 1500,00\u00a0US$ [1]', '1500,00 US$')).toBe(
+      true,
+    );
   });
 });

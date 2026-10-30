@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CHUNK_TARGET_CHARACTERS,
   ChunkLimitExceededError,
+  chunkEmbeddingInput,
   chunkPages,
   MAX_CHUNKS_PER_GENERATION,
 } from './chunking.policy.js';
@@ -52,6 +53,14 @@ describe('chunkPages', () => {
     }
   });
 
+  it('prefers paragraph and sentence boundaries', () => {
+    const paragraph = 'a'.repeat(900);
+    const chunks = chunkPages([{ pageNumber: 1, content: `${paragraph}\n\n${'b'.repeat(900)}` }]);
+    expect(chunks[0]?.content).toBe(paragraph);
+    const sentences = chunkPages([{ pageNumber: 1, content: `${'a'.repeat(900)}. ${'b'.repeat(900)}` }]);
+    expect(sentences[0]?.content).toBe(`${'a'.repeat(900)}.`);
+  });
+
   it('hard-splits a whitespace-free run at the target length', () => {
     const chunks = chunkPages([{ pageNumber: 1, content: 'x'.repeat(4_000) }]);
 
@@ -67,7 +76,7 @@ describe('chunkPages', () => {
     ]);
 
     expect(chunks).toHaveLength(1);
-    expect(chunks[0]?.content).toBe('a b c');
+    expect(chunks[0]?.content).toBe('a\n\nb c');
   });
 
   it('produces no chunk for a whitespace-only page', () => {
@@ -89,5 +98,13 @@ describe('chunkPages', () => {
     );
 
     expect(() => chunkPages(pages)).toThrow(ChunkLimitExceededError);
+  });
+});
+
+describe('chunkEmbeddingInput', () => {
+  it('prefixes the chunk with its document title and page', () => {
+    expect(
+      chunkEmbeddingInput('Lease', { pageNumber: 3, content: 'Rent is due.' }),
+    ).toBe('Lease — page 3\nRent is due.');
   });
 });

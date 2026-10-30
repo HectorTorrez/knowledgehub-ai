@@ -19,7 +19,26 @@ export interface FactExtractionResult {
   usage: FactExtractionUsage;
 }
 
+export interface NumericFactDraft {
+  field: string;
+  fieldLabel: string;
+  valueText: string;
+  currency: string;
+  unit: string;
+  entityId: string;
+  entityLabel: string;
+  date: string;
+  isTotal: boolean;
+  evidenceText: string;
+}
+
+export interface NumericExtractionResult {
+  facts: NumericFactDraft[];
+  usage: FactExtractionUsage;
+}
+
 export interface FactExtractor {
+  extractNumeric(page: FactExtractionPage): Promise<NumericExtractionResult>;
   extract(
     page: FactExtractionPage,
     options?: FactExtractionOptions,

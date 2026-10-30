@@ -7,13 +7,17 @@ import {
   type EmbeddingProvider,
 } from '../embeddings/embedding-provider.port.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { DocumentChunkDraft } from './chunking.policy.js';
+import {
+  chunkEmbeddingInput,
+  type DocumentChunkDraft,
+} from './chunking.policy.js';
 import type { ProcessingOwnership } from './processing-job.service.js';
 
 interface OwnedGeneration {
   documentId: string;
   organizationId: string;
   documentGeneration: number;
+  title: string;
 }
 
 interface QueryClient {
@@ -57,7 +61,7 @@ export class DocumentChunkStore {
     }
 
     const vectors = await this.embeddings.embed(
-      chunks.map((chunk) => chunk.content),
+      chunks.map((chunk) => chunkEmbeddingInput(preview.title, chunk)),
     );
     this.assertStorableVectors(vectors, chunks.length);
 
@@ -103,7 +107,7 @@ export class DocumentChunkStore {
   ): Promise<OwnedGeneration | null> {
     const rows = lock
       ? await client.$queryRaw<OwnedGeneration[]>`
-          SELECT j."documentId", j."organizationId", j."documentGeneration"
+          SELECT j."documentId", j."organizationId", j."documentGeneration", d.title
           FROM "DocumentProcessingJob" AS j
           JOIN "Document" AS d ON d.id = j."documentId"
           WHERE j.id = ${ownership.jobId}::uuid
@@ -120,7 +124,7 @@ export class DocumentChunkStore {
           FOR UPDATE OF j, d
         `
       : await client.$queryRaw<OwnedGeneration[]>`
-          SELECT j."documentId", j."organizationId", j."documentGeneration"
+          SELECT j."documentId", j."organizationId", j."documentGeneration", d.title
           FROM "DocumentProcessingJob" AS j
           JOIN "Document" AS d ON d.id = j."documentId"
           WHERE j.id = ${ownership.jobId}::uuid

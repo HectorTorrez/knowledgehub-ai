@@ -8,7 +8,16 @@ export interface FactsTarget {
   documentGeneration: number;
 }
 
-export interface FactRecord extends FactCandidate {
+export interface FactRecord extends Omit<FactCandidate, 'currency'> {
+  currency: string | null;
+  factType?: 'CONTRACT_TOTAL' | 'NUMERIC_VALUE';
+  field?: string;
+  fieldLabel?: string;
+  unit?: string;
+  entityId?: string;
+  entityLabel?: string;
+  occurredOn?: Date | null;
+  isTotal?: boolean;
   chunkIndex: number | null;
   scale: number;
 }
@@ -108,7 +117,14 @@ export class FactsStore {
             organizationId: target.organizationId,
             documentId: target.documentId,
             documentGeneration: target.documentGeneration,
-            factType: 'CONTRACT_TOTAL' as const,
+            factType: fact.factType ?? 'CONTRACT_TOTAL',
+            field: fact.field,
+            fieldLabel: fact.fieldLabel,
+            unit: fact.unit,
+            entityId: fact.entityId,
+            entityLabel: fact.entityLabel,
+            occurredOn: fact.occurredOn,
+            isTotal: fact.isTotal,
             naturalKey: fact.naturalKey,
             label: fact.label,
             amountMinor: fact.amountMinor,
@@ -168,15 +184,15 @@ export class FactsStore {
   }
 
   async loadPages(
+    organizationId: string,
     documentId: string,
     generation: number,
   ): Promise<StoredPage[]> {
-    const row = await this.prisma.documentExtraction.findUnique({
+    const row = await this.prisma.documentExtraction.findFirst({
       where: {
-        documentId_documentGeneration: {
-          documentId,
-          documentGeneration: generation,
-        },
+        organizationId,
+        documentId,
+        documentGeneration: generation,
       },
       select: { pages: true },
     });
@@ -189,11 +205,13 @@ export class FactsStore {
   }
 
   async loadChunks(
+    organizationId: string,
     documentId: string,
     generation: number,
   ): Promise<StoredChunk[]> {
     return this.prisma.documentChunk.findMany({
       where: {
+        organizationId,
         documentId,
         documentGeneration: generation,
       },

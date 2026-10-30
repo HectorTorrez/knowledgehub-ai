@@ -208,6 +208,38 @@ describe('AggregationService', () => {
     });
   });
 
+  it('scopes numeric reads to the organization and current generation', async () => {
+    const { service, prisma } = createService();
+
+    await service.numericFacts('org-1', { fields: ['amount'], documentId: 'doc-a' });
+    await service.numericFieldCatalog('org-1', 'doc-a');
+
+    expect(prisma.document.findFirst).toHaveBeenCalledWith({
+      where: { id: 'doc-a', organizationId: 'org-1' },
+      select: { status: true },
+    });
+    const calls = prisma.$queryRaw.mock.calls as unknown as Array<
+      [TemplateStringsArray, ...unknown[]]
+    >;
+    for (const [strings, ...values] of calls) {
+      const sql = strings.join('?');
+      expect(sql).toContain('f."organizationId" = ?');
+      expect(sql).toContain('d."organizationId" = ?');
+      expect(sql).toContain('d.generation = f."documentGeneration"');
+      expect(sql).toContain("d.status = 'READY'");
+      expect(values.filter((value) => value === 'org-1')).toHaveLength(2);
+    }
+  });
+
+  it('rejects numeric reads for a foreign document', async () => {
+    const { service } = createService({ document: null });
+    await expect(service.numericFacts('org-1', {
+      fields: ['amount'], documentId: 'foreign',
+    })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.numericFieldCatalog('org-1', 'foreign'))
+      .rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('scopes every read by the organization', async () => {
     const { service, prisma } = createService({ facts: [] });
 
