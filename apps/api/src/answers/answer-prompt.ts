@@ -29,7 +29,7 @@ Rules:
 - If the sources and catalog do not contain enough information to answer, respond with status "insufficient_evidence" and null claims.
 - Do not use outside knowledge and do not guess.
 - Answer in the language of the question.
-- Be concise and do not restate the question.`;
+- Give a complete, well-structured answer without restating the question. Synthesize across sources, include specific figures, dates, and names when stated, and flag conflicts between sources.`;
 
 export function renderCatalogDocument(source: CatalogSource): string {
   const attributes = [
