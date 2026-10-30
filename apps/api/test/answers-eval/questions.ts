@@ -2,6 +2,41 @@ import type { EvalQuestion } from './metrics.js';
 
 export const EVAL_QUESTIONS: EvalQuestion[] = [
   {
+    id: 'exact-sku',
+    kind: 'single_source',
+    question: 'What is the inspection interval for SKU QZX-8492-MK?',
+    expected: [{ documentTitle: 'Orion Equipment Register', pageNumber: 1 }],
+    supporting: [{ documentTitle: 'Orion Equipment Register', pageNumber: 1 }],
+  },
+  {
+    id: 'follow-up',
+    kind: 'single_source',
+    question: 'How often is it inspected?',
+    history: [{ question: 'What is SKU QZX-8492-MK?', answer: 'It is the cobalt pressure valve.' }],
+    expected: [{ documentTitle: 'Orion Equipment Register', pageNumber: 1 }],
+    supporting: [{ documentTitle: 'Orion Equipment Register', pageNumber: 1 }],
+  },
+  {
+    id: 'adjacent-chunks',
+    kind: 'single_source',
+    question: 'What token does the Orion beacon need before activation and how long does it stay in standby afterward?',
+    expected: [{ documentTitle: 'Orion Field Manual', pageNumber: 1 }],
+    supporting: [{ documentTitle: 'Orion Field Manual', pageNumber: 1 }],
+  },
+  {
+    id: 'diverse-documents',
+    kind: 'multi_source',
+    question: 'What token does the Orion beacon need before activation and who approves its dispatch?',
+    expected: [
+      { documentTitle: 'Orion Field Manual', pageNumber: 1 },
+      { documentTitle: 'Orion Dispatch Rules', pageNumber: 1 },
+    ],
+    supporting: [
+      { documentTitle: 'Orion Field Manual', pageNumber: 1 },
+      { documentTitle: 'Orion Dispatch Rules', pageNumber: 1 },
+    ],
+  },
+  {
     id: 'staging-dwell',
     kind: 'single_source',
     question:

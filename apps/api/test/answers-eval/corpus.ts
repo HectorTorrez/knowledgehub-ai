@@ -10,6 +10,36 @@ export interface CorpusDocument {
 
 export const EVAL_CORPUS: CorpusDocument[] = [
   {
+    title: 'Orion Equipment Register',
+    pages: [
+      {
+        pageNumber: 1,
+        text: 'Equipment SKU QZX-8492-MK belongs to the cobalt pressure valve. Its inspection interval is 17 weeks.',
+      },
+    ],
+  },
+  {
+    title: 'Orion Field Manual',
+    pages: [{
+      pageNumber: 1,
+      text: [
+        'The Orion beacon requires a violet calibration token before activation.',
+        ...Array.from({ length: 16 }, (_, index) => `Field procedure ${index + 1}: Record the local conditions and verify that the equipment is stable before continuing with routine operations.`),
+        'After activation, the Orion beacon must remain in standby for 43 minutes before transmission.',
+        ...Array.from({ length: 32 }, (_, index) => `Orion beacon dispatch checklist ${index + 1}: Verify the beacon settings and record the dispatch preparation status before proceeding.`),
+      ].join('\n\n'),
+    }],
+  },
+  {
+    title: 'Orion Dispatch Rules',
+    pages: [
+      {
+        pageNumber: 1,
+        text: 'Orion beacon dispatch requires approval from the harbor coordinator.',
+      },
+    ],
+  },
+  {
     title: 'Aurora Deployment Guide',
     pages: [
       {

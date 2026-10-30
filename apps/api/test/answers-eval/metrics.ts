@@ -13,6 +13,7 @@ export interface EvalQuestion {
   id: string;
   question: string;
   kind: EvalKind;
+  history?: Array<{ question: string; answer: string }>;
   expected: CitationRef[];
   supporting: CitationRef[];
 }
@@ -42,6 +43,7 @@ export interface EvalMetrics {
   citationRecall: number | null;
   exactMatchRate: number | null;
   groundingHitRate: number | null;
+  documentHitRate: number | null;
   structuralIntegrity: number;
   refusalAccuracy: number | null;
   falseRefusalRate: number | null;
@@ -80,6 +82,7 @@ export interface OutcomeScore {
   precision: number | null;
   recall: number | null;
   groundingHit: boolean | null;
+  documentHit: boolean | null;
 }
 
 export function scoreOutcome(outcome: QuestionOutcome): OutcomeScore {
@@ -89,6 +92,11 @@ export function scoreOutcome(outcome: QuestionOutcome): OutcomeScore {
   const hits = intersectionSize(cited, expected);
 
   return {
+    documentHit: outcome.expected.length === 0
+      ? null
+      : outcome.citations.some((citation) =>
+          outcome.expected.some((item) => item.documentTitle === citation.documentTitle),
+        ),
     precision: cited.size === 0 ? null : hits / cited.size,
     recall: expected.size === 0 ? null : hits / expected.size,
     groundingHit:
@@ -189,6 +197,9 @@ export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
       answeredAnswerable.length === 0
         ? null
         : groundingHits / answeredAnswerable.length,
+    documentHitRate: answerable.length === 0
+      ? null
+      : answerable.filter((outcome) => scoreOutcome(outcome).documentHit).length / answerable.length,
     structuralIntegrity:
       outcomes.length === 0 ? 1 : 1 - violations.length / outcomes.length,
     refusalAccuracy:

@@ -1,4 +1,3 @@
-import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
 import { randomUUID } from 'node:crypto';
 import {
   BadGatewayException,
@@ -24,6 +23,7 @@ import {
   type EmbeddingProvider,
 } from '../src/embeddings/embedding-provider.port.js';
 import { EMBEDDING_VECTOR_DIMENSIONS } from '../src/embeddings/embedding-policy.js';
+import { chunkPages } from '../src/processing/chunking.policy.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { allCorpusPages } from './answers-eval/corpus.js';
 import {
@@ -196,11 +196,22 @@ async function seedCorpus(
 ): Promise<string> {
   const embeddings = app.get<EmbeddingProvider>(EMBEDDING_PROVIDER);
   const pages = allCorpusPages();
-  const vectors = await embeddings.embed(pages.map((page) => page.text));
+  const chunks = [...new Set(pages.map((page) => page.documentTitle))].flatMap(
+    (documentTitle) =>
+      chunkPages(
+        pages
+          .filter((page) => page.documentTitle === documentTitle)
+          .map((page) => ({
+            pageNumber: page.pageNumber,
+            content: page.text,
+          })),
+      ).map((chunk) => ({ ...chunk, documentTitle })),
+  );
+  const vectors = await embeddings.embed(chunks.map((chunk) => chunk.content));
 
-  if (vectors.length !== pages.length) {
+  if (vectors.length !== chunks.length) {
     throw new Error(
-      `The embedding provider returned ${vectors.length} vectors for ${pages.length} pages`,
+      `The embedding provider returned ${vectors.length} vectors for ${chunks.length} chunks`,
     );
   }
 
@@ -209,7 +220,7 @@ async function seedCorpus(
   });
   const documents = new Map<string, string>();
 
-  for (const [index, page] of pages.entries()) {
+  for (const [index, page] of chunks.entries()) {
     const vector = vectors[index];
 
     if (
@@ -232,7 +243,7 @@ async function seedCorpus(
           status: 'READY',
           generation: 1,
           contentType: 'text/plain',
-          sizeBytes: page.text.length,
+          sizeBytes: page.content.length,
         },
       });
 
@@ -251,9 +262,9 @@ async function seedCorpus(
         ${organization.id}::uuid,
         1,
         ${page.pageNumber},
-        ${page.pageNumber - 1},
-        ${page.text},
-        ${page.text.length},
+        ${page.chunkIndex},
+        ${page.content},
+        ${page.content.length},
         ${vectorLiteral(vector)}::vector,
         now(),
         now()
@@ -284,7 +295,7 @@ describe('answers evaluation (real providers)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(QUERY_REWRITER).useValue({ rewrite: async (question: string) => question }).compile();
+    }).compile();
 
     app = moduleRef.createNestApplication();
     await app.init();
@@ -323,10 +334,31 @@ describe('answers evaluation (real providers)', () => {
     let thrown: unknown = null;
 
     try {
+      let conversationId: string | undefined;
+
+      if (item.history?.length) {
+        const conversation = await prisma.conversation.create({
+          data: { organizationId: organizationId as string },
+        });
+        conversationId = conversation.id;
+        for (const turn of item.history) {
+          await prisma.answer.create({
+            data: {
+              organizationId: organizationId as string,
+              conversationId,
+              question: turn.question,
+              answer: turn.answer,
+              status: 'answered',
+              citations: [],
+            },
+          });
+        }
+      }
       response = await answers.answer(
         organizationId as string,
         EVAL_USER_ID,
         item.question,
+        conversationId,
       );
     } catch (error) {
       thrown = error;

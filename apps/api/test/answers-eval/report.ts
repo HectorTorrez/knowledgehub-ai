@@ -39,6 +39,7 @@ function formatOutcomes(outcomes: QuestionOutcome[]): string {
     pad('prec', 6),
     pad('rec', 6),
     pad('ground', 7),
+    pad('doc', 6),
     pad('latency', 9),
     'tokens',
   ].join(' ');
@@ -61,6 +62,7 @@ function formatOutcomes(outcomes: QuestionOutcome[]): string {
       pad(percentage(score.precision), 6),
       pad(percentage(score.recall), 6),
       pad(ground, 7),
+      pad(score.documentHit === null ? 'n/a' : score.documentHit ? 'hit' : 'miss', 6),
       pad(duration(outcome.latencyMs), 9),
       tokens,
     ].join(' ');
@@ -72,7 +74,7 @@ function formatOutcomes(outcomes: QuestionOutcome[]): string {
 function formatMetrics(metrics: EvalMetrics): string {
   return [
     `metrics: answered=${metrics.answered} refused=${metrics.refused} errored=${metrics.errored}`,
-    `         precision=${percentage(metrics.citationPrecision)} recall=${percentage(metrics.citationRecall)} exact=${percentage(metrics.exactMatchRate)} grounding=${percentage(metrics.groundingHitRate)}`,
+    `         precision=${percentage(metrics.citationPrecision)} recall=${percentage(metrics.citationRecall)} exact=${percentage(metrics.exactMatchRate)} grounding=${percentage(metrics.groundingHitRate)} document-hit=${percentage(metrics.documentHitRate)}`,
     `         structural=${percentage(metrics.structuralIntegrity)} refusal=${percentage(metrics.refusalAccuracy)} false-refusal=${percentage(metrics.falseRefusalRate)}`,
     `         latency p50=${duration(metrics.latencyP50Ms)} p95=${duration(metrics.latencyP95Ms)} tokens=${metrics.inputTokens}/${metrics.outputTokens} (reported by ${metrics.tokenReports}/${metrics.total})`,
   ].join('\n');
@@ -132,6 +134,7 @@ function formatSummary(runs: SweepRun[]): string {
     pad('rec', 6),
     pad('exact', 6),
     pad('ground', 7),
+    pad('doc', 6),
     pad('struct', 7),
     pad('refusal', 8),
     pad('false-ref', 10),
@@ -151,6 +154,7 @@ function formatSummary(runs: SweepRun[]): string {
       pad(percentage(metrics.citationRecall), 6),
       pad(percentage(metrics.exactMatchRate), 6),
       pad(percentage(metrics.groundingHitRate), 7),
+      pad(percentage(metrics.documentHitRate), 6),
       pad(percentage(metrics.structuralIntegrity), 7),
       pad(percentage(metrics.refusalAccuracy), 8),
       pad(percentage(metrics.falseRefusalRate), 10),
