@@ -52,6 +52,14 @@ describe('chunkPages', () => {
     }
   });
 
+  it('prefers paragraph and sentence boundaries', () => {
+    const paragraph = 'a'.repeat(900);
+    const chunks = chunkPages([{ pageNumber: 1, content: `${paragraph}\n\n${'b'.repeat(900)}` }]);
+    expect(chunks[0]?.content).toBe(paragraph);
+    const sentences = chunkPages([{ pageNumber: 1, content: `${'a'.repeat(900)}. ${'b'.repeat(900)}` }]);
+    expect(sentences[0]?.content).toBe(`${'a'.repeat(900)}.`);
+  });
+
   it('hard-splits a whitespace-free run at the target length', () => {
     const chunks = chunkPages([{ pageNumber: 1, content: 'x'.repeat(4_000) }]);
 
@@ -67,7 +75,7 @@ describe('chunkPages', () => {
     ]);
 
     expect(chunks).toHaveLength(1);
-    expect(chunks[0]?.content).toBe('a b c');
+    expect(chunks[0]?.content).toBe('a\n\nb c');
   });
 
   it('produces no chunk for a whitespace-only page', () => {
