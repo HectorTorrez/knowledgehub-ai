@@ -23,7 +23,10 @@ import {
   type EmbeddingProvider,
 } from '../src/embeddings/embedding-provider.port.js';
 import { EMBEDDING_VECTOR_DIMENSIONS } from '../src/embeddings/embedding-policy.js';
-import { chunkPages } from '../src/processing/chunking.policy.js';
+import {
+  chunkEmbeddingInput,
+  chunkPages,
+} from '../src/processing/chunking.policy.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { allCorpusPages } from './answers-eval/corpus.js';
 import {
@@ -207,7 +210,9 @@ async function seedCorpus(
           })),
       ).map((chunk) => ({ ...chunk, documentTitle })),
   );
-  const vectors = await embeddings.embed(chunks.map((chunk) => chunk.content));
+  const vectors = await embeddings.embed(
+    chunks.map((chunk) => chunkEmbeddingInput(chunk.documentTitle, chunk)),
+  );
 
   if (vectors.length !== chunks.length) {
     throw new Error(

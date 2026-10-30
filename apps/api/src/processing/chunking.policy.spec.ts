@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CHUNK_TARGET_CHARACTERS,
   ChunkLimitExceededError,
+  chunkEmbeddingInput,
   chunkPages,
   MAX_CHUNKS_PER_GENERATION,
 } from './chunking.policy.js';
@@ -97,5 +98,13 @@ describe('chunkPages', () => {
     );
 
     expect(() => chunkPages(pages)).toThrow(ChunkLimitExceededError);
+  });
+});
+
+describe('chunkEmbeddingInput', () => {
+  it('prefixes the chunk with its document title and page', () => {
+    expect(
+      chunkEmbeddingInput('Lease', { pageNumber: 3, content: 'Rent is due.' }),
+    ).toBe('Lease — page 3\nRent is due.');
   });
 });

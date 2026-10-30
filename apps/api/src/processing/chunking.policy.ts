@@ -23,6 +23,13 @@ export class ChunkLimitExceededError extends Error {
   }
 }
 
+export function chunkEmbeddingInput(
+  documentTitle: string,
+  chunk: Pick<DocumentChunkDraft, 'pageNumber' | 'content'>,
+): string {
+  return `${documentTitle} — page ${chunk.pageNumber}\n${chunk.content}`;
+}
+
 const MIN_SNAPPABLE_CHUNK_CHARACTERS = CHUNK_TARGET_CHARACTERS / 2;
 
 function normalizePageText(content: string): string {

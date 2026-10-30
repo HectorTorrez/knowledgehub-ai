@@ -7,7 +7,10 @@ import {
   type EmbeddingProvider,
 } from '../embeddings/embedding-provider.port.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { DocumentChunkDraft } from './chunking.policy.js';
+import {
+  chunkEmbeddingInput,
+  type DocumentChunkDraft,
+} from './chunking.policy.js';
 import type { ProcessingOwnership } from './processing-job.service.js';
 
 interface OwnedGeneration {
@@ -58,7 +61,7 @@ export class DocumentChunkStore {
     }
 
     const vectors = await this.embeddings.embed(
-      chunks.map((chunk) => `${preview.title} — page ${chunk.pageNumber}\n${chunk.content}`),
+      chunks.map((chunk) => chunkEmbeddingInput(preview.title, chunk)),
     );
     this.assertStorableVectors(vectors, chunks.length);
 
