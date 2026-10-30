@@ -78,14 +78,15 @@ export class RetrievalService {
         AND d.generation = c."documentGeneration"
         ${documentFilter}
     `;
+    const anyTermQuery = Prisma.sql`to_tsquery('simple', array_to_string(tsvector_to_array(to_tsvector('simple', ${query.text})), ' | '))`;
     const candidateLimit = Math.max(limit, RETRIEVAL_CANDIDATE_LIMIT);
     const [vectorRows, lexicalRows] = await Promise.all([
       this.prisma.$queryRaw<ChunkMatchRow[]>(Prisma.sql`${base}
         ORDER BY c."embedding" <=> ${vectorValue}::vector, c.id
         LIMIT ${candidateLimit}`),
       this.prisma.$queryRaw<ChunkMatchRow[]>(Prisma.sql`${base}
-        AND c."searchVector" @@ websearch_to_tsquery('simple', ${query.text})
-        ORDER BY ts_rank_cd(c."searchVector", websearch_to_tsquery('simple', ${query.text})) DESC, c.id
+        AND c."searchVector" @@ ${anyTermQuery}
+        ORDER BY ts_rank_cd(c."searchVector", ${anyTermQuery}) DESC, c.id
         LIMIT ${candidateLimit}`),
     ]);
     const lexicalIds = new Set(lexicalRows.map((row) => row.chunkId));

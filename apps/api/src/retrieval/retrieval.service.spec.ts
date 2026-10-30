@@ -117,7 +117,7 @@ describe('RetrievalService', () => {
     expect(sql).toContain('ORDER BY');
     expect(sql).toContain('LIMIT ?');
     expect(calls[0]!.values.at(-1)).toBe(RETRIEVAL_CANDIDATE_LIMIT);
-    expect(sqlOf(calls[1]!)).toContain('websearch_to_tsquery');
+    expect(sqlOf(calls[1]!)).toContain("' | '");
   });
 
   it('uses fusion order and marks lexical hits', async () => {
