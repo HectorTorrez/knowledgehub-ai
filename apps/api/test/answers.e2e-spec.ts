@@ -1,3 +1,4 @@
+import { CALCULATION_PLANNER } from '../src/answers/calculation-planner.port.js';
 import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
 import { randomUUID } from 'node:crypto';
 import { Logger, type INestApplication } from '@nestjs/common';
@@ -205,6 +206,8 @@ describe('answers (e2e)', () => {
     })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue(embeddings)
+      .overrideProvider(CALCULATION_PLANNER)
+      .useValue({ plan: async () => ({ kind: 'none' }) })
       .overrideProvider(QUERY_REWRITER)
       .useValue({ rewrite: async (question: string) => question })
       .overrideProvider(ANSWER_PROVIDER)

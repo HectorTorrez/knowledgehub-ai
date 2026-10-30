@@ -26,6 +26,12 @@ import {
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsageService } from '../rate-limit/usage.service.js';
+import { calculate } from '../aggregation/calculation.js';
+import { buildCalculationAnswer } from './calculation-answer.js';
+import {
+  CALCULATION_PLANNER,
+  type CalculationPlanner,
+} from './calculation-planner.port.js';
 import { AggregationService } from '../aggregation/aggregation.service.js';
 import { FactsConfig } from '../facts/facts.config.js';
 import { buildAggregateAnswer, isAggregateQuestion } from './aggregate-answer.js';
@@ -177,6 +183,8 @@ export class AnswersService {
     private readonly factsConfig: FactsConfig,
     @Inject(QUERY_REWRITER)
     private readonly queryRewriter: QueryRewriter,
+    @Inject(CALCULATION_PLANNER)
+    private readonly calculationPlanner: CalculationPlanner,
   ) {}
 
   async answer(
@@ -649,6 +657,18 @@ export class AnswersService {
       await this.assertDocumentAnswerable(organizationId, documentId);
     }
 
+    const calculation = await this.calculationAnswer(
+      organizationId,
+      question,
+      history,
+      documentId,
+    );
+    if (calculation) {
+      event.sourceCount = calculation.citations.length;
+      event.promptChars = calculation.answer?.length ?? 0;
+      return { kind: 'direct', response: calculation };
+    }
+
     const aggregate = await this.aggregateAnswer(
       organizationId,
       question,
@@ -694,6 +714,58 @@ export class AnswersService {
       prompt,
       sources: [...sources, ...catalog.sources],
     };
+  }
+
+  private async calculationAnswer(
+    organizationId: string,
+    question: string,
+    history: ConversationTurn[],
+    documentId?: string,
+  ): Promise<AnswerResponse | null> {
+    if (!this.factsConfig.enabled) {
+      return null;
+    }
+    try {
+      const fields = await this.aggregation.numericFieldCatalog(
+        organizationId,
+        documentId,
+      );
+      if (fields.length === 0) {
+        return null;
+      }
+      const planned = await this.calculationPlanner.plan({
+        question,
+        history,
+        fields,
+      });
+      if (planned.kind === 'none') {
+        this.logger.debug('No calculation planned');
+        return null;
+      }
+      const allowed = new Set(fields.map((entry) => entry.field));
+      const selected = planned.plan.fields.filter((field) => allowed.has(field));
+      if (selected.length === 0) {
+        return null;
+      }
+      const plan = {
+        ...planned.plan,
+        fields: selected,
+        documentId: documentId ?? null,
+      };
+      const facts = await this.aggregation.numericFacts(organizationId, {
+        fields: selected,
+        ...(documentId ? { documentId } : {}),
+      });
+      const result = calculate(facts, plan);
+      if (result.status !== 'ok') {
+        this.logger.debug(`Calculation ${result.status}`);
+        return null;
+      }
+      return buildCalculationAnswer(result, plan, facts, planned.language);
+    } catch (error) {
+      this.logger.warn('Calculation planning failed', error);
+      return null;
+    }
   }
 
   private async aggregateAnswer(

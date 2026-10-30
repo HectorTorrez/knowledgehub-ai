@@ -15,6 +15,8 @@ import { ConversationsController } from './conversations.controller.js';
 import { ConversationsService } from './conversations.service.js';
 import { OpenAiAnswerProvider } from './openai-answer-provider.js';
 import { OpenAiQueryRewriter } from './openai-query-rewriter.js';
+import { CALCULATION_PLANNER } from './calculation-planner.port.js';
+import { OpenAiCalculationPlanner } from './openai-calculation-planner.js';
 import { QUERY_REWRITER } from './query-rewriter.port.js';
 
 @Module({
@@ -33,6 +35,17 @@ import { QUERY_REWRITER } from './query-rewriter.port.js';
       inject: [AnswerConfig],
       useFactory: (config: AnswerConfig) =>
         new OpenAiQueryRewriter({
+          apiKey: config.apiKey,
+          model: config.model,
+          timeoutMs: config.timeoutMs,
+          baseUrl: config.baseUrl,
+        }),
+    },
+    {
+      provide: CALCULATION_PLANNER,
+      inject: [AnswerConfig],
+      useFactory: (config: AnswerConfig) =>
+        new OpenAiCalculationPlanner({
           apiKey: config.apiKey,
           model: config.model,
           timeoutMs: config.timeoutMs,

@@ -1,3 +1,5 @@
+import type { CalculationPlanner } from './calculation-planner.port.js';
+import type { NumericFactRow } from '../aggregation/calculation.js';
 import {
   BadGatewayException,
   BadRequestException,
@@ -185,6 +187,9 @@ function createService(options: {
   factsEnabled?: boolean;
   aggregateImpl?: AggregationService['contractTotals'];
   rewriteImpl?: (question: string) => Promise<string>;
+  plannerImpl?: CalculationPlanner['plan'];
+  numericCatalog?: Awaited<ReturnType<AggregationService['numericFieldCatalog']>>;
+  numericRows?: NumericFactRow[];
 } = {}) {
   const { retrieval, search } = createRetrieval(
     options.retrievalImpl ?? (async () => options.chunks ?? [CHUNK]),
@@ -203,6 +208,8 @@ function createService(options: {
     recordAnswer: vi.fn(options.usageImpl ?? (async () => undefined)),
   };
   const aggregation = {
+    numericFieldCatalog: vi.fn(async () => options.numericCatalog ?? []),
+    numericFacts: vi.fn(async () => options.numericRows ?? []),
     contractTotals: vi.fn(
       options.aggregateImpl ??
         (async () => {
@@ -214,6 +221,7 @@ function createService(options: {
     enabled: options.factsEnabled ?? false,
   } as unknown as FactsConfig;
   const rewrite = vi.fn(options.rewriteImpl ?? (async (question: string) => question));
+  const plan = vi.fn(options.plannerImpl ?? (async () => ({ kind: 'none' as const })));
   const service = new AnswersService(
     provider,
     retrieval,
@@ -223,10 +231,12 @@ function createService(options: {
     aggregation,
     factsConfig,
     { rewrite },
+    { plan },
   );
 
   return {
     service,
+    plan,
     rewrite,
     search,
     generate,
@@ -270,6 +280,93 @@ describe('AnswersService', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('calculates within the requested document and drops unknown fields', async () => {
+    const row: NumericFactRow = {
+      id: 'fact', documentId: 'doc-a', documentTitle: 'Invoice',
+      field: 'amount', fieldLabel: 'Monto', amountMinor: 100n, scale: 2,
+      currency: 'USD', unit: null, entityId: null, entityLabel: null,
+      occurredOn: null, isTotal: false, pageNumber: 1, chunkIndex: 0,
+      evidenceText: 'Monto 1',
+    };
+    const { service, search, generate, aggregation } = createService({
+      factsEnabled: true,
+      numericCatalog: [{
+        field: 'amount', fieldLabels: ['Monto'], currencies: ['USD'],
+        units: [], count: 1,
+      }],
+      numericRows: [row],
+      plannerImpl: async () => ({
+        kind: 'calculation', language: 'es',
+        plan: {
+          operation: 'sum', fields: ['amount', 'unknown'], entityIds: [],
+          entityLabelContains: null, dateFrom: null, dateTo: null,
+          currency: null, groupBy: 'none', includeTotals: false,
+        },
+      }),
+    });
+    const answer = await service.answer('org-1', USER_ID, 'suma', undefined, 'doc-a');
+    expect(answer.status).toBe('answered');
+    expect(aggregation.numericFacts).toHaveBeenCalledWith('org-1', {
+      fields: ['amount'], documentId: 'doc-a',
+    });
+    expect(search).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it('skips the planner when facts are disabled or the catalog is empty', async () => {
+    for (const factsEnabled of [false, true]) {
+      const { service, plan } = createService({ factsEnabled });
+      await service.answer('org-1', USER_ID, 'What is alpha?');
+      expect(plan).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each(['none', 'empty', 'unsupported'] as const)(
+    'falls back when calculation is %s',
+    async (scenario) => {
+      const { service, search } = createService({
+        factsEnabled: true,
+        numericCatalog: [{
+          field: 'amount', fieldLabels: [], currencies: [], units: [], count: 1,
+        }],
+        numericRows: scenario === 'unsupported' ? [{
+          id: 'fact', documentId: 'doc-a', documentTitle: 'Invoice',
+          field: 'amount', fieldLabel: 'Amount', amountMinor: 100n, scale: 2,
+          currency: 'USD', unit: null, entityId: null, entityLabel: null,
+          occurredOn: null, isTotal: false, pageNumber: 1, chunkIndex: 0,
+          evidenceText: 'Amount 1',
+        }] : [],
+        plannerImpl: async () => {
+          if (scenario === 'none') {
+            return { kind: 'none' };
+          }
+          return {
+            kind: 'calculation', language: 'en',
+            plan: {
+              operation: 'difference', fields: ['amount'], entityIds: [],
+              entityLabelContains: null, dateFrom: null, dateTo: null,
+              currency: null, groupBy: 'none', includeTotals: false,
+            },
+          };
+        },
+      });
+      await service.answer('org-1', USER_ID, 'What is alpha?');
+      expect(search).toHaveBeenCalled();
+    },
+  );
+
+  it('falls back when planning fails', async () => {
+    const { service, search } = createService({
+      factsEnabled: true,
+      numericCatalog: [{
+        field: 'amount', fieldLabels: [], currencies: [], units: [], count: 1,
+      }],
+      plannerImpl: async () => { throw new Error('unavailable'); },
+    });
+    await service.answer('org-1', USER_ID, 'What is alpha?');
+    expect(search).toHaveBeenCalled();
   });
 
   it('answers a total question from facts without calling the provider', async () => {
