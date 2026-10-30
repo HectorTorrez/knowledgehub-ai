@@ -2,11 +2,11 @@ export const DEFAULT_ANSWER_MODEL = 'gpt-4.1-mini';
 
 export const DEFAULT_ANSWER_TIMEOUT_MS = 30_000;
 
-export const DEFAULT_ANSWER_MAX_OUTPUT_TOKENS = 700;
+export const DEFAULT_ANSWER_MAX_OUTPUT_TOKENS = 1200;
 
 export const MAX_ANSWER_OUTPUT_TOKENS = 4_096;
 
-export const DEFAULT_ANSWER_MAX_SOURCES = 8;
+export const DEFAULT_ANSWER_MAX_SOURCES = 12;
 
 export const MAX_ANSWER_SOURCES = 20;
 
