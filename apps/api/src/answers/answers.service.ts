@@ -744,7 +744,14 @@ export class AnswersService {
       documentId ? chunks : diversify(chunks),
       this.contextBudget(),
     );
-    const neighbours = await this.retrieval.neighbours(organizationId, sources);
+    let neighbours;
+
+    try {
+      neighbours = await this.retrieval.neighbours(organizationId, sources);
+    } catch (error) {
+      throw mapRetrievalError(error);
+    }
+
     return expandNeighbours(sources, neighbours, this.config.contextMaxChars);
   }
 

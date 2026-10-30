@@ -1,4 +1,5 @@
-import { renderSourcesSection, type AnswerSource } from "./answer-context.js";
+import { CHUNK_OVERLAP_CHARACTERS } from '../processing/chunking.policy.js';
+import { renderSourcesSection, type AnswerSource } from './answer-context.js';
 
 export interface Neighbour {
   chunkId: string;
@@ -7,16 +8,24 @@ export interface Neighbour {
   content: string;
 }
 
-function joinChunks(left: string, right: string): string {
-  const overlap = 320;
-  if (
-    left.length >= overlap &&
-    right.length >= overlap &&
-    left.slice(-overlap) === right.slice(0, overlap)
-  ) {
-    return left + right.slice(overlap);
+const MIN_SHARED_CHARACTERS = 20;
+
+function sharedLength(left: string, right: string): number {
+  const longest = Math.min(left.length, right.length, CHUNK_OVERLAP_CHARACTERS);
+
+  for (let length = longest; length >= MIN_SHARED_CHARACTERS; length--) {
+    if (left.endsWith(right.slice(0, length))) {
+      return length;
+    }
   }
-  return `${left}\n${right}`;
+
+  return 0;
+}
+
+function joinChunks(left: string, right: string): string {
+  const shared = sharedLength(left, right);
+
+  return shared > 0 ? left + right.slice(shared) : `${left}\n${right}`;
 }
 
 export function expandNeighbours(

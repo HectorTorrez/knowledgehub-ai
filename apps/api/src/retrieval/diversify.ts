@@ -1,5 +1,5 @@
-import { MAX_CHUNKS_PER_DOCUMENT } from "./retrieval-policy.js";
-import type { RetrievedChunk } from "./retrieval.service.js";
+import { MAX_CHUNKS_PER_DOCUMENT } from './retrieval-policy.js';
+import type { RetrievedChunk } from './retrieval.service.js';
 
 export function diversify(chunks: RetrievedChunk[]): RetrievedChunk[] {
   const counts = new Map<string, number>();
