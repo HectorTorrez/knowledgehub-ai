@@ -91,6 +91,56 @@ describe('OpenAiFactExtractor', () => {
     expect(body.messages[1]?.content).toContain('<page>');
   });
 
+  it('extracts numeric values with the numeric schema', async () => {
+    const fetchMock = vi.fn<FactFetch>(async () => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        completion(
+          JSON.stringify({
+            facts: [
+              {
+                field: 'monto',
+                fieldLabel: 'Monto',
+                valueText: '$500.00',
+                currency: 'USD',
+                unit: '',
+                entityId: '1143',
+                entityLabel: 'Plan Personalizado',
+                date: '',
+                isTotal: false,
+                evidenceText: '1143 Plan Personalizado $500.00',
+              },
+            ],
+          }),
+        ),
+    }));
+
+    const result = await createExtractor(fetchMock).extractNumeric(PAGE);
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse(init.body) as {
+      response_format: { json_schema: { name: string } };
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(body.response_format.json_schema.name).toBe('numeric_facts');
+    expect(body.messages[0]?.content).toContain('untrusted');
+    expect(result.facts[0]).toMatchObject({ field: 'monto', isTotal: false });
+    expect(result.usage).toEqual({ inputTokens: 120, outputTokens: 40 });
+  });
+
+  it('maps a numeric extraction 429 to an unavailable error', async () => {
+    const fetchMock = vi.fn<FactFetch>(async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({}),
+    }));
+
+    await expect(
+      createExtractor(fetchMock).extractNumeric(PAGE),
+    ).rejects.toBeInstanceOf(FactExtractionUnavailableError);
+  });
+
   it('appends a correction hint when a page was short', async () => {
     const fetchMock = vi.fn<FactFetch>(async () => ({
       ok: true,

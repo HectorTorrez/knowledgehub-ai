@@ -1,4 +1,12 @@
 import { createHash } from 'node:crypto';
+import type { NumericFactDraft } from './fact-extractor.port.js';
+import {
+  MAX_CONTRACT_ID_CHARS,
+  MAX_FACT_EVIDENCE_CHARS,
+  MAX_FACT_LABEL_CHARS,
+  normalizeWhitespace,
+} from './facts.policy.js';
+import type { FactRecord } from './facts.store.js';
 
 export function parseNumericText(
   text: string,
@@ -80,4 +88,82 @@ export function normalizeFieldName(label: string): string {
     .replace(/^_+|_+$/g, '')
     .slice(0, 64)
     .replace(/_+$/, '');
+}
+
+function parseIsoDate(value: string): Date | null | undefined {
+  if (value.length === 0) {
+    return null;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return undefined;
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+
+  return date.toISOString().slice(0, 10) === value ? date : undefined;
+}
+
+function exceedsLabelLimits(draft: NumericFactDraft, valueText: string): boolean {
+  return (
+    draft.entityId.length > MAX_CONTRACT_ID_CHARS ||
+    [draft.fieldLabel, draft.entityLabel, draft.unit, valueText].some(
+      (value) => value.length > MAX_FACT_LABEL_CHARS,
+    )
+  );
+}
+
+export function validateNumericDraft(
+  draft: NumericFactDraft,
+  pageText: string,
+  currencies: ReadonlySet<string>,
+  pageNumber: number,
+  rowIndex: number,
+): FactRecord | null {
+  const evidence = normalizeWhitespace(draft.evidenceText);
+  const valueText = normalizeWhitespace(draft.valueText);
+  const field = normalizeFieldName(draft.field);
+  const currency = draft.currency.trim().toUpperCase();
+  const parsed = parseNumericText(valueText);
+  const occurredOn = parseIsoDate(draft.date.trim());
+
+  if (
+    evidence.length === 0 ||
+    evidence.length > MAX_FACT_EVIDENCE_CHARS ||
+    !normalizeWhitespace(pageText).includes(evidence) ||
+    valueText.length === 0 ||
+    !evidence.includes(valueText) ||
+    parsed === null ||
+    field.length === 0 ||
+    (currency.length > 0 && !currencies.has(currency)) ||
+    occurredOn === undefined ||
+    exceedsLabelLimits(draft, valueText)
+  ) {
+    return null;
+  }
+
+  return {
+    factType: 'NUMERIC_VALUE',
+    naturalKey: numericFactNaturalKey({
+      pageNumber,
+      field,
+      entityId: draft.entityId,
+      rowIndex,
+      valueText,
+    }),
+    label: draft.fieldLabel || field,
+    amountMinor: parsed.valueMinor,
+    scale: parsed.scale,
+    currency: currency || null,
+    field,
+    fieldLabel: draft.fieldLabel,
+    unit: parsed.percent ? '%' : draft.unit,
+    entityId: draft.entityId,
+    entityLabel: draft.entityLabel,
+    occurredOn,
+    isTotal: draft.isTotal,
+    pageNumber,
+    evidenceText: evidence,
+    chunkIndex: null,
+  };
 }
