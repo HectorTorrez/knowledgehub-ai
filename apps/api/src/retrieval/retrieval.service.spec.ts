@@ -85,6 +85,18 @@ describe('RetrievalService', () => {
     }
   });
 
+  it('scopes neighbour lookup to the organization and current ready generation', async () => {
+    const { service, calls } = createService([]);
+    await service.neighbours('org-1', [{ chunkId: 'chunk-1' }]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.values.filter((value) => value === 'org-1')).toHaveLength(3);
+    expect(calls[0]!.sql).toContain('c."organizationId" = ?::uuid');
+    expect(calls[0]!.sql).toContain('d."organizationId" = ?::uuid');
+    expect(calls[0]!.sql).toContain('matched."organizationId" = ?::uuid');
+    expect(calls[0]!.sql).toContain('d.generation = c."documentGeneration"');
+    expect(calls[0]!.sql).toContain("d.status = 'READY'");
+  });
+
   it('scopes the search to a single document when one is requested', async () => {
     const { service, calls } = createService([]);
 

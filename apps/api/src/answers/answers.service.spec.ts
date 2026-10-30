@@ -89,7 +89,10 @@ function createRetrieval(
   impl: RetrievalService['search'] = async () => [CHUNK],
 ) {
   const search = vi.fn(impl);
-  return { retrieval: { search } as unknown as RetrievalService, search };
+  return {
+    retrieval: { search, neighbours: vi.fn().mockResolvedValue([]) } as unknown as RetrievalService,
+    search,
+  };
 }
 
 function createProvider(
@@ -339,7 +342,7 @@ describe('AnswersService', () => {
     expect(search).toHaveBeenCalledWith({
       organizationId: 'org-1',
       text: 'What is alpha?',
-      limit: 8,
+      limit: 24,
     });
   });
 
@@ -355,9 +358,25 @@ describe('AnswersService', () => {
     expect(search).toHaveBeenCalledWith({
       organizationId: 'org-1',
       text: 'What is alpha?',
-      limit: 8,
+      limit: 24,
       documentId: 'doc-9',
     });
+  });
+
+  it('diversifies unscoped results and keeps all matches for a scoped document', async () => {
+    const chunks = Array.from({ length: 5 }, (_, index) => ({
+      ...CHUNK,
+      chunkId: `chunk-${index}`,
+      chunkIndex: index,
+      content: `passage-${index}`,
+    }));
+    const unscoped = createService({ chunks });
+    await unscoped.service.answer('org-1', USER_ID, 'Question?');
+    expect(unscoped.generate.mock.calls[0]![0].user).not.toContain('passage-4');
+
+    const scoped = createService({ chunks });
+    await scoped.service.answer('org-1', USER_ID, 'Question?', undefined, 'doc-9');
+    expect(scoped.generate.mock.calls[0]![0].user).toContain('passage-4');
   });
 
   it('does not check a document when the question is unscoped', async () => {

@@ -35,6 +35,9 @@ import {
   EmbeddingUnavailableError,
 } from '../embeddings/embedding-provider.port.js';
 import { RetrievalService } from '../retrieval/retrieval.service.js';
+import { MAX_RETRIEVAL_LIMIT } from '../retrieval/retrieval-policy.js';
+import { diversify } from '../retrieval/diversify.js';
+import { expandNeighbours } from './expand-neighbours.js';
 import {
   buildDocumentCatalog,
   MAX_CATALOG_DOCUMENTS,
@@ -730,14 +733,19 @@ export class AnswersService {
       chunks = await this.retrieval.search({
         organizationId,
         text: question,
-        limit: this.config.maxSources,
+        limit: Math.min(this.config.maxSources * 3, MAX_RETRIEVAL_LIMIT),
         ...(documentId ? { documentId } : {}),
       });
     } catch (error) {
       throw mapRetrievalError(error);
     }
 
-    return assembleContext(chunks, this.contextBudget());
+    const sources = assembleContext(
+      documentId ? chunks : diversify(chunks),
+      this.contextBudget(),
+    );
+    const neighbours = await this.retrieval.neighbours(organizationId, sources);
+    return expandNeighbours(sources, neighbours, this.config.contextMaxChars);
   }
 
   private async loadDocumentCatalogRows(

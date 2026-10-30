@@ -96,6 +96,32 @@ export class RetrievalService {
       .map((row) => ({ ...row, lexicalMatch: lexicalIds.has(row.chunkId) }));
   }
 
+  async neighbours(
+    organizationId: string,
+    chunks: Array<{ chunkId: string }>,
+  ): Promise<
+    Array<{ chunkId: string; documentId: string; chunkIndex: number; content: string }>
+  > {
+    if (chunks.length === 0) {
+      return [];
+    }
+
+    return this.prisma.$queryRaw(Prisma.sql`
+      SELECT c.id AS "chunkId", c."documentId", c."chunkIndex", c.content
+      FROM "DocumentChunk" AS c
+      JOIN "Document" AS d ON d.id = c."documentId"
+      JOIN "DocumentChunk" AS matched ON matched."documentId" = c."documentId"
+        AND matched."documentGeneration" = c."documentGeneration"
+        AND c."chunkIndex" IN (matched."chunkIndex" - 1, matched."chunkIndex" + 1)
+      WHERE c."organizationId" = ${organizationId}::uuid
+        AND d."organizationId" = ${organizationId}::uuid
+        AND matched."organizationId" = ${organizationId}::uuid
+        AND d.status = 'READY'
+        AND d.generation = c."documentGeneration"
+        AND matched.id IN (${Prisma.join(chunks.map((chunk) => Prisma.sql`${chunk.chunkId}::uuid`))})
+    `);
+  }
+
   private async embedQuery(text: string): Promise<number[]> {
     const [vector] = await this.embeddings.embed([text]);
 
