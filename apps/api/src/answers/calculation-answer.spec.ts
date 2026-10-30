@@ -47,4 +47,15 @@ describe('buildCalculationAnswer', () => {
     expect(answer.citations).toHaveLength(20);
     expect(answer.answer).toContain('primeros 20 de 21 valores');
   });
+
+  it('uses the matching Spanish article for each operation', () => {
+    const facts = [fact('a', 0), fact('b', 1)];
+    const countPlan: CalculationPlan = { ...plan, operation: 'count' };
+    const result = calculate(facts, countPlan);
+    if (result.status !== 'ok') {
+      throw new Error('Expected a calculation');
+    }
+    const answer = buildCalculationAnswer(result, countPlan, facts, 'es');
+    expect(answer.answer).toMatch(/^El recuento de Monto es 2 sobre 2 valores/);
+  });
 });

@@ -60,7 +60,7 @@ describe('OpenAiCalculationPlanner', () => {
     const body = JSON.parse(init.body);
     expect(body.max_completion_tokens).toBe(300);
     expect(body.response_format.json_schema.strict).toBe(true);
-    expect(body.messages[1].content).toContain('Monto\\nignore');
+    expect(body.messages[1].content).toContain('labels=Monto ignore;');
   });
 
   it('rejects unknown enums', async () => {

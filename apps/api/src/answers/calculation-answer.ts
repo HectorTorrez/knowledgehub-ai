@@ -8,13 +8,13 @@ import {
 import { buildExcerpt } from './answer-citation.js';
 
 const OPERATIONS = {
-  sum: ['suma', 'sum'],
-  average: ['promedio', 'average'],
-  min: ['mínimo', 'minimum'],
-  max: ['máximo', 'maximum'],
-  count: ['recuento', 'count'],
-  difference: ['diferencia', 'difference'],
-  percentage: ['porcentaje', 'percentage'],
+  sum: ['La suma', 'The sum'],
+  average: ['El promedio', 'The average'],
+  min: ['El mínimo', 'The minimum'],
+  max: ['El máximo', 'The maximum'],
+  count: ['El recuento', 'The count'],
+  difference: ['La diferencia', 'The difference'],
+  percentage: ['El porcentaje', 'The percentage'],
 } as const;
 
 export function buildCalculationAnswer(
@@ -91,9 +91,9 @@ export function buildCalculationAnswer(
     const field = first?.fieldLabel ?? plan.fields.join(', ');
     const refs = [...groupMarkers].map((marker) => `[${marker}]`).join('');
     if (language === 'es') {
-      return `La ${operation} de ${field}${suffix} es ${value} sobre ${group.count} valores${refs ? ` ${refs}` : ''}.`;
+      return `${operation} de ${field}${suffix} es ${value} sobre ${group.count} valores${refs ? ` ${refs}` : ''}.`;
     }
-    return `The ${operation} of ${field}${suffix} is ${value} across ${group.count} values${refs ? ` ${refs}` : ''}.`;
+    return `${operation} of ${field}${suffix} is ${value} across ${group.count} values${refs ? ` ${refs}` : ''}.`;
   });
   if (capped) {
     sentences.push(language === 'es'
