@@ -11,6 +11,7 @@ import type {
 } from '@knowledgehub/shared-types';
 import { FactsConfig } from '../facts/facts.config.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import type { NumericFactRow } from './calculation.js';
 import type { ContractTotalsInput } from './dto/contract-totals.schema.js';
 
 const EXCERPT_MAX_CHARS = 300;
@@ -114,6 +115,66 @@ export class AggregationService {
       sources: this.buildSources(unique),
       breakdown,
     };
+  }
+
+  async numericFacts(
+    organizationId: string,
+    input: { fields: string[]; documentId?: string },
+  ): Promise<NumericFactRow[]> {
+    if (input.documentId) {
+      await this.assertDocumentInScope(organizationId, input.documentId);
+    }
+    return this.prisma.$queryRaw<NumericFactRow[]>`
+      SELECT f.id, f."documentId", d.title AS "documentTitle", f.field,
+        f."fieldLabel", f."amountMinor", f.scale, f.currency, f.unit,
+        f."entityId", f."entityLabel", f."occurredOn", f."isTotal",
+        f."pageNumber", f."chunkIndex", f."evidenceText"
+      FROM "DocumentFact" f
+      JOIN "Document" d ON d.id = f."documentId"
+      WHERE f."organizationId" = ${organizationId}::uuid
+        AND d."organizationId" = ${organizationId}::uuid
+        AND d.status = 'READY'
+        AND d.generation = f."documentGeneration"
+        AND f."factType" = 'NUMERIC_VALUE'
+        AND f.field = ANY(${input.fields}::text[])
+        AND (${input.documentId ?? null}::uuid IS NULL
+          OR f."documentId" = ${input.documentId ?? null}::uuid)
+      ORDER BY d."createdAt" DESC, d.id DESC, f."pageNumber", f."chunkIndex", f.id
+      LIMIT 5000
+    `;
+  }
+
+  async numericFieldCatalog(
+    organizationId: string,
+    documentId?: string,
+  ): Promise<Array<{
+    field: string;
+    fieldLabels: string[];
+    currencies: string[];
+    units: string[];
+    count: number;
+  }>> {
+    if (documentId) {
+      await this.assertDocumentInScope(organizationId, documentId);
+    }
+    return this.prisma.$queryRaw`
+      SELECT f.field, array_agg(DISTINCT f."fieldLabel") AS "fieldLabels",
+        array_remove(array_agg(DISTINCT f.currency), NULL) AS currencies,
+        array_remove(array_agg(DISTINCT f.unit), NULL) AS units,
+        count(*)::int AS count
+      FROM "DocumentFact" f
+      JOIN "Document" d ON d.id = f."documentId"
+      WHERE f."organizationId" = ${organizationId}::uuid
+        AND d."organizationId" = ${organizationId}::uuid
+        AND d.status = 'READY'
+        AND d.generation = f."documentGeneration"
+        AND f."factType" = 'NUMERIC_VALUE'
+        AND (${documentId ?? null}::uuid IS NULL
+          OR f."documentId" = ${documentId ?? null}::uuid)
+      GROUP BY f.field
+      ORDER BY count DESC, f.field
+      LIMIT 100
+    `;
   }
 
   private async assertDocumentInScope(
