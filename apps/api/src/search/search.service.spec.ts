@@ -24,6 +24,7 @@ const CHUNK: RetrievedChunk = {
   chunkIndex: 4,
   content: 'Retries are bounded by maxAttempts.',
   similarity: 0.9,
+  lexicalMatch: false,
 };
 
 function createService(

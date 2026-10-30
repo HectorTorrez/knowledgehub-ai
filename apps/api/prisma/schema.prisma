@@ -117,12 +117,12 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships Membership[]
-  documents   Document[]
-  answers     Answer[]
-  tenantUsage TenantUsage[]
+  memberships   Membership[]
+  documents     Document[]
+  answers       Answer[]
+  tenantUsage   TenantUsage[]
   conversations Conversation[]
-  invitations  OrganizationInvitation[]
+  invitations   OrganizationInvitation[]
 }
 
 /// Links a user to an organization with a role. The [userId, organizationId]
@@ -371,7 +371,8 @@ model DocumentChunk {
   /// `text-embedding-3-small`). Declared `Unsupported` because Prisma has no
   /// vector type: it is excluded from the generated client and read or written
   /// only through raw SQL. The database enforces NOT NULL and the dimension.
-  embedding Unsupported("vector(1536)")
+  embedding    Unsupported("vector(1536)")
+  searchVector Unsupported("tsvector")?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

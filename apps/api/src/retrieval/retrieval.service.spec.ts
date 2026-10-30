@@ -7,14 +7,14 @@ import {
 } from '../embeddings/embedding-provider.port.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
-  DEFAULT_RETRIEVAL_LIMIT,
+  RETRIEVAL_CANDIDATE_LIMIT,
   MAX_RETRIEVAL_LIMIT,
   RetrievalQueryError,
 } from './retrieval-policy.js';
 import { RetrievalService } from './retrieval.service.js';
 
 interface QueryTagCall {
-  strings: TemplateStringsArray;
+  sql: string;
   values: unknown[];
 }
 
@@ -34,21 +34,20 @@ const MATCH = {
 };
 
 function sqlOf(call: QueryTagCall): string {
-  return call.strings.join('?');
+  return call.sql;
 }
 
 function createService(
   rows: unknown[],
+  lexicalRows: unknown[] = rows,
   embed: EmbeddingProvider['embed'] = async () => [vector(1)],
 ) {
   const embeddings: EmbeddingProvider = { embed: vi.fn(embed) };
   const calls: QueryTagCall[] = [];
-  const queryRaw = vi.fn(
-    async (strings: TemplateStringsArray, ...values: unknown[]) => {
-      calls.push({ strings, values });
-      return rows;
-    },
-  );
+  const queryRaw = vi.fn(async (query: QueryTagCall) => {
+    calls.push(query);
+    return calls.length === 1 ? rows : lexicalRows;
+  });
 
   const service = new RetrievalService(
     { $queryRaw: queryRaw } as unknown as PrismaService,
@@ -65,7 +64,7 @@ describe('RetrievalService', () => {
 
     await expect(
       service.search({ organizationId: 'org-1', text: 'what is alpha' }),
-    ).resolves.toEqual([MATCH]);
+    ).resolves.toEqual([{ ...MATCH, lexicalMatch: true }]);
 
     expect(embeddings.embed).toHaveBeenCalledWith(['what is alpha']);
   });
@@ -75,11 +74,15 @@ describe('RetrievalService', () => {
 
     await service.search({ organizationId: 'org-1', text: 'alpha' });
 
-    const sql = sqlOf(calls[0]!);
-    expect(sql).toContain('c."organizationId" = ?::uuid');
-    expect(sql).toContain('d."organizationId" = ?::uuid');
-    expect(sql).toContain("d.status = 'READY'");
-    expect(sql).toContain('d.generation = c."documentGeneration"');
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      const sql = sqlOf(call);
+      expect(call.values.filter((value) => value === 'org-1')).toHaveLength(2);
+      expect(sql).toContain('c."organizationId" = ?::uuid');
+      expect(sql).toContain('d."organizationId" = ?::uuid');
+      expect(sql).toContain("d.status = 'READY'");
+      expect(sql).toContain('d.generation = c."documentGeneration"');
+    }
   });
 
   it('scopes the search to a single document when one is requested', async () => {
@@ -113,21 +116,24 @@ describe('RetrievalService', () => {
     expect(sql).toContain('c."embedding" <=> ?::vector');
     expect(sql).toContain('ORDER BY');
     expect(sql).toContain('LIMIT ?');
-    expect(calls[0]!.values).toEqual([
-      '[1,1,1,1]',
-      'org-1',
-      'org-1',
-      '[1,1,1,1]',
-      5,
-    ]);
+    expect(calls[0]!.values.at(-1)).toBe(RETRIEVAL_CANDIDATE_LIMIT);
+    expect(sqlOf(calls[1]!)).toContain('websearch_to_tsquery');
   });
 
-  it('defaults the limit when none is requested', async () => {
-    const { service, calls } = createService([]);
-
-    await service.search({ organizationId: 'org-1', text: 'alpha' });
-
-    expect(calls[0]!.values.at(-1)).toBe(DEFAULT_RETRIEVAL_LIMIT);
+  it('uses fusion order and marks lexical hits', async () => {
+    const a = { ...MATCH, chunkId: 'a' };
+    const b = { ...MATCH, chunkId: 'b' };
+    const c = { ...MATCH, chunkId: 'c' };
+    const { service } = createService([a, b], [c, b]);
+    const result = await service.search({
+      organizationId: 'org-1',
+      text: 'alpha',
+      limit: 2,
+    });
+    expect(result.map((row) => [row.chunkId, row.lexicalMatch])).toEqual([
+      ['b', true],
+      ['a', false],
+    ]);
   });
 
   it('rejects a blank query and an out-of-range limit without embedding', async () => {
@@ -154,7 +160,7 @@ describe('RetrievalService', () => {
   });
 
   it('propagates a provider failure without querying', async () => {
-    const { service, queryRaw } = createService([], async () => {
+    const { service, queryRaw } = createService([], [], async () => {
       throw new EmbeddingUnavailableError('down');
     });
 
@@ -166,17 +172,17 @@ describe('RetrievalService', () => {
   });
 
   it('rejects a query embedding that is not a single usable vector', async () => {
-    const wrongCount = createService([], async () => []);
+    const wrongCount = createService([], [], async () => []);
     await expect(
       wrongCount.service.search({ organizationId: 'org-1', text: 'alpha' }),
     ).rejects.toBeInstanceOf(EmbeddingResponseError);
 
-    const wrongDimension = createService([], async () => [[1, 2, 3]]);
+    const wrongDimension = createService([], [], async () => [[1, 2, 3]]);
     await expect(
       wrongDimension.service.search({ organizationId: 'org-1', text: 'alpha' }),
     ).rejects.toBeInstanceOf(EmbeddingResponseError);
 
-    const nonFinite = createService([], async () => [
+    const nonFinite = createService([], [], async () => [
       [Number.NaN, 0, 0, 0],
     ]);
     await expect(

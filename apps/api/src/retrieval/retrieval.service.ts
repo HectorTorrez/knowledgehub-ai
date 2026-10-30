@@ -5,11 +5,14 @@ import {
   EmbeddingResponseError,
   type EmbeddingProvider,
 } from '../embeddings/embedding-provider.port.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   DEFAULT_RETRIEVAL_LIMIT,
+  RETRIEVAL_CANDIDATE_LIMIT,
   assertRetrievalQuery,
 } from './retrieval-policy.js';
+import { fuseRanks } from './rank-fusion.js';
 
 export interface RetrievalQuery {
   organizationId: string;
@@ -26,6 +29,7 @@ export interface RetrievedChunk {
   chunkIndex: number;
   content: string;
   similarity: number;
+  lexicalMatch: boolean;
 }
 
 interface ChunkMatchRow {
@@ -57,54 +61,38 @@ export class RetrievalService {
 
     const vector = await this.embedQuery(query.text);
 
-    const rows = query.documentId
-      ? await this.prisma.$queryRaw<ChunkMatchRow[]>`
-      SELECT
-        c.id AS "chunkId",
-        c."documentId" AS "documentId",
-        d.title AS "title",
-        c."pageNumber" AS "pageNumber",
-        c."chunkIndex" AS "chunkIndex",
-        c.content AS "content",
-        (1 - (c."embedding" <=> ${vectorLiteral(vector)}::vector)) AS "similarity"
+    const documentFilter = query.documentId
+      ? Prisma.sql`AND c."documentId" = ${query.documentId}::uuid`
+      : Prisma.empty;
+    const vectorValue = vectorLiteral(vector);
+    const base = Prisma.sql`
+      SELECT c.id AS "chunkId", c."documentId" AS "documentId",
+        d.title AS "title", c."pageNumber" AS "pageNumber",
+        c."chunkIndex" AS "chunkIndex", c.content AS "content",
+        (1 - (c."embedding" <=> ${vectorValue}::vector)) AS "similarity"
       FROM "DocumentChunk" AS c
       JOIN "Document" AS d ON d.id = c."documentId"
       WHERE c."organizationId" = ${query.organizationId}::uuid
         AND d."organizationId" = ${query.organizationId}::uuid
         AND d.status = 'READY'
         AND d.generation = c."documentGeneration"
-        AND c."documentId" = ${query.documentId}::uuid
-      ORDER BY c."embedding" <=> ${vectorLiteral(vector)}::vector
-      LIMIT ${limit}
-    `
-      : await this.prisma.$queryRaw<ChunkMatchRow[]>`
-      SELECT
-        c.id AS "chunkId",
-        c."documentId" AS "documentId",
-        d.title AS "title",
-        c."pageNumber" AS "pageNumber",
-        c."chunkIndex" AS "chunkIndex",
-        c.content AS "content",
-        (1 - (c."embedding" <=> ${vectorLiteral(vector)}::vector)) AS "similarity"
-      FROM "DocumentChunk" AS c
-      JOIN "Document" AS d ON d.id = c."documentId"
-      WHERE c."organizationId" = ${query.organizationId}::uuid
-        AND d."organizationId" = ${query.organizationId}::uuid
-        AND d.status = 'READY'
-        AND d.generation = c."documentGeneration"
-      ORDER BY c."embedding" <=> ${vectorLiteral(vector)}::vector
-      LIMIT ${limit}
+        ${documentFilter}
     `;
+    const candidateLimit = Math.max(limit, RETRIEVAL_CANDIDATE_LIMIT);
+    const [vectorRows, lexicalRows] = await Promise.all([
+      this.prisma.$queryRaw<ChunkMatchRow[]>(Prisma.sql`${base}
+        ORDER BY c."embedding" <=> ${vectorValue}::vector, c.id
+        LIMIT ${candidateLimit}`),
+      this.prisma.$queryRaw<ChunkMatchRow[]>(Prisma.sql`${base}
+        AND c."searchVector" @@ websearch_to_tsquery('simple', ${query.text})
+        ORDER BY ts_rank_cd(c."searchVector", websearch_to_tsquery('simple', ${query.text})) DESC, c.id
+        LIMIT ${candidateLimit}`),
+    ]);
+    const lexicalIds = new Set(lexicalRows.map((row) => row.chunkId));
 
-    return rows.map((row) => ({
-      chunkId: row.chunkId,
-      documentId: row.documentId,
-      title: row.title,
-      pageNumber: row.pageNumber,
-      chunkIndex: row.chunkIndex,
-      content: row.content,
-      similarity: row.similarity,
-    }));
+    return fuseRanks([vectorRows, lexicalRows])
+      .slice(0, limit)
+      .map((row) => ({ ...row, lexicalMatch: lexicalIds.has(row.chunkId) }));
   }
 
   private async embedQuery(text: string): Promise<number[]> {
