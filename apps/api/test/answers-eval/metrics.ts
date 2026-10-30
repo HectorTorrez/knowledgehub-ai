@@ -129,6 +129,21 @@ function sumTokens(
   return outcomes.reduce((total, outcome) => total + (outcome[field] ?? 0), 0);
 }
 
+function collapseSpaces(value: string): string {
+  return value.replace(/\s+/gu, ' ');
+}
+
+export function containsValue(
+  answer: string | null | undefined,
+  expected: string,
+): boolean {
+  return (
+    answer !== null &&
+    answer !== undefined &&
+    collapseSpaces(answer).includes(collapseSpaces(expected))
+  );
+}
+
 export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
   const calculations = outcomes.filter((outcome) => outcome.kind === 'calculation');
   const answerable = outcomes.filter((outcome) => outcome.expected.length > 0);
@@ -200,7 +215,7 @@ export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
       : calculations.filter((outcome) =>
           outcome.status === 'answered' &&
           outcome.expectedValue !== undefined &&
-          outcome.answer?.includes(outcome.expectedValue),
+          containsValue(outcome.answer, outcome.expectedValue),
         ).length / calculations.length,
     citationPrecision: citedTotal === 0 ? null : citedHits / citedTotal,
     citationRecall: expectedTotal === 0 ? null : expectedHits / expectedTotal,

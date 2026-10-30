@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { chunkPages } from '../../src/processing/chunking.policy.js';
 import { EVAL_CORPUS } from './corpus.js';
 import {
+  containsValue,
   computeMetrics,
   percentile,
   scoreOutcome,
@@ -209,5 +210,13 @@ describe('retrieval corpus', () => {
     expect(first).toBeGreaterThanOrEqual(0);
     expect(second).toBe(first + 1);
     expect(chunks.length).toBeGreaterThan(2);
+  });
+});
+
+describe('containsValue', () => {
+  it('matches Intl output that uses non-breaking spaces', () => {
+    expect(containsValue('La suma es 1500,00\u00a0US$ [1]', '1500,00 US$')).toBe(
+      true,
+    );
   });
 });
