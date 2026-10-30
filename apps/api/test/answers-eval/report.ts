@@ -75,6 +75,7 @@ function formatMetrics(metrics: EvalMetrics): string {
   return [
     `metrics: answered=${metrics.answered} refused=${metrics.refused} errored=${metrics.errored}`,
     `         precision=${percentage(metrics.citationPrecision)} recall=${percentage(metrics.citationRecall)} exact=${percentage(metrics.exactMatchRate)} grounding=${percentage(metrics.groundingHitRate)} document-hit=${percentage(metrics.documentHitRate)}`,
+    `         calculation=${percentage(metrics.calculationAccuracy)}`,
     `         structural=${percentage(metrics.structuralIntegrity)} refusal=${percentage(metrics.refusalAccuracy)} false-refusal=${percentage(metrics.falseRefusalRate)}`,
     `         latency p50=${duration(metrics.latencyP50Ms)} p95=${duration(metrics.latencyP95Ms)} tokens=${metrics.inputTokens}/${metrics.outputTokens} (reported by ${metrics.tokenReports}/${metrics.total})`,
   ].join('\n');

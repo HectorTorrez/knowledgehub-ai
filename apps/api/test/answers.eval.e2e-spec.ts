@@ -28,7 +28,7 @@ import {
   chunkPages,
 } from '../src/processing/chunking.policy.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { allCorpusPages } from './answers-eval/corpus.js';
+import { allCorpusPages, EVAL_FACTS } from './answers-eval/corpus.js';
 import {
   computeMetrics,
   type EvalQuestion,
@@ -277,6 +277,27 @@ async function seedCorpus(
     `;
   }
 
+  for (const fact of EVAL_FACTS) {
+    const documentId = documents.get(fact.documentTitle);
+    if (!documentId) {
+      throw new Error(`Missing document: ${fact.documentTitle}`);
+    }
+    const { documentTitle: _documentTitle, ...data } = fact;
+    await prisma.documentFact.create({
+      data: {
+        ...data,
+        organizationId: organization.id,
+        documentId,
+        documentGeneration: 1,
+        factType: 'NUMERIC_VALUE',
+        naturalKey: `${fact.field}:${fact.entityId}`,
+        label: fact.fieldLabel,
+        pageNumber: 1,
+        chunkIndex: 0,
+      },
+    });
+  }
+
   return organization.id;
 }
 
@@ -297,6 +318,7 @@ describe('answers evaluation (real providers)', () => {
 
   beforeAll(async () => {
     assertEnvironment();
+    process.env.FACTS_ENABLED = 'true';
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -378,6 +400,7 @@ describe('answers evaluation (real providers)', () => {
       kind: item.kind,
       expected: item.expected,
       supporting: item.supporting,
+      expectedValue: item.expectedValue,
       latencyMs: event ? Math.round(event.durationMs) : wallMs,
       inputTokens: event?.inputTokens ?? null,
       outputTokens: event?.outputTokens ?? null,

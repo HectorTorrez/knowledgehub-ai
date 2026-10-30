@@ -50,6 +50,27 @@ describe('computeMetrics', () => {
     expect(metrics.falseRefusalRate).toBe(0);
   });
 
+  it('scores calculation answers and includes refusals in the denominator', () => {
+    const metrics = computeMetrics([
+      outcome({
+        id: 'correct', kind: 'calculation', expectedValue: '$100.00',
+        answer: 'The sum is $100.00.',
+      }),
+      outcome({
+        id: 'wrong', kind: 'calculation', expectedValue: '$100.00',
+        answer: 'The sum is $10.00.',
+      }),
+      outcome({
+        id: 'refused', kind: 'calculation', expectedValue: '5',
+        status: 'insufficient_evidence',
+      }),
+      outcome({ id: 'other', answer: '$100.00' }),
+    ]);
+
+    expect(metrics.calculationAccuracy).toBe(1 / 3);
+    expect(computeMetrics([]).calculationAccuracy).toBeNull();
+  });
+
   it('scores partial citation coverage', () => {
     const metrics = computeMetrics([
       outcome({

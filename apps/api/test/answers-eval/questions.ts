@@ -1,6 +1,36 @@
 import type { EvalQuestion } from './metrics.js';
 
+const invoice = [{ documentTitle: 'Registro de facturas', pageNumber: 1 }];
+const inventory = [{ documentTitle: 'Inventario', pageNumber: 1 }];
+
 export const EVAL_QUESTIONS: EvalQuestion[] = [
+  ...[
+    { id: 'sum-en', question: 'give me the total of monto', value: '$1,500.00' },
+    { id: 'sum-es', question: 'dame la suma de los montos', value: '1500,00 US$' },
+    { id: 'average', question: '¿cuál es el promedio del monto?', value: '300,00 US$' },
+    { id: 'count', question: 'how many invoices are there?', value: '5' },
+    { id: 'max', question: '¿cuál es el monto máximo?', value: '500,00 US$' },
+    {
+      id: 'difference',
+      question: 'diferencia entre la factura F-001 y la F-002',
+      value: '-100,00 US$',
+    },
+  ].map((item): EvalQuestion => ({
+    id: item.id,
+    kind: 'calculation',
+    question: item.question,
+    expectedValue: item.value,
+    expected: invoice,
+    supporting: invoice,
+  })),
+  {
+    id: 'inventory-total',
+    kind: 'calculation',
+    question: 'total de unidades en inventario',
+    expectedValue: '20 unidades',
+    expected: inventory,
+    supporting: inventory,
+  },
   {
     id: 'exact-sku',
     kind: 'single_source',

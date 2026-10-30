@@ -8,7 +8,70 @@ export interface CorpusDocument {
   pages: CorpusPage[];
 }
 
+const invoiceRows = [
+  { id: 'F-001', date: '2025-01-10', amount: 100 },
+  { id: 'F-002', date: '2025-01-15', amount: 200 },
+  { id: 'F-003', date: '2025-01-20', amount: 300 },
+  { id: 'F-004', date: '2025-02-10', amount: 400 },
+  { id: 'F-005', date: '2025-02-15', amount: 500 },
+  { id: 'Total', date: '2025-02-28', amount: 1500 },
+];
+
+const inventoryRows = [
+  { id: 'A-001', amount: 12 },
+  { id: 'A-002', amount: 8 },
+];
+
+export const EVAL_FACTS = [
+  ...invoiceRows.map((row) => ({
+    documentTitle: 'Registro de facturas',
+    field: 'monto',
+    fieldLabel: 'Monto',
+    amountMinor: BigInt(row.amount * 100),
+    scale: 2,
+    currency: 'USD',
+    unit: null,
+    entityId: row.id,
+    entityLabel: row.id,
+    occurredOn: new Date(`${row.date}T00:00:00Z`),
+    isTotal: row.id === 'Total',
+    evidenceText: `${row.id} | ${row.date} | USD ${row.amount}.00`,
+  })),
+  ...inventoryRows.map((row) => ({
+    documentTitle: 'Inventario',
+    field: 'unidades',
+    fieldLabel: 'Unidades',
+    amountMinor: BigInt(row.amount),
+    scale: 0,
+    currency: null,
+    unit: 'unidades',
+    entityId: row.id,
+    entityLabel: row.id,
+    occurredOn: null,
+    isTotal: false,
+    evidenceText: `${row.id} | ${row.amount} unidades`,
+  })),
+];
+
 export const EVAL_CORPUS: CorpusDocument[] = [
+  {
+    title: 'Registro de facturas',
+    pages: [{
+      pageNumber: 1,
+      text: ['Factura | Fecha | Monto', ...EVAL_FACTS
+        .filter((fact) => fact.documentTitle === 'Registro de facturas')
+        .map((fact) => fact.evidenceText)].join('\n'),
+    }],
+  },
+  {
+    title: 'Inventario',
+    pages: [{
+      pageNumber: 1,
+      text: ['Producto | Cantidad', ...EVAL_FACTS
+        .filter((fact) => fact.documentTitle === 'Inventario')
+        .map((fact) => fact.evidenceText)].join('\n'),
+    }],
+  },
   {
     title: 'Orion Equipment Register',
     pages: [
