@@ -1,6 +1,6 @@
 import { formatBytes } from './format';
 import { DOCUMENT_TITLE_MAX_LENGTH } from './validation';
-import { isAllowedUploadContentType } from './validation';
+import { DOCX_CONTENT_TYPE, isAllowedUploadContentType } from './validation';
 
 export const SIGNATURE_PREFIX_BYTES = 1024;
 export const MAX_PROCESSABLE_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -10,6 +10,7 @@ const NUL_BYTE = 0x00;
 
 const EXTENSION_CONTENT_TYPES: Record<string, string> = {
   pdf: 'application/pdf',
+  docx: DOCX_CONTENT_TYPE,
   txt: 'text/plain',
   text: 'text/plain',
   md: 'text/markdown',
@@ -42,9 +43,9 @@ const REJECTION_MESSAGES: Record<UploadRejectionReason, string> = {
   EMPTY_FILE: 'This file is empty.',
   SIZE_LIMIT_EXCEEDED: `Files must be ${formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} or smaller.`,
   CONTENT_TYPE_NOT_ALLOWED:
-    'Unsupported file type. Upload a PDF, plain text, or Markdown file.',
+    'Unsupported file type. Upload a PDF, Word, plain text, or Markdown file.',
   SIGNATURE_MISMATCH:
-    'The file contents do not match its type. Choose a valid PDF, plain text, or Markdown file.',
+    'The file contents do not match its type. Choose a valid PDF, Word, plain text, or Markdown file.',
   UNREADABLE_FILE: 'The file could not be read. Try choosing it again.',
 };
 
@@ -80,12 +81,19 @@ export function evaluateUploadSignature(
   contentType: string,
   prefix: Uint8Array,
 ): UploadRejectionReason | null {
-  const valid =
-    contentType === 'application/pdf'
-      ? containsPdfMagic(prefix)
-      : isStrictUtf8Text(prefix);
+  return hasValidSignature(contentType, prefix) ? null : 'SIGNATURE_MISMATCH';
+}
 
-  return valid ? null : 'SIGNATURE_MISMATCH';
+const ZIP_LOCAL_FILE_HEADER = [0x50, 0x4b, 0x03, 0x04] as const;
+
+function hasZipLocalFileHeader(prefix: Uint8Array): boolean {
+  return ZIP_LOCAL_FILE_HEADER.every((byte, index) => prefix[index] === byte);
+}
+
+function hasValidSignature(contentType: string, prefix: Uint8Array): boolean {
+  if (contentType === 'application/pdf') return containsPdfMagic(prefix);
+  if (contentType === DOCX_CONTENT_TYPE) return hasZipLocalFileHeader(prefix);
+  return isStrictUtf8Text(prefix);
 }
 
 export async function validateUploadFile(

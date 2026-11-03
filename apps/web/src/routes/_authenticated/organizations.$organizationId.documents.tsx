@@ -1,3 +1,4 @@
+import { documentFailureMessage } from '~/lib/document-display';
 import type {
   DocumentStatus,
   DocumentSummary,
@@ -581,7 +582,7 @@ function DocumentsPage() {
                   </div>
                   <ol className="grid w-full max-w-lg gap-3 text-left sm:grid-cols-3">
                     <OnboardingStep number={1} title="Upload">
-                      Add a PDF, text, or Markdown file.
+                      Add a PDF, Word, text, or Markdown file.
                     </OnboardingStep>
                     <OnboardingStep number={2} title="Wait for Ready">
                       Processing extracts and embeds the text.
@@ -652,7 +653,7 @@ function DocumentsPage() {
                                   ? 'Upload verification failed'
                                   : 'Processing failed'}
                                 {document.failureReason
-                                  ? `: ${document.failureReason}`
+                                  ? `: ${documentFailureMessage(document.failureReason)}`
                                   : ''}
                               </span>
                             ) : null}
@@ -717,7 +718,7 @@ function DocumentsPage() {
           <DialogHeader>
             <DialogTitle>Upload documents</DialogTitle>
             <DialogDescription>
-              Add PDF, plain text, or Markdown files up to{' '}
+              Add PDF, Word, plain text, or Markdown files up to{' '}
               {formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} each. Titles are taken
               from file names and can be changed later.
             </DialogDescription>

@@ -1,3 +1,4 @@
+import { ArchiveLimitError, InvalidDocxError } from './docx-extractor.js';
 import { isTransientTransactionFailure } from '../prisma/transient-transaction-errors.js';
 import { ChunkLimitExceededError } from './chunking.policy.js';
 import { EmbeddingRejectedError } from '../embeddings/embedding-provider.port.js';
@@ -12,6 +13,8 @@ import {
 } from '../storage/object-storage.port.js';
 
 export const PROCESSING_FAILURE_REASONS = [
+  'INVALID_DOCX',
+  'ARCHIVE_LIMIT_EXCEEDED',
   'CONTENT_UNSUPPORTED',
   'CONTENT_CORRUPT',
   'NO_EXTRACTABLE_TEXT',
@@ -21,7 +24,8 @@ export const PROCESSING_FAILURE_REASONS = [
   'PROCESSING_FAILED',
 ] as const;
 
-export type ProcessingFailureReason = (typeof PROCESSING_FAILURE_REASONS)[number];
+export type ProcessingFailureReason =
+  (typeof PROCESSING_FAILURE_REASONS)[number];
 
 export type ProcessingFailureCategory = 'transient' | 'permanent';
 
@@ -61,6 +65,14 @@ function detailOf(error: unknown): string {
 export function classifyProcessingFailure(error: unknown): ProcessingFailure {
   if (error instanceof ProcessingFailureError) {
     return permanent(error.reason, `${error.name}: ${error.message}`);
+  }
+
+  if (error instanceof InvalidDocxError) {
+    return permanent('INVALID_DOCX', `${error.name}: ${error.message}`);
+  }
+
+  if (error instanceof ArchiveLimitError) {
+    return permanent('ARCHIVE_LIMIT_EXCEEDED', `${error.name}: ${error.message}`);
   }
 
   if (error instanceof UnsupportedDocumentTypeError) {

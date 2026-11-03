@@ -493,7 +493,7 @@ that exists only in another organization — or does not exist — returns `404`
 Body `{ "contentType": string, "sizeBytes"?: number }`:
 
 - `contentType` must be one of `application/pdf`, `text/plain`, or
-  `text/markdown`; anything else returns `400`.
+  `text/markdown`, or `application/vnd.openxmlformats-officedocument.wordprocessingml.document`; anything else returns `400`.
 - `sizeBytes` is optional, must be a positive integer, and must not exceed
   `2_000_000_000` (the policy cap). A value above the cap returns `413 Payload
   Too Large`; a non-integer, zero, or negative value returns `400`.
@@ -634,6 +634,7 @@ Each iteration the worker recovers expired leases, claims one due job atomically
 (`FOR UPDATE SKIP LOCKED`), renews that job's lease while it works, reads the
 verified object bound to its inspected version, and extracts text:
 
+- DOCX archives are validated with entry count, size, and compression ratio limits, then converted to Markdown as one page;
 - `text/plain` and `text/markdown` decode as strict UTF-8;
 - `application/pdf` extracts embedded text with `unpdf`, preserving the page each
   passage came from.
@@ -698,7 +699,7 @@ failed; `failureKind` is `VERIFICATION` for an upload that failed verification
 and `PROCESSING` for a verified document whose processing failed, and
 `failureReason` then holds only the sanitized vocabulary. A processing failure's
 `failureReason` is one of `CONTENT_UNSUPPORTED`, `CONTENT_CORRUPT`,
-`NO_EXTRACTABLE_TEXT`, `CONTENT_TOO_LARGE`, `VERIFIED_OBJECT_MISSING`,
+`INVALID_DOCX`, `ARCHIVE_LIMIT_EXCEEDED`, `NO_EXTRACTABLE_TEXT`, `CONTENT_TOO_LARGE`, `VERIFIED_OBJECT_MISSING`,
 `STORAGE_INTEGRITY_VIOLATION`, or `PROCESSING_FAILED`; it never carries an
 exception message, SQL text, or a storage key, all of which stay in the job's
 internal `lastError` and logs.

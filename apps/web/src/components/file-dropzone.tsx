@@ -103,7 +103,7 @@ export function FileDropzone({
             {dragging ? 'Drop files to upload' : 'Choose files to upload'}
           </p>
           <p className="text-xs text-muted-foreground">
-            PDF, plain text, or Markdown · up to{' '}
+            PDF, Word, plain text, or Markdown · up to{' '}
             {formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} each
           </p>
         </>

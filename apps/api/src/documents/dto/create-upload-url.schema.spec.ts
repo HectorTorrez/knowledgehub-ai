@@ -39,9 +39,9 @@ describe('createUploadUrlSchema', () => {
 
   it('rejects a missing contentType', () => {
     expect(createUploadUrlSchema.safeParse({}).success).toBe(false);
-    expect(
-      createUploadUrlSchema.safeParse({ sizeBytes: 1024 }).success,
-    ).toBe(false);
+    expect(createUploadUrlSchema.safeParse({ sizeBytes: 1024 }).success).toBe(
+      false,
+    );
   });
 
   it('rejects a non-allowlisted or incorrectly typed content type', () => {
@@ -55,9 +55,9 @@ describe('createUploadUrlSchema', () => {
       null,
       ['application/pdf'],
     ]) {
-      expect(
-        createUploadUrlSchema.safeParse({ contentType }).success,
-      ).toBe(false);
+      expect(createUploadUrlSchema.safeParse({ contentType }).success).toBe(
+        false,
+      );
     }
   });
 
@@ -108,9 +108,10 @@ describe('upload policy', () => {
     expect(MAX_UPLOAD_BYTES).toBe(MAX_EXTRACTABLE_BYTES);
   });
 
-  it('allows exactly PDF, plain text, and Markdown', () => {
+  it('allows exactly PDF, Word, plain text, and Markdown', () => {
     expect(ALLOWED_UPLOAD_CONTENT_TYPES).toEqual([
       'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
       'text/markdown',
     ]);

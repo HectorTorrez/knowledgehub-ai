@@ -20,6 +20,8 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { FakeObjectStorage } from './support/fake-object-storage.js';
 import { FakeEmbeddingProvider, deterministicVector } from './support/fake-embedding-provider.js';
 import { createMinimalPdf } from './support/minimal-pdf.js';
+import { createMinimalDocx, createPlainZip } from './support/minimal-docx.js';
+import { DOCX_CONTENT_TYPE } from '../src/documents/upload-policy.js';
 
 const encoder = new TextEncoder();
 
@@ -197,6 +199,45 @@ describe('document processing worker (e2e)', () => {
     expect(updatedDocument.status).toBe('READY');
     expect(updatedDocument.failureReason).toBeNull();
     expect(updatedDocument.failureKind).toBeNull();
+  });
+
+  it('extracts a Word document into a single Markdown page and readies it', async () => {
+    const bytes = await createMinimalDocx({
+      heading: 'Renewal terms',
+      body: 'The contract renews every twelve months.',
+    });
+    const { document } = await seedJob({ contentType: DOCX_CONTENT_TYPE, bytes });
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    const [extraction] = await loadExtractions(document.id);
+    const pages = pagesOf(extraction!);
+    expect(pages).toHaveLength(1);
+    expect(pages[0]?.pageNumber).toBe(1);
+    expect(pages[0]?.content).toContain('# Renewal terms');
+    expect(pages[0]?.content).toContain('The contract renews every twelve months.');
+
+    const chunks = await loadChunks(document.id);
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks.map((chunk) => chunk.content).join('\n')).toContain('twelve months');
+
+    const updatedDocument = await loadDocument(document.id);
+    expect(updatedDocument.status).toBe('READY');
+  });
+
+  it('fails a ZIP that is not a Word document with a sanitized reason', async () => {
+    const { document, job } = await seedJob({
+      contentType: DOCX_CONTENT_TYPE,
+      bytes: await createPlainZip(),
+    });
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    expect((await loadJob(job.id)).state).toBe('FAILED');
+    const updatedDocument = await loadDocument(document.id);
+    expect(updatedDocument.status).toBe('FAILED');
+    expect(updatedDocument.failureKind).toBe('PROCESSING');
+    expect(updatedDocument.failureReason).toBe('INVALID_DOCX');
   });
 
   it('reindexes only the selected organization after a read-only dry run', async () => {

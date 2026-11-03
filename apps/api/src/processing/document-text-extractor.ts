@@ -1,4 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { DOCX_CONTENT_TYPE } from '../documents/upload-policy.js';
+import { extractDocx } from './docx-extractor.js';
 import { PDF_EXTRACTOR, type PdfExtractor } from './pdf-extractor.js';
 import {
   MAX_EXTRACTABLE_BYTES,
@@ -61,10 +63,7 @@ export class DocumentTextExtractor {
       );
     }
 
-    const pages =
-      contentType === 'application/pdf'
-        ? await this.extractPdf(bytes)
-        : this.extractPlainTextPages(contentType, bytes);
+    const pages = await this.extractPages(contentType, bytes);
 
     const characterCount = pages.reduce(
       (total, page) => total + page.content.length,
@@ -80,13 +79,22 @@ export class DocumentTextExtractor {
     return { pages, pageCount: pages.length, characterCount };
   }
 
+  private async extractPages(
+    contentType: string,
+    bytes: Uint8Array,
+  ): Promise<ExtractedPage[]> {
+    if (contentType === 'application/pdf') return this.extractPdf(bytes);
+    if (contentType === DOCX_CONTENT_TYPE) {
+      return [{ pageNumber: 1, content: await extractDocx(bytes) }];
+    }
+    return this.extractPlainTextPages(contentType, bytes);
+  }
+
   private async extractPdf(bytes: Uint8Array): Promise<ExtractedPage[]> {
     const { pages, pageCount } = await this.pdfExtractor.extractPdf(bytes);
 
     if (pageCount > MAX_PDF_PAGES) {
-      throw new DocumentResourceLimitError(
-        'The PDF exceeds the page limit',
-      );
+      throw new DocumentResourceLimitError('The PDF exceeds the page limit');
     }
 
     return pages;
@@ -96,7 +104,9 @@ export class DocumentTextExtractor {
     contentType: string,
     bytes: Uint8Array,
   ): ExtractedPage[] {
-    if (!(PLAIN_TEXT_CONTENT_TYPES as readonly string[]).includes(contentType)) {
+    if (
+      !(PLAIN_TEXT_CONTENT_TYPES as readonly string[]).includes(contentType)
+    ) {
       throw new UnsupportedDocumentTypeError(contentType);
     }
 
