@@ -1,5 +1,6 @@
 import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
+  DOCX_CONTENT_TYPE,
   MAX_UPLOAD_BYTES,
   SIGNATURE_PREFIX_BYTES,
   type AllowedUploadContentType,
@@ -48,12 +49,19 @@ export function evaluateUploadSignature(
   contentType: string,
   prefix: Uint8Array,
 ): UploadFailureReason | null {
-  const valid =
-    contentType === 'application/pdf'
-      ? containsPdfMagic(prefix)
-      : isStrictUtf8Text(prefix);
+  return hasValidSignature(contentType, prefix) ? null : 'SIGNATURE_MISMATCH';
+}
 
-  return valid ? null : 'SIGNATURE_MISMATCH';
+const ZIP_LOCAL_FILE_HEADER = [0x50, 0x4b, 0x03, 0x04] as const;
+
+function hasZipLocalFileHeader(prefix: Uint8Array): boolean {
+  return ZIP_LOCAL_FILE_HEADER.every((byte, index) => prefix[index] === byte);
+}
+
+function hasValidSignature(contentType: string, prefix: Uint8Array): boolean {
+  if (contentType === 'application/pdf') return containsPdfMagic(prefix);
+  if (contentType === DOCX_CONTENT_TYPE) return hasZipLocalFileHeader(prefix);
+  return isStrictUtf8Text(prefix);
 }
 
 function containsPdfMagic(bytes: Uint8Array): boolean {

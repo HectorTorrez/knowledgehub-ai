@@ -136,7 +136,9 @@ describe('evaluateUploadSignature', () => {
   });
 
   it('accepts strict UTF-8 text', () => {
-    expect(evaluateUploadSignature('text/plain', bytes('hello world'))).toBeNull();
+    expect(
+      evaluateUploadSignature('text/plain', bytes('hello world')),
+    ).toBeNull();
     expect(
       evaluateUploadSignature('text/markdown', bytes('# Heading\n')),
     ).toBeNull();
@@ -163,6 +165,22 @@ describe('evaluateUploadSignature', () => {
   it('rejects a NUL byte in text', () => {
     expect(
       evaluateUploadSignature('text/plain', new Uint8Array([0x68, 0x00, 0x69])),
+    ).toBe('SIGNATURE_MISMATCH');
+  });
+});
+
+describe('DOCX signatures', () => {
+  const docx =
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  it('accepts ZIP local headers and rejects other bytes', () => {
+    expect(
+      evaluateUploadSignature(docx, Uint8Array.of(0x50, 0x4b, 3, 4)),
+    ).toBeNull();
+    expect(
+      evaluateUploadSignature(docx, new TextEncoder().encode('random')),
+    ).toBe('SIGNATURE_MISMATCH');
+    expect(
+      evaluateUploadSignature(docx, new TextEncoder().encode('%PDF-1.7')),
     ).toBe('SIGNATURE_MISMATCH');
   });
 });

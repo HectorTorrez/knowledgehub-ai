@@ -8,8 +8,12 @@ export const SEARCH_QUERY_MAX_LENGTH = 2000;
 export const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 128;
 
+export const DOCX_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
 export const ALLOWED_UPLOAD_CONTENT_TYPES = [
   'application/pdf',
+  DOCX_CONTENT_TYPE,
   'text/plain',
   'text/markdown',
 ] as const;

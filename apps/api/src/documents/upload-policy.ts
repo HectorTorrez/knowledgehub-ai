@@ -4,8 +4,12 @@ export const MAX_UPLOAD_BYTES = MAX_EXTRACTABLE_BYTES;
 
 export const SIGNATURE_PREFIX_BYTES = 1024;
 
+export const DOCX_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
 export const ALLOWED_UPLOAD_CONTENT_TYPES = [
   'application/pdf',
+  DOCX_CONTENT_TYPE,
   'text/plain',
   'text/markdown',
 ] as const;

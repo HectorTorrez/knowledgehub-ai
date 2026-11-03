@@ -1,3 +1,4 @@
+import { documentContentTypeLabel, documentFailureMessage } from '~/lib/document-display';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -347,7 +348,7 @@ function DocumentDetailPage() {
               : 'Processing failed'}
           </p>
           <p className="mt-1 text-muted-foreground">
-            {entry.failureReason ??
+            {documentFailureMessage(entry.failureReason) ??
               'No failure details were recorded. Delete this document and upload it again.'}
           </p>
         </div>
@@ -376,7 +377,7 @@ function DocumentDetailPage() {
               {entry.originalFileName ?? 'Upload pending'}
             </DetailItem>
             <DetailItem label="Content type">
-              {entry.contentType ?? '—'}
+              {documentContentTypeLabel(entry.contentType)}
             </DetailItem>
             <DetailItem label="Size">
               {entry.sizeBytes === null ? '—' : formatBytes(entry.sizeBytes)}

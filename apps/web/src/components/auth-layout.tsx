@@ -14,7 +14,7 @@ export function AuthLayout({ children }: Readonly<{ children: ReactNode }>) {
           <ul className="space-y-4">
             <li className="flex items-center gap-3">
               <Upload className="size-5" />
-              Upload PDFs, text, and Markdown
+              Upload PDFs, Word, text, and Markdown
             </li>
             <li className="flex items-center gap-3">
               <MessageSquareText className="size-5" />
