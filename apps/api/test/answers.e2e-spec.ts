@@ -437,6 +437,27 @@ describe('answers (e2e)', () => {
     expect(answerProvider.calls).toHaveLength(1);
   });
 
+  it('includes only the current organization and generation summary in the catalog', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Summary Org');
+    const otherOrganizationId = await createOrganization(token, 'Other Summary Org');
+    const documentId = await seedReadyChunk(organizationId, 'opening passage', { generation: 2, embedding: basis(1) });
+    const otherDocumentId = await seedReadyChunk(otherOrganizationId, 'other passage', { embedding: basis(1) });
+    await prisma.document.updateMany({ where: { id: { in: [documentId, otherDocumentId] } }, data: { summaryStatus: 'READY' } });
+    await prisma.documentSummary.createMany({ data: [
+      { documentId, organizationId, documentGeneration: 1, summary: 'stale secret', keyTopics: [], model: 'test' },
+      { documentId, organizationId, documentGeneration: 2, summary: 'current overview', keyTopics: ['current topic'], model: 'test' },
+      { documentId: otherDocumentId, organizationId: otherOrganizationId, documentGeneration: 1, summary: 'other tenant secret', keyTopics: [], model: 'test' },
+    ] });
+    await ask(token, organizationId, { question: 'Which documents do I have?' }).expect(200);
+    const prompt = answerProvider.calls.at(-1)!.prompt.user;
+    expect(prompt).toContain('current overview');
+    expect(prompt).toContain('current topic');
+    expect(prompt).not.toContain('opening passage');
+    expect(prompt).not.toContain('stale secret');
+    expect(prompt).not.toContain('other tenant secret');
+  });
+
   it('returns the fixed refusal when the model declines', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Decline Org');

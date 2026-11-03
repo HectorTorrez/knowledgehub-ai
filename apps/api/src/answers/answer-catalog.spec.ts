@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDocumentCatalog,
   CATALOG_CONTENT_MAX_CHARS,
+  MAX_CATALOG_SUMMARY_CHARS,
   type CatalogDocumentRow,
 } from './answer-catalog.js';
 
@@ -57,6 +58,12 @@ describe('buildDocumentCatalog', () => {
       .toBe('Guía Fecha Cliente Monto');
   });
 
+  it('caps the combined summary content', () => {
+    const summaries = [{ documentGeneration: 1, summary: 'x'.repeat(7000), keyTopics: [] }];
+    const catalog = buildDocumentCatalog([row({ summaries }), row({ summaries })], 2, 0);
+    expect(catalog.sources.reduce((total, source) => total + source.content.length, 0)).toBe(MAX_CATALOG_SUMMARY_CHARS);
+  });
+
   it('numbers catalog markers after the retrieved passages', () => {
     const catalog = buildDocumentCatalog([row()], 1, 8);
 
@@ -104,6 +111,7 @@ describe('buildDocumentCatalog', () => {
 
     expect(catalog.sources[0]?.content).toHaveLength(
       CATALOG_CONTENT_MAX_CHARS,
+  MAX_CATALOG_SUMMARY_CHARS,
     );
     expect(catalog.sources[0]?.content.endsWith('…')).toBe(true);
   });
