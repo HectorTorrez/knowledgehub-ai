@@ -5,6 +5,7 @@ import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary';
 import { NotFound } from '~/components/NotFound';
 import { RoutePending } from '~/components/route-states';
 import { createUnauthorizedHandler } from '~/lib/auth/session';
+import { initializeSentry } from '~/lib/sentry';
 import { routeTree } from './routeTree.gen';
 
 /**
@@ -13,6 +14,7 @@ import { routeTree } from './routeTree.gen';
  * isolated between requests during SSR.
  */
 export function getRouter() {
+  initializeSentry(import.meta.env.VITE_SENTRY_DSN);
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
