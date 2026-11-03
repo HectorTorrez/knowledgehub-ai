@@ -36,6 +36,7 @@ import type { CreateDocumentInput } from './dto/create-document.schema.js';
 import type { CreateUploadUrlInput } from './dto/create-upload-url.schema.js';
 import type { ListDocumentsInput } from './dto/list-documents.schema.js';
 import type { UpdateDocumentInput } from './dto/update-document.schema.js';
+import { deriveProcessingProgress } from './processing-progress.js';
 import { PROCESSING_MAX_ATTEMPTS } from './processing-policy.js';
 import {
   createDocumentStorageKey,
@@ -64,6 +65,9 @@ const DOCUMENT_PUBLIC_SELECT = {
   failureKind: true,
   createdAt: true,
   updatedAt: true,
+  factsStatus: true,
+  summaryStatus: true,
+  processingJobs: { orderBy: { createdAt: 'desc' }, take: 1, select: { state: true, attempt: true, maxAttempts: true, nextAttemptAt: true } },
 } as const;
 
 const VERIFIABLE_STATUSES = ['PENDING', 'FAILED'] as const;
@@ -79,6 +83,9 @@ interface DocumentProjection {
   failureKind: DocumentFailureKind | null;
   createdAt: Date;
   updatedAt: Date;
+  factsStatus: 'PENDING' | 'READY' | 'FAILED';
+  summaryStatus: 'PENDING' | 'READY' | 'FAILED';
+  processingJobs: Array<{ state: 'QUEUED' | 'CLAIMED' | 'SUCCEEDED' | 'FAILED'; attempt: number; maxAttempts: number; nextAttemptAt: Date }>;
 }
 
 function toDocumentSummary(document: DocumentProjection): DocumentSummary {
@@ -86,6 +93,7 @@ function toDocumentSummary(document: DocumentProjection): DocumentSummary {
     id: document.id,
     title: document.title,
     status: document.status,
+    ...deriveProcessingProgress(document),
     originalFileName: document.originalFileName,
     contentType: document.contentType,
     sizeBytes: document.sizeBytes,

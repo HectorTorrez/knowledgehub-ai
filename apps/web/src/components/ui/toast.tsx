@@ -31,6 +31,7 @@ export interface ToastOptions {
   variant?: ToastVariant;
   action?: ToastAction;
   duration?: number;
+  secondaryAction?: ToastAction;
 }
 
 interface ToastRecord {
@@ -40,6 +41,7 @@ interface ToastRecord {
   variant: ToastVariant;
   action?: ToastAction;
   duration?: number;
+  secondaryAction?: ToastAction;
 }
 
 interface ToastContextValue {
@@ -100,6 +102,7 @@ export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
           description: options.description,
           variant,
           action: options.action,
+          secondaryAction: options.secondaryAction,
           duration: options.duration,
         },
       ];
@@ -146,9 +149,7 @@ function ToastItem({
   }, [record.duration, record.id, record.variant, onDismiss]);
 
   return (
-    <li
-      className="toast-enter pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-popover p-4 text-popover-foreground shadow-lg"
-    >
+    <li className="toast-enter pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-popover p-4 text-popover-foreground shadow-lg">
       <Icon className={cn('mt-0.5 size-4 shrink-0', config.iconClassName)} />
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm font-medium">{record.title}</p>
@@ -156,6 +157,19 @@ function ToastItem({
           <p className="text-sm whitespace-pre-line text-muted-foreground">
             {record.description}
           </p>
+        ) : null}
+        {record.secondaryAction ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 mr-2"
+            onClick={() => {
+              record.secondaryAction?.onClick();
+              onDismiss(record.id);
+            }}
+          >
+            {record.secondaryAction.label}
+          </Button>
         ) : null}
         {record.action ? (
           <Button

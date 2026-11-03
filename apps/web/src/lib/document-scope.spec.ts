@@ -16,6 +16,8 @@ function document(
     originalFileName: null,
     contentType: null,
     sizeBytes: null,
+    processingStage: 'READY',
+    retry: null,
     failureReason: null,
     failureKind: null,
     createdAt: '2026-01-01T00:00:00.000Z',
