@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link, useRouter, useRouterState } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  Link,
+  useRouter,
+  useRouterState,
+} from '@tanstack/react-router';
 import { ArrowRight, Building2, Plus } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
+import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -27,10 +33,7 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDate, formatRole } from '~/lib/format';
@@ -55,15 +58,15 @@ function OrganizationsPage() {
   const [name, setName] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const hash = useRouterState({ select: (state) => state.location.hash });
-  useEffect(() => { if (hash === 'create') setCreateOpen(true); }, [hash]);
+  useEffect(() => {
+    if (hash === 'create') setCreateOpen(true);
+  }, [hash]);
 
   const organizations = useQuery({
     queryKey: queryKeys.organizations.list(),
     queryFn: () => organizationsApi.list(),
   });
-  useQueryErrorToast(organizations.error, () =>
-    void organizations.refetch(),
-  );
+  useQueryErrorToast(organizations.error, () => void organizations.refetch());
 
   const create = useMutation({
     mutationFn: (organizationName: string) =>
@@ -75,7 +78,9 @@ function OrganizationsPage() {
         description: `“${data.organization.name}” is ready for documents.`,
       });
 
-      return client.invalidateQueries({ queryKey: queryKeys.organizations.all });
+      return client.invalidateQueries({
+        queryKey: queryKeys.organizations.all,
+      });
     },
     onError: (error) => reportError(error),
   });
@@ -94,7 +99,10 @@ function OrganizationsPage() {
 
     try {
       const created = await create.mutateAsync(result.data.name);
-      await router.navigate({ to: '/organizations/$organizationId', params: { organizationId: created.organization.id } });
+      await router.navigate({
+        to: '/organizations/$organizationId',
+        params: { organizationId: created.organization.id },
+      });
       setName('');
       setCreateOpen(false);
     } catch {
@@ -103,7 +111,8 @@ function OrganizationsPage() {
   }
 
   const hasOrganizations =
-    organizations.data !== undefined && organizations.data.organizations.length > 0;
+    organizations.data !== undefined &&
+    organizations.data.organizations.length > 0;
 
   return (
     <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -129,7 +138,14 @@ function OrganizationsPage() {
           </div>
         ) : null}
 
-        {!organizations.isPending && !hasOrganizations ? (
+        {organizations.isError ? (
+          <RouteError
+            title="Unable to load organizations"
+            onRetry={() => void organizations.refetch()}
+          />
+        ) : null}
+
+        {organizations.isSuccess && !hasOrganizations ? (
           <EmptyState
             icon={Building2}
             title="No organizations yet"
@@ -167,7 +183,11 @@ function OrganizationsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex items-center justify-between">
-                    <Badge variant={organization.role === 'OWNER' ? 'default' : 'secondary'}>
+                    <Badge
+                      variant={
+                        organization.role === 'OWNER' ? 'default' : 'secondary'
+                      }
+                    >
                       {formatRole(organization.role)}
                     </Badge>
                     <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />

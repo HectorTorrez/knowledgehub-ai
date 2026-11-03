@@ -50,6 +50,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog';
 import { Skeleton } from '~/components/ui/skeleton';
+import { RouteError } from '~/components/route-states';
 import { Textarea } from '~/components/ui/textarea';
 import { useToast } from '~/components/ui/toast';
 import { useAnswerStream } from '~/hooks/use-answer-stream';
@@ -208,6 +209,8 @@ function AskPage() {
     enabled: activeConversationId !== null,
     staleTime: 30_000,
   });
+  useQueryErrorToast(collections.error, () => void collections.refetch());
+  useQueryErrorToast(ready.query.error, () => void ready.query.refetch());
   useQueryErrorToast(conversations.error, () => void conversations.refetch());
   useQueryErrorToast(
     activeConversationDetail.error,
@@ -389,6 +392,24 @@ function AskPage() {
 
   return (
     <div className="space-y-6">
+      {collections.isError ? (
+        <RouteError
+          title="Unable to load collections"
+          onRetry={() => void collections.refetch()}
+        />
+      ) : null}
+      {ready.query.isError ? (
+        <RouteError
+          title="Unable to load documents"
+          onRetry={() => void ready.query.refetch()}
+        />
+      ) : null}
+      {activeConversationDetail.isError ? (
+        <RouteError
+          title="Unable to load conversation"
+          onRetry={() => void activeConversationDetail.refetch()}
+        />
+      ) : null}
       {permalinkAnswerId !== undefined ? (
         <PermalinkAnswer
           organizationId={organizationId}
@@ -405,6 +426,8 @@ function AskPage() {
             activeConversationId={activeConversationId}
             listId="conversation-list"
             isPending={conversations.isPending}
+            isError={conversations.isError}
+            onRetry={() => void conversations.refetch()}
             hasNextPage={conversations.hasNextPage}
             isFetchingNextPage={conversations.isFetchingNextPage}
             onFetchNextPage={() => void conversations.fetchNextPage()}
@@ -573,6 +596,8 @@ function AskPage() {
               listId="conversation-list-mobile"
               showHeading={false}
               isPending={conversations.isPending}
+              isError={conversations.isError}
+              onRetry={() => void conversations.refetch()}
               hasNextPage={conversations.hasNextPage}
               isFetchingNextPage={conversations.isFetchingNextPage}
               onFetchNextPage={() => void conversations.fetchNextPage()}
@@ -737,6 +762,12 @@ function PermalinkAnswer({
         </div>
 
         {detail.isPending ? <Skeleton className="h-24 w-full" /> : null}
+        {detail.isError ? (
+          <RouteError
+            title="Unable to load answer"
+            onRetry={() => void detail.refetch()}
+          />
+        ) : null}
         {detail.data ? (
           <>
             <div className="space-y-1">

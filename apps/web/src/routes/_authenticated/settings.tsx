@@ -25,6 +25,7 @@ import {
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
+import { RouteError } from '~/components/route-states';
 import { useToast } from '~/components/ui/toast';
 import { useSession } from '~/hooks/use-auth';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
@@ -137,7 +138,10 @@ function AccountSettingsPage() {
     onSuccess: async () => {
       const navigation = router.navigate({ to: '/' });
       client.clear();
-      client.setQueryData(SESSION_QUERY_KEY, { status: 'unauthenticated', redirectTo: '/' });
+      client.setQueryData(SESSION_QUERY_KEY, {
+        status: 'unauthenticated',
+        redirectTo: '/',
+      });
       await navigation;
       toast({ variant: 'success', title: 'Account deleted' });
     },
@@ -324,6 +328,12 @@ function AccountSettingsPage() {
         </CardHeader>
         <CardContent>
           {sessions.isPending ? <Skeleton className="h-24 w-full" /> : null}
+          {sessions.isError ? (
+            <RouteError
+              title="Unable to load devices"
+              onRetry={() => void sessions.refetch()}
+            />
+          ) : null}
           {sessions.data ? (
             <ul className="divide-y">
               {sessions.data.sessions.map((entry) => (
