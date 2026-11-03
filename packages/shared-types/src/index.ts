@@ -608,3 +608,32 @@ export interface KnowledgeInsightsResponse {
   unansweredQuestions: Array<{ answerId: string; question: string; askedAt: string; conversationId: string | null }>;
   negativeFeedback: Array<{ answerId: string; question: string; comment: string | null; createdAt: string }>;
 }
+
+export type OrganizationActivityAction =
+  | 'MEMBER_ADDED'
+  | 'MEMBER_REMOVED'
+  | 'MEMBER_ROLE_CHANGED'
+  | 'MEMBER_LEFT'
+  | 'INVITATION_CREATED'
+  | 'INVITATION_REVOKED'
+  | 'INVITATION_ACCEPTED'
+  | 'ORGANIZATION_RENAMED'
+  | 'DOCUMENT_UPLOADED'
+  | 'DOCUMENT_RENAMED'
+  | 'DOCUMENT_DELETED'
+  | 'DOCUMENT_REPROCESSED';
+
+export interface OrganizationActivityItem {
+  id: string;
+  action: OrganizationActivityAction;
+  actor: { id: string; firstName: string; lastName: string; email: string } | null;
+  targetType: string;
+  targetId: string | null;
+  metadata: Record<string, string>;
+  createdAt: string;
+}
+
+export interface OrganizationActivityListResponse {
+  activities: OrganizationActivityItem[];
+  nextCursor: string | null;
+}
