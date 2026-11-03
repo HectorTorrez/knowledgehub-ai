@@ -1,51 +1,51 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { DatePicker } from "~/components/date-picker";
-import { PageHeader } from "~/components/page-header";
-import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
-import { activityApi } from "~/lib/api/activity";
-import { organizationsApi } from "~/lib/api/organizations";
-import { queryKeys } from "~/lib/api/query-keys";
-import { formatActivity } from "~/lib/activity-format";
-import { auditCsv } from "~/lib/audit-csv";
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
+import { DatePicker } from '~/components/date-picker';
+import { PageHeader } from '~/components/page-header';
+import { Button } from '~/components/ui/button';
+import { Skeleton } from '~/components/ui/skeleton';
+import { activityApi } from '~/lib/api/activity';
+import { organizationsApi } from '~/lib/api/organizations';
+import { queryKeys } from '~/lib/api/query-keys';
+import { activityActionLabel, formatActivity } from '~/lib/activity-format';
+import { auditCsv } from '~/lib/audit-csv';
 
 export const Route = createFileRoute(
-  "/_authenticated/organizations/$organizationId/audit-log",
+  '/_authenticated/organizations/$organizationId/audit-log',
 )({
   component: AuditLogPage,
 });
 
 const actions = [
-  "MEMBER_ADDED",
-  "MEMBER_REMOVED",
-  "MEMBER_ROLE_CHANGED",
-  "MEMBER_LEFT",
-  "INVITATION_CREATED",
-  "INVITATION_REVOKED",
-  "INVITATION_ACCEPTED",
-  "ORGANIZATION_RENAMED",
-  "DOCUMENT_UPLOADED",
-  "DOCUMENT_RENAMED",
-  "DOCUMENT_DELETED",
-  "CONVERSATION_SHARED",
-  "CONVERSATION_UNSHARED",
-  "DOCUMENT_REPROCESSED",
+  'MEMBER_ADDED',
+  'MEMBER_REMOVED',
+  'MEMBER_ROLE_CHANGED',
+  'MEMBER_LEFT',
+  'INVITATION_CREATED',
+  'INVITATION_REVOKED',
+  'INVITATION_ACCEPTED',
+  'ORGANIZATION_RENAMED',
+  'DOCUMENT_UPLOADED',
+  'DOCUMENT_RENAMED',
+  'DOCUMENT_DELETED',
+  'CONVERSATION_SHARED',
+  'CONVERSATION_UNSHARED',
+  'DOCUMENT_REPROCESSED',
 ];
 
 function AuditLogPage() {
   const { organizationId } = Route.useParams();
-  const [action, setAction] = useState("");
-  const [actorId, setActorId] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [action, setAction] = useState('');
+  const [actorId, setActorId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const organization = useQuery({
     queryKey: queryKeys.organizations.detail(organizationId),
     queryFn: () => organizationsApi.detail(organizationId),
   });
   const allowed =
-    organization.data?.organization.capabilities.includes("members.manage") ??
+    organization.data?.organization.capabilities.includes('members.manage') ??
     false;
   const members = useQuery({
     queryKey: queryKeys.organizations.members(organizationId),
@@ -54,9 +54,9 @@ function AuditLogPage() {
   });
   const activity = useInfiniteQuery({
     queryKey: [
-      "organizations",
+      'organizations',
       organizationId,
-      "audit-log",
+      'audit-log',
       action,
       actorId,
       from,
@@ -67,8 +67,8 @@ function AuditLogPage() {
         cursor: pageParam,
         action,
         actorId,
-        from: from ? new Date(`${from}T00:00:00`).toISOString() : "",
-        to: to ? new Date(`${to}T23:59:59.999`).toISOString() : "",
+        from: from ? new Date(`${from}T00:00:00`).toISOString() : '',
+        to: to ? new Date(`${to}T23:59:59.999`).toISOString() : '',
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
@@ -77,15 +77,17 @@ function AuditLogPage() {
   const rows = activity.data?.pages.flatMap((page) => page.activities) ?? [];
   function download() {
     const url = URL.createObjectURL(
-      new Blob([auditCsv(rows)], { type: "text/csv;charset=utf-8" }),
+      new Blob([auditCsv(rows)], { type: 'text/csv;charset=utf-8' }),
     );
-    const link = document.createElement("a");
+    const link = document.createElement('a');
     link.href = url;
-    link.download = `audit-log-${(organization.data?.organization.name ?? "workspace").replace(/[^a-zA-Z0-9-]+/g, "-")}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `audit-log-${(organization.data?.organization.name ?? 'workspace').replace(/[^a-zA-Z0-9-]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
   if (organization.isPending) return <Skeleton className="h-32 w-full" />;
+  if (organization.isError)
+    return <p>Unable to load the workspace. Please try again.</p>;
   if (!allowed)
     return (
       <PageHeader
@@ -101,7 +103,7 @@ function AuditLogPage() {
       />
       <div className="flex flex-wrap gap-3">
         <label>
-          Action{" "}
+          Action{' '}
           <select
             aria-label="Action"
             value={action}
@@ -111,13 +113,13 @@ function AuditLogPage() {
             <option value="">All actions</option>
             {actions.map((value) => (
               <option key={value} value={value}>
-                {value.replaceAll("_", " ")}
+                {value.replaceAll('_', ' ')}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Actor{" "}
+          Actor{' '}
           <select
             aria-label="Actor"
             value={actorId}
@@ -159,7 +161,7 @@ function AuditLogPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr>
-                {["Time", "Actor", "Action", "Target", "Details"].map(
+                {['Time', 'Actor', 'Action', 'Target', 'Details'].map(
                   (heading) => (
                     <th className="p-3" key={heading}>
                       {heading}
@@ -178,12 +180,12 @@ function AuditLogPage() {
                     {row.actor
                       ? `${row.actor.firstName} ${row.actor.lastName}`.trim() ||
                         row.actor.email
-                      : "Someone"}
+                      : 'Someone'}
                   </td>
-                  <td className="p-3">{row.action.replaceAll("_", " ")}</td>
+                  <td className="p-3">{activityActionLabel(row.action)}</td>
                   <td className="p-3">
                     {row.targetType}
-                    {row.targetId ? `: ${row.targetId}` : ""}
+                    {row.targetId ? `: ${row.targetId}` : ''}
                   </td>
                   <td className="p-3">{formatActivity(row)}</td>
                 </tr>

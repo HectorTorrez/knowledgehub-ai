@@ -1,5 +1,10 @@
 import type { OrganizationActivityItem } from '@knowledgehub/shared-types';
 
+export function activityActionLabel(action: OrganizationActivityItem['action']): string {
+  const words = action.toLowerCase().replaceAll('_', ' ');
+  return words[0]!.toUpperCase() + words.slice(1);
+}
+
 export function formatActivity(item: OrganizationActivityItem): string {
   const actor = item.actor ? `${item.actor.firstName} ${item.actor.lastName}`.trim() || item.actor.email : 'Someone';
   const { email, from, to, title } = item.metadata;
