@@ -17,6 +17,6 @@ describe('Sentry privacy', () => {
     expect(event).not.toHaveProperty('user');
     expect(event).not.toHaveProperty('request');
     expect(event.exception?.values?.[0]?.value).toBeUndefined();
-    expect(event.exception?.values?.[0]?.stacktrace?.frames?.[0]?.filename).toBe('https://example.com/app.js');
+    expect(event.exception?.values?.[0]?.stacktrace?.frames?.[0]?.filename).toBeUndefined();
   });
 });

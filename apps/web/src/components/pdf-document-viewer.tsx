@@ -242,7 +242,7 @@ export function PdfDocumentViewer({
           </Button>
         </div>
       </div>
-      <div ref={viewport} className="max-h-[75vh] overflow-auto bg-muted/40 p-4">
+      <div ref={viewport} tabIndex={0} role="region" aria-label="Document preview" className="focus-visible:ring-2 focus-visible:ring-ring max-h-[75vh] overflow-auto bg-muted/40 p-4">
         {pdf ? null : (
           <Skeleton className="mx-auto aspect-[1/1.3] w-full max-w-2xl" />
         )}

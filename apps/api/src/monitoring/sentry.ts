@@ -3,6 +3,8 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import * as Sentry from '@sentry/node';
 import type { ErrorEvent } from '@sentry/node';
 
+const organizationIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function scrubEvent(event: ErrorEvent): ErrorEvent {
   return {
     type: undefined,
@@ -10,14 +12,12 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
     timestamp: event.timestamp,
     platform: event.platform,
     level: event.level,
-    tags: event.tags?.organizationId ? { organizationId: event.tags.organizationId } : undefined,
+    tags: typeof event.tags?.organizationId === 'string' && organizationIdPattern.test(event.tags.organizationId) ? { organizationId: event.tags.organizationId } : undefined,
     exception: {
       values: event.exception?.values?.map((exception) => ({
-        type: exception.type,
+        type: ['Error', 'TypeError', 'ReferenceError', 'RangeError', 'SyntaxError', 'URIError', 'EvalError'].includes(exception.type ?? '') ? exception.type : 'Error',
         stacktrace: {
           frames: exception.stacktrace?.frames?.map((frame) => ({
-            filename: frame.filename?.split('?')[0],
-            function: frame.function,
             lineno: frame.lineno,
             colno: frame.colno,
           })),
@@ -39,7 +39,7 @@ export class SentryExceptionFilter extends BaseExceptionFilter {
     if (status >= 500) {
       const request = host.switchToHttp().getRequest<{ params?: { organizationId?: string } }>();
       Sentry.withScope((scope) => {
-        if (request.params?.organizationId) scope.setTag('organizationId', request.params.organizationId);
+        if (request.params?.organizationId && organizationIdPattern.test(request.params.organizationId)) scope.setTag('organizationId', request.params.organizationId);
         Sentry.captureException(exception);
       });
     }

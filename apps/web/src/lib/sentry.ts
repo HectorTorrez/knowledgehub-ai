@@ -10,11 +10,9 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
     level: event.level,
     exception: {
       values: event.exception?.values?.map((exception) => ({
-        type: exception.type,
+        type: ['Error', 'TypeError', 'ReferenceError', 'RangeError', 'SyntaxError', 'URIError', 'EvalError'].includes(exception.type ?? '') ? exception.type : 'Error',
         stacktrace: {
           frames: exception.stacktrace?.frames?.map((frame) => ({
-            filename: frame.filename?.split('?')[0],
-            function: frame.function,
             lineno: frame.lineno,
             colno: frame.colno,
           })),

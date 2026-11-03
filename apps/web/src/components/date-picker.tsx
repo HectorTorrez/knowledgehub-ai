@@ -43,7 +43,7 @@ export function DatePicker({
           id={id}
           type="button"
           variant="outline"
-          aria-label={ariaLabel}
+          aria-label={`${ariaLabel}: ${selected === undefined ? placeholder : format(selected, 'MMM d, yyyy')}`}
           className={cn(
             'w-full justify-start font-normal sm:w-44',
             selected === undefined && 'text-muted-foreground',
