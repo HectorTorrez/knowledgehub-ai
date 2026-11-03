@@ -200,6 +200,9 @@ const envObjectSchema = z.object({
     .max(MAX_ANSWER_HISTORY_MAX_CHARS)
     .default(DEFAULT_ANSWER_HISTORY_MAX_CHARS),
 
+  SUMMARIES_ENABLED: z.enum(['true', 'false']).default('true'),
+  SUMMARY_MODEL: z.string().min(1).optional(),
+  SUMMARY_INPUT_MAX_CHARS: z.coerce.number().int().min(1000).max(100000).default(40000),
   FACTS_ENABLED: z.enum(['true', 'false']).default('false'),
   FACTS_BACKFILL_ENABLED: z.enum(['true', 'false']).default('true'),
   FACTS_MODEL: z.string().min(1).default(DEFAULT_ANSWER_MODEL),

@@ -14,6 +14,7 @@ import {
   type ClaimedProcessingJob,
 } from './processing-job.service.js';
 import { DocumentChunkStore } from './document-chunk.store.js';
+import { SummariesService } from '../summaries/summaries.service.js';
 import { FactsService } from '../facts/facts.service.js';
 import { ProcessingWorkerService } from './processing-worker.service.js';
 
@@ -77,6 +78,7 @@ function createWorker(overrides?: {
     chunks as unknown as DocumentChunkStore,
     config as unknown as ProcessingConfig,
     { enabled: false } as unknown as FactsService,
+    { summarize: async () => undefined } as unknown as SummariesService,
     storage as unknown as ObjectStorage,
   );
 

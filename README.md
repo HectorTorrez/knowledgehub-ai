@@ -1217,3 +1217,5 @@ proof of entailment; human review remains necessary.
 ### Retrieval evaluation
 
 With a migrated local PostgreSQL database with pgvector and a real `OPENAI_API_KEY` configured, run `pnpm --filter @knowledgehub/api eval:retrieval`. The opt-in evaluation embeds the synthetic answer corpus in a temporary isolated organization, searches each answerable question, prints ranked page hits and macro recall@5, recall@10 and MRR, and deletes the organization afterward. It uses the configured embedding model and incurs provider charges. Follow-up cases include their history in the query because retrieval currently accepts only text.
+
+Document summaries are generated after processing and backfilled for existing ready documents. Configure `SUMMARIES_ENABLED` (default `true`), `SUMMARY_MODEL` (defaults to `ANSWER_MODEL`), and `SUMMARY_INPUT_MAX_CHARS` (default `40000`).

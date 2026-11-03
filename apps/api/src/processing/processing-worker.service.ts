@@ -6,6 +6,7 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { SummariesService } from '../summaries/summaries.service.js';
 import { FactsService } from '../facts/facts.service.js';
 import {
   OBJECT_STORAGE,
@@ -61,6 +62,7 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
     private readonly chunks: DocumentChunkStore,
     private readonly config: ProcessingConfig,
     private readonly facts: FactsService,
+    private readonly summaries: SummariesService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
@@ -143,7 +145,10 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      await this.jobs.publishExtraction(ownership, extracted);
+      const published = await this.jobs.publishExtraction(ownership, extracted);
+      if (published) {
+        void this.summaries.summarize({ organizationId: job.organizationId, documentId: job.documentId, documentGeneration: job.documentGeneration }, drafts);
+      }
     } catch (error) {
       await this.recordFailure(job, error);
     } finally {
