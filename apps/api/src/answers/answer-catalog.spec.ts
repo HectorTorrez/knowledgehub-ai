@@ -111,7 +111,6 @@ describe('buildDocumentCatalog', () => {
 
     expect(catalog.sources[0]?.content).toHaveLength(
       CATALOG_CONTENT_MAX_CHARS,
-  MAX_CATALOG_SUMMARY_CHARS,
     );
     expect(catalog.sources[0]?.content.endsWith('…')).toBe(true);
   });
