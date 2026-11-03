@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   BadRequestException,
   Injectable,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { SearchResponse } from '@knowledgehub/shared-types';
@@ -33,6 +34,8 @@ export class SearchService {
     organizationId: string,
     input: SearchInput,
   ): Promise<SearchResponse> {
+    const explicitIds = [...new Set([...(input.documentIds ?? []), ...(input.documentId ? [input.documentId] : [])])];
+    if (explicitIds.length && await this.prisma.document.count({ where: { organizationId, id: { in: explicitIds } } }) !== explicitIds.length) throw new NotFoundException('Document not found');
     const documentIds = input.collectionIds ? await resolveCollectionScope(this.prisma, organizationId, input.collectionIds, input.documentIds) : input.documentIds;
     if (documentIds && documentIds.length === 0) return { results: [] };
     let chunks: RetrievedChunk[];

@@ -33,7 +33,7 @@ function createService(
   impl: RetrievalService['search'] = async () => [CHUNK],
 ) {
   const search = vi.fn(impl);
-  const service = new SearchService({ search } as unknown as RetrievalService, {} as PrismaService);
+  const service = new SearchService({ search } as unknown as RetrievalService, { document: { count: async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.length } } as unknown as PrismaService);
   return { service, search };
 }
 
