@@ -1,3 +1,5 @@
+import { QUERY_REWRITER, type QueryRewriter } from './query-rewriter.port.js';
+import { MAX_ANSWER_QUESTION_CHARS } from './answer-policy.js';
 import {
   BadGatewayException,
   BadRequestException,
@@ -87,6 +89,7 @@ interface AnswerLogEvent {
   model: string;
   contextMode: 'retrieval' | 'whole_document';
   sourceCount: number;
+  queryRewritten: boolean;
   catalogCount: number;
   promptChars: number;
   citationCount: number;
@@ -174,6 +177,7 @@ export class AnswersService {
     private readonly usage: UsageService,
     private readonly aggregation: AggregationService,
     private readonly factsConfig: FactsConfig,
+    @Inject(QUERY_REWRITER) private readonly queryRewriter: QueryRewriter,
   ) {}
 
   async answer(
@@ -300,6 +304,7 @@ export class AnswersService {
       model: this.config.model,
       contextMode: 'retrieval',
       sourceCount: 0,
+      queryRewritten: false,
       catalogCount: 0,
       promptChars: 0,
       citationCount: 0,
@@ -664,8 +669,19 @@ export class AnswersService {
       : null;
     if (wholeDocument) event.contextMode = 'whole_document';
 
+    let retrievalQuery = question;
+    if (!wholeDocument && history.length > 0 && this.config.queryRewriteEnabled) {
+      try {
+        const rewritten = (await this.queryRewriter.rewrite(question, history)).trim();
+        if (!rewritten || rewritten.length > 2 * question.length + 200 || rewritten.length > MAX_ANSWER_QUESTION_CHARS) throw new Error('Invalid query rewrite');
+        retrievalQuery = rewritten;
+        event.queryRewritten = rewritten !== question;
+      } catch (error) {
+        this.logger.warn('Query rewrite failed; using original question', error);
+      }
+    }
     const [sources, catalogRows] = await Promise.all([
-      wholeDocument ?? this.retrieveSources(organizationId, question, documentId),
+      wholeDocument ?? this.retrieveSources(organizationId, retrievalQuery, documentId),
       this.loadDocumentCatalogRows(organizationId, documentId),
     ]);
 

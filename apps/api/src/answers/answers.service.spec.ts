@@ -219,6 +219,7 @@ function createService(options: {
     usage as unknown as UsageService,
     aggregation,
     factsConfig,
+    { rewrite: async (question) => question },
   );
 
   return {

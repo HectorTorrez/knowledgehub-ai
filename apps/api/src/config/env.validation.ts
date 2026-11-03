@@ -161,6 +161,8 @@ const envObjectSchema = z.object({
     .default(DEFAULT_EMBEDDING_TIMEOUT_MS),
 
   ANSWER_MODEL: z.string().min(1).default(DEFAULT_ANSWER_MODEL),
+  QUERY_REWRITE_MODEL: z.string().min(1).optional(),
+  QUERY_REWRITE_ENABLED: z.enum(['true', 'false']).default('true'),
   ANSWER_TIMEOUT_MS: z.coerce
     .number()
     .int()
