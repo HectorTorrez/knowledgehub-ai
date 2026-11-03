@@ -40,6 +40,7 @@ import {
   buildCsrfCookieOptions,
   generateCsrfToken,
 } from './csrf.js';
+import { deleteAccountSchema, type DeleteAccountInput } from './dto/delete-account.schema.js';
 import { loginSchema, type LoginInput } from './dto/login.schema.js';
 import { registerSchema, type RegisterInput } from './dto/register.schema.js';
 import {
@@ -118,6 +119,21 @@ export class AuthController {
     const date = new Date().toISOString().slice(0, 10);
     response.attachment(`knowledgehub-export-${date}.json`);
     return data;
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SessionGuard)
+  async deleteAccount(
+    @Body(new ZodValidationPipe(deleteAccountSchema)) body: DeleteAccountInput,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    if (!request.auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    await this.auth.deleteAccount(request.auth.userId, body.password);
+    this.clearAuthCookies(response);
   }
 
   @Patch('profile')
