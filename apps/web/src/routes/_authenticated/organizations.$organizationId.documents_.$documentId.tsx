@@ -49,10 +49,8 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
+import { pollingInterval } from '~/lib/document-polling';
 import { useDocumentNotifications } from '~/hooks/use-document-notifications';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -98,7 +96,10 @@ const ACTIVE_STATUSES = new Set(['PENDING', 'PROCESSING']);
 
 function DocumentDetailPage() {
   const { organizationId, documentId } = Route.useParams();
-  const organization = useQuery({ queryKey: queryKeys.organizations.detail(organizationId), queryFn: () => organizationsApi.detail(organizationId) });
+  const organization = useQuery({
+    queryKey: queryKeys.organizations.detail(organizationId),
+    queryFn: () => organizationsApi.detail(organizationId),
+  });
   const capabilities = organization.data?.organization.capabilities ?? [];
   const canWrite = capabilities.includes('documents.write');
   const canDelete = capabilities.includes('documents.delete');
@@ -111,15 +112,23 @@ function DocumentDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const document = useQuery({
-    queryKey: queryKeys.organizations.documents.detail(organizationId, documentId),
+    queryKey: queryKeys.organizations.documents.detail(
+      organizationId,
+      documentId,
+    ),
     queryFn: () => documentsApi.detail(organizationId, documentId),
     refetchInterval: (query) => {
-      const data = query.state.data;
-
-      return data && (ACTIVE_STATUSES.has(data.document.status) || data.document.processingStage === 'ENRICHING') ? 3000 : false;
+      return pollingInterval(
+        query.state.data ? [query.state.data.document] : [],
+        typeof window !== 'undefined' &&
+          window.document.visibilityState === 'visible',
+      );
     },
   });
-  useDocumentNotifications(organizationId, document.data ? [document.data.document] : []);
+  useDocumentNotifications(
+    organizationId,
+    document.data ? [document.data.document] : [],
+  );
   useQueryErrorToast(document.error, () => void document.refetch());
 
   const { page, quote } = Route.useSearch();
@@ -224,7 +233,8 @@ function DocumentDetailPage() {
       toast({
         variant: 'success',
         title: 'Document deleted',
-        description: 'The document and everything derived from it were removed.',
+        description:
+          'The document and everything derived from it were removed.',
       });
       await client.invalidateQueries({
         queryKey: queryKeys.organizations.documents.list(organizationId),
@@ -369,13 +379,36 @@ function DocumentDetailPage() {
             {documentFailureMessage(entry.failureReason) ??
               'No failure details were recorded. Delete this document and upload it again.'}
           </p>
-          {documentFailureGuidance(entry.failureReason).action === 'Reprocess' ? (
-            <Button className="mt-3" size="sm" onClick={() => reprocess.mutate()} disabled={reprocess.isPending}>Reprocess</Button>
-          ) : documentFailureGuidance(entry.failureReason).action === 'Replace file' ? (
-            <Link className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-3' })} to="/organizations/$organizationId/documents" params={{ organizationId }}>Upload again</Link>
-          ) : (
-            <Button className="mt-3" size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>Delete</Button>
-          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {canWrite ? (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => reprocess.mutate()}
+                  disabled={reprocess.isPending}
+                >
+                  Reprocess
+                </Button>
+                <Link
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                  to="/organizations/$organizationId/documents"
+                  params={{ organizationId }}
+                  hash="upload"
+                >
+                  Upload again
+                </Link>
+              </>
+            ) : null}
+            {canDelete ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                Delete
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -422,7 +455,9 @@ function DocumentDetailPage() {
         <Card>
           <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Use this document in answers</p>
+              <p className="text-sm font-medium">
+                Use this document in answers
+              </p>
               <p className="text-sm text-muted-foreground">
                 Ask a question and narrow the scope to this document.
               </p>

@@ -17,7 +17,19 @@ const ORGANIZATION = {
   id: 'org-1',
   name: 'Acme',
   role: 'OWNER',
-  capabilities: ['documents.view', 'documents.write', 'documents.delete', 'answers.ask', 'search', 'conversations.viewOwn', 'members.manage', 'owners.manage', 'organization.manage', 'organization.delete', 'insights.view'],
+  capabilities: [
+    'documents.view',
+    'documents.write',
+    'documents.delete',
+    'answers.ask',
+    'search',
+    'conversations.viewOwn',
+    'members.manage',
+    'owners.manage',
+    'organization.manage',
+    'organization.delete',
+    'insights.view',
+  ],
   createdAt: CREATED_AT,
   updatedAt: CREATED_AT,
 };
@@ -26,6 +38,8 @@ const DOCUMENT = {
   id: 'doc-1',
   title: 'Handbook',
   status: 'READY',
+  processingStage: 'READY',
+  retry: null,
   originalFileName: 'handbook.pdf',
   contentType: 'application/pdf',
   sizeBytes: 1024,
@@ -49,10 +63,14 @@ interface ApiOptions {
   demo?: boolean;
   empty?: boolean;
   complete?: boolean;
+  progress?: 'ready-after-poll' | 'failed';
   onAsk?: () => void;
 }
 
-function json(body: unknown, status = 200): { status: number; contentType: string; body: string } {
+function json(
+  body: unknown,
+  status = 200,
+): { status: number; contentType: string; body: string } {
   return {
     status,
     contentType: 'application/json',
@@ -62,9 +80,48 @@ function json(body: unknown, status = 200): { status: number; contentType: strin
 
 export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
   let authenticated = options.authenticated;
-  const organization = options.role === 'VIEWER' ? { ...ORGANIZATION, role: 'VIEWER', capabilities: ['documents.view', 'answers.ask', 'search', 'conversations.viewOwn'] } : ORGANIZATION;
+  let documentRequests = 0;
+  function currentDocument() {
+    if (options.progress === 'failed') {
+      return {
+        ...DOCUMENT,
+        status: 'FAILED',
+        processingStage: 'FAILED',
+        failureKind: 'VERIFICATION',
+        failureReason: 'INVALID_FILE',
+      };
+    }
+    if (options.progress === 'ready-after-poll' && documentRequests++ === 0) {
+      return {
+        ...DOCUMENT,
+        status: 'PROCESSING',
+        processingStage: 'PROCESSING',
+      };
+    }
+    return DOCUMENT;
+  }
+  const organization =
+    options.role === 'VIEWER'
+      ? {
+          ...ORGANIZATION,
+          role: 'VIEWER',
+          capabilities: [
+            'documents.view',
+            'answers.ask',
+            'search',
+            'conversations.viewOwn',
+          ],
+        }
+      : ORGANIZATION;
   await page.route('https://fake-object-storage.test/**', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/pdf', headers: { 'Access-Control-Allow-Origin': '*' }, body: Buffer.from(createMinimalPdf('Employees receive twenty days of leave each year.')) });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/pdf',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: Buffer.from(
+        createMinimalPdf('Employees receive twenty days of leave each year.'),
+      ),
+    });
   });
 
   await page.route(`${API_ORIGIN}/**`, async (route: Route) => {
@@ -75,7 +132,9 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
 
     if (path === '/auth/session') {
       if (!authenticated) {
-        await route.fulfill(json({ statusCode: 401, message: 'Not signed in' }, 401));
+        await route.fulfill(
+          json({ statusCode: 401, message: 'Not signed in' }, 401),
+        );
         return;
       }
 
@@ -119,7 +178,22 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     }
 
     if (path === '/organizations/org-1/activity' && method === 'GET') {
-      await route.fulfill(json({ activities: [{ id: 'activity-1', action: 'DOCUMENT_UPLOADED', actor: USER, targetType: 'document', targetId: 'doc-1', metadata: { title: 'Handbook' }, createdAt: CREATED_AT }], nextCursor: null }));
+      await route.fulfill(
+        json({
+          activities: [
+            {
+              id: 'activity-1',
+              action: 'DOCUMENT_UPLOADED',
+              actor: USER,
+              targetType: 'document',
+              targetId: 'doc-1',
+              metadata: { title: 'Handbook' },
+              createdAt: CREATED_AT,
+            },
+          ],
+          nextCursor: null,
+        }),
+      );
       return;
     }
 
@@ -185,7 +259,7 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     }
 
     if (path === `/organizations/org-1/documents/${DOCUMENT.id}`) {
-      await route.fulfill(json({ document: DOCUMENT }));
+      await route.fulfill(json({ document: currentDocument() }));
       return;
     }
 
@@ -286,6 +360,8 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
-    await route.fulfill(json({ statusCode: 404, message: `Unhandled ${path}` }, 404));
+    await route.fulfill(
+      json({ statusCode: 404, message: `Unhandled ${path}` }, 404),
+    );
   });
 }

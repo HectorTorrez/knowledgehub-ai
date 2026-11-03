@@ -75,10 +75,8 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import { useToast } from '~/components/ui/toast';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
+import { pollingInterval } from '~/lib/document-polling';
 import { useDocumentNotifications } from '~/hooks/use-document-notifications';
 import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -108,7 +106,6 @@ export const Route = createFileRoute(
   component: DocumentsPage,
 });
 
-const ACTIVE_STATUSES = new Set<DocumentSummary['status']>(['PENDING', 'PROCESSING']);
 const ALL_STATUSES = 'ALL';
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -126,8 +123,13 @@ interface UploadItem {
 
 function DocumentsPage() {
   const { organizationId } = Route.useParams();
-  const organization = useQuery({ queryKey: queryKeys.organizations.detail(organizationId), queryFn: () => organizationsApi.detail(organizationId) });
-  const canWrite = organization.data?.organization.capabilities.includes('documents.write') ?? false;
+  const organization = useQuery({
+    queryKey: queryKeys.organizations.detail(organizationId),
+    queryFn: () => organizationsApi.detail(organizationId),
+  });
+  const canWrite =
+    organization.data?.organization.capabilities.includes('documents.write') ??
+    false;
   const client = useQueryClient();
   const { toast } = useToast();
   const reportError = useReportError();
@@ -143,9 +145,13 @@ function DocumentsPage() {
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const uploadAbortRef = useRef<AbortController | null>(null);
-  const [renameTarget, setRenameTarget] = useState<DocumentSummary | null>(null);
+  const [renameTarget, setRenameTarget] = useState<DocumentSummary | null>(
+    null,
+  );
   const [renameTitle, setRenameTitle] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(
+    null,
+  );
   const [queryDraft, setQueryDraft] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(ALL_STATUSES);
@@ -165,7 +171,9 @@ function DocumentsPage() {
     order,
   };
   const hasFilters =
-    query.length > 0 || statusFilter !== ALL_STATUSES || order !== 'createdAt_desc';
+    query.length > 0 ||
+    statusFilter !== ALL_STATUSES ||
+    order !== 'createdAt_desc';
 
   const documents = useInfiniteQuery({
     queryKey: queryKeys.organizations.documents.list(organizationId, filters),
@@ -174,12 +182,11 @@ function DocumentsPage() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     refetchInterval: (query) => {
-      const data = query.state.data;
-      const active = data?.pages.some((page) =>
-        page.documents.some((entry) => (ACTIVE_STATUSES.has(entry.status) || entry.processingStage === 'ENRICHING')),
+      return pollingInterval(
+        query.state.data?.pages.flatMap((page) => page.documents) ?? [],
+        typeof document !== 'undefined' &&
+          document.visibilityState === 'visible',
       );
-
-      return active ? 3000 : false;
     },
   });
   useQueryErrorToast(documents.error, () => void documents.refetch());
@@ -210,9 +217,10 @@ function DocumentsPage() {
       })),
     );
     const rejected = checked.filter((entry) => !entry.result.ok);
-    const accepted = checked.filter(
-      (entry) => entry.result.ok,
-    ) as Array<{ file: File; result: { ok: true; contentType: string } }>;
+    const accepted = checked.filter((entry) => entry.result.ok) as Array<{
+      file: File;
+      result: { ok: true; contentType: string };
+    }>;
 
     if (rejected.length > 0) {
       reportError(
@@ -489,12 +497,14 @@ function DocumentsPage() {
                     className={cn(documents.isFetching && 'animate-spin')}
                   />
                 </Button>
-                {canWrite ? <DialogTrigger asChild>
-                  <Button>
-                    <Upload />
-                    Upload document
-                  </Button>
-                </DialogTrigger> : null}
+                {canWrite ? (
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Upload />
+                      Upload document
+                    </Button>
+                  </DialogTrigger>
+                ) : null}
               </div>
             }
           />
@@ -529,9 +539,14 @@ function DocumentsPage() {
               </div>
               <Select
                 value={statusFilter}
-                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+                onValueChange={(value) =>
+                  setStatusFilter(value as StatusFilter)
+                }
               >
-                <SelectTrigger className="w-full sm:w-44" aria-label="Filter by status">
+                <SelectTrigger
+                  className="w-full sm:w-44"
+                  aria-label="Filter by status"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -546,7 +561,10 @@ function DocumentsPage() {
                 value={order}
                 onValueChange={(value) => setOrder(value as DocumentOrder)}
               >
-                <SelectTrigger className="w-full sm:w-40" aria-label="Sort documents">
+                <SelectTrigger
+                  className="w-full sm:w-40"
+                  aria-label="Sort documents"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -606,12 +624,14 @@ function DocumentsPage() {
                       Answers cite the passages they use.
                     </OnboardingStep>
                   </ol>
-                  {canWrite ? <DialogTrigger asChild>
-                    <Button>
-                      <Upload />
-                      Upload your first document
-                    </Button>
-                  </DialogTrigger> : null}
+                  {canWrite ? (
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Upload />
+                        Upload your first document
+                      </Button>
+                    </DialogTrigger>
+                  ) : null}
                 </CardContent>
               </Card>
             )
@@ -675,39 +695,43 @@ function DocumentsPage() {
                             ) : null}
                           </div>
                         </Link>
-                        {canWrite ? <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`Actions for ${document.title}`}
-                            >
-                              <MoreHorizontal />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {document.status === 'FAILED' ? (
-                              <DropdownMenuItem
-                                onSelect={() => reprocess.mutate(document.id)}
-                                disabled={reprocess.isPending}
+                        {canWrite ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Actions for ${document.title}`}
                               >
-                                <RotateCcw />
-                                Retry processing
+                                <MoreHorizontal />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {document.status === 'FAILED' ? (
+                                <DropdownMenuItem
+                                  onSelect={() => reprocess.mutate(document.id)}
+                                  disabled={reprocess.isPending}
+                                >
+                                  <RotateCcw />
+                                  Retry processing
+                                </DropdownMenuItem>
+                              ) : null}
+                              <DropdownMenuItem
+                                onSelect={() => openRename(document)}
+                              >
+                                <Pencil />
+                                Rename
                               </DropdownMenuItem>
-                            ) : null}
-                            <DropdownMenuItem onSelect={() => openRename(document)}>
-                              <Pencil />
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => setDeleteTarget(document)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu> : null}
+                              <DropdownMenuItem
+                                onSelect={() => setDeleteTarget(document)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
