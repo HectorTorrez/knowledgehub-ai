@@ -14,7 +14,11 @@ function buildUsage(options: {
   const findUnique = vi.fn(
     async (_args?: unknown): Promise<unknown> => null,
   );
+  const aggregate = vi.fn(async () => ({ _count: { _all: 2 }, _sum: { sizeBytes: 1024 } }));
+  const count = vi.fn(async () => 3);
   const prisma = {
+    document: { aggregate },
+    membership: { count },
     tenantUsage: { upsert, findUnique },
   } as unknown as PrismaService;
   const config = {
@@ -25,6 +29,8 @@ function buildUsage(options: {
     service: new UsageService(prisma, config),
     upsert,
     findUnique,
+    aggregate,
+    count,
   };
 }
 
@@ -75,6 +81,14 @@ describe('UsageService', () => {
 });
 
 describe('UsageService.getAnswerUsage', () => {
+  it('aggregates only the requested organization', async () => {
+    const { service, aggregate, count } = buildUsage();
+    const result = await service.getAnswerUsage('org-1');
+    expect(result.usage).toMatchObject({ documents: { used: 2, limit: null }, storageBytes: { used: 1024, limit: null }, members: { used: 3, limit: null } });
+    expect(aggregate).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: 'org-1' } }));
+    expect(count).toHaveBeenCalledWith({ where: { organizationId: 'org-1' } });
+  });
+
   it('returns zero used when there is no counter for today', async () => {
     const { service } = buildUsage({ quota: 50 });
 

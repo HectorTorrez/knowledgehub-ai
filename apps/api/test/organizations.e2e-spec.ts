@@ -118,6 +118,30 @@ describe('organizations (e2e)', () => {
     role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER',
   ) => prisma.membership.create({ data: { userId, organizationId, role } });
 
+  it('aggregates usage for the requested organization only', async () => {
+    const owner = await registerUser();
+    const outsider = await registerUser();
+    const first = await createOrganization(owner.token, { name: 'Usage' }).expect(201);
+    const second = await createOrganization(outsider.token, { name: 'Other' }).expect(201);
+    const org = first.body.organization.id as string;
+    const other = second.body.organization.id as string;
+    trackedOrganizationIds.add(org);
+    trackedOrganizationIds.add(other);
+    await prisma.document.createMany({ data: [
+      { organizationId: org, title: 'One', sizeBytes: 120 },
+      { organizationId: org, title: 'Two', sizeBytes: null },
+      { organizationId: other, title: 'Other', sizeBytes: 900 },
+    ] });
+    const response = await request(app.getHttpServer()).get(`/organizations/${org}/usage`).set(bearer(owner.token)).expect(200);
+    expect(response.body.usage).toMatchObject({
+      documents: { used: 2, limit: null },
+      storageBytes: { used: 120, limit: null },
+      members: { used: 1, limit: null },
+      answers: { used: 0, limit: expect.any(Number) },
+    });
+    await request(app.getHttpServer()).get(`/organizations/${org}/usage`).set(bearer(outsider.token)).expect(403);
+  });
+
   it('enforces viewer and admin permissions across tenants', async () => {
     const owner = await registerUser();
     const viewer = await registerUser();
