@@ -44,3 +44,7 @@ export function canSetConversationVisibility(
     (conversation.createdById !== null || visibility === 'ORGANIZATION')
   );
 }
+
+export function readableConversationWhere(userId: string) {
+  return { OR: [{ createdById: userId }, { visibility: 'ORGANIZATION' as const }] };
+}

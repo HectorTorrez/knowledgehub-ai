@@ -1,3 +1,4 @@
+import { readableConversationWhere } from './conversation-policy.js';
 import { RERANKER, type Reranker } from './reranker.port.js';
 import { orderReranked } from './rerank-order.js';
 import { QUERY_REWRITER, type QueryRewriter } from './query-rewriter.port.js';
@@ -204,6 +205,7 @@ export class AnswersService {
         await this.assertConversationInOrganization(
           conversationId,
           organizationId,
+          userId,
         );
         history = await this.loadConversationHistory(
           organizationId,
@@ -255,6 +257,7 @@ export class AnswersService {
         await this.assertConversationInOrganization(
           conversationId,
           organizationId,
+          userId,
         );
         history = await this.loadConversationHistory(
           organizationId,
@@ -491,6 +494,7 @@ export class AnswersService {
     const rows = await this.prisma.answer.findMany({
       where: {
         organizationId,
+        OR: [{ conversationId: null }, { conversation: readableConversationWhere(userId) }],
         ...(input.askedBy === 'me' ? { askedById: userId } : {}),
         ...(input.conversationId ? { conversationId: input.conversationId } : {}),
         ...(cursor ? listCursorFilter(cursor) : {}),
@@ -517,7 +521,7 @@ export class AnswersService {
     userId: string,
   ): Promise<AnswerDetailResponse> {
     const row = await this.prisma.answer.findFirst({
-      where: { id: answerId, organizationId },
+      where: { id: answerId, organizationId, OR: [{ conversationId: null }, { conversation: readableConversationWhere(userId) }] },
       select: {
         ...ANSWER_SELECT,
         feedback: {
@@ -541,7 +545,7 @@ export class AnswersService {
     userId: string,
     input: SetAnswerFeedbackInput,
   ): Promise<AnswerFeedbackResponse> {
-    await this.assertAnswerInOrganization(organizationId, answerId);
+    await this.assertAnswerInOrganization(organizationId, answerId, userId);
 
     const feedback = await this.prisma.answerFeedback.upsert({
       where: { answerId_userId: { answerId, userId } },
@@ -566,7 +570,7 @@ export class AnswersService {
     answerId: string,
     userId: string,
   ): Promise<void> {
-    await this.assertAnswerInOrganization(organizationId, answerId);
+    await this.assertAnswerInOrganization(organizationId, answerId, userId);
 
     await this.prisma.answerFeedback.deleteMany({
       where: { answerId, userId },
@@ -576,9 +580,10 @@ export class AnswersService {
   private async assertAnswerInOrganization(
     organizationId: string,
     answerId: string,
+    userId: string,
   ): Promise<void> {
     const answer = await this.prisma.answer.findFirst({
-      where: { id: answerId, organizationId },
+      where: { id: answerId, organizationId, OR: [{ conversationId: null }, { conversation: readableConversationWhere(userId) }] },
       select: { id: true },
     });
 
@@ -905,9 +910,10 @@ export class AnswersService {
   private async assertConversationInOrganization(
     conversationId: string,
     organizationId: string,
+    userId: string,
   ): Promise<void> {
     const conversation = await this.prisma.conversation.findFirst({
-      where: { id: conversationId, organizationId },
+      where: { id: conversationId, organizationId, createdById: userId },
       select: { id: true },
     });
 

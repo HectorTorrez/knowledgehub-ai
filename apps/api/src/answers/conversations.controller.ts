@@ -1,3 +1,4 @@
+import { can } from '../organizations/permissions.js';
 import type { Response } from 'express';
 import {
   renderConversationMarkdown,
@@ -46,6 +47,7 @@ export class ConversationsController {
   ): Promise<ConversationDetailResponse> {
     return this.conversations.create(
       requireOrganizationContext(request).organizationId,
+      requireOrganizationContext(request).userId,
     );
   }
 
@@ -58,6 +60,7 @@ export class ConversationsController {
     return this.conversations.list(
       requireOrganizationContext(request).organizationId,
       query,
+      requireOrganizationContext(request).userId,
     );
   }
 
@@ -69,6 +72,7 @@ export class ConversationsController {
     return this.conversations.getDetail(
       requireOrganizationContext(request).organizationId,
       conversationId,
+      requireOrganizationContext(request).userId,
     );
   }
 
@@ -81,6 +85,7 @@ export class ConversationsController {
     const data = await this.conversations.getExport(
       requireOrganizationContext(request).organizationId,
       conversationId,
+      requireOrganizationContext(request).userId,
     );
     const date = new Date().toISOString().slice(0, 10);
     response.setHeader('Content-Type', 'text/markdown; charset=utf-8');
@@ -100,6 +105,8 @@ export class ConversationsController {
     return this.conversations.delete(
       requireOrganizationContext(request).organizationId,
       conversationId,
+      requireOrganizationContext(request).userId,
+      can(requireOrganizationContext(request).role, 'members.manage'),
     );
   }
 }

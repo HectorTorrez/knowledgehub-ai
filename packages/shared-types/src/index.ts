@@ -649,7 +649,9 @@ export type OrganizationActivityAction =
   | 'DOCUMENT_UPLOADED'
   | 'DOCUMENT_RENAMED'
   | 'DOCUMENT_DELETED'
-  | 'DOCUMENT_REPROCESSED';
+  | 'DOCUMENT_REPROCESSED'
+  | 'CONVERSATION_SHARED'
+  | 'CONVERSATION_UNSHARED';
 
 export interface OrganizationActivityItem {
   id: string;

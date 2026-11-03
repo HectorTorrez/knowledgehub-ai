@@ -30,10 +30,10 @@ describe('ConversationsService', () => {
   it('creates a conversation for the organization', async () => {
     const { service, prisma } = buildService();
 
-    const result = await service.create('org-1');
+    const result = await service.create('org-1', 'user-1');
 
     expect(prisma.conversation.create).toHaveBeenCalledWith({
-      data: { organizationId: 'org-1' },
+      data: { organizationId: 'org-1', createdById: 'user-1' },
       select: { id: true, title: true, createdAt: true },
     });
     expect(result).toEqual({
@@ -50,10 +50,10 @@ describe('ConversationsService', () => {
       findFirst: async () => ({ id: 'c1', title: 'Alpha', createdAt: CREATED_AT }),
     });
 
-    await service.getDetail('org-1', 'c1');
+    await service.getDetail('org-1', 'c1', 'user-1');
 
     expect(prisma.conversation.findFirst).toHaveBeenCalledWith({
-      where: { id: 'c1', organizationId: 'org-1' },
+      where: { id: 'c1', organizationId: 'org-1', OR: [{ createdById: 'user-1' }, { visibility: 'ORGANIZATION' }] },
       select: { id: true, title: true, createdAt: true },
     });
   });
@@ -61,7 +61,7 @@ describe('ConversationsService', () => {
   it('returns 404 when the conversation is not in the organization', async () => {
     const { service } = buildService({ findFirst: async () => null });
 
-    await expect(service.getDetail('org-1', 'c1')).rejects.toBeInstanceOf(
+    await expect(service.getDetail('org-1', 'c1', 'user-1')).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
@@ -69,17 +69,17 @@ describe('ConversationsService', () => {
   it('deletes a conversation scoped to the organization', async () => {
     const { service, prisma } = buildService();
 
-    await service.delete('org-1', 'c1');
+    await service.delete('org-1', 'c1', 'user-1', false);
 
     expect(prisma.conversation.deleteMany).toHaveBeenCalledWith({
-      where: { id: 'c1', organizationId: 'org-1' },
+      where: { id: 'c1', organizationId: 'org-1', OR: [{ createdById: 'user-1' }] },
     });
   });
 
   it('returns 404 when deleting a conversation that is not in the organization', async () => {
     const { service } = buildService({ deleteMany: async () => ({ count: 0 }) });
 
-    await expect(service.delete('org-1', 'c1')).rejects.toBeInstanceOf(
+    await expect(service.delete('org-1', 'c1', 'user-1', false)).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });

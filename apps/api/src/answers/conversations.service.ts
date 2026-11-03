@@ -1,3 +1,4 @@
+import { readableConversationWhere } from './conversation-policy.js';
 import {
   BadRequestException,
   Injectable,
@@ -38,9 +39,9 @@ function toConversationSummary(
 export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(organizationId: string): Promise<ConversationDetailResponse> {
+  async create(organizationId: string, userId: string): Promise<ConversationDetailResponse> {
     const row = await this.prisma.conversation.create({
-      data: { organizationId },
+      data: { organizationId, createdById: userId },
       select: CONVERSATION_SELECT,
     });
 
@@ -50,6 +51,7 @@ export class ConversationsService {
   async list(
     organizationId: string,
     input: ListConversationsInput,
+    userId: string,
   ): Promise<ConversationListResponse> {
     const cursor = input.cursor ? decodeListCursor(input.cursor) : null;
     if (input.cursor && !cursor) {
@@ -59,6 +61,7 @@ export class ConversationsService {
     const rows = await this.prisma.conversation.findMany({
       where: {
         organizationId,
+        ...readableConversationWhere(userId),
         ...(cursor ? listCursorFilter(cursor) : {}),
       },
       select: CONVERSATION_SELECT,
@@ -82,9 +85,10 @@ export class ConversationsService {
   async getDetail(
     organizationId: string,
     conversationId: string,
+    userId: string,
   ): Promise<ConversationDetailResponse> {
     const row = await this.prisma.conversation.findFirst({
-      where: { id: conversationId, organizationId },
+      where: { id: conversationId, organizationId, ...readableConversationWhere(userId) },
       select: CONVERSATION_SELECT,
     });
 
@@ -95,10 +99,11 @@ export class ConversationsService {
     return { conversation: toConversationSummary(row) };
   }
 
-  async getExport(organizationId: string, conversationId: string) {
+  async getExport(organizationId: string, conversationId: string, userId: string) {
     const { conversation } = await this.getDetail(
       organizationId,
       conversationId,
+      userId,
     );
     const turns = await this.prisma.answer.findMany({
       where: { organizationId, conversationId },
@@ -108,9 +113,9 @@ export class ConversationsService {
     return { title: conversation.title, turns };
   }
 
-  async delete(organizationId: string, conversationId: string): Promise<void> {
+  async delete(organizationId: string, conversationId: string, userId: string, canManageMembers: boolean): Promise<void> {
     const result = await this.prisma.conversation.deleteMany({
-      where: { id: conversationId, organizationId },
+      where: { id: conversationId, organizationId, OR: [{ createdById: userId }, ...(canManageMembers ? [{ createdById: null }] : [])] },
     });
 
     if (result.count === 0) {
