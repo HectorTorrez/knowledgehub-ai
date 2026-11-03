@@ -49,6 +49,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog';
 import { Skeleton } from '~/components/ui/skeleton';
+import { Textarea } from '~/components/ui/textarea';
 import { useToast } from '~/components/ui/toast';
 import { useAnswerStream } from '~/hooks/use-answer-stream';
 import {
@@ -447,6 +448,7 @@ function AskPage() {
 
           {activeConversationDetail.data?.conversation.canEdit === false ? (
             <div className="space-y-2 border-t p-4 text-sm">
+              <Textarea aria-label="Your question" disabled placeholder="This conversation is read-only" />
               <p>Only {activeConversationDetail.data.conversation.createdBy?.firstName ?? 'the creator'} can continue this conversation.</p>
               <Button onClick={() => {
                 writeAskDraft(organizationId, undefined, question);
