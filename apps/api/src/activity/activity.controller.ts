@@ -9,7 +9,7 @@ import { ActivityService } from './activity.service.js';
 
 const listActivitySchema = z.object({
   action: z.string().transform((value) => value.split(',')).pipe(z.array(z.enum(OrganizationActivityAction)).min(1)).optional(),
-  actorId: z.string().min(1).optional(),
+  actorId: z.uuid().optional(),
   from: z.iso.datetime({ offset: true }).optional(),
   to: z.iso.datetime({ offset: true }).optional(),
   cursor: z.string().min(1).optional(),

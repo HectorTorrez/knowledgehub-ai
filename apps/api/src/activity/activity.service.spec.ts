@@ -45,4 +45,18 @@ describe('ActivityService.list', () => {
     await expect(service.list(context, { limit: 50 })).rejects.toThrow('You cannot view activity');
     expect(prisma.organizationActivity.findMany).toHaveBeenCalledTimes(1);
   });
+  it('applies all filters within the organization scope', async () => {
+    const prisma = {
+      membership: { findUnique: vi.fn().mockResolvedValue({ role: 'ADMIN' }) },
+      organizationActivity: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const context = { userId: 'user', organizationId: 'org', role: 'ADMIN' as const, organization: { id: 'org', name: 'Org', createdAt: new Date(), updatedAt: new Date() } };
+    await new ActivityService(prisma as unknown as PrismaService).list(context, {
+      limit: 10, action: ['DOCUMENT_DELETED'], actorId: 'actor', from: '2026-01-01T00:00:00Z', to: '2026-02-01T00:00:00Z',
+    });
+    expect(prisma.organizationActivity.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { organizationId: 'org', action: { in: ['DOCUMENT_DELETED'] }, actorId: 'actor', createdAt: { gte: new Date('2026-01-01T00:00:00Z'), lte: new Date('2026-02-01T00:00:00Z') } },
+    }));
+  });
+
 });
