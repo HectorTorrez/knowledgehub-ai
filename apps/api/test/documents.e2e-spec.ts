@@ -1,3 +1,4 @@
+import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -181,7 +182,7 @@ describe('documents (e2e)', () => {
     storage = new FakeObjectStorage();
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    })
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
       .overrideProvider(OBJECT_STORAGE)
       .useValue(storage)
       .compile();

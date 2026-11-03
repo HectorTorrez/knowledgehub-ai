@@ -14,6 +14,7 @@ import {
   type ClaimedProcessingJob,
 } from './processing-job.service.js';
 import { DocumentChunkStore } from './document-chunk.store.js';
+import { SummariesService } from '../summaries/summaries.service.js';
 import { FactsService } from '../facts/facts.service.js';
 import { ProcessingWorkerService } from './processing-worker.service.js';
 
@@ -71,16 +72,18 @@ function createWorker(overrides?: {
     readObject: vi.fn(async () => BYTES.slice()),
   };
 
+  const summaries = { summarize: vi.fn(async () => undefined) };
   const worker = new ProcessingWorkerService(
     jobs as unknown as ProcessingJobService,
     extractor as unknown as DocumentTextExtractor,
     chunks as unknown as DocumentChunkStore,
     config as unknown as ProcessingConfig,
     { enabled: false } as unknown as FactsService,
+    summaries as unknown as SummariesService,
     storage as unknown as ObjectStorage,
   );
 
-  return { worker, jobs, extractor, chunks, config, storage };
+  return { worker, jobs, extractor, chunks, config, storage, summaries };
 }
 
 const OWNED_CHUNKS = [
@@ -143,6 +146,15 @@ describe('ProcessingWorkerService', () => {
       expect(
         chunks.replaceForGeneration.mock.invocationCallOrder[0],
       ).toBeLessThan(jobs.publishExtraction.mock.invocationCallOrder[0]!);
+      expect(jobs.recordFailure).not.toHaveBeenCalled();
+    });
+
+    it('triggers the summary after publishing and tolerates failure', async () => {
+      const { worker, jobs, summaries } = createWorker();
+      summaries.summarize.mockRejectedValueOnce(new Error('unavailable'));
+      await worker.processJob(JOB);
+      expect(summaries.summarize).toHaveBeenCalledWith({ organizationId: JOB.organizationId, documentId: JOB.documentId, documentGeneration: JOB.documentGeneration }, OWNED_CHUNKS);
+      expect(jobs.publishExtraction.mock.invocationCallOrder[0]).toBeLessThan(summaries.summarize.mock.invocationCallOrder[0]!);
       expect(jobs.recordFailure).not.toHaveBeenCalled();
     });
 

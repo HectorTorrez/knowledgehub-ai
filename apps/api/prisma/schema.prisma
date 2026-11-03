@@ -255,6 +255,9 @@ model Document {
   /// Sanitized reason populated only when `factsStatus` is FAILED.
   factsFailureReason String?
 
+  summaryStatus        FactsStatus @default(PENDING)
+  summaryFailureReason String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -262,6 +265,7 @@ model Document {
   extractions    DocumentExtraction[]
   chunks         DocumentChunk[]
   facts          DocumentFact[]
+  summaries      DocumentSummary[]
 
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
@@ -373,7 +377,7 @@ model DocumentChunk {
   /// `text-embedding-3-small`). Declared `Unsupported` because Prisma has no
   /// vector type: it is excluded from the generated client and read or written
   /// only through raw SQL. The database enforces NOT NULL and the dimension.
-  embedding Unsupported("vector(1536)")
+  embedding    Unsupported("vector(1536)")
   searchVector Unsupported("tsvector")?
 
   createdAt DateTime @default(now())
@@ -393,6 +397,21 @@ model DocumentChunk {
 /// The amount is stored in minor units as an integer and is always reparsed by
 /// the server from the row's evidence text; the extraction model never supplies
 /// the number that is summed.
+model DocumentSummary {
+  id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @db.Uuid
+  documentId         String   @db.Uuid
+  document           Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentGeneration Int
+  summary            String   @db.VarChar(1200)
+  keyTopics          String[]
+  model              String
+  createdAt          DateTime @default(now())
+
+  @@unique([documentId, documentGeneration])
+  @@index([organizationId, documentId, documentGeneration])
+}
+
 model DocumentFact {
   id String @id @default(uuid()) @db.Uuid
 

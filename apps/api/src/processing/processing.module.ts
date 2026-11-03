@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EmbeddingsModule } from '../embeddings/embeddings.module.js';
 import { FactsModule } from '../facts/facts.module.js';
+import { SummariesModule } from '../summaries/summaries.module.js';
 import { StorageModule } from '../storage/storage.module.js';
 import { DocumentChunkStore } from './document-chunk.store.js';
 import { DocumentTextExtractor } from './document-text-extractor.js';
@@ -12,7 +13,7 @@ import { ProcessingWorkerService } from './processing-worker.service.js';
 import { WorkerPdfExtractor } from './worker-pdf-extractor.js';
 
 @Module({
-  imports: [StorageModule, EmbeddingsModule, FactsModule],
+  imports: [StorageModule, EmbeddingsModule, FactsModule, SummariesModule],
   providers: [
     ProcessingConfig,
     ProcessingJobService,

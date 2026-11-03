@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDocumentCatalog,
   CATALOG_CONTENT_MAX_CHARS,
+  MAX_CATALOG_SUMMARY_CHARS,
   type CatalogDocumentRow,
 } from './answer-catalog.js';
 
@@ -13,6 +14,7 @@ function row(
     title: 'Envios locales',
     originalFileName: 'envios.xlsx',
     generation: 1,
+    summaries: [],
     extractions: [{ documentGeneration: 1, pageCount: 2 }],
     chunks: [
       {
@@ -46,6 +48,20 @@ describe('buildDocumentCatalog', () => {
         originalFileName: 'envios.xlsx',
       },
     ]);
+  });
+
+  it('uses a current summary and ignores stale summaries', () => {
+    const current = { documentGeneration: 1, summary: 'Overview', keyTopics: ['Shipping'] };
+    expect(buildDocumentCatalog([row({ summaries: [current] })], 1, 0).sources[0]?.content)
+      .toBe('Summary: Overview\nKey topics: Shipping');
+    expect(buildDocumentCatalog([row({ summaries: [{ ...current, documentGeneration: 0 }] })], 1, 0).sources[0]?.content)
+      .toBe('Guía Fecha Cliente Monto');
+  });
+
+  it('caps the combined summary content', () => {
+    const summaries = [{ documentGeneration: 1, summary: 'x'.repeat(7000), keyTopics: [] }];
+    const catalog = buildDocumentCatalog([row({ summaries }), row({ summaries })], 2, 0);
+    expect(catalog.sources.reduce((total, source) => total + source.content.length, 0)).toBe(MAX_CATALOG_SUMMARY_CHARS);
   });
 
   it('numbers catalog markers after the retrieved passages', () => {

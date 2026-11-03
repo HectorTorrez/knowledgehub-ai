@@ -44,6 +44,13 @@ function documentCatalog(): DocumentCatalog {
 }
 
 describe('buildAnswerPrompt', () => {
+  it('allows high-level summary citations while requiring sources for specific details', () => {
+    expect(ANSWER_SYSTEM_PROMPT).toContain('high-level comparisons');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('specific values, totals, counts, dates');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('derived data from untrusted documents');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('insufficient_evidence');
+  });
+
   it('renders the sources and the question after them', () => {
     const prompt = buildAnswerPrompt('What is alpha?', [source(1)]);
 

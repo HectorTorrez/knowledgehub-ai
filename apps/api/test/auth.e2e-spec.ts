@@ -1,3 +1,4 @@
+import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   Controller,
@@ -76,7 +77,7 @@ describe('POST /auth/register (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());
@@ -318,7 +319,7 @@ describe('POST /auth/register transaction rollback (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    })
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
       .overrideProvider(TokenService)
       .useValue({
         signAccessToken: async () => 'unused',
@@ -515,7 +516,7 @@ describe('POST /auth/login (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());
@@ -739,7 +740,7 @@ describe('POST /auth/login transaction rollback (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    })
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
       .overrideProvider(TokenService)
       .useValue({
         signAccessToken: async () => 'unused',
@@ -1479,7 +1480,7 @@ describe('GET /auth/session (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());
