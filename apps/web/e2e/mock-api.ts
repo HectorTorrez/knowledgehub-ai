@@ -103,7 +103,13 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     }
 
     if (path === '/organizations') {
-      await route.fulfill(json({ organizations: [options.demo ? { ...organization, name: 'Northwind Labs' } : organization] }));
+      const primary = options.demo ? { ...organization, name: 'Northwind Labs' } : organization;
+      await route.fulfill(json({ organizations: [primary, { ...organization, id: 'org-2', name: 'Beta' }] }));
+      return;
+    }
+
+    if (path === '/organizations/org-2') {
+      await route.fulfill(json({ organization: { ...organization, id: 'org-2', name: 'Beta' } }));
       return;
     }
 
