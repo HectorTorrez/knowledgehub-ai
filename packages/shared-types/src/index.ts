@@ -602,3 +602,9 @@ export interface ContractTotalsResponse {
   sources: AggregateSource[];
   breakdown: AggregateFact[];
 }
+
+export interface KnowledgeInsightsResponse {
+  totals: { questionsAsked: number; answered: number; insufficientEvidence: number; helpfulFeedback: number; unhelpfulFeedback: number };
+  unansweredQuestions: Array<{ answerId: string; question: string; askedAt: string; conversationId: string | null }>;
+  negativeFeedback: Array<{ answerId: string; question: string; comment: string | null; createdAt: string }>;
+}
