@@ -1,10 +1,12 @@
 import type { ConversationSummary } from '@knowledgehub/shared-types';
-import { History, MessageSquarePlus, Trash2 } from 'lucide-react';
+import { History, MessageSquarePlus, Trash2, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import { formatDate } from '~/lib/format';
+import { initials } from '~/lib/initials';
+import { useSession } from '~/hooks/use-auth';
 import { cn } from '~/lib/utils';
 
 interface ConversationGroup {
@@ -158,6 +160,10 @@ function ConversationRailItem({
   onSelect: () => void;
   onDelete: () => void;
 }>) {
+  const session = useSession();
+  const viewerId = session.data?.status === 'authenticated' ? session.data.user.id : undefined;
+  const creator = conversation.createdBy;
+  const showCreator = creator && viewerId && creator.id !== viewerId;
   const title = conversation.title?.trim() || 'New conversation';
 
   return (
@@ -182,10 +188,15 @@ function ConversationRailItem({
         >
           {title}
         </span>
-        <span className="mt-0.5 block w-full min-w-0 truncate text-[11px] text-muted-foreground">
-          {formatDate(conversation.createdAt)}
-          {conversation.visibility === 'ORGANIZATION' ? ' · Shared' : ''}
-          {!conversation.canEdit && conversation.createdBy ? ` · ${conversation.createdBy.firstName} ${conversation.createdBy.lastName}` : ''}
+        <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+          <span className="shrink-0">{formatDate(conversation.createdAt)}</span>
+          {conversation.visibility === 'ORGANIZATION' ? <Users aria-label="Shared" className="size-3 shrink-0" /> : null}
+          {showCreator ? (
+            <>
+              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-muted text-[8px]">{initials(creator.firstName, creator.lastName)}</span>
+              <span className="min-w-0 truncate">{creator.firstName} {creator.lastName}</span>
+            </>
+          ) : null}
         </span>
       </button>
       <Button
