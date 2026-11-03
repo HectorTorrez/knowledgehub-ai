@@ -10,6 +10,7 @@ function document(
   overrides: Partial<DocumentSummary> & { id: string },
 ): DocumentSummary {
   return {
+    collections: [],
     id: overrides.id,
     title: overrides.title ?? 'Report',
     status: overrides.status ?? 'READY',
