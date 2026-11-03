@@ -407,7 +407,8 @@ export interface AnswerCitation {
  * Response body of `POST /organizations/:organizationId/answers`.
  *
  * `answered` carries a grounded answer whose citation markers all resolve to
- * returned citations. `insufficient_evidence` is a successful outcome for a
+ * returned citations. `partial` carries grounded prose and citations plus up to
+ * five missing parts, each at most 200 characters. `insufficient_evidence` is a successful outcome for a
  * question the retrieved sources cannot answer; it carries no answer prose and
  * no citations.
  */
@@ -416,6 +417,12 @@ export type AnswerResponse =
       status: 'answered';
       answer: string;
       citations: AnswerCitation[];
+    }
+  | {
+      status: 'partial';
+      answer: string;
+      citations: AnswerCitation[];
+      missing: string[];
     }
   | {
       status: 'insufficient_evidence';
@@ -432,6 +439,7 @@ export type AnswerResponse =
  */
 export type AnswerStreamEvent =
   | { type: 'status'; status: AnswerResponse['status'] }
+  | { type: 'missing'; missing: string[] }
   | { type: 'delta'; text: string }
   | { type: 'citations'; citations: AnswerCitation[] }
   | { type: 'error'; message: string };

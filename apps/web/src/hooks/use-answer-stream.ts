@@ -9,6 +9,7 @@ interface AnswerStreamState {
   answerStatus: AnswerResponse['status'] | null;
   text: string;
   citations: AnswerCitation[];
+  missing: string[];
   error: unknown;
 }
 
@@ -17,6 +18,7 @@ const IDLE_STATE: AnswerStreamState = {
   answerStatus: null,
   text: '',
   citations: [],
+  missing: [],
   error: null,
 };
 
@@ -61,6 +63,8 @@ export function useAnswerStream(organizationId: string) {
               switch (event.type) {
                 case 'status':
                   return { ...current, answerStatus: event.status };
+                case 'missing':
+                  return { ...current, missing: event.missing };
                 case 'delta':
                   return { ...current, text: current.text + event.text };
                 case 'citations':
