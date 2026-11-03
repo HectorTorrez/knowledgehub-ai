@@ -104,7 +104,9 @@ export function ConversationRail({
           </div>
         ) : null}
 
-        {isError ? <RouteError title="Unable to load conversations" onRetry={onRetry} /> : null}
+        {isError ? (
+          <RouteError title="Unable to load conversations" onRetry={onRetry} />
+        ) : null}
         {!isPending && !isError && conversations.length === 0 ? (
           <EmptyState
             icon={MessageSquarePlus}

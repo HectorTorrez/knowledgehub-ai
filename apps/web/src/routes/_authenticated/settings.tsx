@@ -138,7 +138,10 @@ function AccountSettingsPage() {
     onSuccess: async () => {
       const navigation = router.navigate({ to: '/' });
       client.clear();
-      client.setQueryData(SESSION_QUERY_KEY, { status: 'unauthenticated', redirectTo: '/' });
+      client.setQueryData(SESSION_QUERY_KEY, {
+        status: 'unauthenticated',
+        redirectTo: '/',
+      });
       await navigation;
       toast({ variant: 'success', title: 'Account deleted' });
     },
@@ -325,7 +328,12 @@ function AccountSettingsPage() {
         </CardHeader>
         <CardContent>
           {sessions.isPending ? <Skeleton className="h-24 w-full" /> : null}
-          {sessions.isError ? <RouteError title="Unable to load devices" onRetry={() => void sessions.refetch()} /> : null}
+          {sessions.isError ? (
+            <RouteError
+              title="Unable to load devices"
+              onRetry={() => void sessions.refetch()}
+            />
+          ) : null}
           {sessions.data ? (
             <ul className="divide-y">
               {sessions.data.sessions.map((entry) => (

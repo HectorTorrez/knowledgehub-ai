@@ -94,7 +94,12 @@ function AuditLogPage() {
   }
   if (organization.isPending) return <Skeleton className="h-32 w-full" />;
   if (organization.isError)
-    return <RouteError title="Unable to load the workspace" onRetry={() => void organization.refetch()} />;
+    return (
+      <RouteError
+        title="Unable to load the workspace"
+        onRetry={() => void organization.refetch()}
+      />
+    );
   if (!allowed)
     return (
       <PageHeader
@@ -160,14 +165,24 @@ function AuditLogPage() {
       {activity.isPending ? (
         <Skeleton className="h-32 w-full" />
       ) : activity.isError ? (
-        <RouteError title="Unable to load activity" onRetry={() => void activity.refetch()} />
+        <RouteError
+          title="Unable to load activity"
+          onRetry={() => void activity.refetch()}
+        />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={History}
-          title="No activity found"
+          title="No activity found."
           description="No activity matches the selected filters."
           action={
-            <Button onClick={() => { setAction(''); setActorId(''); setFrom(''); setTo(''); }}>
+            <Button
+              onClick={() => {
+                setAction('');
+                setActorId('');
+                setFrom('');
+                setTo('');
+              }}
+            >
               Clear filters
             </Button>
           }

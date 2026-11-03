@@ -129,6 +129,8 @@ function SearchPage() {
       }),
     enabled: submitted !== null,
   });
+  useQueryErrorToast(collections.error, () => void collections.refetch());
+  useQueryErrorToast(ready.query.error, () => void ready.query.refetch());
   useQueryErrorToast(results.error, () => void results.refetch());
 
   function runSearch(query: string) {
@@ -167,6 +169,18 @@ function SearchPage() {
 
   return (
     <div className="space-y-6">
+      {collections.isError ? (
+        <RouteError
+          title="Unable to load collections"
+          onRetry={() => void collections.refetch()}
+        />
+      ) : null}
+      {ready.query.isError ? (
+        <RouteError
+          title="Unable to load documents"
+          onRetry={() => void ready.query.refetch()}
+        />
+      ) : null}
       <PageHeader
         title="Search"
         description="Find passages across this organization's ready documents."
@@ -252,7 +266,8 @@ function SearchPage() {
               onChange={(createdBefore) => updateFilters({ createdBefore })}
             />
           </div>
-          {hasFilters ? (
+          {hasFilters &&
+          !(submitted !== null && results.isSuccess && rows.length === 0) ? (
             <Button
               type="button"
               variant="outline"
@@ -327,7 +342,10 @@ function SearchPage() {
       ) : null}
 
       {submitted !== null && results.isError ? (
-        <RouteError title="Unable to search documents" onRetry={() => void results.refetch()} />
+        <RouteError
+          title="Unable to search documents"
+          onRetry={() => void results.refetch()}
+        />
       ) : null}
 
       {submitted !== null && results.isSuccess && rows.length === 0 ? (
@@ -336,7 +354,16 @@ function SearchPage() {
           title="No results"
           description={`Nothing matched “${submitted}” in ${scopeLabel}. Try different wording or broaden the scope.`}
           action={
-            <Button onClick={() => updateFilters({ documentIds: [], collectionIds: [], createdAfter: '', createdBefore: '' })}>
+            <Button
+              onClick={() =>
+                updateFilters({
+                  documentIds: [],
+                  collectionIds: [],
+                  createdAfter: '',
+                  createdBefore: '',
+                })
+              }
+            >
               Clear filters
             </Button>
           }

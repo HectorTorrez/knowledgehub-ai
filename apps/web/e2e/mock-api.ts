@@ -65,6 +65,9 @@ interface ApiOptions {
   role?: 'OWNER' | 'VIEWER';
   demo?: boolean;
   empty?: boolean;
+  emptyResources?: Array<'documents' | 'conversations' | 'activity' | 'search'>;
+  failingResources?: string[];
+  emptyResponses?: Record<string, unknown>;
   complete?: boolean;
   progress?: 'ready-after-poll' | 'failed';
   onAsk?: () => void;
@@ -162,6 +165,38 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     const url = new URL(request.url());
     const path = url.pathname;
     const method = request.method();
+    const resource = path.split('/').at(-1);
+    if (
+      method === 'GET' &&
+      options.failingResources?.some((item) => item === resource)
+    ) {
+      await route.fulfill(json({ message: 'Service unavailable' }, 503));
+      return;
+    }
+    if (
+      method === 'GET' &&
+      options.emptyResponses &&
+      path in options.emptyResponses
+    ) {
+      await route.fulfill(json(options.emptyResponses[path]));
+      return;
+    }
+    if (
+      method === 'GET' &&
+      resource === 'search' &&
+      options.emptyResources?.includes('search')
+    ) {
+      await route.fulfill(json({ results: [] }));
+      return;
+    }
+    if (
+      method === 'GET' &&
+      resource === 'activity' &&
+      options.emptyResources?.includes('activity')
+    ) {
+      await route.fulfill(json({ activities: [], nextCursor: null }));
+      return;
+    }
 
     if (path === '/auth/me/export') {
       await route.fulfill(
@@ -404,6 +439,7 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
           documents:
             failedOnly ||
             options.empty ||
+            options.emptyResources?.includes('documents') ||
             (url.searchParams.has('collectionId') &&
               !assigned.includes(url.searchParams.get('collectionId')!))
               ? []
@@ -457,7 +493,10 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       );
       await route.fulfill(
         json({
-          conversations: options.empty ? [] : filtered,
+          conversations:
+            options.empty || options.emptyResources?.includes('conversations')
+              ? []
+              : filtered,
           nextCursor: null,
         }),
       );

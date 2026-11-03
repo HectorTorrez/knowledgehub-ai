@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import { MessageSquareText, ThumbsDown } from 'lucide-react';
+import { EmptyState } from '~/components/empty-state';
+import { Button } from '~/components/ui/button';
 import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
@@ -65,12 +68,19 @@ function InsightsPage() {
 
       {insights.isPending ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />)}
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-24 w-full" />
+          ))}
           <Skeleton className="h-40 w-full sm:col-span-2 lg:col-span-5" />
           <Skeleton className="h-40 w-full sm:col-span-2 lg:col-span-5" />
         </div>
       ) : null}
-      {insights.isError ? <RouteError title="Unable to load insights" onRetry={() => void insights.refetch()} /> : null}
+      {insights.isError ? (
+        <RouteError
+          title="Unable to load insights"
+          onRetry={() => void insights.refetch()}
+        />
+      ) : null}
 
       {totals && insights.data ? (
         <>
@@ -99,9 +109,21 @@ function InsightsPage() {
             </CardHeader>
             <CardContent>
               {insights.data.unansweredQuestions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No unanswered questions in this window.
-                </p>
+                <EmptyState
+                  icon={MessageSquareText}
+                  title="No unanswered questions"
+                  description="There are no unanswered questions in this window."
+                  action={
+                    <Button asChild>
+                      <Link
+                        to="/organizations/$organizationId/ask"
+                        params={{ organizationId }}
+                      >
+                        Ask a question
+                      </Link>
+                    </Button>
+                  }
+                />
               ) : (
                 <ul className="divide-y">
                   {insights.data.unansweredQuestions.map((item) => (
@@ -131,9 +153,21 @@ function InsightsPage() {
             </CardHeader>
             <CardContent>
               {insights.data.negativeFeedback.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No negative feedback in this window.
-                </p>
+                <EmptyState
+                  icon={ThumbsDown}
+                  title="No negative feedback"
+                  description="There is no negative feedback in this window."
+                  action={
+                    <Button asChild>
+                      <Link
+                        to="/organizations/$organizationId/ask"
+                        params={{ organizationId }}
+                      >
+                        Ask a question
+                      </Link>
+                    </Button>
+                  }
+                />
               ) : (
                 <ul className="divide-y">
                   {insights.data.negativeFeedback.map((item, index) => (

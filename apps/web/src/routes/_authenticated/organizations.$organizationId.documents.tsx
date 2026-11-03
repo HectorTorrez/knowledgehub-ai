@@ -23,12 +23,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-} from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   CollectionBadges,
   CollectionsManager,
@@ -202,6 +197,7 @@ function DocumentsPage() {
     },
   });
   useQueryErrorToast(documents.error, () => void documents.refetch());
+  useQueryErrorToast(collections.error, () => void collections.refetch());
 
   function updateUploadItem(id: string, patch: Partial<UploadItem>) {
     setUploadItems((items) =>
@@ -615,6 +611,13 @@ function DocumentsPage() {
             </CardContent>
           </Card>
 
+          {collections.isError ? (
+            <RouteError
+              title="Unable to load collections"
+              onRetry={() => void collections.refetch()}
+            />
+          ) : null}
+
           {documents.isPending ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, index) => (
@@ -624,7 +627,10 @@ function DocumentsPage() {
           ) : null}
 
           {documents.isError ? (
-            <RouteError title="Unable to load documents" onRetry={() => void documents.refetch()} />
+            <RouteError
+              title="Unable to load documents"
+              onRetry={() => void documents.refetch()}
+            />
           ) : null}
 
           {documents.isSuccess && !hasDocuments ? (
@@ -643,12 +649,21 @@ function DocumentsPage() {
               <EmptyState
                 icon={FileText}
                 title="No documents yet"
-                description={canWrite ? 'Upload a document to start asking questions.' : 'Ask an admin to upload documents.'}
-                action={canWrite ? (
-                  <DialogTrigger asChild>
-                    <Button><Upload />Upload documents</Button>
-                  </DialogTrigger>
-                ) : undefined}
+                description={
+                  canWrite
+                    ? 'Upload a document to start asking questions.'
+                    : 'Ask an admin to upload documents.'
+                }
+                action={
+                  canWrite ? (
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Upload />
+                        Upload your first document
+                      </Button>
+                    </DialogTrigger>
+                  ) : undefined
+                }
               />
             )
           ) : null}
@@ -996,4 +1011,3 @@ function isAbortError(error: unknown): boolean {
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'The upload failed.';
 }
-

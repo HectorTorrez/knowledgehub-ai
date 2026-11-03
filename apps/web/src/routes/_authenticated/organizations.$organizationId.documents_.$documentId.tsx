@@ -343,7 +343,10 @@ function DocumentDetailPage() {
     return (
       <div className="space-y-6">
         <BackLink organizationId={organizationId} />
-        <RouteError title="Unable to load document" onRetry={() => void document.refetch()} />
+        <RouteError
+          title="Unable to load document"
+          onRetry={() => void document.refetch()}
+        />
       </div>
     );
   }
