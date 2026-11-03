@@ -1,3 +1,4 @@
+import type { ActivityService } from '../activity/activity.service.js';
 import type { ConfigService } from '@nestjs/config';
 import {
   BadRequestException,
@@ -127,6 +128,7 @@ function applyUpdate(
 
 function createHarness(options: HarnessOptions = {}) {
   const prisma = {
+    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(prisma)),
     document: {
       create: vi.fn(
         async (_args: { data: Record<string, unknown> }) =>
@@ -149,13 +151,15 @@ function createHarness(options: HarnessOptions = {}) {
   };
 
   const storage = new FakeObjectStorage();
+  const activity = { record: vi.fn() };
   const service = new DocumentsService(
     prisma as unknown as PrismaService,
     storage,
     storageConfig(options.uploadTtlSeconds),
+    activity as unknown as ActivityService,
   );
 
-  return { service, prisma, storage };
+  return { service, prisma, storage, activity };
 }
 
 function createCompletionHarness(
@@ -215,10 +219,12 @@ function createCompletionHarness(
     ),
   };
 
+  const activity = { record: vi.fn() };
   const service = new DocumentsService(
     prisma as unknown as PrismaService,
     storage,
     storageConfig(),
+    activity as unknown as ActivityService,
   );
 
   return {
@@ -226,6 +232,7 @@ function createCompletionHarness(
     prisma,
     storage,
     state,
+    activity,
   };
 }
 
@@ -532,14 +539,15 @@ describe('DocumentsService.getDetail', () => {
 
 describe('DocumentsService.rename', () => {
   it('renames the document scoped to its organization', async () => {
-    const { service, prisma } = createHarness();
+    const { service, prisma, activity } = createHarness();
 
-    await service.rename('org-1', 'doc-1', { title: 'New title' });
+    await service.rename('org-1', 'doc-1', { title: 'New title' }, 'uploader-1');
 
     expect(prisma.document.updateMany).toHaveBeenCalledWith({
       where: { id: 'doc-1', organizationId: 'org-1' },
       data: { title: 'New title' },
     });
+    expect(activity.record).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'DOCUMENT_RENAMED', actorId: 'uploader-1', metadata: { from: 'Quarterly report', to: 'New title' } }));
   });
 
   it('returns the renamed document', async () => {
@@ -549,7 +557,7 @@ describe('DocumentsService.rename', () => {
 
     const result = await service.rename('org-1', 'doc-1', {
       title: 'New title',
-    });
+    }, 'uploader-1');
 
     expect(result.document.title).toBe('New title');
   });
@@ -559,32 +567,34 @@ describe('DocumentsService.rename', () => {
     prisma.document.updateMany.mockResolvedValueOnce({ count: 0 });
 
     await expect(
-      service.rename('org-1', 'doc-1', { title: 'New title' }),
+      service.rename('org-1', 'doc-1', { title: 'New title' }, 'uploader-1'),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
 
 describe('DocumentsService.delete', () => {
   it('returns 404 without deleting anything when the document is not found', async () => {
-    const { service, prisma, storage } = createHarness({ findFirst: null });
+    const { service, prisma, storage, activity } = createHarness({ findFirst: null });
     const deleteObject = vi.spyOn(storage, 'deleteObject');
 
-    await expect(service.delete('org-1', 'doc-1')).rejects.toBeInstanceOf(
+    await expect(service.delete('org-1', 'doc-1', 'uploader-1')).rejects.toBeInstanceOf(
       NotFoundException,
     );
 
+    expect(activity.record).not.toHaveBeenCalled();
     expect(prisma.document.deleteMany).not.toHaveBeenCalled();
     expect(deleteObject).not.toHaveBeenCalled();
   });
 
   it('deletes the document row scoped to its organization', async () => {
-    const { service, prisma } = createHarness();
+    const { service, prisma, activity } = createHarness();
 
-    await service.delete('org-1', 'doc-1');
+    await service.delete('org-1', 'doc-1', 'uploader-1');
 
     expect(prisma.document.deleteMany).toHaveBeenCalledWith({
       where: { id: 'doc-1', organizationId: 'org-1' },
     });
+    expect(activity.record).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'DOCUMENT_DELETED', actorId: 'uploader-1', metadata: { title: 'Quarterly report' } }));
   });
 
   it('deletes both the staging and verified objects', async () => {
@@ -594,7 +604,7 @@ describe('DocumentsService.delete', () => {
     });
     const deleteObject = vi.spyOn(storage, 'deleteObject');
 
-    await service.delete('org-1', 'doc-1');
+    await service.delete('org-1', 'doc-1', 'uploader-1');
 
     expect(deleteObject).toHaveBeenCalledTimes(2);
     expect(deleteObject).toHaveBeenCalledWith(STAGING_KEY);
@@ -607,7 +617,7 @@ describe('DocumentsService.delete', () => {
     });
     const deleteObject = vi.spyOn(storage, 'deleteObject');
 
-    await service.delete('org-1', 'doc-1');
+    await service.delete('org-1', 'doc-1', 'uploader-1');
 
     expect(deleteObject).not.toHaveBeenCalled();
   });
@@ -618,7 +628,7 @@ describe('DocumentsService.delete', () => {
       new Error('storage down'),
     );
 
-    await expect(service.delete('org-1', 'doc-1')).resolves.toBeUndefined();
+    await expect(service.delete('org-1', 'doc-1', 'uploader-1')).resolves.toBeUndefined();
   });
 });
 
@@ -833,9 +843,12 @@ describe('DocumentsService.completeUpload', () => {
   it('looks the document up by both document id and organization id', async () => {
     const storage = new FakeObjectStorage();
     seedValidPdf(storage);
-    const { service, prisma } = createCompletionHarness(documentRecord(), storage);
+    const { service, prisma, activity } = createCompletionHarness(documentRecord(), storage);
 
     await service.completeUpload(organizationContext(), 'doc-1', {});
+    await service.completeUpload(organizationContext(), 'doc-1', {});
+    expect(activity.record).toHaveBeenCalledTimes(1);
+    expect(activity.record).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'DOCUMENT_UPLOADED', actorId: 'uploader-1', metadata: { title: 'Quarterly report' } }));
 
     expect(prisma.document.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1128,13 +1141,14 @@ describe('DocumentsService.completeUpload', () => {
   it('does not create a job for a verification failure', async () => {
     const storage = new FakeObjectStorage();
     storage.putObject(STAGING_KEY, 'not actually a pdf', 'application/pdf');
-    const { service, prisma, state } = createCompletionHarness(
+    const { service, prisma, state, activity } = createCompletionHarness(
       documentRecord(),
       storage,
     );
 
     await service.completeUpload(organizationContext(), 'doc-1', {});
 
+    expect(activity.record).not.toHaveBeenCalled();
     expect(state.status).toBe('FAILED');
     expect(state.generation).toBe(0);
     expect(prisma.documentProcessingJob.create).not.toHaveBeenCalled();
@@ -1223,7 +1237,7 @@ describe('DocumentsService.completeUpload', () => {
   it('rejects with 409 when the upload was superseded before the verified key was stored', async () => {
     const storage = new FakeObjectStorage();
     seedValidPdf(storage);
-    const { service, state } = createCompletionHarness(
+    const { service, state, activity } = createCompletionHarness(
       documentRecord(),
       storage,
     );
@@ -1237,6 +1251,7 @@ describe('DocumentsService.completeUpload', () => {
 
     expect(state.status).toBe('PENDING');
     expect(state.storageKey).toBeNull();
+    expect(activity.record).not.toHaveBeenCalled();
   });
 
   it('returns the current document when a concurrent completion already won', async () => {
@@ -1342,11 +1357,12 @@ describe('DocumentsService.reprocess', () => {
   it('requeues a failed document and bumps its generation', async () => {
     const storage = new FakeObjectStorage();
     storage.putObject(VERIFIED_KEY, 'plain text', 'application/pdf');
-    const { service, prisma } = createCompletionHarness(failedRecord(), storage);
+    const { service, prisma, activity } = createCompletionHarness(failedRecord(), storage);
 
-    const result = await service.reprocess('org-1', 'doc-1');
+    const result = await service.reprocess('org-1', 'doc-1', 'uploader-1');
 
     expect(result.document.status).toBe('PROCESSING');
+    expect(activity.record).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'DOCUMENT_REPROCESSED', actorId: 'uploader-1', metadata: { title: 'Quarterly report' } }));
     expect(prisma.document.updateMany).toHaveBeenCalledWith({
       where: {
         id: 'doc-1',
@@ -1378,7 +1394,7 @@ describe('DocumentsService.reprocess', () => {
     prisma.document.findFirst.mockResolvedValueOnce(null);
 
     await expect(
-      service.reprocess('org-2', 'doc-1'),
+      service.reprocess('org-2', 'doc-1', 'uploader-1'),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -1387,7 +1403,7 @@ describe('DocumentsService.reprocess', () => {
       documentRecord({ status: 'READY', storageKey: VERIFIED_KEY }),
     );
 
-    await expect(service.reprocess('org-1', 'doc-1')).rejects.toBeInstanceOf(
+    await expect(service.reprocess('org-1', 'doc-1', 'uploader-1')).rejects.toBeInstanceOf(
       ConflictException,
     );
   });
@@ -1402,7 +1418,7 @@ describe('DocumentsService.reprocess', () => {
       }),
     );
 
-    await expect(service.reprocess('org-1', 'doc-1')).rejects.toBeInstanceOf(
+    await expect(service.reprocess('org-1', 'doc-1', 'uploader-1')).rejects.toBeInstanceOf(
       ConflictException,
     );
   });
@@ -1410,7 +1426,7 @@ describe('DocumentsService.reprocess', () => {
   it('rejects when the verified object is gone', async () => {
     const { service } = createCompletionHarness(failedRecord());
 
-    await expect(service.reprocess('org-1', 'doc-1')).rejects.toBeInstanceOf(
+    await expect(service.reprocess('org-1', 'doc-1', 'uploader-1')).rejects.toBeInstanceOf(
       ConflictException,
     );
   });

@@ -96,6 +96,7 @@ export class DocumentsController {
       requireOrganizationContext(request).organizationId,
       documentId,
       body,
+      requireOrganizationContext(request).userId,
     );
   }
 
@@ -108,6 +109,7 @@ export class DocumentsController {
     return this.documents.delete(
       requireOrganizationContext(request).organizationId,
       documentId,
+      requireOrganizationContext(request).userId,
     );
   }
 
@@ -120,6 +122,7 @@ export class DocumentsController {
     return this.documents.reprocess(
       requireOrganizationContext(request).organizationId,
       documentId,
+      requireOrganizationContext(request).userId,
     );
   }
 

@@ -16,6 +16,7 @@ import type {
   DocumentSummary,
   DocumentUploadUrlResponse,
 } from '@knowledgehub/shared-types';
+import { ActivityService } from '../activity/activity.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import {
@@ -110,6 +111,7 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
     private readonly storageConfig: StorageConfig,
+    private readonly activity: ActivityService,
   ) {}
 
   async create(
@@ -170,31 +172,43 @@ export class DocumentsService {
     organizationId: string,
     documentId: string,
     input: UpdateDocumentInput,
+    userId: string,
   ): Promise<DocumentDetailResponse> {
-    const updated = await this.prisma.document.updateMany({
-      where: { id: documentId, organizationId },
-      data: { title: input.title },
+    await this.prisma.$transaction(async (tx) => {
+      const previous = await tx.document.findFirst({ where: { id: documentId, organizationId }, select: { title: true } });
+      if (!previous) throw new NotFoundException('Document not found');
+      const updated = await tx.document.updateMany({
+        where: { id: documentId, organizationId },
+        data: { title: input.title },
+      });
+
+      if (updated.count === 0) {
+        throw new NotFoundException('Document not found');
+      }
+
+      await this.activity.record(tx, { organizationId, actorId: userId, action: 'DOCUMENT_RENAMED', targetType: 'document', targetId: documentId, metadata: { from: previous.title, to: input.title } });
     });
-
-    if (updated.count === 0) {
-      throw new NotFoundException('Document not found');
-    }
-
     return this.readDocument(organizationId, documentId);
   }
 
-  async delete(organizationId: string, documentId: string): Promise<void> {
-    const document = await this.prisma.document.findFirst({
-      where: { id: documentId, organizationId },
-      select: { id: true, uploadStorageKey: true, storageKey: true },
-    });
+  async delete(organizationId: string, documentId: string, userId: string): Promise<void> {
+    const document = await this.prisma.$transaction(async (tx) => {
+      const document = await tx.document.findFirst({
+        where: { id: documentId, organizationId },
+        select: { id: true, title: true, uploadStorageKey: true, storageKey: true },
+      });
 
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+      if (!document) {
+        throw new NotFoundException('Document not found');
+      }
 
-    await this.prisma.document.deleteMany({
-      where: { id: documentId, organizationId },
+      const deleted = await tx.document.deleteMany({
+        where: { id: documentId, organizationId },
+      });
+
+      if (deleted.count === 0) throw new NotFoundException('Document not found');
+      await this.activity.record(tx, { organizationId, actorId: userId, action: 'DOCUMENT_DELETED', targetType: 'document', targetId: documentId, metadata: { title: document.title } });
+      return document;
     });
 
     await this.deleteObjectsBestEffort([
@@ -206,12 +220,14 @@ export class DocumentsService {
   async reprocess(
     organizationId: string,
     documentId: string,
+    userId: string,
   ): Promise<DocumentDetailResponse> {
     const document = await this.prisma.document.findFirst({
       where: { id: documentId, organizationId },
       select: {
         id: true,
         status: true,
+        title: true,
         storageKey: true,
       },
     });
@@ -266,7 +282,7 @@ export class DocumentsService {
 
       const transitioned = await tx.document.findFirstOrThrow({
         where: { id: documentId, organizationId },
-        select: { generation: true },
+        select: { generation: true, title: true },
       });
 
       await tx.documentProcessingJob.create({
@@ -280,6 +296,8 @@ export class DocumentsService {
           maxAttempts: PROCESSING_MAX_ATTEMPTS,
         },
       });
+
+      await this.activity.record(tx, { organizationId, actorId: userId, action: 'DOCUMENT_REPROCESSED', targetType: 'document', targetId: documentId, metadata: { title: document.title } });
 
       return true;
     });
@@ -495,7 +513,7 @@ export class DocumentsService {
 
       const transitioned = await tx.document.findFirstOrThrow({
         where: { id: documentId, organizationId },
-        select: { generation: true },
+        select: { generation: true, title: true },
       });
 
       await tx.documentProcessingJob.create({
@@ -509,6 +527,8 @@ export class DocumentsService {
           maxAttempts: PROCESSING_MAX_ATTEMPTS,
         },
       });
+
+      await this.activity.record(tx, { organizationId, actorId: context.userId, action: 'DOCUMENT_UPLOADED', targetType: 'document', targetId: documentId, metadata: { title: transitioned.title } });
 
       return true;
     });
