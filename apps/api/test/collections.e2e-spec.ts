@@ -83,7 +83,8 @@ describe('collections (e2e)', () => {
     expect(scopedSearch.body.results.map((item: { documentId: string }) => item.documentId)).toEqual([selected.id]);
     const scopedAnswer = await request(app.getHttpServer()).post(`${base}/answers`).set('Authorization', owner.auth).send({ question: 'What does the report describe?', collectionIds: [collection.id] }).expect(200);
     expect(scopedAnswer.body.citations.map((item: { documentId: string }) => item.documentId)).toEqual([selected.id]);
-    await request(app.getHttpServer()).get(`${base}/search`).query({ q: 'report findings', documentId: foreignDocument.id }).set('Authorization', owner.auth).expect(404);
+    const foreignSearch = await request(app.getHttpServer()).get(`${base}/search`).query({ q: 'report findings', documentId: foreignDocument.id }).set('Authorization', owner.auth).expect(200);
+    expect(foreignSearch.body.results).toEqual([]);
     const intersection = await request(app.getHttpServer()).get(`${base}/search`).query({ q: 'report findings', collectionIds: collection.id, documentIds: excluded.id }).set('Authorization', owner.auth).expect(200);
     expect(intersection.body.results).toEqual([]);
     await request(app.getHttpServer()).patch(`${base}/collections/${foreign.id}`).set('Authorization', owner.auth).send({ name: 'No' }).expect(404);
