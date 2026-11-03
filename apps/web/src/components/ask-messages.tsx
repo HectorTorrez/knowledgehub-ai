@@ -4,7 +4,7 @@ import type {
   AnswerSummary,
 } from '@knowledgehub/shared-types';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { ArrowDown, LoaderCircle, Sparkles } from 'lucide-react';
+import { ArrowDown, Sparkles } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -22,7 +22,9 @@ import {
 } from '~/components/answer-content';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
+import { Separator } from '~/components/ui/separator';
 import { Skeleton } from '~/components/ui/skeleton';
+import { Spinner } from '~/components/ui/spinner';
 import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -221,9 +223,7 @@ export function ConversationMessages({
                 onClick={() => answers.fetchNextPage()}
                 disabled={answers.isFetchingNextPage}
               >
-                {answers.isFetchingNextPage ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : null}
+                {answers.isFetchingNextPage ? <Spinner /> : null}
                 Load earlier questions
               </Button>
             </div>
@@ -384,7 +384,7 @@ function PendingTurn({
 
             {stream.status === 'streaming' && hasText ? (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" />
+                <Spinner className="size-3.5" />
                 Writing…
               </p>
             ) : null}
@@ -495,7 +495,7 @@ function AssistantAnswer({
           answerId={answerId}
           initial={feedback}
         />
-        <span aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
+        <Separator orientation="vertical" className="mx-1 h-4" />
         <AnswerActions
           organizationId={organizationId}
           answerId={answerId}

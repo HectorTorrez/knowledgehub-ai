@@ -3,9 +3,23 @@ import { Calculator, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import type { ContractTotalsResponse } from '@knowledgehub/shared-types';
 import { Badge } from '~/components/ui/badge';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '~/components/ui/table';
 import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { aggregationApi } from '~/lib/api/aggregation';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -102,13 +116,14 @@ function TotalsResult({
       </div>
 
       {incomplete ? (
-        <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-amber-900 dark:text-amber-200">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-          <p>
+        <Alert variant="warning">
+          <TriangleAlert />
+          <AlertTitle>Partial coverage</AlertTitle>
+          <AlertDescription className="text-current">
             The total omits at least one document whose facts could not be
             extracted. Treat it as a minimum, not as the organization total.
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {data.totals.length === 0 ? (
@@ -143,53 +158,45 @@ function TotalsResult({
       ) : null}
 
       {data.breakdown.length > 0 ? (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <caption className="sr-only">
+        <div className="rounded-md border">
+          <Table>
+            <TableCaption className="sr-only">
               Contract totals with their source page
-            </caption>
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-              <tr>
-                <th scope="col" className="px-3 py-2 font-medium">
-                  Contract
-                </th>
-                <th scope="col" className="px-3 py-2 font-medium">
-                  Client
-                </th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">
-                  Total
-                </th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">
-                  Page
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+            </TableCaption>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Contract</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Page</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.breakdown.map((fact) => (
-                <tr
-                  key={`${fact.documentId}:${fact.contractId}`}
-                  className="border-t"
-                >
-                  <td className="px-3 py-2 font-mono text-xs">
+                <TableRow key={`${fact.documentId}:${fact.contractId}`}>
+                  <TableCell className="font-mono text-xs">
                     {fact.contractId}
-                  </td>
-                  <td className="max-w-72 truncate px-3 py-2" title={fact.label}>
+                  </TableCell>
+                  <TableCell
+                    className="max-w-72 truncate"
+                    title={fact.label}
+                  >
                     {fact.label}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
                     {formatMinorAmount(
                       fact.amountMinor,
                       fact.currency,
                       fact.scale,
                     )}
-                  </td>
-                  <td className="px-3 py-2 text-right text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
                     {fact.pageNumber}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       ) : null}
 

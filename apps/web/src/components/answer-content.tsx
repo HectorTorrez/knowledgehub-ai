@@ -2,7 +2,13 @@ import type { AnswerCitation } from '@knowledgehub/shared-types';
 import { Link } from '@tanstack/react-router';
 import { Check, ChevronDown, Copy, Layers, SearchX } from 'lucide-react';
 import { useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '~/components/ui/collapsible';
 import { sourceId } from '~/lib/answer-source';
 import { cn } from '~/lib/utils';
 
@@ -98,18 +104,14 @@ export function CopyButton({ text }: Readonly<{ text: string }>) {
 
 export function InsufficientEvidence() {
   return (
-    <div className="flex items-start gap-3">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <SearchX className="size-4" />
-      </span>
-      <div>
-        <p className="text-sm font-medium">Not enough evidence</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The uploaded documents don&apos;t contain enough information to answer
-          this question.
-        </p>
-      </div>
-    </div>
+    <Alert>
+      <SearchX />
+      <AlertTitle>Not enough evidence</AlertTitle>
+      <AlertDescription>
+        The uploaded documents don&apos;t contain enough information to answer
+        this question.
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -181,30 +183,35 @@ export function AnswerSources({
   onOpenChange: (open: boolean) => void;
 }>) {
   return (
-    <div className="overflow-hidden rounded-xl border bg-card/60">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={`${sourceIdPrefix}-sources`}
-        onClick={() => onOpenChange(!open)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      >
-        <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
-          <Layers className="size-3.5 shrink-0" />
-          <span>Sources</span>
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
-            {citations.length}
+    <Collapsible
+      open={open}
+      onOpenChange={onOpenChange}
+      className="overflow-hidden rounded-xl border bg-card/60"
+    >
+      <CollapsibleTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          aria-controls={`${sourceIdPrefix}-sources`}
+          className="h-auto w-full justify-between gap-2 rounded-none px-3 py-2.5 text-left font-normal whitespace-normal hover:bg-muted/50"
+        >
+          <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+            <Layers className="size-3.5 shrink-0" />
+            <span>Sources</span>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+              {citations.length}
+            </span>
           </span>
-        </span>
-        <ChevronDown
-          className={cn(
-            'size-4 shrink-0 text-muted-foreground transition-transform',
-            open && 'rotate-180',
-          )}
-        />
-      </button>
+          <ChevronDown
+            className={cn(
+              'size-4 shrink-0 text-muted-foreground transition-transform',
+              open && 'rotate-180',
+            )}
+          />
+        </Button>
+      </CollapsibleTrigger>
 
-      {open ? (
+      <CollapsibleContent>
         <ol
           id={`${sourceIdPrefix}-sources`}
           className={cn(
@@ -249,18 +256,22 @@ export function AnswerSources({
             </li>
           ))}
         </ol>
-      ) : null}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
 export function PartialAnswerNotice({ missing }: Readonly<{ missing: string[] }>) {
   return (
-    <section aria-label="Missing information" className="rounded-md border p-3 text-sm">
-      <p className="font-medium">Partial answer — missing information</p>
-      <ul className="mt-1 list-disc pl-5">
-        {missing.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
-      </ul>
-    </section>
+    <Alert aria-label="Missing information">
+      <AlertTitle>Partial answer — missing information</AlertTitle>
+      <AlertDescription>
+        <ul className="list-disc pl-5">
+          {missing.map((item, index) => (
+            <li key={`${index}-${item}`}>{item}</li>
+          ))}
+        </ul>
+      </AlertDescription>
+    </Alert>
   );
 }

@@ -1,9 +1,10 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { Link } from '@tanstack/react-router';
-import { ArrowUp, LoaderCircle, Square } from 'lucide-react';
+import { ArrowUp, Square } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import { DocumentScopeSelect } from '~/components/document-scope-select';
 import { Button } from '~/components/ui/button';
+import { Spinner } from '~/components/ui/spinner';
 import { Textarea } from '~/components/ui/textarea';
 import { ALL_DOCUMENTS } from '~/lib/document-scope';
 import { QUESTION_MAX_LENGTH } from '~/lib/validation';
@@ -106,7 +107,7 @@ export function AskComposer({
                   disabled={submitting || question.trim().length === 0}
                 >
                   {submitting ? (
-                    <LoaderCircle className="animate-spin motion-reduce:animate-none" />
+                    <Spinner />
                   ) : (
                     <ArrowUp />
                   )}
