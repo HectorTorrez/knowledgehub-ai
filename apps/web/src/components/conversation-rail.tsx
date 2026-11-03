@@ -155,25 +155,25 @@ function ConversationRailItem({
         active ? 'bg-brand/10' : 'hover:bg-muted/60',
       )}
     >
-      <Button
+      <button
         type="button"
-        variant="ghost"
         onClick={onSelect}
         aria-current={active ? 'true' : undefined}
-        className="h-auto min-w-0 flex-1 flex-col items-start justify-start gap-0 rounded-lg px-2.5 py-2 text-left font-normal whitespace-normal hover:bg-transparent"
+        className="flex min-w-0 flex-1 flex-col items-stretch rounded-lg px-2.5 py-2 text-left outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <span
+          title={title}
           className={cn(
-            'block truncate text-sm',
+            'block w-full min-w-0 truncate text-sm',
             active ? 'font-medium text-brand' : 'text-foreground/90',
           )}
         >
           {title}
         </span>
-        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+        <span className="mt-0.5 block w-full min-w-0 truncate text-[11px] text-muted-foreground">
           {formatDate(conversation.createdAt)}
         </span>
-      </Button>
+      </button>
       <Button
         variant="ghost"
         size="icon"

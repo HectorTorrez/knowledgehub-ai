@@ -194,7 +194,7 @@ export function AnswerSources({
           type="button"
           variant="ghost"
           aria-controls={`${sourceIdPrefix}-sources`}
-          className="h-auto w-full justify-between gap-2 rounded-none px-3 py-2.5 text-left font-normal whitespace-normal hover:bg-muted/50"
+          className="h-auto sm:h-auto w-full justify-between gap-2 rounded-none px-3 py-2.5 text-left font-normal whitespace-normal hover:bg-muted/50"
         >
           <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
             <Layers className="size-3.5 shrink-0" />

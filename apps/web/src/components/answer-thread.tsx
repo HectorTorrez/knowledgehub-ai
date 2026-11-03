@@ -341,7 +341,7 @@ function HistoryRow({
             <Button
               type="button"
               variant="ghost"
-              className="h-auto min-w-0 flex-1 justify-start gap-3 p-0 text-left font-normal whitespace-normal hover:bg-transparent"
+              className="h-auto sm:h-auto min-w-0 flex-1 justify-start gap-3 p-0 text-left font-normal whitespace-normal hover:bg-transparent"
             >
               <span
                 className={cn(
