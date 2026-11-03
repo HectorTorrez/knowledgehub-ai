@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ActivityModule } from '../activity/activity.module.js';
 import { AggregationModule } from '../aggregation/aggregation.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { FactsModule } from '../facts/facts.module.js';
@@ -21,6 +22,7 @@ import { OpenAiAnswerProvider } from './openai-answer-provider.js';
 
 @Module({
   imports: [
+    ActivityModule,
     AuthModule,
     OrganizationsModule,
     RetrievalModule,

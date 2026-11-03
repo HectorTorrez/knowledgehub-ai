@@ -17,6 +17,8 @@ export function formatActivity(item: OrganizationActivityItem): string {
     case 'DOCUMENT_UPLOADED': return `${actor} uploaded ${document}`;
     case 'DOCUMENT_RENAMED': return `${actor} renamed ${from ? `document “${from}”` : 'a document'}${to ? ` to “${to}”` : ''}`;
     case 'DOCUMENT_DELETED': return `${actor} deleted ${document}`;
+    case 'CONVERSATION_SHARED': return `${actor} shared a conversation`;
+    case 'CONVERSATION_UNSHARED': return `${actor} unshared a conversation`;
     case 'DOCUMENT_REPROCESSED': return `${actor} reprocessed ${document}`;
   }
 }

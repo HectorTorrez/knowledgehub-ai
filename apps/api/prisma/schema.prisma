@@ -38,6 +38,7 @@ model User {
   answers        Answer[]
   answerFeedback AnswerFeedback[]
   activities     OrganizationActivity[]
+  conversations  Conversation[]
 }
 
 /// A single login on a single device. This is the unit of revocation: revoking
@@ -339,7 +340,7 @@ model DocumentExtraction {
 
   documentGeneration Int
   verifiedStorageKey String
-  chunkingVersion Int @default(1)
+  chunkingVersion    Int    @default(1)
 
   pages          Json
   pageCount      Int
@@ -508,6 +509,11 @@ model AnswerFeedback {
   @@index([answerId])
 }
 
+enum ConversationVisibility {
+  PRIVATE
+  ORGANIZATION
+}
+
 /// A conversation groups a set of answers asked in sequence, so a follow-up can
 /// reference prior turns. Owned by the organization it was started in; every
 /// read and write is scoped by `organizationId` from the route.
@@ -521,11 +527,16 @@ model Conversation {
   /// first turn is persisted, so a freshly created conversation has no title.
   title String?
 
+  createdById String?                @db.Uuid
+  createdBy   User?                  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  visibility  ConversationVisibility @default(PRIVATE)
+
   answers Answer[]
 
   createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt])
+  @@index([organizationId, createdById])
 }
 
 /// A persisted daily usage counter for a tenant, keyed by organization, kind,
@@ -584,6 +595,8 @@ enum OrganizationActivityAction {
   DOCUMENT_RENAMED
   DOCUMENT_DELETED
   DOCUMENT_REPROCESSED
+  CONVERSATION_SHARED
+  CONVERSATION_UNSHARED
 }
 
 model OrganizationActivity {

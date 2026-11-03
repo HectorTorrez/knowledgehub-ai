@@ -1,9 +1,6 @@
 import type { Response } from 'express';
 import {
-  renderConversationMarkdown,
-  exportFilename,
-} from './conversation-markdown.js';
-import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -11,6 +8,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -28,11 +26,36 @@ import {
   requireOrganizationContext,
   type OrganizationRequest,
 } from '../organizations/organization-context.js';
-import { ConversationsService } from './conversations.service.js';
+import { can } from '../organizations/permissions.js';
+import {
+  exportFilename,
+  renderConversationMarkdown,
+} from './conversation-markdown.js';
+import {
+  ConversationsService,
+  type ConversationScope,
+} from './conversations.service.js';
 import {
   listConversationsSchema,
   type ListConversationsInput,
 } from './dto/list-conversations.schema.js';
+import {
+  updateConversationSchema,
+  type UpdateConversationInput,
+} from './dto/update-conversation.schema.js';
+
+export function conversationScope(
+  request: OrganizationRequest,
+): ConversationScope {
+  const context = requireOrganizationContext(request);
+  return {
+    organizationId: context.organizationId,
+    actor: {
+      userId: context.userId,
+      canManageMembers: can(context.role, 'members.manage'),
+    },
+  };
+}
 
 @Controller('organizations/:organizationId/conversations')
 @UseGuards(SessionGuard, OrganizationMembershipGuard)
@@ -44,9 +67,7 @@ export class ConversationsController {
   create(
     @Req() request: OrganizationRequest,
   ): Promise<ConversationDetailResponse> {
-    return this.conversations.create(
-      requireOrganizationContext(request).organizationId,
-    );
+    return this.conversations.create(conversationScope(request));
   }
 
   @Get()
@@ -55,10 +76,7 @@ export class ConversationsController {
     query: ListConversationsInput,
     @Req() request: OrganizationRequest,
   ): Promise<ConversationListResponse> {
-    return this.conversations.list(
-      requireOrganizationContext(request).organizationId,
-      query,
-    );
+    return this.conversations.list(conversationScope(request), query);
   }
 
   @Get(':conversationId')
@@ -67,8 +85,22 @@ export class ConversationsController {
     @Req() request: OrganizationRequest,
   ): Promise<ConversationDetailResponse> {
     return this.conversations.getDetail(
-      requireOrganizationContext(request).organizationId,
+      conversationScope(request),
       conversationId,
+    );
+  }
+
+  @Patch(':conversationId')
+  update(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Body(new ZodValidationPipe(updateConversationSchema))
+    body: UpdateConversationInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<ConversationDetailResponse> {
+    return this.conversations.setVisibility(
+      conversationScope(request),
+      conversationId,
+      body.visibility,
     );
   }
 
@@ -79,7 +111,7 @@ export class ConversationsController {
     @Res() response: Response,
   ): Promise<void> {
     const data = await this.conversations.getExport(
-      requireOrganizationContext(request).organizationId,
+      conversationScope(request),
       conversationId,
     );
     const date = new Date().toISOString().slice(0, 10);
@@ -97,9 +129,6 @@ export class ConversationsController {
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
     @Req() request: OrganizationRequest,
   ): Promise<void> {
-    return this.conversations.delete(
-      requireOrganizationContext(request).organizationId,
-      conversationId,
-    );
+    return this.conversations.delete(conversationScope(request), conversationId);
   }
 }
