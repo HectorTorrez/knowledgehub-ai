@@ -73,6 +73,8 @@ services:
           <CORSRule>
             <AllowedOrigin>$$STORAGE_CORS_ORIGIN</AllowedOrigin>
             <AllowedMethod>PUT</AllowedMethod>
+            <AllowedMethod>GET</AllowedMethod>
+            <AllowedMethod>HEAD</AllowedMethod>
             <AllowedHeader>Content-Type</AllowedHeader>
             <ExposeHeader>ETag</ExposeHeader>
             <MaxAgeSeconds>3000</MaxAgeSeconds>

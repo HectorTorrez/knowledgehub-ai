@@ -122,7 +122,7 @@ pnpm storage:logs          # follow MinIO logs
 The bucket name and the browser origin allowed to upload to it come from the
 root `.env` (`STORAGE_BUCKET`, `STORAGE_CORS_ORIGIN`). `STORAGE_CORS_ORIGIN`
 must match the frontend origin and the API's `CORS_ORIGIN` in `apps/api/.env`;
-the CORS policy allows only `PUT` with `Content-Type` from that origin. Both
+For production S3, configure the bucket CORS policy to allow the web origin to use `GET` and `HEAD` for viewing and `PUT` with `Content-Type` for uploads. The local CORS policy allows `GET`, `HEAD`, and `PUT` with `Content-Type` from that origin. Both
 MinIO ports bind to `127.0.0.1` only: the S3-compatible API on
 http://127.0.0.1:9000 and the web console on http://127.0.0.1:9001.
 
@@ -141,7 +141,7 @@ The Compose services read these variables from the root `.env`:
 | `MINIO_API_PORT`        | Host port for the S3-compatible API                | `9000`                   |
 | `MINIO_CONSOLE_PORT`    | Host port for the MinIO web console                | `9001`                   |
 | `STORAGE_BUCKET`        | Bucket the initializer creates and applies CORS to | `knowledgehub-documents` |
-| `STORAGE_CORS_ORIGIN`   | Frontend origin allowed to `PUT` to the bucket     | `http://localhost:3000`  |
+| `STORAGE_CORS_ORIGIN`   | Frontend origin allowed to read and upload objects     | `http://localhost:3000`  |
 
 `apps/api/.env` holds the API's own storage settings, which must match the
 MinIO service: `STORAGE_BUCKET`, `STORAGE_ENDPOINT`

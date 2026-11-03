@@ -6,3 +6,7 @@ export function sourceId(
     ? `source-${marker}`
     : `${sourceIdPrefix}-source-${marker}`;
 }
+
+export function passageSearch(page?: number, quote?: string): { page?: number; quote?: string } {
+  return { page, quote };
+}

@@ -1,3 +1,4 @@
+import { passageSearch } from '~/lib/answer-source';
 import type { SearchResult } from '@knowledgehub/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -333,7 +334,7 @@ function SearchResultCard({
           <Link
             to="/organizations/$organizationId/documents/$documentId"
             params={{ organizationId, documentId: result.documentId }}
-            search={{ page: result.matches[0]?.pageNumber }}
+            search={passageSearch(result.matches[0]?.pageNumber, result.matches[0]?.excerpt)}
             className="min-w-0 truncate text-sm font-medium hover:underline"
             title={`Open ${result.documentTitle}`}
           >
