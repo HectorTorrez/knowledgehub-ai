@@ -1,10 +1,12 @@
 import type { ConversationSummary } from '@knowledgehub/shared-types';
-import { History, MessageSquarePlus, Trash2 } from 'lucide-react';
+import { History, MessageSquarePlus, Trash2, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import { formatDate } from '~/lib/format';
+import { initials } from '~/lib/initials';
+import { useSession } from '~/hooks/use-auth';
 import { cn } from '~/lib/utils';
 
 interface ConversationGroup {
@@ -16,6 +18,8 @@ const GROUP_ORDER = ['Today', 'Yesterday', 'Previous 7 days', 'Older'] as const;
 
 export function ConversationRail({
   conversations,
+  scope,
+  onScopeChange,
   activeConversationId,
   listId,
   showHeading = true,
@@ -29,6 +33,8 @@ export function ConversationRail({
   onOpenHistory,
 }: Readonly<{
   conversations: ConversationSummary[];
+  scope: 'all' | 'mine' | 'shared';
+  onScopeChange: (scope: 'all' | 'mine' | 'shared') => void;
   activeConversationId: string | null;
   listId: string;
   showHeading?: boolean;
@@ -65,6 +71,19 @@ export function ConversationRail({
           <MessageSquarePlus />
           New conversation
         </Button>
+      </div>
+
+      <div className="flex gap-1 px-2" aria-label="Conversation scope">
+        {(['all', 'mine', 'shared'] as const).map((value) => (
+          <Button
+            key={value}
+            size="sm"
+            variant={scope === value ? 'secondary' : 'ghost'}
+            onClick={() => onScopeChange(value)}
+          >
+            {value[0].toUpperCase() + value.slice(1)}
+          </Button>
+        ))}
       </div>
 
       <div
@@ -146,6 +165,11 @@ function ConversationRailItem({
   onSelect: () => void;
   onDelete: () => void;
 }>) {
+  const session = useSession();
+  const viewerId =
+    session.data?.status === 'authenticated' ? session.data.user.id : undefined;
+  const creator = conversation.createdBy;
+  const showCreator = creator && viewerId && creator.id !== viewerId;
   const title = conversation.title?.trim() || 'New conversation';
 
   return (
@@ -170,8 +194,21 @@ function ConversationRailItem({
         >
           {title}
         </span>
-        <span className="mt-0.5 block w-full min-w-0 truncate text-[11px] text-muted-foreground">
-          {formatDate(conversation.createdAt)}
+        <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+          <span className="shrink-0">{formatDate(conversation.createdAt)}</span>
+          {conversation.visibility === 'ORGANIZATION' ? (
+            <Users aria-label="Shared" className="size-3 shrink-0" />
+          ) : null}
+          {showCreator ? (
+            <>
+              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-muted text-[8px]">
+                {initials(creator.firstName, creator.lastName)}
+              </span>
+              <span className="min-w-0 truncate">
+                {creator.firstName} {creator.lastName}
+              </span>
+            </>
+          ) : null}
         </span>
       </button>
       <Button

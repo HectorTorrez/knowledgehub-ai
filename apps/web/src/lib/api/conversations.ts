@@ -5,6 +5,7 @@ import type {
 import { apiFetch, apiStream, type RequestOptions } from './client';
 
 export interface ListConversationsOptions extends RequestOptions {
+  scope?: 'all' | 'mine' | 'shared';
   cursor?: string;
   limit?: number;
 }
@@ -26,6 +27,9 @@ export const conversationsApi = {
     options: ListConversationsOptions = {},
   ): Promise<ConversationListResponse> {
     const params = new URLSearchParams();
+    if (options.scope) {
+      params.set('scope', options.scope);
+    }
     if (options.limit !== undefined) {
       params.set('limit', String(options.limit));
     }
@@ -47,6 +51,17 @@ export const conversationsApi = {
     return apiFetch<ConversationDetailResponse>(
       `${conversationsPath(organizationId)}/${conversationId}`,
       { authRecovery: true },
+    );
+  },
+
+  update(
+    organizationId: string,
+    conversationId: string,
+    body: { visibility: 'PRIVATE' | 'ORGANIZATION' },
+  ): Promise<ConversationDetailResponse> {
+    return apiFetch<ConversationDetailResponse>(
+      `${conversationsPath(organizationId)}/${conversationId}`,
+      { method: 'PATCH', body, authRecovery: true },
     );
   },
 
