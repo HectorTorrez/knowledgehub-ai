@@ -23,6 +23,7 @@
     "db:migrate:deploy": "pnpm --filter @knowledgehub/api db:migrate:deploy",
     "db:migrate:status": "pnpm --filter @knowledgehub/api db:migrate:status",
     "db:reset": "pnpm --filter @knowledgehub/api db:reset",
+    "db:seed": "pnpm --filter @knowledgehub/api db:seed",
     "db:studio": "pnpm --filter @knowledgehub/api db:studio"
   },
   "packageManager": "pnpm@11.23.0",

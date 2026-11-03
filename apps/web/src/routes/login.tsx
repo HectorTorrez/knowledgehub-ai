@@ -22,6 +22,7 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { useLogin } from '~/hooks/use-auth';
 import { sessionQuery } from '~/lib/auth/session';
+import { DEMO_ACCOUNT } from '~/lib/demo-account';
 import { pageHead } from '~/lib/seo';
 import { loginFormSchema } from '~/lib/validation';
 
@@ -71,6 +72,12 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  function fillDemoCredentials() {
+    setValidationError(null);
+    setEmail(DEMO_ACCOUNT.email);
+    setPassword(DEMO_ACCOUNT.password);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setValidationError(null);
@@ -104,6 +111,31 @@ function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 rounded-lg border border-dashed bg-muted/40 p-3">
+            <p className="text-sm font-medium">Just exploring?</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use the shared demo account to look around.
+            </p>
+            <dl className="mt-2 space-y-1 font-mono text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">Email</dt>
+                <dd className="truncate">{DEMO_ACCOUNT.email}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">Password</dt>
+                <dd className="truncate">{DEMO_ACCOUNT.password}</dd>
+              </div>
+            </dl>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 w-full"
+              onClick={fillDemoCredentials}
+            >
+              Use demo credentials
+            </Button>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {validationError ? (
               <ErrorNotice error={new Error(validationError)} />

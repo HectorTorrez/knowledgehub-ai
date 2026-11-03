@@ -60,11 +60,14 @@ pnpm db:health
 pnpm db:migrate            # create/apply migrations in development
 pnpm db:migrate:deploy     # apply existing migrations (CI / production)
 
-# 4. Stop PostgreSQL without deleting data.
+# 4. Create the demo account (idempotent; safe to run repeatedly).
+pnpm db:seed
+
+# 5. Stop PostgreSQL without deleting data.
 pnpm db:down               # data stays in the named volume
 
-# 5. Intentionally reset the local database (DESTROYS all local data).
-pnpm db:reset
+# 6. Intentionally reset the local database (DESTROYS all local data).
+pnpm db:reset              # also runs the seed after the reset
 ```
 
 Other useful commands:
@@ -72,8 +75,24 @@ Other useful commands:
 ```bash
 pnpm db:logs               # follow Postgres logs
 pnpm db:migrate:status     # migration state
+pnpm db:seed               # create/refresh the demo account
 pnpm db:studio             # browse data (Prisma Studio)
 ```
+
+## Demo account
+
+This is a portfolio project, so the login page advertises a shared demo account
+and offers a button that fills the form for you:
+
+| Email                  | Password             |
+| ---------------------- | -------------------- |
+| `demo@knowledgehub.ai` | `DemoKnowledge2026!` |
+
+`pnpm db:seed` creates that user with an owner membership in the
+`Northwind Labs` organization. The seed is idempotent: running it again refreshes
+the password and profile, and it only creates the organization when the demo user
+owns none. The credentials live in `apps/api/prisma/seed.ts` and
+`apps/web/src/lib/demo-account.ts`; keep both in sync if you change them.
 
 ## Local object storage (MinIO via Docker Compose)
 
