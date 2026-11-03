@@ -24,6 +24,7 @@ import {
 } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { Progress } from '~/components/ui/progress';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import {
@@ -67,6 +68,12 @@ function OrganizationSettingsPage() {
 
   const canDeleteOrganization = organization.data?.organization.capabilities.includes('organization.delete') ?? false;
   const canManage = organization.data?.organization.capabilities.includes('organization.manage') ?? false;
+  const usage = useQuery({
+    queryKey: ['organizations', organizationId, 'usage'],
+    queryFn: () => organizationsApi.usage(organizationId),
+    enabled: canManage,
+  });
+  useQueryErrorToast(usage.error, () => void usage.refetch());
   const activity = useInfiniteQuery({
     queryKey: ['organizations', organizationId, 'activity'],
     queryFn: ({ pageParam }) => activityApi.list(organizationId, { cursor: pageParam }),
@@ -198,6 +205,32 @@ function OrganizationSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {canManage ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Usage &amp; plan</CardTitle>
+            <CardDescription>Current plan: Free</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {usage.data ? (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Daily answers</span>
+                  <span>{usage.data.usage.answers.used} / {usage.data.usage.answers.limit}</span>
+                </div>
+                <Progress
+                  aria-label="Daily answers"
+                  value={Math.min(100, usage.data.usage.answers.used / usage.data.usage.answers.limit * 100)}
+                  indicatorClassName={usage.data.usage.answers.used >= usage.data.usage.answers.limit ? 'bg-destructive' : usage.data.usage.answers.used >= usage.data.usage.answers.limit * 0.8 ? 'bg-amber-500' : undefined}
+                />
+                <p className="text-sm text-muted-foreground">Resets {formatDateTime(usage.data.usage.answers.resetsAt)}</p>
+              </div>
+            ) : usage.isPending ? <Skeleton className="h-16 w-full" /> : null}
+            <Button asChild variant="outline"><a href="/#pricing">Upgrade</a></Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {canManage ? (
         <Card>
