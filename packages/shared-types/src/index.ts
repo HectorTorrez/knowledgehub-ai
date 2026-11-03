@@ -518,7 +518,7 @@ export interface ConversationDetailResponse {
 
 /**
  * One result of `GET /organizations/:organizationId/search`. `excerpt` is the
- * matching chunk's text, and `score` is its cosine similarity to the query
+ * matching chunk's text, and `score` is its normalized hybrid ranking relevance
  * (higher is closer).
  */
 export interface SearchResult {

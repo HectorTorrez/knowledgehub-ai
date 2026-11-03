@@ -29,7 +29,7 @@ function toSearchResult(chunk: RetrievedChunk): SearchResult {
     pageNumber: chunk.pageNumber,
     chunkIndex: chunk.chunkIndex,
     excerpt: chunk.content,
-    score: chunk.similarity,
+    score: chunk.relevance,
   };
 }
 

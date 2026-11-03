@@ -2,6 +2,9 @@ import type { EvalQuestion } from '../test/answers-eval/metrics.js';
 import { EVAL_QUESTIONS } from '../test/answers-eval/questions.js';
 
 export const RETRIEVAL_QUESTIONS: EvalQuestion[] = [
+  { id: 'invoice-48213', kind: 'single_source', question: 'Who approved INV-48213?', expected: [{ documentTitle: 'Invoice 48213', pageNumber: 1 }], supporting: [{ documentTitle: 'Invoice 48213', pageNumber: 1 }] },
+  { id: 'invoice-48218', kind: 'single_source', question: 'When was INV-48218 paid?', expected: [{ documentTitle: 'Invoice 48218', pageNumber: 1 }], supporting: [{ documentTitle: 'Invoice 48218', pageNumber: 1 }] },
+  { id: 'invoice-48219', kind: 'single_source', question: 'Find INV-48219', expected: [{ documentTitle: 'Invoice 48219', pageNumber: 1 }], supporting: [{ documentTitle: 'Invoice 48219', pageNumber: 1 }] },
 
   { id: 'document-summary', kind: 'multi_source', question: 'Summarize the Aurora Deployment Guide.', expected: [1, 2, 3].map((pageNumber) => ({ documentTitle: 'Aurora Deployment Guide', pageNumber })), supporting: [1, 2, 3].map((pageNumber) => ({ documentTitle: 'Aurora Deployment Guide', pageNumber })) },
   { id: 'document-rollback', kind: 'single_source', question: 'Which document talks about production rollbacks?', expected: [{ documentTitle: 'Aurora Deployment Guide', pageNumber: 2 }], supporting: [{ documentTitle: 'Aurora Deployment Guide', pageNumber: 2 }] },

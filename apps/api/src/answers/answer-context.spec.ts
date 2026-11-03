@@ -19,6 +19,8 @@ function retrievedChunk(
     chunkIndex: 0,
     content: 'alpha',
     similarity: 0.9,
+    relevance: 0.9,
+    matchedLexically: false,
     ...overrides,
   };
 }
@@ -43,6 +45,11 @@ const GENEROUS_BUDGET: ContextBudget = {
 };
 
 describe('assembleContext', () => {
+  it('retains lexical matches below the similarity threshold', () => {
+    const chunks = [retrievedChunk({ similarity: 0.1, matchedLexically: true }), retrievedChunk({ chunkId: 'weak', similarity: 0.1 })];
+    expect(assembleContext(chunks, { maxSources: 2, maxChars: 10000, minSimilarity: 0.5 }).map((source) => source.chunkId)).toEqual([chunks[0]!.chunkId]);
+  });
+
   it('preserves retrieval order and numbers sources from one', () => {
     const sources = assembleContext(
       [

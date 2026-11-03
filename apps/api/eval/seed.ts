@@ -14,7 +14,12 @@ export async function seedCorpus(
   prisma: PrismaService,
 ): Promise<string> {
   const embeddings = app.get<EmbeddingProvider>(EMBEDDING_PROVIDER);
-  const pages = allCorpusPages();
+  const pages = [
+    ...allCorpusPages(),
+    { documentTitle: 'Invoice 48213', pageNumber: 1, text: 'Invoice INV-48213 was approved by Marina and paid on October 12.' },
+    { documentTitle: 'Invoice 48218', pageNumber: 1, text: 'Invoice INV-48218 was approved by Marina and paid on October 13.' },
+    { documentTitle: 'Invoice 48219', pageNumber: 1, text: 'Invoice INV-48219 was approved by Marina and paid on October 14.' },
+  ];
   const vectors = await embeddings.embed(pages.map((page) => page.text));
 
   if (vectors.length !== pages.length) {
