@@ -60,6 +60,7 @@ const ANSWER = {
 interface ApiOptions {
   authenticated: boolean;
   deletionBlocked?: boolean;
+  auditPages?: boolean;
   role?: 'OWNER' | 'VIEWER';
   demo?: boolean;
   empty?: boolean;
@@ -228,6 +229,39 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     }
 
     if (path === '/organizations/org-1/activity' && method === 'GET') {
+      const auditItem = {
+        id: 'activity-1',
+        action: 'DOCUMENT_UPLOADED',
+        actor: USER,
+        targetType: 'document',
+        targetId: 'doc-1',
+        metadata: { title: 'Handbook' },
+        createdAt: CREATED_AT,
+      };
+      if (options.auditPages) {
+        const matches =
+          (!url.searchParams.get('action') ||
+            url.searchParams.get('action') === auditItem.action) &&
+          (!url.searchParams.get('actorId') ||
+            url.searchParams.get('actorId') === USER.id);
+        await route.fulfill(
+          json({
+            activities: matches
+              ? [
+                  {
+                    ...auditItem,
+                    id: url.searchParams.has('cursor')
+                      ? 'activity-2'
+                      : 'activity-1',
+                  },
+                ]
+              : [],
+            nextCursor:
+              matches && !url.searchParams.has('cursor') ? 'next' : null,
+          }),
+        );
+        return;
+      }
       await route.fulfill(
         json({
           activities: [

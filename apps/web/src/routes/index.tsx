@@ -86,7 +86,7 @@ function LandingPage() {
           </div>
         </section>
         <section className="mx-auto max-w-7xl px-5 py-20"><div className="rounded-2xl bg-primary p-8 text-primary-foreground sm:p-12"><h2 className="text-3xl font-semibold">Put your knowledge to work</h2><p className="mt-3 opacity-80">Create a workspace and start asking better questions.</p><Button asChild variant="secondary" className="mt-6"><Link to="/register">Get started <ArrowRight /></Link></Button></div></section>
-      </main><footer className="border-t"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-8"><Brand /><p className="text-sm text-muted-foreground">KnowledgeHub AI · Your team's knowledge, in one place.</p></div></footer>
+      </main><footer className="border-t"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-8"><Brand /><p className="text-sm text-muted-foreground">KnowledgeHub AI · Your team's knowledge, in one place.</p><Link to="/security" className="text-sm text-muted-foreground hover:text-foreground">Security</Link></div></footer>
     </div>
   );
 }

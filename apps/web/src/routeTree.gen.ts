@@ -13,12 +13,14 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as SecurityRouteImport } from './routes/security'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedInvitationsAcceptRouteImport } from './routes/_authenticated/invitations.accept'
 import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations.index'
 import { Route as AuthenticatedOrganizationsOrganizationIdRouteImport } from './routes/_authenticated/organizations.$organizationId'
 import { Route as AuthenticatedOrganizationsOrganizationIdIndexRouteImport } from './routes/_authenticated/organizations.$organizationId.index'
 import { Route as AuthenticatedOrganizationsOrganizationIdAskRouteImport } from './routes/_authenticated/organizations.$organizationId.ask'
+import { Route as AuthenticatedOrganizationsOrganizationIdAuditLogRouteImport } from './routes/_authenticated/organizations.$organizationId.audit-log'
 import { Route as AuthenticatedOrganizationsOrganizationIdDocumentsRouteImport } from './routes/_authenticated/organizations.$organizationId.documents'
 import { Route as AuthenticatedOrganizationsOrganizationIdInsightsRouteImport } from './routes/_authenticated/organizations.$organizationId.insights'
 import { Route as AuthenticatedOrganizationsOrganizationIdSearchRouteImport } from './routes/_authenticated/organizations.$organizationId.search'
@@ -42,6 +44,11 @@ const LoginRoute = LoginRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -77,6 +84,12 @@ const AuthenticatedOrganizationsOrganizationIdAskRoute =
   AuthenticatedOrganizationsOrganizationIdAskRouteImport.update({
     id: '/ask',
     path: '/ask',
+    getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
+  } as any)
+const AuthenticatedOrganizationsOrganizationIdAuditLogRoute =
+  AuthenticatedOrganizationsOrganizationIdAuditLogRouteImport.update({
+    id: '/audit-log',
+    path: '/audit-log',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
   } as any)
 const AuthenticatedOrganizationsOrganizationIdDocumentsRoute =
@@ -116,11 +129,13 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/security': typeof SecurityRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
   '/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
+  '/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute
   '/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute
   '/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute
   '/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
@@ -132,10 +147,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/security': typeof SecurityRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/organizations': typeof AuthenticatedOrganizationsIndexRoute
   '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
+  '/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute
   '/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute
   '/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute
   '/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
@@ -149,11 +166,13 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/security': typeof SecurityRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/_authenticated/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
   '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/_authenticated/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
+  '/_authenticated/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute
   '/_authenticated/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute
   '/_authenticated/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute
   '/_authenticated/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
@@ -167,11 +186,13 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/security'
     | '/settings'
     | '/invitations/accept'
     | '/organizations/$organizationId'
     | '/organizations/'
     | '/organizations/$organizationId/ask'
+    | '/organizations/$organizationId/audit-log'
     | '/organizations/$organizationId/documents'
     | '/organizations/$organizationId/insights'
     | '/organizations/$organizationId/search'
@@ -183,10 +204,12 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/security'
     | '/settings'
     | '/invitations/accept'
     | '/organizations'
     | '/organizations/$organizationId/ask'
+    | '/organizations/$organizationId/audit-log'
     | '/organizations/$organizationId/documents'
     | '/organizations/$organizationId/insights'
     | '/organizations/$organizationId/search'
@@ -199,11 +222,13 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/register'
+    | '/security'
     | '/_authenticated/settings'
     | '/_authenticated/invitations/accept'
     | '/_authenticated/organizations/$organizationId'
     | '/_authenticated/organizations/'
     | '/_authenticated/organizations/$organizationId/ask'
+    | '/_authenticated/organizations/$organizationId/audit-log'
     | '/_authenticated/organizations/$organizationId/documents'
     | '/_authenticated/organizations/$organizationId/insights'
     | '/_authenticated/organizations/$organizationId/search'
@@ -217,6 +242,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  SecurityRoute: typeof SecurityRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -247,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings': {
@@ -291,6 +324,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdAskRouteImport
       parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
     }
+    '/_authenticated/organizations/$organizationId/audit-log': {
+      id: '/_authenticated/organizations/$organizationId/audit-log'
+      path: '/audit-log'
+      fullPath: '/organizations/$organizationId/audit-log'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdAuditLogRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/documents': {
       id: '/_authenticated/organizations/$organizationId/documents'
       path: '/documents'
@@ -331,6 +371,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedOrganizationsOrganizationIdRouteChildren {
   AuthenticatedOrganizationsOrganizationIdAskRoute: typeof AuthenticatedOrganizationsOrganizationIdAskRoute
+  AuthenticatedOrganizationsOrganizationIdAuditLogRoute: typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute
   AuthenticatedOrganizationsOrganizationIdDocumentsRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute
   AuthenticatedOrganizationsOrganizationIdInsightsRoute: typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute
   AuthenticatedOrganizationsOrganizationIdSearchRoute: typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
@@ -343,6 +384,8 @@ const AuthenticatedOrganizationsOrganizationIdRouteChildren: AuthenticatedOrgani
   {
     AuthenticatedOrganizationsOrganizationIdAskRoute:
       AuthenticatedOrganizationsOrganizationIdAskRoute,
+    AuthenticatedOrganizationsOrganizationIdAuditLogRoute:
+      AuthenticatedOrganizationsOrganizationIdAuditLogRoute,
     AuthenticatedOrganizationsOrganizationIdDocumentsRoute:
       AuthenticatedOrganizationsOrganizationIdDocumentsRoute,
     AuthenticatedOrganizationsOrganizationIdInsightsRoute:
@@ -386,6 +429,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  SecurityRoute: SecurityRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

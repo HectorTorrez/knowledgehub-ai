@@ -1,7 +1,7 @@
 import { CommandPalette } from '~/components/command-palette';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
-import { BarChart3, Building2, ChevronsUpDown, FileText, LayoutGrid, LogOut, MessageSquareText, Moon, Search, Settings, Sun } from 'lucide-react';
+import { BarChart3, Building2, ChevronsUpDown, FileText, History, LayoutGrid, LogOut, MessageSquareText, Moon, Search, Settings, Sun } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '~/components/ui/dropdown-menu';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar } from '~/components/ui/sidebar';
@@ -19,6 +19,7 @@ const sections = [
   { label: 'Ask', to: '/organizations/$organizationId/ask', icon: MessageSquareText },
   { label: 'Search', to: '/organizations/$organizationId/search', icon: Search },
   { label: 'Insights', to: '/organizations/$organizationId/insights', icon: BarChart3, capability: 'insights.view' },
+  { label: 'Audit log', to: '/organizations/$organizationId/audit-log', icon: History, capability: 'members.manage' },
   { label: 'Settings', to: '/organizations/$organizationId/settings', icon: Settings },
 ] as const;
 
