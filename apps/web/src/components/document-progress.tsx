@@ -51,7 +51,7 @@ export function DocumentProgress({
               }
             >
               <span className="mr-1">
-                {stepIndex < index ? '✓' : stepIndex + 1}.
+                {stepIndex < index ? '✓' : `${stepIndex + 1}.`}
               </span>
               {step}
             </li>

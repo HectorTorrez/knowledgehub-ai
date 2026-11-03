@@ -35,6 +35,12 @@ interface DocumentRecord {
   failureKind: DocumentFailureKind | null;
   createdAt: Date;
   updatedAt: Date;
+  processingJobs: Array<{
+    state: 'QUEUED' | 'CLAIMED' | 'SUCCEEDED' | 'FAILED';
+    attempt: number;
+    maxAttempts: number;
+    nextAttemptAt: Date;
+  }>;
 }
 
 const STAGING_KEY = 'organizations/org-1/documents/doc-1/staging-token';
@@ -59,6 +65,7 @@ function documentRecord(
     failureKind: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+    processingJobs: [],
     ...overrides,
   };
 }

@@ -6,7 +6,7 @@ test('shows processing progress and a ready notification', async ({ page }) => {
   await page.goto('/organizations/org-1/documents/doc-1');
   await expect(
     page.getByRole('list', { name: 'Processing stages' }),
-  ).toContainText('Extracting');
+  ).toContainText('Processing');
   const notifications = page.getByRole('list', { name: 'Notifications' });
   await expect(notifications.getByText('Handbook is ready')).toBeVisible({
     timeout: 10000,
