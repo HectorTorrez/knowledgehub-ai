@@ -42,12 +42,12 @@ export function toActivityDto(row: ActivityRow): OrganizationActivityItem {
 export class ActivityService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(context: OrganizationContext, input: { cursor?: string; limit: number }): Promise<OrganizationActivityListResponse> {
-    await requireCapability(this.prisma, context, 'organization.manage', 'view activity');
+  async list(context: OrganizationContext, input: { cursor?: string; limit: number; action?: OrganizationActivityItem['action'][]; actorId?: string; from?: string; to?: string }): Promise<OrganizationActivityListResponse> {
+    await requireCapability(this.prisma, context, 'members.manage', 'view activity');
     const cursor = input.cursor ? decodeListCursor(input.cursor) : null;
     if (input.cursor && !cursor) throw new BadRequestException('cursor is not valid');
     const rows = await this.prisma.organizationActivity.findMany({
-      where: { organizationId: context.organizationId, ...(cursor ? listCursorFilter(cursor) : {}) },
+      where: { organizationId: context.organizationId, ...(input.action ? { action: { in: input.action } } : {}), ...(input.actorId ? { actorId: input.actorId } : {}), ...(input.from || input.to ? { createdAt: { ...(input.from ? { gte: new Date(input.from) } : {}), ...(input.to ? { lte: new Date(input.to) } : {}) } } : {}), ...(cursor ? listCursorFilter(cursor) : {}) },
       include: { actor: { select: { id: true, firstName: true, lastName: true, email: true } } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: input.limit + 1,
