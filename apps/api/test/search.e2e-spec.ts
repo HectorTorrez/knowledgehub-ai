@@ -184,6 +184,24 @@ describe('search (e2e)', () => {
     expect(response.body.results[0].score).toBeGreaterThan(0);
   });
 
+  it('groups multiple chunks from one document', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Grouped Search');
+    const documentId = await seedReadyChunk(organizationId, 'parental leave policy');
+    await prisma.$executeRaw`
+      INSERT INTO "DocumentChunk"
+        ("id", "documentId", "organizationId", "documentGeneration", "pageNumber",
+         "chunkIndex", "content", "characterCount", "embedding", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid(), ${documentId}::uuid, ${organizationId}::uuid, 1, 3,
+        5, 'parental leave benefits', 23, ${vectorLiteral(basis(0))}::vector, now(), now())
+    `;
+
+    const response = await search(token, organizationId, 'parental leave').expect(200);
+    expect(response.body.results).toHaveLength(1);
+    expect(response.body.results[0]).toMatchObject({ documentId, matchCount: 2 });
+    expect(response.body.results[0].matches).toHaveLength(2);
+  });
+
   it('enforces document and date filters across organizations', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Filter Org');
