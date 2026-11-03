@@ -134,6 +134,7 @@ function AskPage() {
   );
   const [showConversations, setShowConversations] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [conversationScope, setConversationScope] = useState<'all' | 'mine' | 'shared'>('all');
 
   useEffect(() => {
     setActiveConversationId(presetConversationId ?? null);
@@ -146,9 +147,9 @@ function AskPage() {
   const reportError = useReportError();
 
   const conversations = useInfiniteQuery({
-    queryKey: queryKeys.organizations.conversations.list(organizationId),
+    queryKey: queryKeys.organizations.conversations.list(organizationId, conversationScope),
     queryFn: ({ pageParam }) =>
-      conversationsApi.list(organizationId, { cursor: pageParam, limit: 25 }),
+      conversationsApi.list(organizationId, { cursor: pageParam, limit: 25, scope: conversationScope }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
@@ -349,6 +350,8 @@ function AskPage() {
         <aside className="hidden min-h-0 min-w-0 border-r bg-muted/20 lg:block">
           <ConversationRail
             conversations={conversationRows}
+            scope={conversationScope}
+            onScopeChange={setConversationScope}
             activeConversationId={activeConversationId}
             listId="conversation-list"
             isPending={conversations.isPending}
@@ -437,7 +440,18 @@ function AskPage() {
             />
           )}
 
-          <AskComposer
+          {activeConversationDetail.data?.conversation.canEdit === false ? (
+            <div className="space-y-2 border-t p-4 text-sm">
+              <p>Only {activeConversationDetail.data.conversation.createdBy?.firstName ?? 'the creator'} can continue this conversation.</p>
+              <Button onClick={() => {
+                writeAskDraft(organizationId, undefined, question);
+                startNewConversation();
+                window.requestAnimationFrame(() => document.getElementById('ask-question')?.focus());
+              }}>
+                Ask a follow-up in a new conversation
+              </Button>
+            </div>
+          ) : <AskComposer
             organizationId={organizationId}
             documents={ready.documents}
             documentId={scope.documentId}
@@ -449,7 +463,7 @@ function AskPage() {
             streaming={streaming}
             submitting={createConversation.isPending}
             documentsPending={ready.query.isPending}
-          />
+          />}
         </div>
       </div>
 
@@ -464,6 +478,8 @@ function AskPage() {
           <div className="min-h-0 flex-1">
             <ConversationRail
               conversations={conversationRows}
+            scope={conversationScope}
+            onScopeChange={setConversationScope}
               activeConversationId={activeConversationId}
               listId="conversation-list-mobile"
               showHeading={false}

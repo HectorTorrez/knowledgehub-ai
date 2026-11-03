@@ -16,6 +16,8 @@ const GROUP_ORDER = ['Today', 'Yesterday', 'Previous 7 days', 'Older'] as const;
 
 export function ConversationRail({
   conversations,
+  scope,
+  onScopeChange,
   activeConversationId,
   listId,
   showHeading = true,
@@ -29,6 +31,8 @@ export function ConversationRail({
   onOpenHistory,
 }: Readonly<{
   conversations: ConversationSummary[];
+  scope: 'all' | 'mine' | 'shared';
+  onScopeChange: (scope: 'all' | 'mine' | 'shared') => void;
   activeConversationId: string | null;
   listId: string;
   showHeading?: boolean;
@@ -65,6 +69,14 @@ export function ConversationRail({
           <MessageSquarePlus />
           New conversation
         </Button>
+      </div>
+
+      <div className="flex gap-1 px-2" aria-label="Conversation scope">
+        {(['all', 'mine', 'shared'] as const).map((value) => (
+          <Button key={value} size="sm" variant={scope === value ? 'secondary' : 'ghost'} onClick={() => onScopeChange(value)}>
+            {value[0].toUpperCase() + value.slice(1)}
+          </Button>
+        ))}
       </div>
 
       <div
@@ -172,6 +184,8 @@ function ConversationRailItem({
         </span>
         <span className="mt-0.5 block w-full min-w-0 truncate text-[11px] text-muted-foreground">
           {formatDate(conversation.createdAt)}
+          {conversation.visibility === 'ORGANIZATION' ? ' · Shared' : ''}
+          {!conversation.canEdit && conversation.createdBy ? ` · ${conversation.createdBy.firstName} ${conversation.createdBy.lastName}` : ''}
         </span>
       </button>
       <Button

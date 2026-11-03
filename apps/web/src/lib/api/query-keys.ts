@@ -64,8 +64,10 @@ export const queryKeys = {
     conversations: {
       all: (organizationId: string) =>
         ['organizations', organizationId, 'conversations'] as const,
-      list: (organizationId: string) =>
-        ['organizations', organizationId, 'conversations', 'list'] as const,
+      list: (organizationId: string, scope?: 'all' | 'mine' | 'shared') =>
+        scope === undefined
+          ? (['organizations', organizationId, 'conversations', 'list'] as const)
+          : (['organizations', organizationId, 'conversations', 'list', scope] as const),
       detail: (organizationId: string, conversationId: string) =>
         [
           'organizations',
