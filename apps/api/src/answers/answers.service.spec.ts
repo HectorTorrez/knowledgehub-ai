@@ -53,6 +53,8 @@ const CHUNK: RetrievedChunk = {
   chunkIndex: 4,
   content: 'Processing retries are bounded by maxAttempts.',
   similarity: 0.9,
+  relevance: 0.9,
+  matchedLexically: false,
 };
 
 const CATALOG_DOCUMENT: CatalogDocumentRow = {

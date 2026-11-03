@@ -7,14 +7,13 @@ import {
 } from '../embeddings/embedding-provider.port.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
-  DEFAULT_RETRIEVAL_LIMIT,
   MAX_RETRIEVAL_LIMIT,
   RetrievalQueryError,
 } from './retrieval-policy.js';
 import { RetrievalService } from './retrieval.service.js';
 
 interface QueryTagCall {
-  strings: TemplateStringsArray;
+  strings: readonly string[];
   values: unknown[];
 }
 
@@ -44,8 +43,8 @@ function createService(
   const embeddings: EmbeddingProvider = { embed: vi.fn(embed) };
   const calls: QueryTagCall[] = [];
   const queryRaw = vi.fn(
-    async (strings: TemplateStringsArray, ...values: unknown[]) => {
-      calls.push({ strings, values });
+    async (query: { strings: readonly string[]; values: unknown[] }) => {
+      calls.push(query);
       return rows;
     },
   );
@@ -65,7 +64,7 @@ describe('RetrievalService', () => {
 
     await expect(
       service.search({ organizationId: 'org-1', text: 'what is alpha' }),
-    ).resolves.toEqual([MATCH]);
+    ).resolves.toEqual([{ ...MATCH, relevance: 1, matchedLexically: true }]);
 
     expect(embeddings.embed).toHaveBeenCalledWith(['what is alpha']);
   });
@@ -118,7 +117,7 @@ describe('RetrievalService', () => {
       'org-1',
       'org-1',
       '[1,1,1,1]',
-      5,
+      40,
     ]);
   });
 
@@ -127,7 +126,7 @@ describe('RetrievalService', () => {
 
     await service.search({ organizationId: 'org-1', text: 'alpha' });
 
-    expect(calls[0]!.values.at(-1)).toBe(DEFAULT_RETRIEVAL_LIMIT);
+    expect(calls[0]!.values.at(-1)).toBe(40);
   });
 
   it('rejects a blank query and an out-of-range limit without embedding', async () => {

@@ -52,8 +52,8 @@ describe('validateEnv', () => {
     expect(env.ANSWER_TIMEOUT_MS).toBe(30000);
     expect(env.ANSWER_MAX_OUTPUT_TOKENS).toBe(700);
     expect(env.ANSWERS_ENABLED).toBe('false');
-    expect(env.ANSWER_MAX_SOURCES).toBe(8);
-    expect(env.ANSWER_CONTEXT_MAX_CHARS).toBe(24000);
+    expect(env.ANSWER_MAX_SOURCES).toBe(14);
+    expect(env.ANSWER_CONTEXT_MAX_CHARS).toBe(60000);
     expect(env.ANSWER_MIN_SIMILARITY).toBe(0.2);
   });
 

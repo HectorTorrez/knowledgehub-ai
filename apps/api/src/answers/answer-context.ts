@@ -50,7 +50,7 @@ export function assembleContext(
       break;
     }
 
-    if (chunk.similarity < budget.minSimilarity) {
+    if (chunk.similarity < budget.minSimilarity && !chunk.matchedLexically) {
       continue;
     }
 

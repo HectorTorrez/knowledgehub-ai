@@ -1074,8 +1074,8 @@ Answer settings live in `apps/api/.env`; see `apps/api/.env.example`.
 | `ANSWER_MODEL` | `gpt-4.1-mini` | Completion model. |
 | `ANSWER_TIMEOUT_MS` | `30000` | Timeout for one completion. |
 | `ANSWER_MAX_OUTPUT_TOKENS` | `700` | Completion cap (1–4,096). |
-| `ANSWER_MAX_SOURCES` | `8` | Maximum retrieved passages (1–20). |
-| `ANSWER_CONTEXT_MAX_CHARS` | `24000` | Assembled-context character budget (1,000–100,000). |
+| `ANSWER_MAX_SOURCES` | `14` | Maximum retrieved passages (1–20). |
+| `ANSWER_CONTEXT_MAX_CHARS` | `60000` | Assembled-context character budget (1,000–100,000). |
 | `ANSWER_MIN_SIMILARITY` | `0.2` | Cosine-similarity floor (0–1). |
 
 `OPENAI_API_KEY` and `OPENAI_BASE_URL` are shared with embeddings; answer

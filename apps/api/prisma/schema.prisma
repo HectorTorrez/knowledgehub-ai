@@ -374,6 +374,7 @@ model DocumentChunk {
   /// vector type: it is excluded from the generated client and read or written
   /// only through raw SQL. The database enforces NOT NULL and the dimension.
   embedding Unsupported("vector(1536)")
+  searchVector Unsupported("tsvector")?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

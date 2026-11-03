@@ -26,7 +26,7 @@ it('reports retrieval performance on the synthetic corpus', async () => {
       scores.push(score);
       console.log(item.id, item.question, JSON.stringify({ ...score, hits: results.map(({ title, pageNumber }) => ({ title, pageNumber })) }));
     }
-    console.log(JSON.stringify({ questions: scores.length, recall5: scores.reduce((sum, score) => sum + score.recall5, 0) / scores.length, recall10: scores.reduce((sum, score) => sum + score.recall10, 0) / scores.length, mrr: meanReciprocalRank(scores.map((score) => score.rr)) }));
+    process.stdout.write(JSON.stringify({ questions: scores.length, recall5: scores.reduce((sum, score) => sum + score.recall5, 0) / scores.length, recall10: scores.reduce((sum, score) => sum + score.recall10, 0) / scores.length, mrr: meanReciprocalRank(scores.map((score) => score.rr)) }) + '\n');
   } finally {
     if (organizationId) await app.get(PrismaService).organization.deleteMany({ where: { id: organizationId } });
     await app.close();

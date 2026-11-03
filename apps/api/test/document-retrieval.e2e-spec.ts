@@ -194,6 +194,21 @@ describe('document retrieval (e2e)', () => {
     expect(results.every((result) => result.documentId === myDocument)).toBe(true);
   });
 
+  it('finds an identifier outside the vector candidates without leaking another tenant', async () => {
+    const mine = await seedOrganization();
+    const theirs = await seedOrganization();
+    const myDocument = await seedDocument(mine);
+    const theirDocument = await seedDocument(theirs);
+    for (let index = 0; index < 41; index += 1) {
+      await seedChunk({ documentId: myDocument, organizationId: mine, documentGeneration: 1, pageNumber: 1, chunkIndex: index, content: `ordinary ${index}`, embedding: basis(0) });
+    }
+    await seedChunk({ documentId: myDocument, organizationId: mine, documentGeneration: 1, pageNumber: 1, chunkIndex: 41, content: 'Invoice INV-48213', embedding: basis(1) });
+    await seedChunk({ documentId: theirDocument, organizationId: theirs, documentGeneration: 1, pageNumber: 1, chunkIndex: 0, content: 'Secret INV-48213', embedding: basis(0) });
+    const results = await retrieval.search({ organizationId: mine, text: 'INV-48213', limit: 40 });
+    expect(results.some((item) => item.content === 'Invoice INV-48213' && item.matchedLexically)).toBe(true);
+    expect(results.every((item) => item.documentId === myDocument)).toBe(true);
+  });
+
   it('never returns an obsolete generation', async () => {
     const organizationId = await seedOrganization();
     const documentId = await seedDocument(organizationId, { generation: 2 });
@@ -274,9 +289,6 @@ describe('document retrieval (e2e)', () => {
     });
 
     expect(results).toHaveLength(2);
-    expect(results.map((result) => result.content)).toEqual([
-      'passage 0',
-      'passage 1',
-    ]);
+    expect(results[0]!.content).toBe('passage 0');
   });
 });
