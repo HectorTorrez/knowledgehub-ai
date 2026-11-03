@@ -24,6 +24,7 @@ import type { Request, Response } from 'express';
 import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import { AuthConfig } from './auth.config.js';
 import { AuthService, type AuthResult } from './auth.service.js';
+import { PersonalDataService } from './personal-data.service.js';
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
@@ -59,6 +60,7 @@ import { ZodValidationPipe } from './zod-validation.pipe.js';
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly personalData: PersonalDataService,
     private readonly authConfig: AuthConfig,
   ) {}
 
@@ -112,7 +114,7 @@ export class AuthController {
       throw new UnauthorizedException('Authentication required');
     }
 
-    const data = await this.auth.exportPersonalData(request.auth.userId);
+    const data = await this.personalData.export(request.auth.userId);
     const date = new Date().toISOString().slice(0, 10);
     response.attachment(`knowledgehub-export-${date}.json`);
     return data;

@@ -289,45 +289,6 @@ export class AuthService {
     };
   }
 
-  async exportPersonalData(userId: string) {
-    const [user, memberships, answers, feedback] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: userId } }),
-      this.prisma.membership.findMany({
-        where: { userId },
-        select: {
-          organizationId: true,
-          role: true,
-          createdAt: true,
-          organization: { select: { name: true } },
-        },
-      }),
-      this.prisma.answer.findMany({
-        where: { askedById: userId, conversationId: null },
-        select: { question: true, answer: true, status: true, citations: true, createdAt: true },
-      }),
-      this.prisma.answerFeedback.findMany({
-        where: { userId },
-        select: { answerId: true, value: true, comment: true, createdAt: true, updatedAt: true },
-      }),
-    ]);
-
-    if (!user) {
-      throw new UnauthorizedException('Session is no longer active');
-    }
-
-    return {
-      profile: toPublicUser(user),
-      memberships: memberships.map((membership) => ({
-        organizationId: membership.organizationId,
-        name: membership.organization.name,
-        role: membership.role,
-        joinedAt: membership.createdAt,
-      })),
-      answers,
-      feedback,
-    };
-  }
-
   async updateProfile(
     userId: string,
     input: UpdateProfileInput,
