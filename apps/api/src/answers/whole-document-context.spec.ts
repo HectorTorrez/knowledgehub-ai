@@ -15,6 +15,9 @@ describe('wholeDocumentContext', () => {
       { pageNumber: 2, chunkId: '2', content: 'second' },
     ]);
   });
+  it('reconstructs overlap spanning a newline', () => {
+    expect(wholeDocumentContext([chunk(1, 0, 'first line\n'), chunk(1, 1, 'line\nnext')], budget)?.[0]?.content).toBe('first line\nnext');
+  });
   it('falls back for empty documents, excess pages, and excess rendered characters', () => {
     expect(wholeDocumentContext([], budget)).toBeNull();
     expect(wholeDocumentContext([chunk(1, 0, 'a'), chunk(2, 1, 'b'), chunk(3, 2, 'c')], budget)).toBeNull();

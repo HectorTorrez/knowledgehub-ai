@@ -34,7 +34,8 @@
     "db:reset": "prisma migrate reset",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "eval:retrieval": "vitest run --config ./vitest.config.retrieval-eval.ts"
+    "eval:retrieval": "vitest run --config ./vitest.config.retrieval-eval.ts",
+    "reindex:chunks": "tsx scripts/reindex.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

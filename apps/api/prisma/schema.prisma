@@ -337,6 +337,7 @@ model DocumentExtraction {
 
   documentGeneration Int
   verifiedStorageKey String
+  chunkingVersion Int @default(1)
 
   pages          Json
   pageCount      Int

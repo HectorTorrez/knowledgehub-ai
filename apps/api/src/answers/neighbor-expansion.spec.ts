@@ -19,6 +19,11 @@ describe('expandNeighbors', () => {
     expect(result[0]!.content).toBe('start abcdef\nend');
   });
 
+  it('deduplicates overlap across a newline', () => {
+    const result = expandNeighbors([hit('b', 1, 'line\nnext')], [row('b', 'a', 0, 'first line\n'), row('b', 'b', 1, 'line\nnext')]);
+    expect(result[0]!.content).toBe('first line\nnext');
+  });
+
   it('merges adjacent hits and shared neighbors, retaining the best ranked citation and ordering', () => {
     const hits = [hit('b', 1, 'bc'), hit('x', 9, 'other'), hit('c', 2, 'cd')];
     const result = expandNeighbors(hits, [
