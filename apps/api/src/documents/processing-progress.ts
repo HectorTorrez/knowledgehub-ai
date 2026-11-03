@@ -1,21 +1,48 @@
-import type { DocumentProcessingStage, DocumentStatus } from '@knowledgehub/shared-types';
+import type {
+  DocumentProcessingStage,
+  DocumentStatus,
+} from '@knowledgehub/shared-types';
+
+interface ProcessingJobProgress {
+  state: 'QUEUED' | 'CLAIMED' | 'SUCCEEDED' | 'FAILED';
+  attempt: number;
+  maxAttempts: number;
+  nextAttemptAt: Date;
+}
+
+export interface ProcessingProgress {
+  processingStage: DocumentProcessingStage;
+  retry: { attempt: number; maxAttempts: number; nextRetryAt: string } | null;
+}
+
+function stageOf(
+  status: DocumentStatus,
+  job: ProcessingJobProgress | undefined,
+): DocumentProcessingStage {
+  if (status === 'PENDING') return 'UPLOADING';
+  if (status === 'READY') return 'READY';
+  if (status === 'FAILED') return 'FAILED';
+  return job?.state === 'CLAIMED' ? 'PROCESSING' : 'QUEUED';
+}
 
 export function deriveProcessingProgress(document: {
   status: DocumentStatus;
-  factsStatus: 'PENDING' | 'READY' | 'FAILED';
-  summaryStatus: 'PENDING' | 'READY' | 'FAILED';
-  processingJobs: Array<{ state: 'QUEUED' | 'CLAIMED' | 'SUCCEEDED' | 'FAILED'; attempt: number; maxAttempts: number; nextAttemptAt: Date }>;
-}): { processingStage: DocumentProcessingStage; retry: { attempt: number; maxAttempts: number; nextRetryAt: string } | null } {
-  const job = document.processingJobs?.[0];
-  let processingStage: DocumentProcessingStage;
-  if (document.status === 'FAILED') processingStage = 'FAILED';
-  else if (document.status === 'PENDING') processingStage = 'UPLOADING';
-  else if (document.status === 'READY') processingStage = document.factsStatus === 'PENDING' || document.summaryStatus === 'PENDING' ? 'ENRICHING' : 'READY';
-  else processingStage = job?.state === 'CLAIMED' ? 'PROCESSING' : 'QUEUED';
+  processingJobs: ProcessingJobProgress[];
+}): ProcessingProgress {
+  const job = document.processingJobs[0];
+  const retrying =
+    document.status === 'PROCESSING' &&
+    job?.state === 'QUEUED' &&
+    job.attempt > 0;
+
   return {
-    processingStage,
-    retry: document.status === 'PROCESSING' && job?.state === 'QUEUED' && job.attempt > 0
-      ? { attempt: job.attempt, maxAttempts: job.maxAttempts, nextRetryAt: job.nextAttemptAt.toISOString() }
+    processingStage: stageOf(document.status, job),
+    retry: retrying
+      ? {
+          attempt: job.attempt,
+          maxAttempts: job.maxAttempts,
+          nextRetryAt: job.nextAttemptAt.toISOString(),
+        }
       : null,
   };
 }

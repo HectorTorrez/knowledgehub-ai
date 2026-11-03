@@ -1,15 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import { pollingInterval, terminalTransition } from './document-polling';
+import {
+  PENDING_UPLOAD_WINDOW_MS,
+  POLL_INTERVAL_MS,
+  pollingInterval,
+  terminalTransition,
+} from './document-polling';
+
+const NOW = Date.parse('2026-11-03T12:00:00.000Z');
+const updatedAgo = (ms: number) => new Date(NOW - ms).toISOString();
 
 describe('document polling', () => {
-  it('polls only visible active documents', () => {
-    const active = [
-      { status: 'PROCESSING' as const, processingStage: 'PROCESSING' as const },
-    ];
-    expect(pollingInterval(active, true)).toBe(2500);
-    expect(pollingInterval(active, false)).toBe(false);
+  it('polls only while the tab is visible and a document is processing', () => {
+    const active = [{ status: 'PROCESSING' as const, updatedAt: updatedAgo(0) }];
+    expect(pollingInterval(active, true, NOW)).toBe(POLL_INTERVAL_MS);
+    expect(pollingInterval(active, false, NOW)).toBe(false);
     expect(
-      pollingInterval([{ status: 'READY', processingStage: 'READY' }], true),
+      pollingInterval([{ status: 'READY', updatedAt: updatedAgo(0) }], true, NOW),
+    ).toBe(false);
+  });
+
+  it('stops polling uploads that were abandoned', () => {
+    expect(
+      pollingInterval(
+        [{ status: 'PENDING', updatedAt: updatedAgo(60_000) }],
+        true,
+        NOW,
+      ),
+    ).toBe(POLL_INTERVAL_MS);
+    expect(
+      pollingInterval(
+        [{ status: 'PENDING', updatedAt: updatedAgo(PENDING_UPLOAD_WINDOW_MS) }],
+        true,
+        NOW,
+      ),
     ).toBe(false);
   });
 

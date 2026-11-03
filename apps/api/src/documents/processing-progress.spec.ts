@@ -1,19 +1,55 @@
 import { describe, expect, it } from 'vitest';
 import { deriveProcessingProgress } from './processing-progress.js';
 
-const base = { status: 'PROCESSING' as const, factsStatus: 'PENDING' as const, summaryStatus: 'PENDING' as const, processingJobs: [] };
+const processing = { status: 'PROCESSING' as const, processingJobs: [] };
+const nextAttemptAt = new Date('2026-01-01T00:00:00Z');
 
 describe('deriveProcessingProgress', () => {
-  it('reports persisted lifecycle states', () => {
-    expect(deriveProcessingProgress({ ...base, status: 'PENDING' }).processingStage).toBe('UPLOADING');
-    expect(deriveProcessingProgress(base).processingStage).toBe('QUEUED');
-    expect(deriveProcessingProgress({ ...base, status: 'READY' }).processingStage).toBe('ENRICHING');
-    expect(deriveProcessingProgress({ ...base, status: 'READY', factsStatus: 'READY', summaryStatus: 'FAILED' }).processingStage).toBe('READY');
-    expect(deriveProcessingProgress({ ...base, status: 'FAILED' }).processingStage).toBe('FAILED');
+  it('maps each lifecycle state to a stage', () => {
+    expect(
+      deriveProcessingProgress({ ...processing, status: 'PENDING' }).processingStage,
+    ).toBe('UPLOADING');
+    expect(deriveProcessingProgress(processing).processingStage).toBe('QUEUED');
+    expect(
+      deriveProcessingProgress({ ...processing, status: 'READY' }).processingStage,
+    ).toBe('READY');
+    expect(
+      deriveProcessingProgress({ ...processing, status: 'FAILED' }).processingStage,
+    ).toBe('FAILED');
   });
+
+  it('reports a claimed job as processing', () => {
+    expect(
+      deriveProcessingProgress({
+        ...processing,
+        processingJobs: [
+          { state: 'CLAIMED', attempt: 1, maxAttempts: 3, nextAttemptAt },
+        ],
+      }),
+    ).toEqual({ processingStage: 'PROCESSING', retry: null });
+  });
+
   it('exposes a scheduled retry without job diagnostics', () => {
-    const nextAttemptAt = new Date('2026-01-01T00:00:00Z');
-    expect(deriveProcessingProgress({ ...base, processingJobs: [{ state: 'QUEUED', attempt: 1, maxAttempts: 3, nextAttemptAt }] })).toEqual({ processingStage: 'QUEUED', retry: { attempt: 1, maxAttempts: 3, nextRetryAt: nextAttemptAt.toISOString() } });
-    expect(deriveProcessingProgress({ ...base, processingJobs: [{ state: 'CLAIMED', attempt: 1, maxAttempts: 3, nextAttemptAt }] })).toEqual({ processingStage: 'PROCESSING', retry: null });
+    expect(
+      deriveProcessingProgress({
+        ...processing,
+        processingJobs: [
+          { state: 'QUEUED', attempt: 1, maxAttempts: 3, nextAttemptAt },
+        ],
+      }),
+    ).toEqual({
+      processingStage: 'QUEUED',
+      retry: {
+        attempt: 1,
+        maxAttempts: 3,
+        nextRetryAt: nextAttemptAt.toISOString(),
+      },
+    });
+  });
+
+  it('treats a ready document as ready while enrichment is pending', () => {
+    expect(
+      deriveProcessingProgress({ ...processing, status: 'READY' }).processingStage,
+    ).toBe('READY');
   });
 });

@@ -298,7 +298,7 @@ export type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
  * upload-verification failure or a processing failure. Neither carries internal
  * diagnostics.
  */
-export type DocumentProcessingStage = 'UPLOADING' | 'QUEUED' | 'PROCESSING' | 'ENRICHING' | 'READY' | 'FAILED';
+export type DocumentProcessingStage = 'UPLOADING' | 'QUEUED' | 'PROCESSING' | 'READY' | 'FAILED';
 
 export interface DocumentSummary {
   id: string;

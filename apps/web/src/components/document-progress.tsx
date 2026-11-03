@@ -1,30 +1,20 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { Progress } from '~/components/ui/progress';
 
-const steps = [
-  'Uploading',
-  'Verifying',
-  'Queued',
-  'Extracting',
-  'Indexing',
-  'Enriching',
-  'Ready',
-];
+const steps = ['Uploading', 'Queued', 'Processing', 'Ready'];
 
 function stageIndex(document: DocumentSummary): number {
   switch (document.processingStage) {
     case 'UPLOADING':
       return 0;
     case 'QUEUED':
-      return 2;
+      return 1;
     case 'PROCESSING':
-      return 3;
-    case 'ENRICHING':
-      return 5;
+      return 2;
     case 'READY':
-      return 6;
+      return 3;
     case 'FAILED':
-      return document.failureKind === 'VERIFICATION' ? 1 : 3;
+      return document.failureKind === 'VERIFICATION' ? 0 : 2;
     default:
       return 0;
   }
@@ -73,7 +63,7 @@ export function DocumentProgress({
         </span>
       )}
       <Progress
-        value={failed ? (index / 6) * 100 : ((index + 1) / 7) * 100}
+        value={((index + 1) / steps.length) * 100}
         className="h-1"
         indicatorClassName={failed ? 'bg-destructive' : undefined}
         aria-label="Document processing progress"
