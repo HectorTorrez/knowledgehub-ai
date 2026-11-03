@@ -372,14 +372,14 @@ function DocumentDetailPage() {
           {documentFailureGuidance(entry.failureReason).action === 'Reprocess' ? (
             <Button className="mt-3" size="sm" onClick={() => reprocess.mutate()} disabled={reprocess.isPending}>Reprocess</Button>
           ) : documentFailureGuidance(entry.failureReason).action === 'Replace file' ? (
-            <Link className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-3' })} to="/organizations/$organizationId/documents" params={{ organizationId }}>Replace file</Link>
+            <Link className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-3' })} to="/organizations/$organizationId/documents" params={{ organizationId }}>Upload again</Link>
           ) : (
             <Button className="mt-3" size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>Delete</Button>
           )}
         </div>
       ) : null}
 
-      <DocumentProgress document={entry} />
+      <DocumentProgress document={entry} detailed />
       {ACTIVE_STATUSES.has(entry.status) ? (
         <p className="text-sm text-muted-foreground" role="status">
           This page refreshes automatically while the document is being

@@ -31,7 +31,6 @@ import {
   type ReactNode,
 } from 'react';
 import { DocumentProgress } from '~/components/document-progress';
-import { documentFailureGuidance } from '~/lib/document-display';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
 import { FileDropzone } from '~/components/file-dropzone';
@@ -643,7 +642,7 @@ function DocumentsPage() {
                           >
                             <FileText className="size-5" />
                           </span>
-                          <span className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1">
                             <span
                               className="block text-sm font-medium break-words line-clamp-2 sm:line-clamp-1"
                               title={document.title}
@@ -674,7 +673,7 @@ function DocumentsPage() {
                                   : ''}
                               </span>
                             ) : null}
-                          </span>
+                          </div>
                         </Link>
                         {canWrite ? <DropdownMenu>
                           <DropdownMenuTrigger asChild>
