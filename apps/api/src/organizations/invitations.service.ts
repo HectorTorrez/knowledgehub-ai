@@ -13,7 +13,8 @@ import type {
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { ActivityService } from '../activity/activity.service.js';
-import { MembershipRole } from '../generated/prisma/client.js';
+import { canManageRole } from './permissions.js';
+import { requireCapability } from './require-owner.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { normalizeEmail } from '../users/email.js';
 import type { OrganizationContext } from './organization-context.js';
@@ -56,15 +57,17 @@ export class InvitationsService {
   async create(
     context: OrganizationContext,
     email: string,
+    role: OrganizationRole = 'MEMBER',
   ): Promise<CreateInvitationResponse> {
-    await this.assertOwner(context);
+    const actorRole = await this.assertManager(context);
 
+    if (!canManageRole(actorRole, role)) throw new ForbiddenException('Cannot grant this role');
     const token = randomBytes(INVITATION_TOKEN_BYTES).toString('base64url');
     const invitation = await this.prisma.organizationInvitation.create({
       data: {
         organizationId: context.organizationId,
         email: normalizeEmail(email),
-        role: MembershipRole.MEMBER,
+        role,
         tokenHash: hashToken(token),
         expiresAt: new Date(Date.now() + this.ttlMs),
       },
@@ -91,7 +94,7 @@ export class InvitationsService {
   }
 
   async list(context: OrganizationContext): Promise<InvitationListResponse> {
-    await this.assertOwner(context);
+    await this.assertManager(context);
 
     const invitations = await this.prisma.organizationInvitation.findMany({
       where: {
@@ -112,9 +115,10 @@ export class InvitationsService {
   }
 
   async revoke(context: OrganizationContext, invitationId: string): Promise<void> {
-    await this.assertOwner(context);
+    const actorRole = await this.assertManager(context);
 
-    const invitation = await this.prisma.organizationInvitation.findFirst({ where: { id: invitationId, organizationId: context.organizationId }, select: { email: true } });
+    const invitation = await this.prisma.organizationInvitation.findFirst({ where: { id: invitationId, organizationId: context.organizationId }, select: { email: true, role: true } });
+    if (invitation && !canManageRole(actorRole, invitation.role)) throw new ForbiddenException('Cannot manage this role');
     const result = await this.prisma.organizationInvitation.deleteMany({
       where: { id: invitationId, organizationId: context.organizationId },
     });
@@ -179,21 +183,7 @@ export class InvitationsService {
     return this.config.getOrThrow<number>('INVITATION_TTL_DAYS') * MS_PER_DAY;
   }
 
-  private async assertOwner(context: OrganizationContext): Promise<void> {
-    const membership = await this.prisma.membership.findUnique({
-      where: {
-        userId_organizationId: {
-          userId: context.userId,
-          organizationId: context.organizationId,
-        },
-      },
-      select: { role: true },
-    });
-
-    if (!membership || membership.role !== MembershipRole.OWNER) {
-      throw new ForbiddenException(
-        'Only an organization owner can manage invitations',
-      );
-    }
+  private async assertManager(context: OrganizationContext): Promise<OrganizationRole> {
+    return requireCapability(this.prisma, context, 'members.manage', 'manage invitations');
   }
 }

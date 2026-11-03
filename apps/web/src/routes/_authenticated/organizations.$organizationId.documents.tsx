@@ -6,6 +6,7 @@ import type {
 import {
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -79,6 +80,7 @@ import {
 } from '~/hooks/use-error-toast';
 import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
+import { organizationsApi } from '~/lib/api/organizations';
 import { formatBytes, formatDate } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
@@ -122,6 +124,8 @@ interface UploadItem {
 
 function DocumentsPage() {
   const { organizationId } = Route.useParams();
+  const organization = useQuery({ queryKey: queryKeys.organizations.detail(organizationId), queryFn: () => organizationsApi.detail(organizationId) });
+  const canWrite = organization.data?.organization.capabilities.includes('documents.write') ?? false;
   const client = useQueryClient();
   const { toast } = useToast();
   const reportError = useReportError();
@@ -474,12 +478,12 @@ function DocumentsPage() {
                     className={cn(documents.isFetching && 'animate-spin')}
                   />
                 </Button>
-                <DialogTrigger asChild>
+                {canWrite ? <DialogTrigger asChild>
                   <Button>
                     <Upload />
                     Upload document
                   </Button>
-                </DialogTrigger>
+                </DialogTrigger> : null}
               </div>
             }
           />
@@ -591,12 +595,12 @@ function DocumentsPage() {
                       Answers cite the passages they use.
                     </OnboardingStep>
                   </ol>
-                  <DialogTrigger asChild>
+                  {canWrite ? <DialogTrigger asChild>
                     <Button>
                       <Upload />
                       Upload your first document
                     </Button>
-                  </DialogTrigger>
+                  </DialogTrigger> : null}
                 </CardContent>
               </Card>
             )
@@ -659,7 +663,7 @@ function DocumentsPage() {
                             ) : null}
                           </span>
                         </Link>
-                        <DropdownMenu>
+                        {canWrite ? <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
@@ -691,7 +695,7 @@ function DocumentsPage() {
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu> : null}
                       </li>
                     ))}
                   </ul>
@@ -727,7 +731,7 @@ function DocumentsPage() {
             <FileDropzone
               accept={ALLOWED_UPLOAD_CONTENT_TYPES.join(',')}
               files={uploadItems.map((item) => item.file)}
-              disabled={uploading}
+              disabled={uploading || !canWrite}
               onFilesAdd={(files) => void addFiles(files)}
             />
 

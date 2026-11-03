@@ -53,6 +53,7 @@ import {
 } from '~/hooks/use-error-toast';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
+import { organizationsApi } from '~/lib/api/organizations';
 import { formatBytes, formatDateTime } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { documentTitleSchema } from '~/lib/validation';
@@ -94,6 +95,10 @@ const ACTIVE_STATUSES = new Set(['PENDING', 'PROCESSING']);
 
 function DocumentDetailPage() {
   const { organizationId, documentId } = Route.useParams();
+  const organization = useQuery({ queryKey: queryKeys.organizations.detail(organizationId), queryFn: () => organizationsApi.detail(organizationId) });
+  const capabilities = organization.data?.organization.capabilities ?? [];
+  const canWrite = capabilities.includes('documents.write');
+  const canDelete = capabilities.includes('documents.delete');
   const client = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -301,7 +306,7 @@ function DocumentDetailPage() {
                 </a>
               </Button>
             ) : null}
-            {entry.status === 'FAILED' ? (
+            {canWrite && entry.status === 'FAILED' ? (
               <Button
                 variant="outline"
                 disabled={reprocess.isPending}
@@ -311,14 +316,18 @@ function DocumentDetailPage() {
                 {reprocess.isPending ? 'Retrying…' : 'Retry processing'}
               </Button>
             ) : null}
-            <Button variant="outline" onClick={openRename}>
-              <Pencil />
-              Rename
-            </Button>
-            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-              <Trash2 />
-              Delete
-            </Button>
+            {canWrite ? (
+              <Button variant="outline" onClick={openRename}>
+                <Pencil />
+                Rename
+              </Button>
+            ) : null}
+            {canDelete ? (
+              <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+                <Trash2 />
+                Delete
+              </Button>
+            ) : null}
           </div>
         }
       />

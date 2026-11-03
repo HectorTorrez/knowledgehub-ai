@@ -1,13 +1,14 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
-import { can } from './permissions.js';
+import { can, type Capability, type PolicyRole } from './permissions.js';
 import type { OrganizationContext } from './organization-context.js';
 
-export async function requireOwner(
+export async function requireCapability(
   tx: Prisma.TransactionClient,
   context: Pick<OrganizationContext, 'userId' | 'organizationId'>,
+  capability: Capability,
   action: string,
-): Promise<void> {
+): Promise<PolicyRole> {
   const actor = await tx.membership.findUnique({
     where: {
       userId_organizationId: {
@@ -18,8 +19,13 @@ export async function requireOwner(
     select: { role: true },
   });
 
-  if (!actor || !can(actor.role, 'owners.manage')) {
-    throw new ForbiddenException(`Only an organization owner can ${action}`);
+  if (!actor || !can(actor.role, capability)) {
+    throw new ForbiddenException(`You cannot ${action}`);
   }
+  return actor.role;
 }
 
+
+export async function requireOwner(tx: Prisma.TransactionClient, context: Pick<OrganizationContext, 'userId' | 'organizationId'>, action: string): Promise<void> {
+  await requireCapability(tx, context, 'owners.manage', action);
+}

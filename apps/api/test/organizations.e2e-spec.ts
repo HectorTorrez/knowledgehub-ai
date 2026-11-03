@@ -1,3 +1,4 @@
+import { capabilitiesFor } from '../src/organizations/permissions.js';
 import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
@@ -114,8 +115,42 @@ describe('organizations (e2e)', () => {
   const addMembership = (
     userId: string,
     organizationId: string,
-    role: 'OWNER' | 'MEMBER',
+    role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER',
   ) => prisma.membership.create({ data: { userId, organizationId, role } });
+
+  it('enforces viewer and admin permissions across tenants', async () => {
+    const owner = await registerUser();
+    const viewer = await registerUser();
+    const admin = await registerUser();
+    const outsider = await registerUser();
+    const created = await createOrganization(owner.token, { name: 'Roles' }).expect(201);
+    const org = created.body.organization.id as string;
+    trackedOrganizationIds.add(org);
+    await addMembership(viewer.userId, org, 'VIEWER');
+    await addMembership(admin.userId, org, 'ADMIN');
+    const doc = randomUUID();
+    const base = `/organizations/${org}`;
+    const auth = bearer(viewer.token);
+    await request(app.getHttpServer()).post(`${base}/documents`).set(auth).send({ title: 'Test' }).expect(403);
+    await request(app.getHttpServer()).patch(`${base}/documents/${doc}`).set(auth).send({ title: 'Test' }).expect(403);
+    await request(app.getHttpServer()).delete(`${base}/documents/${doc}`).set(auth).expect(403);
+    await request(app.getHttpServer()).post(`${base}/documents/${doc}/reprocess`).set(auth).expect(403);
+    await request(app.getHttpServer()).post(`${base}/documents/${doc}/upload-url`).set(auth).send({ contentType: 'application/pdf' }).expect(403);
+    await request(app.getHttpServer()).post(`${base}/documents/${doc}/upload-complete`).set(auth).send({}).expect(403);
+    await request(app.getHttpServer()).post(`${base}/members`).set(auth).send({ email: outsider.email }).expect(403);
+    await request(app.getHttpServer()).patch(`${base}/members/${owner.userId}`).set(auth).send({ role: 'MEMBER' }).expect(403);
+    await request(app.getHttpServer()).delete(`${base}/members/${owner.userId}`).set(auth).expect(403);
+    await request(app.getHttpServer()).post(`${base}/invitations`).set(auth).send({ email: outsider.email }).expect(403);
+    await request(app.getHttpServer()).get(`${base}/invitations`).set(auth).expect(403);
+    await request(app.getHttpServer()).delete(`${base}/invitations/${randomUUID()}`).set(auth).expect(403);
+    const adminAuth = bearer(admin.token);
+    await request(app.getHttpServer()).delete(base).set(adminAuth).expect(403);
+    await request(app.getHttpServer()).patch(`${base}/members/${owner.userId}`).set(adminAuth).send({ role: 'VIEWER' }).expect(403);
+    await request(app.getHttpServer()).delete(`${base}/members/${owner.userId}`).set(adminAuth).expect(403);
+    await request(app.getHttpServer()).patch(`${base}/members/${viewer.userId}`).set(adminAuth).send({ role: 'OWNER' }).expect(403);
+    await request(app.getHttpServer()).post(`${base}/invitations`).set(adminAuth).send({ email: outsider.email, role: 'OWNER' }).expect(403);
+    await request(app.getHttpServer()).get(base).set(bearer(outsider.token)).expect(403);
+  });
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -163,6 +198,7 @@ describe('organizations (e2e)', () => {
         id: expect.any(String),
         name: 'Acme Inc.',
         role: 'OWNER',
+          capabilities: [...capabilitiesFor('OWNER')],
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
       },
@@ -219,6 +255,7 @@ describe('organizations (e2e)', () => {
           id: organizationId,
           name: 'Listed Org',
           role: 'OWNER',
+          capabilities: [...capabilitiesFor('OWNER')],
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
         },
@@ -389,6 +426,7 @@ describe('organizations (e2e)', () => {
           id: organizationId,
           name: 'Detail Org',
           role: 'OWNER',
+          capabilities: [...capabilitiesFor('OWNER')],
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
         },
@@ -1046,7 +1084,6 @@ describe('organizations (e2e)', () => {
       const cases: object[] = [
         {},
         { role: 'owner' },
-        { role: 'ADMIN' },
         { role: 123 },
         { role: null },
         { role: 'OWNER', userId: 'someone-else' },

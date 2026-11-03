@@ -106,3 +106,15 @@ test('owners see organization activity', async ({ page }) => {
   await page.goto('/organizations/org-1/settings');
   await expect(page.getByText('Ada Lovelace uploaded document “Handbook”')).toBeVisible();
 });
+
+
+test('viewers can browse documents without management actions', async ({ page }) => {
+  await mockApi(page, { authenticated: true, role: 'VIEWER' });
+  await page.goto('/organizations/org-1/documents');
+  await expect(page.getByRole('link', { name: 'Insights' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Upload document/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Actions for/ })).toHaveCount(0);
+  await page.goto('/organizations/org-1/documents/doc-1');
+  await expect(page.getByRole('button', { name: 'Rename' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+});

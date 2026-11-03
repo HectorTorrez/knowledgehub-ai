@@ -1,3 +1,4 @@
+import { capabilitiesFor } from './permissions.js';
 import {
   ConflictException,
   ForbiddenException,
@@ -323,6 +324,7 @@ describe('OrganizationsService.create', () => {
         id: 'org-1',
         name: 'Acme Inc.',
         role: 'OWNER',
+        capabilities: [...capabilitiesFor('OWNER')],
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
@@ -446,6 +448,7 @@ describe('OrganizationsService.listForUser', () => {
       id: 'org-1',
       name: 'Acme',
       role: 'OWNER',
+      capabilities: [...capabilitiesFor('OWNER')],
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-02T00:00:00.000Z',
     });
@@ -478,6 +481,7 @@ describe('OrganizationsService.getDetail', () => {
         id: 'org-1',
         name: 'Acme',
         role: 'MEMBER',
+        capabilities: [...capabilitiesFor('MEMBER')],
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
@@ -1524,7 +1528,7 @@ describe('OrganizationsService.updateName', () => {
 
     await expect(
       service.updateName(organizationContext('MEMBER'), { name: 'Nope' }),
-    ).rejects.toThrow('Only an organization owner can rename the organization');
+    ).rejects.toThrow('You cannot rename the organization');
     expect(tx.organization.update).not.toHaveBeenCalled();
     expect(activity.record).not.toHaveBeenCalled();
   });

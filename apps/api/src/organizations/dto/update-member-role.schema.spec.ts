@@ -5,6 +5,8 @@ describe('updateMemberRoleSchema', () => {
   it('accepts each supported role', () => {
     expect(updateMemberRoleSchema.parse({ role: 'OWNER' }).role).toBe('OWNER');
     expect(updateMemberRoleSchema.parse({ role: 'MEMBER' }).role).toBe('MEMBER');
+    expect(updateMemberRoleSchema.parse({ role: 'ADMIN' }).role).toBe('ADMIN');
+    expect(updateMemberRoleSchema.parse({ role: 'VIEWER' }).role).toBe('VIEWER');
   });
 
   it('rejects a missing, non-string or unsupported role', () => {
@@ -13,7 +15,6 @@ describe('updateMemberRoleSchema', () => {
       null,
       '',
       'owner',
-      'ADMIN',
       123,
       ['OWNER'],
     ]) {

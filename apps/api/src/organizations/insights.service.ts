@@ -2,14 +2,14 @@ import { Injectable } from '@nestjs/common';
 import type { KnowledgeInsightsResponse } from '@knowledgehub/shared-types';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from './organization-context.js';
-import { requireOwner } from './organizations.service.js';
+import { requireCapability } from './require-owner.js';
 
 @Injectable()
 export class InsightsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async get(context: OrganizationContext, days: number): Promise<KnowledgeInsightsResponse> {
-    await requireOwner(this.prisma, context, 'view insights');
+    await requireCapability(this.prisma, context, 'insights.view', 'view insights');
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const answerWhere = { organizationId: context.organizationId, createdAt: { gte: since } };
     const feedbackWhere = { answer: { organizationId: context.organizationId }, createdAt: { gte: since } };

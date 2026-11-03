@@ -24,7 +24,7 @@ export function formatDate(iso: string): string {
 }
 
 export function formatRole(role: OrganizationRole): string {
-  return role === 'OWNER' ? 'Owner' : 'Member';
+  return role.charAt(0) + role.slice(1).toLowerCase();
 }
 
 export function formatMinorAmount(

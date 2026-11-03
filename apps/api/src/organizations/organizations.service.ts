@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -14,7 +15,8 @@ import type {
   OrganizationSummary,
   UpdateMemberRoleResponse,
 } from '@knowledgehub/shared-types';
-import { requireOwner } from './require-owner.js';
+import { requireCapability } from './require-owner.js';
+import { capabilitiesFor, canManageRole } from './permissions.js';
 export { requireOwner } from './require-owner.js';
 import { ActivityService } from '../activity/activity.service.js';
 import { MembershipRole, Prisma } from '../generated/prisma/client.js';
@@ -152,7 +154,7 @@ export class OrganizationsService {
   ): Promise<OrganizationDetailResponse> {
     const organization = await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
-      await requireOwner(tx, context, 'rename the organization');
+      await requireCapability(tx, context, 'organization.manage', 'rename the organization');
 
       const previous = await tx.organization.findUniqueOrThrow({ where: { id: context.organizationId }, select: { name: true } });
       const organization = await tx.organization.update({
@@ -166,7 +168,7 @@ export class OrganizationsService {
     return {
       organization: toOrganizationSummary(
         organization,
-        MembershipRole.OWNER,
+        context.role,
       ),
     };
   }
@@ -174,7 +176,7 @@ export class OrganizationsService {
   async deleteOrganization(context: OrganizationContext): Promise<void> {
     await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
-      await requireOwner(tx, context, 'delete the organization');
+      await requireCapability(tx, context, 'organization.delete', 'delete the organization');
 
       await tx.organization.delete({ where: { id: context.organizationId } });
     });
@@ -244,7 +246,7 @@ export class OrganizationsService {
     try {
       const member = await this.runMembershipTransaction(async (tx) => {
         await lockOrganization(tx, context.organizationId);
-        await requireOwner(tx, context, 'add members');
+        await requireCapability(tx, context, 'members.manage', 'add members');
 
         const user = await tx.user.findUnique({
           where: { email },
@@ -297,7 +299,7 @@ export class OrganizationsService {
   ): Promise<UpdateMemberRoleResponse> {
     const member = await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
-      await requireOwner(tx, context, 'change member roles');
+      const actorRole = await requireCapability(tx, context, 'members.manage', 'change member roles');
 
       const target = await tx.membership.findUnique({
         where: {
@@ -313,13 +315,15 @@ export class OrganizationsService {
         throw new NotFoundException('Member not found');
       }
 
+      if (!canManageRole(actorRole, target.role) || !canManageRole(actorRole, input.role)) throw new ForbiddenException('Cannot manage this role');
+
       if (target.role === input.role) {
         return toOrganizationMember(target);
       }
 
       if (
         target.role === MembershipRole.OWNER &&
-        input.role === MembershipRole.MEMBER
+        input.role !== MembershipRole.OWNER
       ) {
         const ownerCount = await tx.membership.count({
           where: {
@@ -359,7 +363,7 @@ export class OrganizationsService {
   ): Promise<void> {
     await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
-      await requireOwner(tx, context, 'remove members');
+      const actorRole = await requireCapability(tx, context, 'members.manage', 'remove members');
 
       const target = await tx.membership.findUnique({
         where: {
@@ -374,6 +378,8 @@ export class OrganizationsService {
       if (!target) {
         throw new NotFoundException('Member not found');
       }
+
+      if (!canManageRole(actorRole, target.role)) throw new ForbiddenException('Cannot manage this role');
 
       if (target.role === MembershipRole.OWNER) {
         const ownerCount = await tx.membership.count({
@@ -411,6 +417,7 @@ function toOrganizationSummary(
     id: organization.id,
     name: organization.name,
     role,
+    capabilities: [...capabilitiesFor(role)],
     createdAt: organization.createdAt.toISOString(),
     updatedAt: organization.updatedAt.toISOString(),
   };
