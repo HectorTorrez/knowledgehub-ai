@@ -1,3 +1,5 @@
+import { FREE_PLAN } from '~/lib/plans';
+import { usageProgress } from '~/lib/usage';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { History, LogOut, Settings, Trash2 } from 'lucide-react';
@@ -210,24 +212,38 @@ function OrganizationSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Usage &amp; plan</CardTitle>
-            <CardDescription>Current plan: Free</CardDescription>
+            <CardDescription>Current plan: {FREE_PLAN.name}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {usage.data ? (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Daily answers</span>
-                  <span>{usage.data.usage.answers.used} / {usage.data.usage.answers.limit}</span>
-                </div>
-                <Progress
-                  aria-label="Daily answers"
-                  value={Math.min(100, usage.data.usage.answers.used / usage.data.usage.answers.limit * 100)}
-                  indicatorClassName={usage.data.usage.answers.used >= usage.data.usage.answers.limit ? 'bg-destructive' : usage.data.usage.answers.used >= usage.data.usage.answers.limit * 0.8 ? 'bg-amber-500' : undefined}
-                />
-                <p className="text-sm text-muted-foreground">Resets {formatDateTime(usage.data.usage.answers.resetsAt)}</p>
+              <div className="space-y-4">
+                {([
+                  ['Daily answers', usage.data.usage.answers],
+                  ['Documents', usage.data.usage.documents],
+                  ['Storage (bytes)', usage.data.usage.storageBytes],
+                  ['Members', usage.data.usage.members],
+                ] as const).map(([label, counter]) => {
+                  const progress = usageProgress(counter.used, counter.limit);
+                  return (
+                    <div key={label} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>{label}</span>
+                        <span>{counter.used.toLocaleString()} / {counter.limit?.toLocaleString() ?? 'Unlimited'}</span>
+                      </div>
+                      <Progress
+                        aria-label={label}
+                        value={progress.value}
+                        indicatorClassName={progress.tone === 'destructive' ? 'bg-destructive' : progress.tone === 'warning' ? 'bg-amber-500' : undefined}
+                      />
+                    </div>
+                  );
+                })}
+                <p className="text-sm text-muted-foreground">Daily answers reset {formatDateTime(usage.data.usage.answers.resetsAt)}</p>
               </div>
             ) : usage.isPending ? <Skeleton className="h-16 w-full" /> : null}
-            <Button asChild variant="outline"><a href="/#pricing">Upgrade</a></Button>
+            <Button asChild variant="outline">
+              <a href="/#pricing">Upgrade</a>
+            </Button>
           </CardContent>
         </Card>
       ) : null}

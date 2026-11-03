@@ -225,6 +225,9 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       await route.fulfill(
         json({
           usage: {
+            documents: { used: 1, limit: null },
+            storageBytes: { used: 1024, limit: null },
+            members: { used: 1, limit: null },
             answers: {
               used: 2,
               limit: 100,
