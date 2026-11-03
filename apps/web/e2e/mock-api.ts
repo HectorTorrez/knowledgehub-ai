@@ -81,6 +81,10 @@ function json(
 export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
   let authenticated = options.authenticated;
   let documentRequests = 0;
+  const conversations = [
+    { id: 'conversation-1', title: 'How much leave do I get?', createdAt: CREATED_AT, visibility: 'PRIVATE', createdBy: USER, canEdit: true, canShare: true },
+    { id: 'conversation-2', title: 'Team conversation', createdAt: CREATED_AT, visibility: 'ORGANIZATION', createdBy: { id: 'user-2', firstName: 'Grace', lastName: 'Hopper' }, canEdit: false, canShare: false },
+  ];
   function currentDocument() {
     if (options.progress === 'failed') {
       return {
@@ -263,44 +267,32 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
-    if (path === '/organizations/org-1/conversations/conversation-1') {
-      await route.fulfill(
-        json({
-          conversation: {
-            id: 'conversation-1',
-            title: 'How much leave do I get?',
-            createdAt: CREATED_AT,
-          },
-        }),
-      );
+    const conversationMatch = /^\/organizations\/org-1\/conversations\/([^/]+)$/.exec(path);
+    if (conversationMatch) {
+      const conversation = conversations.find((item) => item.id === conversationMatch[1]);
+      if (!conversation) {
+        await route.fulfill(json({ message: 'Not found' }, 404));
+        return;
+      }
+      if (method === 'PATCH') {
+        conversation.visibility = request.postDataJSON().visibility;
+      }
+      await route.fulfill(json({ conversation }));
       return;
     }
 
     if (path === '/organizations/org-1/conversations' && method === 'GET') {
-      await route.fulfill(
-        json({
-          conversations: options.empty ? [] : [
-            { id: 'conversation-1', title: 'How much leave do I get?', createdAt: CREATED_AT },
-          ],
-          nextCursor: null,
-        }),
+      const scope = url.searchParams.get('scope');
+      const filtered = conversations.filter((item) =>
+        scope === 'mine' ? item.createdBy.id === USER.id :
+        scope === 'shared' ? item.visibility === 'ORGANIZATION' : true,
       );
+      await route.fulfill(json({ conversations: options.empty ? [] : filtered, nextCursor: null }));
       return;
     }
 
     if (path === '/organizations/org-1/conversations' && method === 'POST') {
-      await route.fulfill(
-        json(
-          {
-            conversation: {
-              id: 'conversation-1',
-              title: null,
-              createdAt: CREATED_AT,
-            },
-          },
-          201,
-        ),
-      );
+      await route.fulfill(json({ conversation: conversations[0] }, 201));
       return;
     }
 
