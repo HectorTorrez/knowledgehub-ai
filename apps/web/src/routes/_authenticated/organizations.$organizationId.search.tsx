@@ -333,7 +333,10 @@ function SearchResultCard({
           <Link
             to="/organizations/$organizationId/documents/$documentId"
             params={{ organizationId, documentId: result.documentId }}
-            search={{ page: result.matches[0]?.pageNumber }}
+            search={{
+              page: result.matches[0]?.pageNumber,
+              quote: result.matches[0]?.excerpt,
+            }}
             className="min-w-0 truncate text-sm font-medium hover:underline"
             title={`Open ${result.documentTitle}`}
           >

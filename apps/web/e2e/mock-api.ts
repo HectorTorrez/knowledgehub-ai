@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import { createMinimalPdf } from './minimal-pdf';
 
 const API_ORIGIN = 'http://localhost:3001';
 const CREATED_AT = '2026-01-01T00:00:00.000Z';
@@ -56,6 +57,9 @@ function json(body: unknown, status = 200): { status: number; contentType: strin
 
 export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
   let authenticated = options.authenticated;
+  await page.route('https://fake-object-storage.test/**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/pdf', headers: { 'Access-Control-Allow-Origin': '*' }, body: Buffer.from(createMinimalPdf('Employees receive twenty days of leave each year.')) });
+  });
 
   await page.route(`${API_ORIGIN}/**`, async (route: Route) => {
     const request = route.request();

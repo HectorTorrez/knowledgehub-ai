@@ -158,7 +158,8 @@ test('opens the document detail page from the documents list', async ({
 
   await expect(page.getByRole('heading', { name: 'Handbook' })).toBeVisible();
   await expect(page.getByText('Original file')).toBeVisible();
-  expect(await overflowingElements(page)).toEqual([]);
+  await expect(page.getByText('Page 1 of 3')).toBeVisible();
+  await expect.poll(() => overflowingElements(page)).toEqual([]);
 });
 
 test('fits a queued upload dialog inside the mobile viewport', async ({

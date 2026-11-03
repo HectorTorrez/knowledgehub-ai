@@ -1,9 +1,12 @@
-import { documentContentTypeLabel, documentFailureMessage } from '~/lib/document-display';
+import {
+  canPreviewDocument,
+  documentContentTypeLabel,
+  documentFailureMessage,
+} from '~/lib/document-display';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowLeft,
-  BookOpen,
   ExternalLink,
   FileText,
   Pencil,
@@ -17,6 +20,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ContractTotalsCard } from '~/components/contract-totals-card';
+import { DocumentViewer } from '~/components/document-viewer';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { PageHeader } from '~/components/page-header';
 import { Button, buttonVariants } from '~/components/ui/button';
@@ -64,7 +68,7 @@ export const Route = createFileRoute(
     }),
   validateSearch: (
     search: Record<string, unknown>,
-  ): { page?: number } => {
+  ): { page?: number; quote?: string } => {
     const raw = search.page;
     const page =
       typeof raw === 'number'
@@ -73,7 +77,15 @@ export const Route = createFileRoute(
           ? Number(raw)
           : Number.NaN;
 
-    return Number.isInteger(page) && page > 0 ? { page } : {};
+    const quote =
+      typeof search.quote === 'string' && search.quote.trim().length > 0
+        ? search.quote
+        : undefined;
+
+    return {
+      ...(Number.isInteger(page) && page > 0 ? { page } : {}),
+      ...(quote ? { quote } : {}),
+    };
   },
   component: DocumentDetailPage,
 });
@@ -101,7 +113,7 @@ function DocumentDetailPage() {
   });
   useQueryErrorToast(document.error, () => void document.refetch());
 
-  const { page } = Route.useSearch();
+  const { page, quote } = Route.useSearch();
   const originalAvailable =
     document.data !== undefined &&
     document.data.document.status !== 'PENDING' &&
@@ -285,7 +297,7 @@ function DocumentDetailPage() {
                   onClick={(event) => void openOriginal(event)}
                 >
                   <ExternalLink />
-                  {page === undefined ? 'Open original' : `Open page ${page}`}
+                  Download original
                 </a>
               </Button>
             ) : null}
@@ -324,20 +336,15 @@ function DocumentDetailPage() {
         </p>
       ) : null}
 
-      {page !== undefined && originalAvailable ? (
-        <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4">
-          <BookOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <div className="space-y-1">
-            <p className="text-sm font-medium">Page {page}</p>
-            <p className="text-sm text-muted-foreground">
-              {download.data
-                ? `Open page ${page} in the original file to check the passage it came from.`
-                : download.isError
-                  ? 'The original file is not available right now.'
-                  : 'The original file is loading.'}
-            </p>
-          </div>
-        </div>
+      {download.data && canPreviewDocument(entry.contentType) ? (
+        <DocumentViewer
+          key={download.dataUpdatedAt}
+          url={download.data.url}
+          contentType={entry.contentType}
+          page={page}
+          quote={quote}
+          onRetry={() => void download.refetch()}
+        />
       ) : null}
 
       {entry.status === 'FAILED' ? (
