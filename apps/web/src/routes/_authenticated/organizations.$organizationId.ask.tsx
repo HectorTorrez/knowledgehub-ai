@@ -571,7 +571,7 @@ function EmptyConversation({
                     type="button"
                     variant="outline"
                     onClick={() => onSuggestion(suggestion)}
-                    className="group h-auto justify-between gap-3 rounded-lg px-3.5 py-3 text-left text-sm font-normal whitespace-normal"
+                    className="group h-auto sm:h-auto justify-between gap-3 rounded-lg px-3.5 py-3 text-left text-sm font-normal whitespace-normal"
                   >
                     <span>{suggestion}</span>
                     <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
