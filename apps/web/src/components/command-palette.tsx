@@ -11,7 +11,7 @@ import { documentsApi } from '~/lib/api/documents';
 import { shortcutLabel } from '~/lib/shortcut-label';
 import { writeAskDraft } from '~/lib/ask-draft';
 
-export function CommandPalette({ organizationId, organizations, owner, toggleTheme, logout }: Readonly<{ organizationId?: string; organizations: Array<{ id: string; name: string }>; owner: boolean; toggleTheme: () => void; logout: () => void }>) {
+export function CommandPalette({ organizationId, organizations, canViewInsights, toggleTheme, logout }: Readonly<{ organizationId?: string; organizations: Array<{ id: string; name: string }>; canViewInsights: boolean; toggleTheme: () => void; logout: () => void }>) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -42,7 +42,7 @@ export function CommandPalette({ organizationId, organizations, owner, toggleThe
         <Command><CommandInput placeholder="Search or type a command…" value={query} onValueChange={setQuery} /><CommandList className="max-h-none flex-1 sm:max-h-[60dvh]">
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Navigation">
-            {organizationId && ['Overview', 'Documents', 'Ask', 'Search', ...(owner ? ['Insights'] : []), 'Settings'].map((name) => <CommandItem key={name} onSelect={() => go(base + (name === 'Overview' ? '' : `/${name.toLowerCase()}`))}>{name}</CommandItem>)}
+            {organizationId && ['Overview', 'Documents', 'Ask', 'Search', ...(canViewInsights ? ['Insights'] : []), 'Settings'].map((name) => <CommandItem key={name} onSelect={() => go(base + (name === 'Overview' ? '' : `/${name.toLowerCase()}`))}>{name}</CommandItem>)}
             <CommandItem onSelect={() => go('/settings')}>Account settings</CommandItem>
           </CommandGroup>
           <CommandGroup heading="Organizations">{organizations.map((org) => <CommandItem key={org.id} value={`organization ${org.name} ${org.id}`} onSelect={() => go(`/organizations/${org.id}`)}>{org.name}</CommandItem>)}<CommandItem onSelect={() => go('/organizations#create')}>Create organization</CommandItem></CommandGroup>
