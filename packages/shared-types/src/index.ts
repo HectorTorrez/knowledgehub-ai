@@ -675,7 +675,10 @@ export type OrganizationActivityAction =
   | 'DOCUMENT_DELETED'
   | 'DOCUMENT_REPROCESSED'
   | 'CONVERSATION_SHARED'
-  | 'CONVERSATION_UNSHARED';
+  | 'CONVERSATION_UNSHARED'
+  | 'COLLECTION_CREATED'
+  | 'COLLECTION_UPDATED'
+  | 'COLLECTION_DELETED';
 
 export interface OrganizationActivityItem {
   id: string;
