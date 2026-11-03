@@ -21,6 +21,8 @@ import {
 } from 'react';
 import { ContractTotalsCard } from '~/components/contract-totals-card';
 import { DocumentViewer } from '~/components/document-viewer';
+import { DocumentProgress } from '~/components/document-progress';
+import { documentFailureGuidance } from '~/lib/document-display';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { PageHeader } from '~/components/page-header';
 import { Button, buttonVariants } from '~/components/ui/button';
@@ -51,6 +53,7 @@ import {
   useQueryErrorToast,
   useReportError,
 } from '~/hooks/use-error-toast';
+import { useDocumentNotifications } from '~/hooks/use-document-notifications';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -113,9 +116,10 @@ function DocumentDetailPage() {
     refetchInterval: (query) => {
       const data = query.state.data;
 
-      return data && ACTIVE_STATUSES.has(data.document.status) ? 3000 : false;
+      return data && (ACTIVE_STATUSES.has(data.document.status) || data.document.processingStage === 'ENRICHING') ? 3000 : false;
     },
   });
+  useDocumentNotifications(organizationId, document.data ? [document.data.document] : []);
   useQueryErrorToast(document.error, () => void document.refetch());
 
   const { page, quote } = Route.useSearch();
@@ -359,17 +363,23 @@ function DocumentDetailPage() {
       {entry.status === 'FAILED' ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
           <p className="font-medium text-destructive">
-            {entry.failureKind === 'VERIFICATION'
-              ? 'Upload verification failed'
-              : 'Processing failed'}
+            {documentFailureGuidance(entry.failureReason).title}
           </p>
           <p className="mt-1 text-muted-foreground">
             {documentFailureMessage(entry.failureReason) ??
               'No failure details were recorded. Delete this document and upload it again.'}
           </p>
+          {documentFailureGuidance(entry.failureReason).action === 'Reprocess' ? (
+            <Button className="mt-3" size="sm" onClick={() => reprocess.mutate()} disabled={reprocess.isPending}>Reprocess</Button>
+          ) : documentFailureGuidance(entry.failureReason).action === 'Replace file' ? (
+            <Link className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-3' })} to="/organizations/$organizationId/documents" params={{ organizationId }}>Replace file</Link>
+          ) : (
+            <Button className="mt-3" size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>Delete</Button>
+          )}
         </div>
       ) : null}
 
+      <DocumentProgress document={entry} />
       {ACTIVE_STATUSES.has(entry.status) ? (
         <p className="text-sm text-muted-foreground" role="status">
           This page refreshes automatically while the document is being
