@@ -1,3 +1,4 @@
+import { collectionsApi } from '~/lib/api/collections';
 import type { ConversationSummary } from '@knowledgehub/shared-types';
 import {
   useInfiniteQuery,
@@ -78,6 +79,7 @@ export const Route = createFileRoute(
     answer?: string;
     q?: string;
     documentId?: string;
+    collectionId?: string;
     conversation?: string;
   } => ({
     answer:
@@ -93,6 +95,7 @@ export const Route = createFileRoute(
       search.documentId.trim().length > 0
         ? search.documentId
         : undefined,
+    collectionId: typeof search.collectionId === 'string' ? search.collectionId : undefined,
     conversation:
       typeof search.conversation === 'string' &&
       search.conversation.trim().length > 0
@@ -114,6 +117,7 @@ function AskPage() {
     answer: permalinkAnswerId,
     q: presetQuestion,
     documentId: presetDocumentId,
+    collectionId: presetCollectionId,
     conversation: presetConversationId,
   } = Route.useSearch();
   const search = Route.useSearch();
@@ -123,7 +127,7 @@ function AskPage() {
   const [question, setQuestion] = useState(
     () => presetQuestion ?? readAskDraft(organizationId, presetConversationId),
   );
-  const [selection, setSelection] = useState(presetDocumentId ?? ALL_DOCUMENTS);
+  const [selection, setSelection] = useState(presetCollectionId ? `collection:${presetCollectionId}` : presetDocumentId ?? ALL_DOCUMENTS);
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
   >(presetConversationId ?? null);
@@ -145,7 +149,14 @@ function AskPage() {
   }, [organizationId, presetConversationId, presetQuestion]);
 
   const ready = useReadyDocuments(organizationId);
-  const scope = resolveDocumentScope(selection, ready.documents);
+  const collections = useQuery({
+    queryKey: queryKeys.organizations.collections(organizationId),
+    queryFn: () => collectionsApi.list(organizationId),
+  });
+  const selectedCollection = (collections.data ?? []).find((item) => `collection:${item.id}` === selection);
+  const scope = selectedCollection
+    ? { documentId: undefined, label: `“${selectedCollection.name}”` }
+    : resolveDocumentScope(selection, ready.documents);
   const stream = useAnswerStream(organizationId);
   const reportError = useReportError();
 
@@ -260,7 +271,7 @@ function AskPage() {
     clearAskDraft(organizationId, conversationId);
     setQuestion('');
 
-    await stream.ask(questionText, scope.documentId, conversationId);
+    await stream.ask(questionText, scope.documentId, conversationId, selectedCollection ? [selectedCollection.id] : undefined);
   }
 
   function updateConversationSearch(conversationId: string | undefined) {
@@ -487,10 +498,14 @@ function AskPage() {
             <AskComposer
               organizationId={organizationId}
               documents={ready.documents}
-              documentId={scope.documentId}
+              selection={selection}
+              collections={collections.data ?? []}
               question={question}
               onQuestionChange={changeQuestion}
-              onDocumentChange={setSelection}
+              onDocumentChange={(value) => {
+                setSelection(value);
+                void navigate({ to: '/organizations/$organizationId/ask', params: { organizationId }, search: { ...search, documentId: value !== ALL_DOCUMENTS && !value.startsWith('collection:') ? value : undefined, collectionId: value.startsWith('collection:') ? value.slice(11) : undefined }, replace: true });
+              }}
               onSubmit={() => void submit()}
               onStop={stream.cancel}
               streaming={streaming}

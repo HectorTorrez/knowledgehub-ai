@@ -1,3 +1,4 @@
+import { collectionsApi } from '~/lib/api/collections';
 import type { SearchResult } from '@knowledgehub/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -46,6 +47,7 @@ export const Route = createFileRoute(
     }),
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === 'string' ? search.q : undefined,
+    collectionIds: Array.isArray(search.collectionIds) ? search.collectionIds.filter((id): id is string => typeof id === 'string').slice(0, 20) : [],
     documentIds: Array.isArray(search.documentIds) ? search.documentIds.filter((id): id is string => typeof id === 'string').slice(0, 20) : [],
     createdAfter: typeof search.createdAfter === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.createdAfter) ? search.createdAfter : '',
     createdBefore: typeof search.createdBefore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.createdBefore) ? search.createdBefore : '',
@@ -71,8 +73,13 @@ function SearchPage() {
   );
 
   const ready = useReadyDocuments(organizationId);
+  const collections = useQuery({
+    queryKey: queryKeys.organizations.collections(organizationId),
+    queryFn: () => collectionsApi.list(organizationId),
+  });
   const documentId = filters.documentIds.length === 1 ? filters.documentIds[0] : undefined;
   const hasFilters =
+    filters.collectionIds.length > 0 ||
     filters.documentIds.length > 0 ||
     filters.createdAfter !== '' ||
     filters.createdBefore !== '';
@@ -186,6 +193,13 @@ function SearchPage() {
               onChange={(documentIds) => updateFilters({ documentIds })}
             />
           </div>
+          <DocumentMultiSelect
+            label="Collections"
+            emptyLabel="All collections"
+            documents={(collections.data ?? []).map((item) => ({ id: item.id, title: item.name }))}
+            selectedIds={filters.collectionIds}
+            onChange={(collectionIds) => updateFilters({ collectionIds })}
+          />
           <div className="space-y-1.5">
             <Label htmlFor="search-created-after">Created after</Label>
             <DatePicker
@@ -216,6 +230,7 @@ function SearchPage() {
               onClick={() =>
                 updateFilters({
                   documentIds: [],
+                  collectionIds: [],
                   createdAfter: '',
                   createdBefore: '',
                 })

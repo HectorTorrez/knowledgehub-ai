@@ -41,7 +41,7 @@ export function useAnswerStream(organizationId: string) {
   }, []);
 
   const ask = useCallback(
-    async (question: string, documentId?: string, conversationId?: string) => {
+    async (question: string, documentId?: string, conversationId?: string, collectionIds?: string[]) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -73,6 +73,7 @@ export function useAnswerStream(organizationId: string) {
             });
           },
           controller.signal,
+          collectionIds,
         );
 
         setState((current) => ({ ...current, status: 'done' }));

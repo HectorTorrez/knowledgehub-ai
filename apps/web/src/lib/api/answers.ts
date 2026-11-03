@@ -103,10 +103,12 @@ export async function streamAnswer(
   conversationId: string | undefined,
   onEvent: (event: AnswerStreamEvent) => void,
   signal?: AbortSignal,
+  collectionIds?: string[],
 ): Promise<void> {
   const body: AnswerRequest = {
     question,
     stream: true,
+    ...(collectionIds?.length ? { collectionIds } : {}),
     ...(documentId ? { documentId } : {}),
     ...(conversationId ? { conversationId } : {}),
   };

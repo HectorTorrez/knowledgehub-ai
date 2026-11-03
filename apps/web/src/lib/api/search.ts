@@ -5,6 +5,7 @@ export interface SearchOptions extends RequestOptions {
   limit?: number;
   documentId?: string;
   documentIds?: string[];
+  collectionIds?: string[];
   createdAfter?: string;
   createdBefore?: string;
 }
@@ -23,6 +24,7 @@ export const searchApi = {
       params.set('documentId', options.documentId);
     }
 
+    for (const id of options.collectionIds ?? []) params.append('collectionIds', id);
     for (const id of options.documentIds ?? []) params.append('documentIds', id);
     if (options.createdAfter) params.set('createdAfter', options.createdAfter);
     if (options.createdBefore) params.set('createdBefore', options.createdBefore);
