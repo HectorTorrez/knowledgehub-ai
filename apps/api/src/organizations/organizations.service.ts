@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -15,6 +14,9 @@ import type {
   OrganizationSummary,
   UpdateMemberRoleResponse,
 } from '@knowledgehub/shared-types';
+import { requireOwner } from './require-owner.js';
+export { requireOwner } from './require-owner.js';
+import { ActivityService } from '../activity/activity.service.js';
 import { MembershipRole, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { isTransientTransactionFailure } from '../prisma/transient-transaction-errors.js';
@@ -74,29 +76,10 @@ export async function lockOrganization(
   }
 }
 
-export async function requireOwner(
-  tx: Prisma.TransactionClient,
-  context: Pick<OrganizationContext, 'userId' | 'organizationId'>,
-  action: string,
-): Promise<void> {
-  const actor = await tx.membership.findUnique({
-    where: {
-      userId_organizationId: {
-        userId: context.userId,
-        organizationId: context.organizationId,
-      },
-    },
-    select: { role: true },
-  });
-
-  if (!actor || actor.role !== MembershipRole.OWNER) {
-    throw new ForbiddenException(`Only an organization owner can ${action}`);
-  }
-}
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly activity: ActivityService) {}
 
   private runMembershipTransaction<T>(
     work: (tx: Prisma.TransactionClient) => Promise<T>,
@@ -171,10 +154,13 @@ export class OrganizationsService {
       await lockOrganization(tx, context.organizationId);
       await requireOwner(tx, context, 'rename the organization');
 
-      return tx.organization.update({
+      const previous = await tx.organization.findUniqueOrThrow({ where: { id: context.organizationId }, select: { name: true } });
+      const organization = await tx.organization.update({
         where: { id: context.organizationId },
         data: { name: input.name },
       });
+      await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'ORGANIZATION_RENAMED', targetType: 'organization', targetId: context.organizationId, metadata: { from: previous.name, to: organization.name } });
+      return organization;
     });
 
     return {
@@ -235,6 +221,7 @@ export class OrganizationsService {
           },
         },
       });
+      await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'MEMBER_LEFT', targetType: 'member', targetId: context.userId, metadata: {} });
     });
   }
 
@@ -284,6 +271,7 @@ export class OrganizationsService {
           select: { role: true, createdAt: true },
         });
 
+        await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'MEMBER_ADDED', targetType: 'member', targetId: user.id, metadata: { email: user.email, role: membership.role } });
         return toOrganizationMember({
           role: membership.role,
           createdAt: membership.createdAt,
@@ -358,6 +346,7 @@ export class OrganizationsService {
         select: MEMBER_PROJECTION,
       });
 
+      await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'MEMBER_ROLE_CHANGED', targetType: 'member', targetId: targetUserId, metadata: { email: target.user.email, from: target.role, to: updated.role } });
       return toOrganizationMember(updated);
     });
 
@@ -379,7 +368,7 @@ export class OrganizationsService {
             organizationId: context.organizationId,
           },
         },
-        select: { role: true },
+        select: { role: true, user: { select: { email: true } } },
       });
 
       if (!target) {
@@ -409,6 +398,7 @@ export class OrganizationsService {
           },
         },
       });
+      await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'MEMBER_REMOVED', targetType: 'member', targetId: targetUserId, metadata: { email: target.user.email } });
     });
   }
 }

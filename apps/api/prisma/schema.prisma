@@ -37,6 +37,7 @@ model User {
   documents      Document[]
   answers        Answer[]
   answerFeedback AnswerFeedback[]
+  activities     OrganizationActivity[]
 }
 
 /// A single login on a single device. This is the unit of revocation: revoking
@@ -117,12 +118,13 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships Membership[]
-  documents   Document[]
-  answers     Answer[]
-  tenantUsage TenantUsage[]
+  memberships   Membership[]
+  documents     Document[]
+  answers       Answer[]
+  tenantUsage   TenantUsage[]
   conversations Conversation[]
-  invitations  OrganizationInvitation[]
+  invitations   OrganizationInvitation[]
+  activities    OrganizationActivity[]
 }
 
 /// Links a user to an organization with a role. The [userId, organizationId]
@@ -542,4 +544,35 @@ model OrganizationInvitation {
   createdAt DateTime @default(now())
 
   @@index([organizationId])
+}
+
+enum OrganizationActivityAction {
+  MEMBER_ADDED
+  MEMBER_REMOVED
+  MEMBER_ROLE_CHANGED
+  MEMBER_LEFT
+  INVITATION_CREATED
+  INVITATION_REVOKED
+  INVITATION_ACCEPTED
+  ORGANIZATION_RENAMED
+  DOCUMENT_UPLOADED
+  DOCUMENT_RENAMED
+  DOCUMENT_DELETED
+  DOCUMENT_REPROCESSED
+}
+
+model OrganizationActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  organizationId String                     @db.Uuid
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorId        String?                    @db.Uuid
+  actor          User?                      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action         OrganizationActivityAction
+  targetType     String
+  targetId       String?
+  metadata       Json                       @default("{}")
+  createdAt      DateTime                   @default(now())
+
+  @@index([organizationId, createdAt])
 }

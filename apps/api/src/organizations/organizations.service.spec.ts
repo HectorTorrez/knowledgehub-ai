@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
+import type { ActivityService } from '../activity/activity.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from './organization-context.js';
 import {
@@ -209,6 +210,7 @@ function createHarness(options: HarnessOptions = {}) {
         organizations.push(organization);
         return organization;
       }),
+      findUniqueOrThrow: vi.fn(async () => ({ name: 'Acme' })),
       update: vi.fn(async ({ data }: { data: { name: string } }) =>
         organizationRecord('org-1', data.name),
       ),
@@ -241,8 +243,8 @@ function createHarness(options: HarnessOptions = {}) {
           if (userId === ACTOR_USER_ID) {
             calls.push('read-actor-membership');
             return options.actorMembership === undefined
-              ? { role: 'OWNER' }
-              : options.actorMembership;
+              ? { role: 'OWNER', user: { email: 'owner@example.test' } }
+              : options.actorMembership && { ...options.actorMembership, user: { email: 'owner@example.test' } };
           }
           calls.push('read-target-membership');
           return options.targetMembership ?? null;
@@ -304,9 +306,10 @@ function createHarness(options: HarnessOptions = {}) {
     ),
   };
 
-  const service = new OrganizationsService(prisma as unknown as PrismaService);
+  const activity = { record: vi.fn(async () => {}) };
+  const service = new OrganizationsService(prisma as unknown as PrismaService, activity as unknown as ActivityService);
 
-  return { service, prisma, tx, organizations, memberships, calls };
+  return { service, prisma, tx, organizations, memberships, calls, activity };
 }
 
 describe('OrganizationsService.create', () => {
@@ -609,7 +612,7 @@ function organizationContext(
 
 describe('OrganizationsService.addMember', () => {
   it('adds an existing user as a MEMBER and returns the public member shape', async () => {
-    const { service } = createHarness();
+    const { service, activity } = createHarness();
 
     const result = await service.addMember(organizationContext(), {
       email: 'new-user@example.test',
@@ -625,6 +628,7 @@ describe('OrganizationsService.addMember', () => {
         createdAt: '2026-03-01T00:00:00.000Z',
       },
     });
+    expect(activity.record).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'MEMBER_ADDED' }));
   });
 
   it('always writes role MEMBER for the organization from the context', async () => {
@@ -893,7 +897,7 @@ const TARGET_USER_ID = 'target-user';
 
 describe('OrganizationsService.updateMemberRole', () => {
   it('promotes a MEMBER to OWNER and returns the public member shape', async () => {
-    const { service, tx } = createHarness({
+    const { service, tx, activity } = createHarness({
       targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
     });
 
@@ -915,6 +919,7 @@ describe('OrganizationsService.updateMemberRole', () => {
     });
     expect(tx.membership.update).toHaveBeenCalledTimes(1);
     expect(tx.membership.count).not.toHaveBeenCalled();
+    expect(activity.record).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'MEMBER_ROLE_CHANGED' }));
   });
 
   it('scopes the update to the context organization and route user, not request input', async () => {
@@ -1165,7 +1170,7 @@ describe('OrganizationsService.updateMemberRole', () => {
 
 describe('OrganizationsService.removeMember', () => {
   it('removes a MEMBER scoped to the context organization and route user', async () => {
-    const { service, tx } = createHarness({
+    const { service, tx, activity } = createHarness({
       targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
     });
 
@@ -1183,6 +1188,7 @@ describe('OrganizationsService.removeMember', () => {
       },
     });
     expect(tx.membership.count).not.toHaveBeenCalled();
+    expect(activity.record).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'MEMBER_REMOVED' }));
   });
 
   it('acquires the organization lock before reading the actor and the target', async () => {
@@ -1495,7 +1501,7 @@ describe('OrganizationsService lock wait bounding', () => {
 
 describe('OrganizationsService.updateName', () => {
   it('renames the organization for an owner', async () => {
-    const { service, tx } = createHarness();
+    const { service, tx, activity } = createHarness();
 
     const result = await service.updateName(organizationContext(), {
       name: 'Renamed',
@@ -1510,15 +1516,17 @@ describe('OrganizationsService.updateName', () => {
       name: 'Renamed',
       role: 'OWNER',
     });
+    expect(activity.record).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'ORGANIZATION_RENAMED' }));
   });
 
   it('rejects a rename from a member', async () => {
-    const { service, tx } = createHarness({ actorMembership: { role: 'MEMBER' } });
+    const { service, tx, activity } = createHarness({ actorMembership: { role: 'MEMBER' } });
 
     await expect(
       service.updateName(organizationContext('MEMBER'), { name: 'Nope' }),
     ).rejects.toThrow('Only an organization owner can rename the organization');
     expect(tx.organization.update).not.toHaveBeenCalled();
+    expect(activity.record).not.toHaveBeenCalled();
   });
 });
 
@@ -1536,7 +1544,7 @@ describe('OrganizationsService.deleteOrganization', () => {
 
 describe('OrganizationsService.leave', () => {
   it('removes the caller membership', async () => {
-    const { service, tx } = createHarness({ actorMembership: { role: 'MEMBER' } });
+    const { service, tx, activity } = createHarness({ actorMembership: { role: 'MEMBER' } });
 
     await service.leave(organizationContext('MEMBER'));
 
@@ -1548,6 +1556,7 @@ describe('OrganizationsService.leave', () => {
         },
       },
     });
+    expect(activity.record).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'MEMBER_LEFT' }));
   });
 
   it('blocks the last owner from leaving', async () => {
