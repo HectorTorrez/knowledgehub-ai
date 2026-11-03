@@ -21,6 +21,13 @@ test('filters grouped search results and expands matches', async ({ page }) => {
   await page.getByLabel('Search query').fill('leave');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.locator('mark')).toHaveText('leave');
+  const expectedPaddingTop = await page.evaluate(() =>
+    window.matchMedia('(min-width: 640px)').matches ? '24px' : '16px',
+  );
+  await expect(page.locator('[data-slot="card-content"]').last()).toHaveCSS(
+    'padding-top',
+    expectedPaddingTop,
+  );
   expect(new URL(query).searchParams.get('documentIds')).toBe('doc-1');
   expect(new URL(query).searchParams.get('createdAfter')).toBe(todayIso);
   await page.getByRole('button', { name: '+1 more matches' }).click();

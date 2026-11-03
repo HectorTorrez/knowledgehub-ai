@@ -473,7 +473,7 @@ function DocumentsPage() {
           />
 
           <Card>
-            <CardContent className="flex flex-col gap-3 p-4 pt-4 sm:flex-row sm:items-center sm:pt-6">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -555,7 +555,7 @@ function DocumentsPage() {
               />
             ) : (
               <Card>
-                <CardContent className="flex flex-col items-center gap-4 px-4 py-10 pt-10 text-center sm:px-6 sm:pt-10">
+                <CardContent className="flex flex-col items-center gap-4 px-4 py-10 text-center sm:px-6 sm:py-10">
                   <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <FileText className="size-6" />
                   </span>

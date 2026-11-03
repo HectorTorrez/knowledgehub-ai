@@ -174,7 +174,7 @@ function SearchPage() {
       </form>
 
       <Card>
-        <CardContent className="flex flex-col gap-3 p-4 pt-4 sm:flex-row sm:items-end sm:pt-6">
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
           <div className="flex-1">
             <DocumentMultiSelect
               documents={ready.documents}
@@ -326,7 +326,7 @@ function SearchResultCard({
 
   return (
     <Card>
-      <CardContent className="p-4 pt-4">
+      <CardContent>
         <div className="flex items-center justify-between gap-2">
           <Link
             to="/organizations/$organizationId/documents/$documentId"
