@@ -525,18 +525,21 @@ export interface ConversationDetailResponse {
   conversation: ConversationSummary;
 }
 
-/**
- * One result of `GET /organizations/:organizationId/search`. `excerpt` is the
- * matching chunk's text, and `score` is its normalized hybrid ranking relevance
- * (higher is closer).
- */
-export interface SearchResult {
-  documentId: string;
-  documentTitle: string;
+/** A matching passage and highlight offsets in its original excerpt (UTF-16). */
+export interface SearchMatch {
   pageNumber: number;
   chunkIndex: number;
   excerpt: string;
+  highlights: Array<{ start: number; end: number }>;
+}
+
+/** A document ranked by its best matching chunk; matchCount counts candidate hits. */
+export interface SearchResult {
+  documentId: string;
+  documentTitle: string;
   score: number;
+  matchCount: number;
+  matches: SearchMatch[];
 }
 
 /** Response body of `GET /organizations/:organizationId/search`. */

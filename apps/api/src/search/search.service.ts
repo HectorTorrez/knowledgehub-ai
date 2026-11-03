@@ -4,7 +4,7 @@ import {
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { SearchResponse, SearchResult } from '@knowledgehub/shared-types';
+import type { SearchResponse } from '@knowledgehub/shared-types';
 import {
   EmbeddingRejectedError,
   EmbeddingResponseError,
@@ -14,23 +14,13 @@ import {
   RetrievalService,
   type RetrievedChunk,
 } from '../retrieval/retrieval.service.js';
-import { RetrievalQueryError } from '../retrieval/retrieval-policy.js';
+import { MAX_RETRIEVAL_LIMIT, RetrievalQueryError } from '../retrieval/retrieval-policy.js';
+import { groupSearchResults } from './search-results.js';
 import type { SearchInput } from './dto/search.schema.js';
 
 function withCause<T extends Error>(exception: T, cause: unknown): T {
   exception.cause = cause;
   return exception;
-}
-
-function toSearchResult(chunk: RetrievedChunk): SearchResult {
-  return {
-    documentId: chunk.documentId,
-    documentTitle: chunk.title,
-    pageNumber: chunk.pageNumber,
-    chunkIndex: chunk.chunkIndex,
-    excerpt: chunk.content,
-    score: chunk.relevance,
-  };
 }
 
 @Injectable()
@@ -47,14 +37,17 @@ export class SearchService {
       chunks = await this.retrieval.search({
         organizationId,
         text: input.q,
-        limit: input.limit,
+        limit: Math.min(input.limit * 5, MAX_RETRIEVAL_LIMIT),
         ...(input.documentId ? { documentId: input.documentId } : {}),
+        ...(input.documentIds ? { documentIds: input.documentIds } : {}),
+        ...(input.createdAfter ? { createdAfter: input.createdAfter } : {}),
+        ...(input.createdBefore ? { createdBefore: input.createdBefore } : {}),
       });
     } catch (error) {
       throw mapSearchError(error);
     }
 
-    return { results: chunks.map(toSearchResult) };
+    return { results: groupSearchResults(chunks, input.q, input.limit) };
   }
 }
 
