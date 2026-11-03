@@ -65,7 +65,7 @@ function OrganizationSettingsPage() {
   });
   useQueryErrorToast(organization.error, () => void organization.refetch());
 
-  const isOwner = organization.data?.organization.capabilities.includes('organization.delete') ?? false;
+  const canDeleteOrganization = organization.data?.organization.capabilities.includes('organization.delete') ?? false;
   const canManage = organization.data?.organization.capabilities.includes('organization.manage') ?? false;
   const activity = useInfiniteQuery({
     queryKey: ['organizations', organizationId, 'activity'],
@@ -228,7 +228,7 @@ function OrganizationSettingsPage() {
           <div className="space-y-1">
             <p className="text-sm font-medium">Leave this organization</p>
             <p className="text-sm text-muted-foreground">
-              {isOwner
+              {canDeleteOrganization
                 ? 'If you are the last owner, transfer ownership or delete the organization instead.'
                 : 'You will lose access to its documents and answers.'}
             </p>
@@ -242,7 +242,7 @@ function OrganizationSettingsPage() {
           </Button>
         </CardContent>
 
-        {isOwner ? (
+        {canDeleteOrganization ? (
           <CardContent className="flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
             <div className="space-y-1">
               <p className="text-sm font-medium">Delete this organization</p>

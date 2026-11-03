@@ -121,7 +121,7 @@ function OrganizationOverviewPage() {
   useQueryErrorToast(organization.error, () => void organization.refetch());
   useQueryErrorToast(members.error, () => void members.refetch());
 
-  const isOwner = organization.data?.organization.capabilities.includes('members.manage') ?? false;
+  const canManageMembers = organization.data?.organization.capabilities.includes('members.manage') ?? false;
   const canManageOwners = organization.data?.organization.capabilities.includes('owners.manage') ?? false;
   const canWrite = organization.data?.organization.capabilities.includes('documents.write') ?? false;
   const [inviteRole, setInviteRole] = useState<OrganizationRole>('MEMBER');
@@ -134,7 +134,7 @@ function OrganizationOverviewPage() {
   const invitations = useQuery({
     queryKey: queryKeys.organizations.invitations.list(organizationId),
     queryFn: () => invitationsApi.list(organizationId),
-    enabled: isOwner,
+    enabled: canManageMembers,
   });
   useQueryErrorToast(usage.error, () => void usage.refetch());
   useQueryErrorToast(invitations.error, () => void invitations.refetch());
@@ -173,9 +173,7 @@ function OrganizationOverviewPage() {
       toast({
         variant: 'success',
         title: 'Role updated',
-        description: `${data.member.email} is now ${
-          data.member.role === 'OWNER' ? 'an owner' : 'a member'
-        }.`,
+        description: `${data.member.email} now has the ${formatRole(data.member.role)} role.`,
       });
 
       return client.invalidateQueries({
@@ -442,7 +440,7 @@ function OrganizationOverviewPage() {
                 account yet, adding them creates a shareable invitation.
               </p>
             </div>
-            {isOwner ? (
+            {canManageMembers ? (
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <UserPlus />
@@ -495,7 +493,7 @@ function OrganizationOverviewPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                      {isOwner && (member.role !== 'OWNER' || canManageOwners) && member.userId !== currentUserId ? (
+                      {canManageMembers && (member.role !== 'OWNER' || canManageOwners) && member.userId !== currentUserId ? (
                         <Select
                           value={member.role}
                           onValueChange={(role) =>
@@ -525,7 +523,7 @@ function OrganizationOverviewPage() {
                           {formatRole(member.role)}
                         </Badge>
                       )}
-                      {isOwner && (member.role !== 'OWNER' || canManageOwners) && member.userId !== currentUserId ? (
+                      {canManageMembers && (member.role !== 'OWNER' || canManageOwners) && member.userId !== currentUserId ? (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -630,7 +628,7 @@ function OrganizationOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {isOwner ? (
+      {canManageMembers ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
