@@ -14,6 +14,7 @@ interface OwnedGeneration {
   documentId: string;
   organizationId: string;
   documentGeneration: number;
+  title: string;
 }
 
 interface QueryClient {
@@ -28,6 +29,10 @@ interface CommandClient {
     query: TemplateStringsArray,
     ...values: unknown[]
   ): Promise<number>;
+}
+
+export function buildEmbeddingInput(title: string, pageNumber: number, content: string): string {
+  return `Document: ${title}\nPage: ${pageNumber}\n\n${content}`;
 }
 
 function vectorLiteral(values: number[]): string {
@@ -57,7 +62,7 @@ export class DocumentChunkStore {
     }
 
     const vectors = await this.embeddings.embed(
-      chunks.map((chunk) => chunk.content),
+      chunks.map((chunk) => buildEmbeddingInput(preview.title, chunk.pageNumber, chunk.content)),
     );
     this.assertStorableVectors(vectors, chunks.length);
 
@@ -103,7 +108,7 @@ export class DocumentChunkStore {
   ): Promise<OwnedGeneration | null> {
     const rows = lock
       ? await client.$queryRaw<OwnedGeneration[]>`
-          SELECT j."documentId", j."organizationId", j."documentGeneration"
+          SELECT j."documentId", j."organizationId", j."documentGeneration", d.title
           FROM "DocumentProcessingJob" AS j
           JOIN "Document" AS d ON d.id = j."documentId"
           WHERE j.id = ${ownership.jobId}::uuid
@@ -120,7 +125,7 @@ export class DocumentChunkStore {
           FOR UPDATE OF j, d
         `
       : await client.$queryRaw<OwnedGeneration[]>`
-          SELECT j."documentId", j."organizationId", j."documentGeneration"
+          SELECT j."documentId", j."organizationId", j."documentGeneration", d.title
           FROM "DocumentProcessingJob" AS j
           JOIN "Document" AS d ON d.id = j."documentId"
           WHERE j.id = ${ownership.jobId}::uuid
