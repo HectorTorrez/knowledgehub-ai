@@ -143,4 +143,9 @@
   [role='button'] {
     touch-action: manipulation;
   }
+
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
 }

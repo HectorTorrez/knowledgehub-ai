@@ -98,7 +98,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-3 pr-8 pl-2 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground sm:py-1.5 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex w-full cursor-pointer items-center gap-2 rounded-sm py-3 pr-8 pl-2 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground sm:py-1.5 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
@@ -133,7 +133,7 @@ function SelectScrollUpButton({
   return (
     <SelectPrimitive.ScrollUpButton
       data-slot="select-scroll-up-button"
-      className={cn('flex cursor-default items-center justify-center py-1', className)}
+      className={cn('flex cursor-pointer items-center justify-center py-1', className)}
       {...props}
     >
       <ChevronUpIcon className="size-4" />
@@ -148,7 +148,7 @@ function SelectScrollDownButton({
   return (
     <SelectPrimitive.ScrollDownButton
       data-slot="select-scroll-down-button"
-      className={cn('flex cursor-default items-center justify-center py-1', className)}
+      className={cn('flex cursor-pointer items-center justify-center py-1', className)}
       {...props}
     >
       <ChevronDownIcon className="size-4" />

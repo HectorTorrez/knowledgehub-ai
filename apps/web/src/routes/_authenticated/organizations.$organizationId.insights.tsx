@@ -18,7 +18,7 @@ function InsightsPage() {
   const totals = insights.data?.totals;
   return <div className="space-y-6">
     <PageHeader title="Knowledge insights" description="Explore questions and feedback across your organization." />
-    <label className="flex items-center gap-2 text-sm">Time window <select className="rounded-md border bg-background p-2" value={days} onChange={(event) => setDays(Number(event.target.value))}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select></label>
+    <label className="flex items-center gap-2 text-sm">Time window <select className="cursor-pointer rounded-md border bg-background p-2" value={days} onChange={(event) => setDays(Number(event.target.value))}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select></label>
     {insights.isPending ? <Skeleton className="h-24 w-full" /> : null}
     {totals && insights.data ? <>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{Object.entries({ 'Questions asked': totals.questionsAsked, Answered: totals.answered, 'Insufficient evidence': totals.insufficientEvidence, Helpful: totals.helpfulFeedback, Unhelpful: totals.unhelpfulFeedback }).map(([label, value]) => <Card key={label}><CardContent className="p-4 pt-4 sm:p-6 sm:pt-6"><p className="text-xs text-muted-foreground">{label}</p><p className="text-2xl font-semibold tracking-tight">{value}</p></CardContent></Card>)}</div>
