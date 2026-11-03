@@ -1,3 +1,4 @@
+import { FREE_PLAN } from '~/lib/plans';
 import { createFileRoute, Link, redirect, useRouter } from '@tanstack/react-router';
 import { ArrowRight, BookOpen, FileSearch, Files, LockKeyhole, Sparkles, Users } from 'lucide-react';
 import { Brand } from '~/components/brand';
@@ -65,17 +66,21 @@ function LandingPage() {
           <h2 className="text-3xl font-semibold tracking-tight">Pricing</h2>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {[
-              { name: 'Free', price: 'Free', features: ['Cited answers', 'Document search', 'Organization workspace'], href: '/register', cta: 'Get started' },
+              { ...FREE_PLAN, price: 'Free', href: '/register', cta: 'Get started' },
               { name: 'Team', price: 'Coming soon', features: ['Team collaboration', 'Shared knowledge'], href: '/register?plan=team', cta: 'Talk to us' },
-              { name: 'Enterprise', price: 'Coming soon', features: ['Organization workspaces', 'Knowledge discovery'], href: '/register?plan=team', cta: 'Talk to us' },
+              { name: 'Enterprise', price: 'Coming soon', features: ['Organization workspaces', 'Knowledge discovery'], href: '/register', cta: 'Talk to us' },
             ].map((plan) => (
               <article key={plan.name} className="rounded-xl border bg-card p-6">
                 <h3 className="text-xl font-semibold">{plan.name}</h3>
                 <p className="mt-3 text-muted-foreground">{plan.price}</p>
                 <ul className="mt-5 space-y-2 text-sm">
-                  {plan.features.map((feature) => <li key={feature}>{feature}</li>)}
+                  {plan.features.map((feature) => (
+                    <li key={feature}>{feature}</li>
+                  ))}
                 </ul>
-                <Button asChild className="mt-6"><a href={plan.href}>{plan.cta}</a></Button>
+                <Button asChild className="mt-6">
+                  <a href={plan.href}>{plan.cta}</a>
+                </Button>
               </article>
             ))}
           </div>
