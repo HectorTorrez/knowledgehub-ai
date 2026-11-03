@@ -8,7 +8,7 @@ import {
   Sparkles,
   X as XIcon,
 } from 'lucide-react';
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
@@ -279,6 +279,7 @@ function SearchResultCard({
   result,
 }: Readonly<{ organizationId: string; result: SearchResult }>) {
   const match = Math.max(0, Math.min(100, Math.round(result.score * 100)));
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <Card>
@@ -298,9 +299,45 @@ function SearchResultCard({
           </div>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {result.matches[0]?.excerpt}
+          {result.matches[0] ? <HighlightedExcerpt match={result.matches[0]} /> : null}
         </p>
+        {result.matches.length > 1 ? (
+          <div className="mt-3 space-y-2">
+            <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
+              {expanded ? 'Show fewer matches' : `+${result.matchCount - 1} more matches`}
+            </Button>
+            {expanded ? result.matches.slice(1).map((item) => (
+              <div key={`${item.pageNumber}-${item.chunkIndex}`} className="text-sm text-muted-foreground">
+                <span>Page {item.pageNumber}</span>
+                <p><HighlightedExcerpt match={item} /></p>
+              </div>
+            )) : null}
+          </div>
+        ) : null}
+        <Button variant="outline" size="sm" className="mt-3" asChild>
+          <Link to="/organizations/$organizationId/ask" params={{ organizationId }} search={{ documentId: result.documentId }}>
+            Ask about this document
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );
+}
+
+function HighlightedExcerpt({ match }: Readonly<{ match: SearchResult['matches'][number] }>) {
+  const ranges = match.highlights
+    .map(({ start, end }) => ({ start: Math.max(0, start), end: Math.min(match.excerpt.length, end) }))
+    .filter(({ start, end }) => start < end)
+    .sort((a, b) => a.start - b.start);
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    const start = Math.max(cursor, range.start);
+    if (range.end <= start) continue;
+    if (start > cursor) parts.push(match.excerpt.slice(cursor, start));
+    parts.push(<mark key={`${start}-${range.end}`}>{match.excerpt.slice(start, range.end)}</mark>);
+    cursor = range.end;
+  }
+  parts.push(match.excerpt.slice(cursor));
+  return <>{parts}</>;
 }
