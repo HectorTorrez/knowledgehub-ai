@@ -8,6 +8,7 @@ import {
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowUpRight,
+  Download,
   MessageSquareText,
   PanelLeft,
   SquarePen,
@@ -76,7 +77,8 @@ export const Route = createFileRoute(
         ? search.q
         : undefined,
     documentId:
-      typeof search.documentId === 'string' && search.documentId.trim().length > 0
+      typeof search.documentId === 'string' &&
+      search.documentId.trim().length > 0
         ? search.documentId
         : undefined,
     conversation:
@@ -107,13 +109,9 @@ function AskPage() {
   const client = useQueryClient();
   const { toast } = useToast();
   const [question, setQuestion] = useState(
-    () =>
-      presetQuestion ??
-      readAskDraft(organizationId, presetConversationId),
+    () => presetQuestion ?? readAskDraft(organizationId, presetConversationId),
   );
-  const [selection, setSelection] = useState(
-    presetDocumentId ?? ALL_DOCUMENTS,
-  );
+  const [selection, setSelection] = useState(presetDocumentId ?? ALL_DOCUMENTS);
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
   >(presetConversationId ?? null);
@@ -198,7 +196,9 @@ function AskPage() {
     const result = questionSchema.safeParse({ question });
 
     if (!result.success) {
-      setValidationError(result.error.issues[0]?.message ?? 'Enter a question.');
+      setValidationError(
+        result.error.issues[0]?.message ?? 'Enter a question.',
+      );
       return;
     }
 
@@ -268,11 +268,7 @@ function AskPage() {
 
   function changeQuestion(value: string) {
     setQuestion(value);
-    writeAskDraft(
-      organizationId,
-      activeConversationId ?? undefined,
-      value,
-    );
+    writeAskDraft(organizationId, activeConversationId ?? undefined, value);
   }
 
   function applySuggestion(suggestion: string) {
@@ -298,8 +294,7 @@ function AskPage() {
 
   const streaming = stream.status === 'streaming';
   const conversationRows = useMemo(
-    () =>
-      conversations.data?.pages.flatMap((page) => page.conversations) ?? [],
+    () => conversations.data?.pages.flatMap((page) => page.conversations) ?? [],
     [conversations.data],
   );
   const activeConversation = useMemo(
@@ -372,6 +367,24 @@ function AskPage() {
                 {subtitle}
               </p>
             </div>
+
+            {activeConversationId !== null && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  void conversationsApi
+                    .export(organizationId, activeConversationId)
+                    .catch(() => {
+                      toast({
+                        variant: 'error',
+                        title: 'Could not export conversation',
+                      });
+                    });
+                }}
+              >
+                <Download className="size-4" /> Export
+              </Button>
+            )}
 
             <Button
               variant="ghost"
@@ -620,7 +633,9 @@ function PermalinkAnswer({
         {detail.data ? (
           <>
             <div className="space-y-1">
-              <p className="text-sm font-medium">{detail.data.answer.question}</p>
+              <p className="text-sm font-medium">
+                {detail.data.answer.question}
+              </p>
               <p className="text-xs text-muted-foreground">
                 {formatDateTime(detail.data.answer.createdAt)}
               </p>

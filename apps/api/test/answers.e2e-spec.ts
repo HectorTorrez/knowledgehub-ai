@@ -248,6 +248,51 @@ describe('answers (e2e)', () => {
       .expect(401);
   });
 
+  it('exports conversations only within the member organization', async () => {
+    const owner = await registerUser();
+    const outsider = await registerUser();
+    const organizationId = await createOrganization(owner.token, 'Export Org');
+    const otherOrganizationId = await createOrganization(
+      owner.token,
+      'Other Org',
+    );
+    const conversation = await prisma.conversation.create({
+      data: { organizationId, title: 'Export title' },
+    });
+    await prisma.answer.create({
+      data: {
+        organizationId,
+        conversationId: conversation.id,
+        question: 'Question?',
+        status: 'answered',
+        answer: 'Answer.',
+        citations: [],
+      },
+    });
+    const path = `/organizations/${organizationId}/conversations/${conversation.id}/export`;
+    const result = await request(app.getHttpServer())
+      .get(path)
+      .set(bearer(owner.token))
+      .expect(200);
+    expect(result.headers['content-type']).toMatch(
+      /^text\/markdown; charset=utf-8/,
+    );
+    expect(result.headers['content-disposition']).toMatch(
+      /^attachment; filename="export-title-\d{4}-\d{2}-\d{2}\.md"$/,
+    );
+    expect(result.text).toContain('Question?');
+    await request(app.getHttpServer())
+      .get(
+        `/organizations/${otherOrganizationId}/conversations/${conversation.id}/export`,
+      )
+      .set(bearer(owner.token))
+      .expect(404);
+    await request(app.getHttpServer())
+      .get(path)
+      .set(bearer(outsider.token))
+      .expect(403);
+  });
+
   it('rejects an authenticated non-member with 403', async () => {
     const owner = await registerUser();
     const outsider = await registerUser();
@@ -317,7 +362,9 @@ describe('answers (e2e)', () => {
 
     expect(answerProvider.calls).toHaveLength(1);
     const { prompt, options } = answerProvider.calls[0]!;
-    expect(prompt.user).toContain('Processing retries are bounded by maxAttempts.');
+    expect(prompt.user).toContain(
+      'Processing retries are bounded by maxAttempts.',
+    );
     expect(prompt.user).toContain('How are retries bounded?');
     expect(options.maxOutputTokens).toBe(700);
 
@@ -348,9 +395,13 @@ describe('answers (e2e)', () => {
   it('answers from the document catalog when nothing clears the similarity floor', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Weak Org');
-    const documentId = await seedReadyChunk(organizationId, 'unrelated passage', {
-      embedding: basis(1),
-    });
+    const documentId = await seedReadyChunk(
+      organizationId,
+      'unrelated passage',
+      {
+        embedding: basis(1),
+      },
+    );
 
     answerProvider.generateImpl = async () =>
       draft({
@@ -459,26 +510,26 @@ describe('answers (e2e)', () => {
   });
 
   it.each([
-    ['a claim citing an unknown source', { text: 'Malformed claim.', source: 3 }],
+    [
+      'a claim citing an unknown source',
+      { text: 'Malformed claim.', source: 3 },
+    ],
     ['a blank claim', { text: '   ', source: 1 }],
     ['a non-integer source', { text: 'Malformed claim.', source: 1.5 }],
-  ])(
-    'maps %s to 502 and discards the answer',
-    async (_label, claim) => {
-      const { token } = await registerUser();
-      const organizationId = await createOrganization(token, 'Malformed Org');
-      await seedReadyChunk(organizationId, 'some passage');
+  ])('maps %s to 502 and discards the answer', async (_label, claim) => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Malformed Org');
+    await seedReadyChunk(organizationId, 'some passage');
 
-      answerProvider.generateImpl = async () =>
-        draft({ status: 'answered', claims: [claim] });
+    answerProvider.generateImpl = async () =>
+      draft({ status: 'answered', claims: [claim] });
 
-      const response = await ask(token, organizationId, {
-        question: 'What is alpha?',
-      }).expect(502);
+    const response = await ask(token, organizationId, {
+      question: 'What is alpha?',
+    }).expect(502);
 
-      expect(JSON.stringify(response.body)).not.toContain('Malformed');
-    },
-  );
+    expect(JSON.stringify(response.body)).not.toContain('Malformed');
+  });
 
   it('maps an answered response with no claims to 502 and discards the answer', async () => {
     const { token } = await registerUser();
@@ -577,7 +628,10 @@ describe('answers (e2e)', () => {
     );
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', claims: [{ text: 'Alpha only.', source: 1 }] });
+      draft({
+        status: 'answered',
+        claims: [{ text: 'Alpha only.', source: 1 }],
+      });
 
     const response = await ask(owner.token, organizationId, {
       question: 'What is alpha?',
@@ -610,7 +664,10 @@ describe('answers (e2e)', () => {
     });
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', claims: [{ text: 'Scoped only.', source: 1 }] });
+      draft({
+        status: 'answered',
+        claims: [{ text: 'Scoped only.', source: 1 }],
+      });
 
     const response = await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -634,7 +691,10 @@ describe('answers (e2e)', () => {
   it('rejects a documentId outside the organization with 404 without calling the provider', async () => {
     const owner = await registerUser();
     const other = await registerUser();
-    const organizationId = await createOrganization(owner.token, 'Scope Guard Org');
+    const organizationId = await createOrganization(
+      owner.token,
+      'Scope Guard Org',
+    );
     const otherOrganizationId = await createOrganization(
       other.token,
       'Scope Guard Other',
@@ -698,7 +758,10 @@ describe('answers (e2e)', () => {
     });
 
     answerProvider.generateImpl = async () =>
-      draft({ status: 'answered', claims: [{ text: 'Current only.', source: 1 }] });
+      draft({
+        status: 'answered',
+        claims: [{ text: 'Current only.', source: 1 }],
+      });
 
     await ask(token, organizationId, {
       question: 'What is alpha?',
@@ -790,7 +853,10 @@ describe('answers (e2e)', () => {
 
     it('returns the full answer and citations for one entry', async () => {
       const { token } = await registerUser();
-      const organizationId = await createOrganization(token, 'History Detail Org');
+      const organizationId = await createOrganization(
+        token,
+        'History Detail Org',
+      );
       await seedReadyChunk(organizationId, 'Detail passage.');
 
       await ask(token, organizationId, { question: 'What is alpha?' }).expect(
@@ -813,12 +879,15 @@ describe('answers (e2e)', () => {
       const owner = await registerUser();
       const other = await registerUser();
       const organizationId = await createOrganization(owner.token, 'Hist A');
-      const otherOrganizationId = await createOrganization(other.token, 'Hist B');
+      const otherOrganizationId = await createOrganization(
+        other.token,
+        'Hist B',
+      );
       await seedReadyChunk(organizationId, 'Scoped passage.');
 
-      await ask(owner.token, organizationId, { question: 'What is alpha?' }).expect(
-        200,
-      );
+      await ask(owner.token, organizationId, {
+        question: 'What is alpha?',
+      }).expect(200);
       const list = await listAnswers(owner.token, organizationId).expect(200);
       const answerId = list.body.answers[0].id as string;
 
@@ -827,7 +896,10 @@ describe('answers (e2e)', () => {
 
     it('deletes an answer and removes it from the list', async () => {
       const { token } = await registerUser();
-      const organizationId = await createOrganization(token, 'History Delete Org');
+      const organizationId = await createOrganization(
+        token,
+        'History Delete Org',
+      );
       await seedReadyChunk(organizationId, 'Delete passage.');
 
       await ask(token, organizationId, { question: 'Doomed?' }).expect(200);
