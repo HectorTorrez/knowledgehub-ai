@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import {
+  BarChart3,
   FileText,
   LayoutGrid,
   MessageSquareText,
@@ -23,10 +24,12 @@ type OrganizationTabPath =
   | '/organizations/$organizationId/documents'
   | '/organizations/$organizationId/ask'
   | '/organizations/$organizationId/search'
-  | '/organizations/$organizationId/settings';
+  | '/organizations/$organizationId/settings'
+  | '/organizations/$organizationId/insights';
 
 interface OrganizationTabItem {
   to: OrganizationTabPath;
+  ownerOnly?: boolean;
   exact?: boolean;
   icon: LucideIcon;
   label: string;
@@ -54,6 +57,7 @@ const ORGANIZATION_TABS: ReadonlyArray<OrganizationTabItem> = [
     icon: Search,
     label: 'Search',
   },
+  { to: '/organizations/$organizationId/insights', icon: BarChart3, label: 'Insights', ownerOnly: true },
   {
     to: '/organizations/$organizationId/settings',
     icon: Settings,
@@ -68,6 +72,8 @@ function OrganizationLayout() {
     queryFn: () => organizationsApi.detail(organizationId),
   });
 
+  const tabs = ORGANIZATION_TABS.filter((tab) => !tab.ownerOnly || organization.data?.organization.role === 'OWNER');
+
   return (
     <div className="space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0">
       {organization.isError ? (
@@ -81,7 +87,7 @@ function OrganizationLayout() {
         aria-label="Organization sections"
         className="hidden gap-1 overflow-x-auto border-b sm:flex"
       >
-        {ORGANIZATION_TABS.map((tab) => (
+        {tabs.map((tab) => (
           <OrganizationTab key={tab.to} {...tab} />
         ))}
       </nav>
@@ -90,9 +96,9 @@ function OrganizationLayout() {
 
       <nav
         aria-label="Organization sections"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-flow-col auto-cols-fr border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:hidden"
       >
-        {ORGANIZATION_TABS.map(({ icon: Icon, ...tab }) => (
+        {tabs.map(({ icon: Icon, ...tab }) => (
           <Link
             key={tab.to}
             to={tab.to}

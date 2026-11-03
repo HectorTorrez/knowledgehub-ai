@@ -58,9 +58,9 @@ test('exposes every organization section in the bottom navigation', async ({
 
   const nav = page.getByRole('navigation', { name: 'Organization sections' });
 
-  await expect(nav.getByRole('link')).toHaveCount(5);
+  await expect(nav.getByRole('link')).toHaveCount(6);
 
-  for (const label of ['Overview', 'Documents', 'Ask', 'Search', 'Settings']) {
+  for (const label of ['Overview', 'Documents', 'Ask', 'Search', 'Insights', 'Settings']) {
     await expect(nav.getByRole('link', { name: label })).toBeVisible();
   }
 

@@ -343,6 +343,21 @@ describe('organizations (e2e)', () => {
     await createOrganization(token, { name: 'Acme Inc.' }).expect(401);
   });
 
+  it('restricts insights to owners and validates the window', async () => {
+    const owner = await registerUser();
+    const member = await registerUser();
+    const created = await createOrganization(owner.token, { name: 'Insights Org' }).expect(201);
+    const organizationId = created.body.organization.id as string;
+    trackedOrganizationIds.add(organizationId);
+    await addMembership(member.userId, organizationId, 'MEMBER');
+    const path = `/organizations/${organizationId}/insights`;
+    await request(app.getHttpServer()).get(path).set(bearer(member.token)).expect(403);
+    await request(app.getHttpServer()).get(`${path}?days=8`).set(bearer(owner.token)).expect(400);
+    const response = await request(app.getHttpServer()).get(path).set(bearer(owner.token)).expect(200);
+    expect(response.body.totals.questionsAsked).toBe(0);
+    expect(response.body.unansweredQuestions).toEqual([]);
+  });
+
   describe('organization detail', () => {
     it('rejects unauthenticated requests with 401', async () => {
       const organizationId = randomUUID();
