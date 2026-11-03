@@ -21,7 +21,7 @@ const SERVER_ERROR_STATUS = 500;
 
 export type SessionState =
   | { status: 'authenticated'; user: PublicUser }
-  | { status: 'unauthenticated' };
+  | { status: 'unauthenticated'; redirectTo?: '/' };
 
 export const sessionQuery = queryOptions({
   queryKey: SESSION_QUERY_KEY,

@@ -85,6 +85,7 @@ export function toApiError(
     validationErrors,
     recoveryOutcome,
     retryAfterSeconds,
+    cause: body,
   });
 }
 

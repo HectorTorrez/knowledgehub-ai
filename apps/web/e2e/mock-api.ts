@@ -59,6 +59,7 @@ const ANSWER = {
 
 interface ApiOptions {
   authenticated: boolean;
+  deletionBlocked?: boolean;
   role?: 'OWNER' | 'VIEWER';
   demo?: boolean;
   empty?: boolean;
@@ -149,6 +150,24 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     const url = new URL(request.url());
     const path = url.pathname;
     const method = request.method();
+
+    if (path === '/auth/me/export') {
+      await route.fulfill(json({ profile: USER, memberships: [], conversations: [], answers: [], feedback: [] }));
+      return;
+    }
+    if (path === '/auth/me' && method === 'DELETE') {
+      if (options.deletionBlocked) {
+        await route.fulfill(json({ organizations: [{ id: 'org-1', name: 'Acme' }] }, 409));
+      } else {
+        authenticated = false;
+        await route.fulfill({ status: 204, body: '' });
+      }
+      return;
+    }
+    if (path === '/auth/sessions') {
+      await route.fulfill(json({ sessions: [] }));
+      return;
+    }
 
     if (path === '/auth/session') {
       if (!authenticated) {

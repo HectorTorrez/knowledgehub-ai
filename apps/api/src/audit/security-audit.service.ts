@@ -10,7 +10,8 @@ export type SecurityEvent =
   | 'csrf.rejected'
   | 'rate_limit.exceeded'
   | 'auth.password.changed'
-  | 'auth.session.revoked';
+  | 'auth.session.revoked'
+  | 'auth.account.deleted';
 
 export type SecurityEventFields = Record<string, unknown>;
 

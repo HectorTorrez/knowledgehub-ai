@@ -5,6 +5,7 @@ import { AuthConfig } from './auth.config.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { CsrfGuard } from './csrf.guard.js';
+import { PersonalDataService } from './personal-data.service.js';
 import { PasswordService } from './password.service.js';
 import { SessionGuard } from './session.guard.js';
 import { TokenService } from './token.service.js';
@@ -15,6 +16,7 @@ import { TokenService } from './token.service.js';
   providers: [
     AuthConfig,
     AuthService,
+    PersonalDataService,
     PasswordService,
     TokenService,
     SessionGuard,

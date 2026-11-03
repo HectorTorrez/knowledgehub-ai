@@ -24,6 +24,7 @@ import type { Request, Response } from 'express';
 import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import { AuthConfig } from './auth.config.js';
 import { AuthService, type AuthResult } from './auth.service.js';
+import { PersonalDataService } from './personal-data.service.js';
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
@@ -39,6 +40,7 @@ import {
   buildCsrfCookieOptions,
   generateCsrfToken,
 } from './csrf.js';
+import { deleteAccountSchema, type DeleteAccountInput } from './dto/delete-account.schema.js';
 import { loginSchema, type LoginInput } from './dto/login.schema.js';
 import { registerSchema, type RegisterInput } from './dto/register.schema.js';
 import {
@@ -59,6 +61,7 @@ import { ZodValidationPipe } from './zod-validation.pipe.js';
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly personalData: PersonalDataService,
     private readonly authConfig: AuthConfig,
   ) {}
 
@@ -100,6 +103,37 @@ export class AuthController {
     this.issueAuthCookies(response, result);
 
     return { user: result.user };
+  }
+
+  @Get('me/export')
+  @UseGuards(SessionGuard)
+  async exportPersonalData(
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    if (!request.auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    const data = await this.personalData.export(request.auth.userId);
+    const date = new Date().toISOString().slice(0, 10);
+    response.attachment(`knowledgehub-export-${date}.json`);
+    return data;
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SessionGuard)
+  async deleteAccount(
+    @Body(new ZodValidationPipe(deleteAccountSchema)) body: DeleteAccountInput,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    if (!request.auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    await this.auth.deleteAccount(request.auth.userId, body.password);
+    this.clearAuthCookies(response);
   }
 
   @Patch('profile')

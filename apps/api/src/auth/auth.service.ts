@@ -289,6 +289,45 @@ export class AuthService {
     };
   }
 
+  async deleteAccount(userId: string, password: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Session is no longer active');
+    if (!(await this.passwords.verify(user.passwordHash, password))) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const lockedUsers = await tx.$queryRaw<{ passwordHash: string }[]>`
+        SELECT "passwordHash" FROM "User" WHERE id = ${userId}::uuid FOR UPDATE
+      `;
+      if (lockedUsers[0]?.passwordHash !== user.passwordHash) {
+        throw new UnauthorizedException('Session is no longer active');
+      }
+      const memberships = await tx.membership.findMany({
+        where: { userId },
+        select: { organizationId: true },
+        orderBy: { organizationId: 'asc' },
+      });
+      for (const { organizationId } of memberships) {
+        await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE`;
+      }
+      const organizations = await tx.organization.findMany({
+        where: { id: { in: memberships.map((membership) => membership.organizationId) } },
+        select: { id: true, name: true, memberships: { select: { userId: true, role: true } } },
+      });
+      const blocked = organizations.filter((org) =>
+        org.memberships.some((member) => member.userId === userId && member.role === 'OWNER') &&
+        org.memberships.length > 1 &&
+        !org.memberships.some((member) => member.userId !== userId && member.role === 'OWNER'),
+      ).map(({ id, name }) => ({ id, name }));
+      if (blocked.length) throw new ConflictException({ organizations: blocked });
+      const soloIds = organizations.filter((org) => org.memberships.length === 1 && org.memberships[0]?.userId === userId).map((org) => org.id);
+      await tx.organization.deleteMany({ where: { id: { in: soloIds } } });
+      await tx.user.delete({ where: { id: userId } });
+    });
+    this.audit.record('auth.account.deleted', { userId });
+  }
+
   async updateProfile(
     userId: string,
     input: UpdateProfileInput,
