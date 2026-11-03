@@ -42,14 +42,14 @@ describe('SearchService', () => {
 
     await service.search('org-1', {
       q: 'retries',
-      limit: 50,
+      limit: 10,
       documentId: '00000000-0000-4000-8000-000000000001',
     });
 
     expect(search).toHaveBeenCalledWith({
       organizationId: 'org-1',
       text: 'retries',
-      limit: 10,
+      limit: 50,
       documentId: '00000000-0000-4000-8000-000000000001',
     });
   });

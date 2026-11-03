@@ -87,7 +87,7 @@ describe('search (e2e)', () => {
     organizationId: string,
     content: string,
     title = 'Handbook',
-  ): Promise<void> => {
+  ): Promise<string> => {
     const document = await prisma.document.create({
       data: {
         organizationId,
@@ -119,6 +119,7 @@ describe('search (e2e)', () => {
         now()
       )
     `;
+    return document.id;
   };
 
   const search = (token: string, organizationId: string, q: string) =>
@@ -181,6 +182,23 @@ describe('search (e2e)', () => {
       matches: [{ pageNumber: 2, chunkIndex: 4, excerpt: 'The parental leave policy is generous.', highlights: [{ start: 4, end: 12 }, { start: 13, end: 18 }] }],
     });
     expect(response.body.results[0].score).toBeGreaterThan(0);
+  });
+
+  it('enforces document and date filters across organizations', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Filter Org');
+    const otherId = await createOrganization(token, 'Other Org');
+    const ownDocument = await seedReadyChunk(organizationId, 'parental leave');
+    const otherDocument = await seedReadyChunk(otherId, 'parental leave');
+    const endpoint = `/organizations/${organizationId}/search`;
+    const filtered = await request(app.getHttpServer()).get(endpoint)
+      .query({ q: 'parental leave', documentIds: ownDocument, createdAfter: '2000-01-01' })
+      .set(bearer(token)).expect(200);
+    expect(filtered.body.results.map((result: { documentId: string }) => result.documentId)).toEqual([ownDocument]);
+    const isolated = await request(app.getHttpServer()).get(endpoint)
+      .query({ q: 'parental leave', documentIds: otherDocument, createdAfter: '2000-01-01' })
+      .set(bearer(token)).expect(200);
+    expect(isolated.body.results).toEqual([]);
   });
 
   it('returns an empty result set when nothing matches', async () => {
