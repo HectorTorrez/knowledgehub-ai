@@ -14,12 +14,15 @@ import { DatePicker } from '~/components/date-picker';
 import { DocumentMultiSelect } from '~/components/document-multi-select';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { useSlashFocus } from '~/hooks/use-slash-focus';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -60,7 +63,7 @@ function SearchPage() {
   function updateFilters(next: Partial<typeof filters>) {
     void navigate({ search: { ...filters, ...next }, replace: true });
   }
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const reportError = useReportError();
   const [recent, setRecent] = useState(() =>
     readRecentSearches(organizationId),
   );
@@ -89,6 +92,7 @@ function SearchPage() {
       }),
     enabled: submitted !== null,
   });
+  useQueryErrorToast(results.error, () => void results.refetch());
 
   function runSearch(query: string) {
     setSubmitted(query);
@@ -97,12 +101,11 @@ function SearchPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setValidationError(null);
 
     const parsed = searchQuerySchema.safeParse({ q: draft });
     if (!parsed.success) {
-      setValidationError(
-        parsed.error.issues[0]?.message ?? 'Enter a search query.',
+      reportError(
+        new Error(parsed.error.issues[0]?.message ?? 'Enter a search query.'),
       );
       return;
     }
@@ -113,7 +116,6 @@ function SearchPage() {
   function clearSearch() {
     setDraft('');
     setSubmitted(null);
-    setValidationError(null);
   }
 
   const rows = results.data?.results ?? [];
@@ -220,14 +222,6 @@ function SearchPage() {
           ) : null}
         </CardContent>
       </Card>
-
-      {validationError ? <ErrorNotice error={new Error(validationError)} /> : null}
-      {results.isError ? (
-        <ErrorNotice
-          error={results.error}
-          onRetry={() => void results.refetch()}
-        />
-      ) : null}
 
       {submitted === null ? (
         <div className="space-y-6">

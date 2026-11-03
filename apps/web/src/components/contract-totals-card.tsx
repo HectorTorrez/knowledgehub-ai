@@ -2,11 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Calculator, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import type { ContractTotalsResponse } from '@knowledgehub/shared-types';
-import { ErrorNotice } from '~/components/route-states';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
+import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { aggregationApi } from '~/lib/api/aggregation';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatMinorAmount } from '~/lib/format';
@@ -30,6 +30,7 @@ export function ContractTotalsCard({
     enabled: requested,
     staleTime: 60_000,
   });
+  useQueryErrorToast(totals.error, () => void totals.refetch());
 
   return (
     <Card>
@@ -57,13 +58,6 @@ export function ContractTotalsCard({
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-4 w-72" />
           </div>
-        ) : null}
-
-        {totals.isError ? (
-          <ErrorNotice
-            error={totals.error}
-            onRetry={() => void totals.refetch()}
-          />
         ) : null}
 
         {totals.data ? (

@@ -20,10 +20,10 @@ import {
   InsufficientEvidence,
   PartialAnswerNotice,
 } from '~/components/answer-content';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
+import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { sourceId } from '~/lib/answer-source';
@@ -75,6 +75,7 @@ export function ConversationMessages({
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
+  useQueryErrorToast(answers.error, () => void answers.refetch());
 
   const rows = useMemo(
     () =>
@@ -203,13 +204,6 @@ export function ConversationMessages({
           ref={contentRef}
           className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-6"
         >
-          {answers.isError ? (
-            <ErrorNotice
-              error={answers.error}
-              onRetry={() => void answers.refetch()}
-            />
-          ) : null}
-
           {answers.isPending && rows.length === 0 && !pendingVisible ? (
             <div className="space-y-3">
               <Skeleton className="ml-auto h-12 w-2/3 rounded-2xl" />
@@ -288,6 +282,7 @@ function PersistedTurn({
     queryKey: queryKeys.organizations.answers.detail(organizationId, answer.id),
     queryFn: () => answersApi.detail(organizationId, answer.id),
   });
+  useQueryErrorToast(detail.error, () => void detail.refetch());
 
   return (
     <article className="space-y-3">
@@ -299,18 +294,6 @@ function PersistedTurn({
           meta={formatDateTime(answer.createdAt)}
         >
           <Skeleton className="h-24 w-full rounded-2xl" />
-        </AssistantFrame>
-      ) : null}
-
-      {detail.isError ? (
-        <AssistantFrame
-          heading="KnowledgeHub"
-          meta={formatDateTime(answer.createdAt)}
-        >
-          <ErrorNotice
-            error={detail.error}
-            onRetry={() => void detail.refetch()}
-          />
         </AssistantFrame>
       ) : null}
 

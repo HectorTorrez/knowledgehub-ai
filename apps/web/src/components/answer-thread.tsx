@@ -8,6 +8,7 @@ import {
 import { ChevronDown, LoaderCircle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AnswerActions, AnswerFeedback } from '~/components/answer-actions';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime } from '~/lib/format';
@@ -18,7 +19,6 @@ import {
   PartialAnswerNotice,
   SourcesList,
 } from './answer-content';
-import { ErrorNotice } from './route-states';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import {
@@ -44,6 +44,7 @@ export function AnswerThread({
 }: Readonly<{ organizationId: string; latest?: LatestAnswer }>) {
   const client = useQueryClient();
   const { toast } = useToast();
+  const reportError = useReportError();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AnswerSummary | null>(null);
   const [scope, setScope] = useState<'me' | 'organization'>('me');
@@ -59,6 +60,7 @@ export function AnswerThread({
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
+  useQueryErrorToast(history.error, () => void history.refetch());
 
   const remove = useMutation({
     mutationFn: (answerId: string) =>
@@ -70,6 +72,7 @@ export function AnswerThread({
         queryKey: queryKeys.organizations.answers.list(organizationId),
       });
     },
+    onError: (error) => reportError(error),
   });
 
   async function handleDelete() {
@@ -112,16 +115,6 @@ export function AnswerThread({
               : undefined
           }
         />
-      ) : null}
-
-      {history.isError ? (
-        <ErrorNotice
-          error={history.error}
-          onRetry={() => void history.refetch()}
-        />
-      ) : null}
-      {remove.isError && deleteTarget === null ? (
-        <ErrorNotice error={remove.error} />
       ) : null}
 
       {history.isPending ? (
@@ -224,7 +217,6 @@ export function AnswerThread({
               history. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          {remove.isError ? <ErrorNotice error={remove.error} /> : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
@@ -395,6 +387,7 @@ function ExpandedAnswer({
     queryKey: queryKeys.organizations.answers.detail(organizationId, answerId),
     queryFn: () => answersApi.detail(organizationId, answerId),
   });
+  useQueryErrorToast(detail.error, () => void detail.refetch());
 
   if (detail.isPending) {
     return (
@@ -405,14 +398,7 @@ function ExpandedAnswer({
   }
 
   if (detail.isError) {
-    return (
-      <div className="border-t px-4 py-4 sm:px-6">
-        <ErrorNotice
-          error={detail.error}
-          onRetry={() => void detail.refetch()}
-        />
-      </div>
-    );
+    return null;
   }
 
   const answer = detail.data.answer;

@@ -10,6 +10,30 @@ test('redirects a signed-out visitor to the login page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
 });
 
+test('shows a toast when sign-in fails', async ({ page }) => {
+  await mockApi(page, { authenticated: false });
+  await page.route('http://localhost:3001/auth/login', async (route) => {
+    await route.fulfill({
+      status: 401,
+      json: { message: 'Invalid email or password.' },
+    });
+  });
+
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(USER.email);
+  await page
+    .getByRole('textbox', { name: 'Password' })
+    .fill('wrong password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  await expect(page).toHaveURL(/\/login/);
+  await expect(
+    page
+      .getByRole('list', { name: 'Notifications' })
+      .getByText('Invalid email or password.'),
+  ).toBeVisible();
+});
+
 test('signs in and browses an organization', async ({ page }) => {
   await mockApi(page, { authenticated: false });
 
@@ -19,6 +43,9 @@ test('signs in and browses an organization', async ({ page }) => {
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   await expect(page.getByRole('heading', { name: 'Organizations' })).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'Notifications' }).getByText('Signed in'),
+  ).toBeVisible();
   await expect(page.getByText('Acme')).toBeVisible();
 
   await page.getByRole('link', { name: /Acme/ }).first().click();

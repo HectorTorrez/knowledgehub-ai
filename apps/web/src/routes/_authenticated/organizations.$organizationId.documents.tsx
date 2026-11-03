@@ -33,7 +33,6 @@ import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
 import { FileDropzone } from '~/components/file-dropzone';
 import { PageHeader } from '~/components/page-header';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import {
@@ -62,6 +61,10 @@ import {
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatBytes, formatDate } from '~/lib/format';
@@ -109,15 +112,13 @@ function DocumentsPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const { toast } = useToast();
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const reportError = useReportError();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const uploadAbortRef = useRef<AbortController | null>(null);
   const [renameTarget, setRenameTarget] = useState<DocumentSummary | null>(null);
   const [renameTitle, setRenameTitle] = useState('');
-  const [renameError, setRenameError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
   const [queryDraft, setQueryDraft] = useState('');
   const [query, setQuery] = useState('');
@@ -155,6 +156,7 @@ function DocumentsPage() {
       return active ? 3000 : false;
     },
   });
+  useQueryErrorToast(documents.error, () => void documents.refetch());
 
   function updateUploadItem(id: string, patch: Partial<UploadItem>) {
     setUploadItems((items) =>
@@ -163,9 +165,6 @@ function DocumentsPage() {
   }
 
   async function addFiles(next: File[]) {
-    setUploadError(null);
-    setValidationError(null);
-
     const seen = new Set(uploadItems.map((item) => fileKey(item.file)));
     const unique = next.filter((file) => {
       const key = fileKey(file);
@@ -190,15 +189,17 @@ function DocumentsPage() {
     ) as Array<{ file: File; result: { ok: true; contentType: string } }>;
 
     if (rejected.length > 0) {
-      setUploadError(
-        rejected
-          .map(
-            (entry) =>
-              `${entry.file.name}: ${
-                entry.result.ok ? '' : entry.result.message
-              }`,
-          )
-          .join(' '),
+      reportError(
+        new Error(
+          rejected
+            .map(
+              (entry) =>
+                `${entry.file.name}: ${
+                  entry.result.ok ? '' : entry.result.message
+                }`,
+            )
+            .join('\n'),
+        ),
       );
     }
 
@@ -227,7 +228,6 @@ function DocumentsPage() {
     const controller = new AbortController();
     uploadAbortRef.current = controller;
     setUploading(true);
-    setUploadError(null);
     setUploadItems((items) =>
       items.map((item) =>
         queue.some((entry) => entry.id === item.id)
@@ -323,10 +323,9 @@ function DocumentsPage() {
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setValidationError(null);
 
     if (uploadItems.length === 0) {
-      setValidationError('Choose at least one file to upload.');
+      reportError(new Error('Choose at least one file to upload.'));
       return;
     }
 
@@ -342,8 +341,6 @@ function DocumentsPage() {
 
     if (!open) {
       setUploadItems([]);
-      setUploadError(null);
-      setValidationError(null);
     }
   }
 
@@ -356,6 +353,7 @@ function DocumentsPage() {
       client.invalidateQueries({
         queryKey: queryKeys.organizations.documents.all(organizationId),
       }),
+    onError: (error) => reportError(error),
   });
 
   const reprocess = useMutation({
@@ -372,6 +370,7 @@ function DocumentsPage() {
         queryKey: queryKeys.organizations.documents.all(organizationId),
       });
     },
+    onError: (error) => reportError(error),
   });
 
   const remove = useMutation({
@@ -381,12 +380,12 @@ function DocumentsPage() {
       client.invalidateQueries({
         queryKey: queryKeys.organizations.documents.all(organizationId),
       }),
+    onError: (error) => reportError(error),
   });
 
   function openRename(document: DocumentSummary) {
     setRenameTarget(document);
     setRenameTitle(document.title);
-    setRenameError(null);
   }
 
   async function handleRename(event: FormEvent<HTMLFormElement>) {
@@ -397,7 +396,9 @@ function DocumentsPage() {
 
     const result = documentTitleSchema.safeParse({ title: renameTitle });
     if (!result.success) {
-      setRenameError(result.error.issues[0]?.message ?? 'A title is required.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'A title is required.'),
+      );
       return;
     }
 
@@ -470,14 +471,6 @@ function DocumentsPage() {
               </div>
             }
           />
-
-          {documents.isError ? (
-            <ErrorNotice
-              error={documents.error}
-              onRetry={() => void documents.refetch()}
-            />
-          ) : null}
-          {reprocess.isError ? <ErrorNotice error={reprocess.error} /> : null}
 
           <Card>
             <CardContent className="flex flex-col gap-3 p-4 pt-4 sm:flex-row sm:items-center sm:pt-6">
@@ -719,11 +712,6 @@ function DocumentsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpload} className="space-y-4" noValidate>
-            {validationError ? (
-              <ErrorNotice error={new Error(validationError)} />
-            ) : null}
-            {uploadError ? <ErrorNotice error={new Error(uploadError)} /> : null}
-
             <FileDropzone
               accept={ALLOWED_UPLOAD_CONTENT_TYPES.join(',')}
               files={uploadItems.map((item) => item.file)}
@@ -864,8 +852,6 @@ function DocumentsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRename} className="space-y-4" noValidate>
-            {renameError ? <ErrorNotice error={new Error(renameError)} /> : null}
-            {rename.isError ? <ErrorNotice error={rename.error} /> : null}
             <div className="space-y-2">
               <Label htmlFor="rename-title">Title</Label>
               <Input
@@ -907,7 +893,6 @@ function DocumentsPage() {
               derived from it. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          {remove.isError ? <ErrorNotice error={remove.error} /> : null}
           <DialogFooter>
             <Button
               type="button"

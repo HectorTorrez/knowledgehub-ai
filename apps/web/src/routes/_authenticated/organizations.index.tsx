@@ -4,7 +4,6 @@ import { ArrowRight, Building2, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
-import { ErrorNotice } from '~/components/route-states';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -28,6 +27,10 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDate, formatRole } from '~/lib/format';
@@ -47,14 +50,17 @@ export const Route = createFileRoute('/_authenticated/organizations/')({
 function OrganizationsPage() {
   const client = useQueryClient();
   const { toast } = useToast();
+  const reportError = useReportError();
   const [name, setName] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   const organizations = useQuery({
     queryKey: queryKeys.organizations.list(),
     queryFn: () => organizationsApi.list(),
   });
+  useQueryErrorToast(organizations.error, () =>
+    void organizations.refetch(),
+  );
 
   const create = useMutation({
     mutationFn: (organizationName: string) =>
@@ -68,16 +74,18 @@ function OrganizationsPage() {
 
       return client.invalidateQueries({ queryKey: queryKeys.organizations.all });
     },
+    onError: (error) => reportError(error),
   });
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setValidationError(null);
 
     const result = organizationNameSchema.safeParse({ name });
 
     if (!result.success) {
-      setValidationError(result.error.issues[0]?.message ?? 'Invalid name.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'Invalid name.'),
+      );
       return;
     }
 
@@ -108,13 +116,6 @@ function OrganizationsPage() {
             </DialogTrigger>
           }
         />
-
-        {organizations.isError ? (
-          <ErrorNotice
-            error={organizations.error}
-            onRetry={() => void organizations.refetch()}
-          />
-        ) : null}
 
         {organizations.isPending ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -182,10 +183,6 @@ function OrganizationsPage() {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleCreate} className="space-y-4" noValidate>
-          {validationError ? (
-            <ErrorNotice error={new Error(validationError)} />
-          ) : null}
-          {create.isError ? <ErrorNotice error={create.error} /> : null}
           <div className="space-y-2">
             <Label htmlFor="organization-name">Name</Label>
             <Input

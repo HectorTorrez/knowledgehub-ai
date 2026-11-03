@@ -3,7 +3,6 @@ import { createFileRoute } from '@tanstack/react-router';
 import { KeyRound, Laptop, UserRound } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { PageHeader } from '~/components/page-header';
-import { ErrorNotice } from '~/components/route-states';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -18,6 +17,10 @@ import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { useSession } from '~/hooks/use-auth';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { accountApi } from '~/lib/api/account';
 import { SESSION_QUERY_KEY } from '~/lib/auth/session';
 import { formatDateTime } from '~/lib/format';
@@ -40,18 +43,17 @@ export const Route = createFileRoute('/_authenticated/settings')({
 function AccountSettingsPage() {
   const client = useQueryClient();
   const { toast } = useToast();
+  const reportError = useReportError();
   const session = useSession();
   const user =
     session.data?.status === 'authenticated' ? session.data.user : undefined;
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [profileError, setProfileError] = useState<string | null>(null);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user !== undefined) {
@@ -64,6 +66,7 @@ function AccountSettingsPage() {
     queryKey: ['account', 'sessions'],
     queryFn: () => accountApi.sessions(),
   });
+  useQueryErrorToast(sessions.error, () => void sessions.refetch());
 
   const updateProfile = useMutation({
     mutationFn: (input: { firstName: string; lastName: string }) =>
@@ -75,6 +78,7 @@ function AccountSettingsPage() {
       });
       toast({ variant: 'success', title: 'Profile updated' });
     },
+    onError: (error) => reportError(error),
   });
 
   const changePassword = useMutation({
@@ -92,6 +96,7 @@ function AccountSettingsPage() {
         description: 'Your other sessions were signed out.',
       });
     },
+    onError: (error) => reportError(error),
   });
 
   const revokeSession = useMutation({
@@ -101,16 +106,18 @@ function AccountSettingsPage() {
 
       return sessions.refetch();
     },
+    onError: (error) => reportError(error),
   });
 
   async function handleProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setProfileError(null);
 
     const result = profileFormSchema.safeParse({ firstName, lastName });
 
     if (!result.success) {
-      setProfileError(result.error.issues[0]?.message ?? 'Invalid profile.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'Invalid profile.'),
+      );
       return;
     }
 
@@ -123,7 +130,6 @@ function AccountSettingsPage() {
 
   async function handlePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPasswordError(null);
 
     const result = changePasswordFormSchema.safeParse({
       currentPassword,
@@ -132,7 +138,9 @@ function AccountSettingsPage() {
     });
 
     if (!result.success) {
-      setPasswordError(result.error.issues[0]?.message ?? 'Invalid password.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'Invalid password.'),
+      );
       return;
     }
 
@@ -165,12 +173,6 @@ function AccountSettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleProfile} className="space-y-4" noValidate>
-            {profileError ? (
-              <ErrorNotice error={new Error(profileError)} />
-            ) : null}
-            {updateProfile.isError ? (
-              <ErrorNotice error={updateProfile.error} />
-            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="profile-first-name">First name</Label>
@@ -216,12 +218,6 @@ function AccountSettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handlePassword} className="space-y-4" noValidate>
-            {passwordError ? (
-              <ErrorNotice error={new Error(passwordError)} />
-            ) : null}
-            {changePassword.isError ? (
-              <ErrorNotice error={changePassword.error} />
-            ) : null}
             <div className="space-y-2">
               <Label htmlFor="current-password">Current password</Label>
               <Input
@@ -276,15 +272,6 @@ function AccountSettingsPage() {
         <CardContent>
           {sessions.isPending ? (
             <Skeleton className="h-24 w-full" />
-          ) : null}
-          {sessions.isError ? (
-            <ErrorNotice
-              error={sessions.error}
-              onRetry={() => void sessions.refetch()}
-            />
-          ) : null}
-          {revokeSession.isError ? (
-            <ErrorNotice error={revokeSession.error} />
           ) : null}
           {sessions.data ? (
             <ul className="divide-y">

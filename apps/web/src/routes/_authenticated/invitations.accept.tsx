@@ -1,12 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { CheckCircle2, Mail } from 'lucide-react';
-import { useState } from 'react';
+import { Mail } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Brand } from '~/components/brand';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { useToast } from '~/components/ui/toast';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { invitationsApi } from '~/lib/api/invitations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { pageHead } from '~/lib/seo';
@@ -34,7 +37,18 @@ function AcceptInvitationPage() {
   const client = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const reportError = useReportError();
   const [accepted, setAccepted] = useState(false);
+  const tokenError = useMemo(
+    () =>
+      token === undefined
+        ? new Error(
+            'This invitation link is missing its token. Ask an organization owner for a new link.',
+          )
+        : null,
+    [token],
+  );
+  useQueryErrorToast(tokenError);
 
   const accept = useMutation({
     mutationFn: (invitationToken: string) =>
@@ -50,6 +64,7 @@ function AcceptInvitationPage() {
         queryKey: queryKeys.organizations.all,
       });
     },
+    onError: (error) => reportError(error),
   });
 
   async function handleAccept() {
@@ -87,18 +102,7 @@ function AcceptInvitationPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {token === undefined ? (
-            <ErrorNotice error={new Error('This invitation link is missing its token. Ask an organization owner for a new link.')} />
-          ) : null}
-
-          {accept.isError ? <ErrorNotice error={accept.error} /> : null}
-
-          {accepted ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="size-4 text-success" />
-              Invitation accepted.
-            </p>
-          ) : (
+          {accepted ? null : (
             <Button
               className="w-full"
               disabled={token === undefined || accept.isPending}

@@ -21,7 +21,6 @@ import {
 import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
-import { ErrorNotice } from '~/components/route-states';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -52,6 +51,10 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { useSession } from '~/hooks/use-auth';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { invitationsApi } from '~/lib/api/invitations';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -83,10 +86,10 @@ function OrganizationOverviewPage() {
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const { toast } = useToast();
+  const reportError = useReportError();
   const session = useSession();
   const readyDocuments = useReadyDocuments(organizationId);
   const [email, setEmail] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [inviteResult, setInviteResult] =
     useState<OrganizationInvitationDetail | null>(null);
@@ -104,6 +107,9 @@ function OrganizationOverviewPage() {
     queryFn: () => organizationsApi.members(organizationId),
   });
 
+  useQueryErrorToast(organization.error, () => void organization.refetch());
+  useQueryErrorToast(members.error, () => void members.refetch());
+
   const isOwner = organization.data?.organization.role === 'OWNER';
 
   const usage = useQuery({
@@ -116,6 +122,8 @@ function OrganizationOverviewPage() {
     queryFn: () => invitationsApi.list(organizationId),
     enabled: isOwner,
   });
+  useQueryErrorToast(usage.error, () => void usage.refetch());
+  useQueryErrorToast(invitations.error, () => void invitations.refetch());
 
   const addMember = useMutation({
     mutationFn: (input: { organizationId: string; email: string }) =>
@@ -130,6 +138,11 @@ function OrganizationOverviewPage() {
       return client.invalidateQueries({
         queryKey: queryKeys.organizations.members(variables.organizationId),
       });
+    },
+    onError: (error) => {
+      if (!isNotFound(error)) {
+        reportError(error);
+      }
     },
   });
 
@@ -155,6 +168,7 @@ function OrganizationOverviewPage() {
         queryKey: queryKeys.organizations.members(variables.organizationId),
       });
     },
+    onError: (error) => reportError(error),
   });
 
   const createInvitation = useMutation({
@@ -163,6 +177,11 @@ function OrganizationOverviewPage() {
     onSuccess: (data, variables) => {
       setInviteResult(data.invitation);
       setEmail('');
+      toast({
+        variant: 'success',
+        title: 'Invitation created',
+        description: `Share the link with ${data.invitation.email}.`,
+      });
 
       return client.invalidateQueries({
         queryKey: queryKeys.organizations.invitations.list(
@@ -170,6 +189,7 @@ function OrganizationOverviewPage() {
         ),
       });
     },
+    onError: (error) => reportError(error),
   });
 
   const revokeInvitation = useMutation({
@@ -184,6 +204,7 @@ function OrganizationOverviewPage() {
         ),
       });
     },
+    onError: (error) => reportError(error),
   });
 
   const removeMember = useMutation({
@@ -196,16 +217,18 @@ function OrganizationOverviewPage() {
         queryKey: queryKeys.organizations.members(variables.organizationId),
       });
     },
+    onError: (error) => reportError(error),
   });
 
   async function handleAddMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setValidationError(null);
 
     const result = memberEmailSchema.safeParse({ email });
 
     if (!result.success) {
-      setValidationError(result.error.issues[0]?.message ?? 'Invalid email.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'Invalid email.'),
+      );
       return;
     }
 
@@ -236,7 +259,6 @@ function OrganizationOverviewPage() {
 
     if (!open) {
       setEmail('');
-      setValidationError(null);
       setInviteResult(null);
       addMember.reset();
       createInvitation.reset();
@@ -357,12 +379,6 @@ function OrganizationOverviewPage() {
           {usage.isPending ? (
             <Skeleton className="h-12 w-full" />
           ) : null}
-          {usage.isError ? (
-            <ErrorNotice
-              error={usage.error}
-              onRetry={() => void usage.refetch()}
-            />
-          ) : null}
           {usage.data ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -434,13 +450,6 @@ function OrganizationOverviewPage() {
                   <Skeleton key={index} className="h-12 w-full" />
                 ))}
               </div>
-            ) : null}
-
-            {members.isError ? (
-              <ErrorNotice
-                error={members.error}
-                onRetry={() => void members.refetch()}
-              />
             ) : null}
 
             {members.data && members.data.members.length === 0 ? (
@@ -528,10 +537,6 @@ function OrganizationOverviewPage() {
               </ul>
             ) : null}
 
-            {updateRole.isError ? <ErrorNotice error={updateRole.error} /> : null}
-            {removeMember.isError ? (
-              <ErrorNotice error={removeMember.error} />
-            ) : null}
           </CardContent>
         </Card>
 
@@ -581,15 +586,6 @@ function OrganizationOverviewPage() {
             </div>
           ) : (
             <form onSubmit={handleAddMember} className="space-y-4" noValidate>
-              {validationError ? (
-                <ErrorNotice error={new Error(validationError)} />
-              ) : null}
-              {addMember.isError && !isNotFound(addMember.error) ? (
-                <ErrorNotice error={addMember.error} />
-              ) : null}
-              {createInvitation.isError ? (
-                <ErrorNotice error={createInvitation.error} />
-              ) : null}
               <div className="space-y-2">
                 <Label htmlFor="member-email">Email</Label>
                 <Input
@@ -643,13 +639,6 @@ function OrganizationOverviewPage() {
               </div>
             ) : null}
 
-            {invitations.isError ? (
-              <ErrorNotice
-                error={invitations.error}
-                onRetry={() => void invitations.refetch()}
-              />
-            ) : null}
-
             {invitations.data && invitations.data.invitations.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No pending invitations. Add an email above to create one.
@@ -694,9 +683,6 @@ function OrganizationOverviewPage() {
               </ul>
             ) : null}
 
-            {revokeInvitation.isError ? (
-              <ErrorNotice error={revokeInvitation.error} />
-            ) : null}
           </CardContent>
         </Card>
       ) : null}
@@ -716,9 +702,6 @@ function OrganizationOverviewPage() {
                 : 'This member will lose access to this organization.'}
             </DialogDescription>
           </DialogHeader>
-          {removeMember.isError ? (
-            <ErrorNotice error={removeMember.error} />
-          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setMemberToRemove(null)}>
               Cancel

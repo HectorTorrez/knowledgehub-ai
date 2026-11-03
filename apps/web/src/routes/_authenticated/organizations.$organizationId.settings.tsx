@@ -4,7 +4,6 @@ import { History, LogOut, Settings, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import {
   Card,
@@ -25,6 +24,10 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { activityApi } from '~/lib/api/activity';
 import { formatActivity } from '~/lib/activity-format';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -49,15 +52,16 @@ function OrganizationSettingsPage() {
   const client = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const reportError = useReportError();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [name, setName] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const organization = useQuery({
     queryKey: queryKeys.organizations.detail(organizationId),
     queryFn: () => organizationsApi.detail(organizationId),
   });
+  useQueryErrorToast(organization.error, () => void organization.refetch());
 
   const isOwner = organization.data?.organization.role === 'OWNER';
   const activity = useInfiniteQuery({
@@ -67,6 +71,7 @@ function OrganizationSettingsPage() {
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     enabled: isOwner,
   });
+  useQueryErrorToast(activity.error, () => void activity.refetch());
   const currentName = organization.data?.organization.name ?? '';
   const nameDraft = name ?? currentName;
   const dirty = name !== null && name !== currentName;
@@ -88,6 +93,7 @@ function OrganizationSettingsPage() {
         client.invalidateQueries({ queryKey: queryKeys.organizations.list() }),
       ]);
     },
+    onError: (error) => reportError(error),
   });
 
   const leave = useMutation({
@@ -97,6 +103,7 @@ function OrganizationSettingsPage() {
       await client.invalidateQueries({ queryKey: queryKeys.organizations.all });
       await navigate({ to: '/organizations' });
     },
+    onError: (error) => reportError(error),
   });
 
   const remove = useMutation({
@@ -110,16 +117,18 @@ function OrganizationSettingsPage() {
       await client.invalidateQueries({ queryKey: queryKeys.organizations.all });
       await navigate({ to: '/organizations' });
     },
+    onError: (error) => reportError(error),
   });
 
   async function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setValidationError(null);
 
     const result = organizationNameSchema.safeParse({ name: nameDraft });
 
     if (!result.success) {
-      setValidationError(result.error.issues[0]?.message ?? 'Invalid name.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'Invalid name.'),
+      );
       return;
     }
 
@@ -135,12 +144,7 @@ function OrganizationSettingsPage() {
   }
 
   if (organization.isError) {
-    return (
-      <ErrorNotice
-        error={organization.error}
-        onRetry={() => void organization.refetch()}
-      />
-    );
+    return null;
   }
 
   return (
@@ -171,16 +175,6 @@ function OrganizationSettingsPage() {
               className="flex flex-col gap-3 sm:flex-row sm:items-end"
               noValidate
             >
-              {validationError ? (
-                <div className="w-full">
-                  <ErrorNotice error={new Error(validationError)} />
-                </div>
-              ) : null}
-              {rename.isError ? (
-                <div className="w-full">
-                  <ErrorNotice error={rename.error} />
-                </div>
-              ) : null}
               <div className="flex-1 space-y-2">
                 <Label htmlFor="organization-name-setting">Name</Label>
                 <Input
@@ -206,9 +200,7 @@ function OrganizationSettingsPage() {
         <Card>
           <CardHeader><CardTitle>Activity</CardTitle><CardDescription>Recent organization activity.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            {activity.isPending ? <Skeleton className="h-24 w-full" /> : activity.isError && !activity.data ? (
-              <ErrorNotice error={activity.error} onRetry={() => void activity.refetch()} />
-            ) : activity.data?.pages.every((page) => page.activities.length === 0) ? (
+            {activity.isPending ? <Skeleton className="h-24 w-full" /> : activity.data?.pages.every((page) => page.activities.length === 0) ? (
               <EmptyState icon={History} title="No activity yet" />
             ) : (
               <ul className="space-y-4">
@@ -217,7 +209,6 @@ function OrganizationSettingsPage() {
                 ))}
               </ul>
             )}
-            {activity.isFetchNextPageError ? <ErrorNotice error={activity.error} onRetry={() => void activity.fetchNextPage()} /> : null}
             {activity.hasNextPage ? <Button variant="outline" disabled={activity.isFetchingNextPage} onClick={() => void activity.fetchNextPage()}>{activity.isFetchingNextPage ? 'Loading…' : 'Load more'}</Button> : null}
           </CardContent>
         </Card>
@@ -273,7 +264,6 @@ function OrganizationSettingsPage() {
               and everything in it. You can rejoin only with a new invitation.
             </DialogDescription>
           </DialogHeader>
-          {leave.isError ? <ErrorNotice error={leave.error} /> : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setLeaveOpen(false)}>
               Cancel
@@ -298,7 +288,6 @@ function OrganizationSettingsPage() {
               undone.
             </DialogDescription>
           </DialogHeader>
-          {remove.isError ? <ErrorNotice error={remove.error} /> : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
               Cancel

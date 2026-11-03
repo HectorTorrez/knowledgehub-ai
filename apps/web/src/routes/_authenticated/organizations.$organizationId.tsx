@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
-import { ErrorNotice } from '~/components/route-states';
+import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { cn } from '~/lib/utils';
@@ -91,18 +91,12 @@ function OrganizationLayout() {
     queryKey: queryKeys.organizations.detail(organizationId),
     queryFn: () => organizationsApi.detail(organizationId),
   });
+  useQueryErrorToast(organization.error, () => void organization.refetch());
 
   const tabs = ORGANIZATION_TABS.filter((tab) => !tab.ownerOnly || organization.data?.organization.role === 'OWNER');
 
   return (
     <div className="space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0">
-      {organization.isError ? (
-        <ErrorNotice
-          error={organization.error}
-          onRetry={() => void organization.refetch()}
-        />
-      ) : null}
-
       <nav
         aria-label="Organization sections"
         className="hidden gap-1 overflow-x-auto border-b sm:flex"

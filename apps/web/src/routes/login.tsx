@@ -8,7 +8,6 @@ import { useState, type FormEvent } from 'react';
 import { AuthLayout } from '~/components/auth-layout';
 import { Brand } from '~/components/brand';
 import { PasswordInput } from '~/components/password-input';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import {
   Card,
@@ -20,7 +19,9 @@ import {
 } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { useToast } from '~/components/ui/toast';
 import { useLogin } from '~/hooks/use-auth';
+import { useReportError } from '~/hooks/use-error-toast';
 import { sessionQuery } from '~/lib/auth/session';
 import { DEMO_ACCOUNT } from '~/lib/demo-account';
 import { pageHead } from '~/lib/seo';
@@ -68,33 +69,36 @@ function LoginPage() {
   const { redirect: redirectTo } = Route.useSearch();
   const router = useRouter();
   const login = useLogin();
+  const { toast } = useToast();
+  const reportError = useReportError();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   function fillDemoCredentials() {
-    setValidationError(null);
     setEmail(DEMO_ACCOUNT.email);
     setPassword(DEMO_ACCOUNT.password);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setValidationError(null);
 
     const result = loginFormSchema.safeParse({ email, password });
 
     if (!result.success) {
-      setValidationError(result.error.issues[0]?.message ?? 'Invalid input.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'Invalid input.'),
+      );
       return;
     }
 
     try {
       await login.mutateAsync(result.data);
-    } catch {
+    } catch (error) {
+      reportError(error);
       return;
     }
 
+    toast({ variant: 'success', title: 'Signed in' });
     router.history.push(redirectTo ?? '/organizations');
   }
 
@@ -137,10 +141,6 @@ function LoginPage() {
             </Button>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {validationError ? (
-              <ErrorNotice error={new Error(validationError)} />
-            ) : null}
-            {login.isError ? <ErrorNotice error={login.error} /> : null}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

@@ -28,7 +28,6 @@ import {
 } from '~/components/ask-messages';
 import { AnswerThread } from '~/components/answer-thread';
 import { ConversationRail } from '~/components/conversation-rail';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import {
@@ -42,6 +41,10 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { useAnswerStream } from '~/hooks/use-answer-stream';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { answersApi } from '~/lib/api/answers';
 import { clearAskDraft, readAskDraft, writeAskDraft } from '~/lib/ask-draft';
@@ -117,7 +120,6 @@ function AskPage() {
     string | null
   >(presetConversationId ?? null);
   const [asked, setAsked] = useState<AskedQuestion | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(
     null,
   );
@@ -127,6 +129,7 @@ function AskPage() {
   const ready = useReadyDocuments(organizationId);
   const scope = resolveDocumentScope(selection, ready.documents);
   const stream = useAnswerStream(organizationId);
+  const reportError = useReportError();
 
   const conversations = useInfiniteQuery({
     queryKey: queryKeys.organizations.conversations.list(organizationId),
@@ -146,6 +149,11 @@ function AskPage() {
     enabled: activeConversationId !== null,
     staleTime: 30_000,
   });
+  useQueryErrorToast(conversations.error, () => void conversations.refetch());
+  useQueryErrorToast(activeConversationDetail.error, () =>
+    void activeConversationDetail.refetch(),
+  );
+  useQueryErrorToast(stream.error);
 
   const createConversation = useMutation({
     mutationFn: () => conversationsApi.create(organizationId),
@@ -153,6 +161,7 @@ function AskPage() {
       client.invalidateQueries({
         queryKey: queryKeys.organizations.conversations.list(organizationId),
       }),
+    onError: (error) => reportError(error),
   });
 
   const removeConversation = useMutation({
@@ -169,6 +178,7 @@ function AskPage() {
         queryKey: queryKeys.organizations.conversations.all(organizationId),
       });
     },
+    onError: (error) => reportError(error),
   });
 
   useEffect(() => {
@@ -192,13 +202,11 @@ function AskPage() {
       return;
     }
 
-    setValidationError(null);
-
     const result = questionSchema.safeParse({ question });
 
     if (!result.success) {
-      setValidationError(
-        result.error.issues[0]?.message ?? 'Enter a question.',
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'Enter a question.'),
       );
       return;
     }
@@ -248,7 +256,6 @@ function AskPage() {
     setActiveConversationId(null);
     updateConversationSearch(undefined);
     setQuestion(readAskDraft(organizationId));
-    setValidationError(null);
     setShowConversations(false);
   }
 
@@ -263,7 +270,6 @@ function AskPage() {
     setActiveConversationId(conversationId);
     updateConversationSearch(conversationId);
     setQuestion(readAskDraft(organizationId, conversationId));
-    setValidationError(null);
     setShowConversations(false);
   }
 
@@ -332,11 +338,8 @@ function AskPage() {
             activeConversationId={activeConversationId}
             listId="conversation-list"
             isPending={conversations.isPending}
-            isError={conversations.isError}
-            error={conversations.error}
             hasNextPage={conversations.hasNextPage}
             isFetchingNextPage={conversations.isFetchingNextPage}
-            onRetry={() => void conversations.refetch()}
             onFetchNextPage={() => void conversations.fetchNextPage()}
             onNew={startNewConversation}
             onSelect={selectConversation}
@@ -432,9 +435,6 @@ function AskPage() {
             streaming={streaming}
             submitting={createConversation.isPending}
             documentsPending={ready.query.isPending}
-            validationError={validationError}
-            streamError={stream.error}
-            createError={createConversation.error}
           />
         </div>
       </div>
@@ -454,11 +454,8 @@ function AskPage() {
               listId="conversation-list-mobile"
               showHeading={false}
               isPending={conversations.isPending}
-              isError={conversations.isError}
-              error={conversations.error}
               hasNextPage={conversations.hasNextPage}
               isFetchingNextPage={conversations.isFetchingNextPage}
-              onRetry={() => void conversations.refetch()}
               onFetchNextPage={() => void conversations.fetchNextPage()}
               onNew={startNewConversation}
               onSelect={selectConversation}
@@ -505,9 +502,6 @@ function AskPage() {
               This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          {removeConversation.isError ? (
-            <ErrorNotice error={removeConversation.error} />
-          ) : null}
           <DialogFooter>
             <Button
               type="button"
@@ -607,6 +601,7 @@ function PermalinkAnswer({
     queryKey: queryKeys.organizations.answers.detail(organizationId, answerId),
     queryFn: () => answersApi.detail(organizationId, answerId),
   });
+  useQueryErrorToast(detail.error, () => void detail.refetch());
 
   return (
     <Card className="border-primary/30">
@@ -626,12 +621,6 @@ function PermalinkAnswer({
         </div>
 
         {detail.isPending ? <Skeleton className="h-24 w-full" /> : null}
-        {detail.isError ? (
-          <ErrorNotice
-            error={detail.error}
-            onRetry={() => void detail.refetch()}
-          />
-        ) : null}
         {detail.data ? (
           <>
             <div className="space-y-1">

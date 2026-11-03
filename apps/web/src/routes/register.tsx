@@ -9,7 +9,6 @@ import { useState, type FormEvent } from 'react';
 import { AuthLayout } from '~/components/auth-layout';
 import { Brand } from '~/components/brand';
 import { PasswordInput } from '~/components/password-input';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import {
   Card,
@@ -21,7 +20,9 @@ import {
 } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { useToast } from '~/components/ui/toast';
 import { useRegister } from '~/hooks/use-auth';
+import { useReportError } from '~/hooks/use-error-toast';
 import { sessionQuery } from '~/lib/auth/session';
 import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
@@ -51,13 +52,14 @@ export const Route = createFileRoute('/register')({
 function RegisterPage() {
   const router = useRouter();
   const register = useRegister();
+  const { toast } = useToast();
+  const reportError = useReportError();
   const [form, setForm] = useState({
     email: '',
     password: '',
     firstName: '',
     lastName: '',
   });
-  const [validationError, setValidationError] = useState<string | null>(null);
   const meetsMinimumLength = form.password.length >= PASSWORD_MIN_LENGTH;
 
   function update(field: keyof typeof form, value: string) {
@@ -66,21 +68,24 @@ function RegisterPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setValidationError(null);
 
     const result = registerFormSchema.safeParse(form);
 
     if (!result.success) {
-      setValidationError(result.error.issues[0]?.message ?? 'Invalid input.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'Invalid input.'),
+      );
       return;
     }
 
     try {
       await register.mutateAsync(result.data);
-    } catch {
+    } catch (error) {
+      reportError(error);
       return;
     }
 
+    toast({ variant: 'success', title: 'Account created' });
     router.history.push('/organizations');
   }
 
@@ -98,10 +103,6 @@ function RegisterPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {validationError ? (
-              <ErrorNotice error={new Error(validationError)} />
-            ) : null}
-            {register.isError ? <ErrorNotice error={register.error} /> : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First name</Label>

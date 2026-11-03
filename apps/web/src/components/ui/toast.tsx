@@ -15,14 +15,22 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils';
 
 export type ToastVariant = 'success' | 'error' | 'info';
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
 
 export interface ToastOptions {
   title: string;
   description?: string;
   variant?: ToastVariant;
+  action?: ToastAction;
+  duration?: number;
 }
 
 interface ToastRecord {
@@ -30,6 +38,8 @@ interface ToastRecord {
   title: string;
   description?: string;
   variant: ToastVariant;
+  action?: ToastAction;
+  duration?: number;
 }
 
 interface ToastContextValue {
@@ -67,15 +77,33 @@ export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   const toast = useCallback((options: ToastOptions) => {
     nextId.current += 1;
-    setToasts((current) => [
-      ...current.slice(-3),
-      {
-        id: nextId.current,
-        title: options.title,
-        description: options.description,
-        variant: options.variant ?? 'info',
-      },
-    ]);
+    setToasts((current) => {
+      const variant = options.variant ?? 'info';
+
+      if (
+        variant === 'error' &&
+        current.some(
+          (record) =>
+            record.variant === 'error' &&
+            record.title === options.title &&
+            record.description === options.description,
+        )
+      ) {
+        return current;
+      }
+
+      return [
+        ...current.slice(-3),
+        {
+          id: nextId.current,
+          title: options.title,
+          description: options.description,
+          variant,
+          action: options.action,
+          duration: options.duration,
+        },
+      ];
+    });
   }, []);
 
   const value = useMemo(() => ({ toast, dismiss }), [toast, dismiss]);
@@ -105,13 +133,17 @@ function ToastItem({
   const Icon = config.icon;
 
   useEffect(() => {
+    if (record.duration === 0) {
+      return;
+    }
+
     const timer = window.setTimeout(
       () => onDismiss(record.id),
-      AUTO_DISMISS_MS[record.variant],
+      record.duration ?? AUTO_DISMISS_MS[record.variant],
     );
 
     return () => window.clearTimeout(timer);
-  }, [record.id, record.variant, onDismiss]);
+  }, [record.duration, record.id, record.variant, onDismiss]);
 
   return (
     <li
@@ -121,7 +153,22 @@ function ToastItem({
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm font-medium">{record.title}</p>
         {record.description ? (
-          <p className="text-sm text-muted-foreground">{record.description}</p>
+          <p className="text-sm whitespace-pre-line text-muted-foreground">
+            {record.description}
+          </p>
+        ) : null}
+        {record.action ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => {
+              record.action?.onClick();
+              onDismiss(record.id);
+            }}
+          >
+            {record.action.label}
+          </Button>
         ) : null}
       </div>
       <button

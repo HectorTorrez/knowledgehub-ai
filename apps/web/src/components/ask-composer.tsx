@@ -3,7 +3,6 @@ import { Link } from '@tanstack/react-router';
 import { ArrowUp, LoaderCircle, Square } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import { DocumentScopeSelect } from '~/components/document-scope-select';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Textarea } from '~/components/ui/textarea';
 import { ALL_DOCUMENTS } from '~/lib/document-scope';
@@ -21,9 +20,6 @@ export function AskComposer({
   streaming,
   submitting,
   documentsPending,
-  validationError,
-  streamError,
-  createError,
 }: Readonly<{
   organizationId: string;
   documents: DocumentSummary[];
@@ -36,9 +32,6 @@ export function AskComposer({
   streaming: boolean;
   submitting: boolean;
   documentsPending: boolean;
-  validationError: string | null;
-  streamError: unknown;
-  createError: unknown;
 }>) {
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (
@@ -67,12 +60,6 @@ export function AskComposer({
         }}
         className="mx-auto w-full max-w-3xl space-y-2"
       >
-        {validationError ? (
-          <ErrorNotice error={new Error(validationError)} />
-        ) : null}
-        {streamError ? <ErrorNotice error={streamError} /> : null}
-        {createError ? <ErrorNotice error={createError} /> : null}
-
         <div className="rounded-2xl border bg-card shadow-sm transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30">
           <Textarea
             id="ask-question"

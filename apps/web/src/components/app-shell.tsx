@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Building2, Check, ChevronsUpDown, LogOut, Moon, Settings, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Brand } from '~/components/brand';
-import { ErrorNotice } from '~/components/route-states';
 import { Skeleton } from '~/components/ui/skeleton';
+import { useToast } from '~/components/ui/toast';
 import { ThemeToggle } from '~/components/theme-toggle';
 import { Button } from '~/components/ui/button';
 import {
@@ -17,6 +17,10 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { useLogout, useSession } from '~/hooks/use-auth';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { useTheme } from '~/hooks/use-theme';
 import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -29,7 +33,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const navigate = useNavigate();
   const params = useParams({ strict: false });
   const activeOrganizationId = params.organizationId;
-  const [signOutError, setSignOutError] = useState<unknown>(null);
+  const reportError = useReportError();
+  const { toast } = useToast();
 
   const organizations = useQuery({
     queryKey: queryKeys.organizations.list(),
@@ -37,6 +42,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     enabled: activeOrganizationId !== undefined,
     staleTime: 30_000,
   });
+  useQueryErrorToast(organizations.error, () => void organizations.refetch());
 
   useWebMcpTools();
 
@@ -50,15 +56,14 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }, [session.data, navigate]);
 
   async function handleSignOut() {
-    setSignOutError(null);
-
     try {
       await signOut.mutateAsync();
     } catch (error) {
-      setSignOutError(error);
+      reportError(error);
       return;
     }
 
+    toast({ variant: 'success', title: 'Signed out' });
     await navigate({ to: '/login' });
   }
 
@@ -140,11 +145,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           </div>
         </div>
       </header>
-      {signOutError ? (
-        <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
-          <ErrorNotice error={signOutError} />
-        </div>
-      ) : null}
       <main
         id="main-content"
         tabIndex={-1}

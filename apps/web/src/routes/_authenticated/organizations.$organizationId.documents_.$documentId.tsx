@@ -5,7 +5,6 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { ContractTotalsCard } from '~/components/contract-totals-card';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { PageHeader } from '~/components/page-header';
-import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
@@ -20,6 +19,10 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
+import {
+  useQueryErrorToast,
+  useReportError,
+} from '~/hooks/use-error-toast';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatBytes, formatDateTime } from '~/lib/format';
@@ -45,9 +48,9 @@ function DocumentDetailPage() {
   const client = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const reportError = useReportError();
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameTitle, setRenameTitle] = useState('');
-  const [renameError, setRenameError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const document = useQuery({
@@ -59,6 +62,7 @@ function DocumentDetailPage() {
       return data && ACTIVE_STATUSES.has(data.document.status) ? 3000 : false;
     },
   });
+  useQueryErrorToast(document.error, () => void document.refetch());
 
   const rename = useMutation({
     mutationFn: (title: string) =>
@@ -79,6 +83,7 @@ function DocumentDetailPage() {
         }),
       ]);
     },
+    onError: (error) => reportError(error),
   });
 
   const reprocess = useMutation({
@@ -97,6 +102,7 @@ function DocumentDetailPage() {
         ),
       });
     },
+    onError: (error) => reportError(error),
   });
 
   const remove = useMutation({
@@ -115,6 +121,7 @@ function DocumentDetailPage() {
         params: { organizationId },
       });
     },
+    onError: (error) => reportError(error),
   });
 
   function openRename() {
@@ -125,18 +132,18 @@ function DocumentDetailPage() {
     }
 
     setRenameTitle(title);
-    setRenameError(null);
     setRenameOpen(true);
   }
 
   async function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setRenameError(null);
 
     const result = documentTitleSchema.safeParse({ title: renameTitle });
 
     if (!result.success) {
-      setRenameError(result.error.issues[0]?.message ?? 'A title is required.');
+      reportError(
+        new Error(result.error.issues[0]?.message ?? 'A title is required.'),
+      );
       return;
     }
 
@@ -161,10 +168,6 @@ function DocumentDetailPage() {
     return (
       <div className="space-y-6">
         <BackLink organizationId={organizationId} />
-        <ErrorNotice
-          error={document.error}
-          onRetry={() => void document.refetch()}
-        />
       </div>
     );
   }
@@ -202,8 +205,6 @@ function DocumentDetailPage() {
           </div>
         }
       />
-
-      {reprocess.isError ? <ErrorNotice error={reprocess.error} /> : null}
 
       {entry.status === 'FAILED' ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
@@ -294,8 +295,6 @@ function DocumentDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRename} className="space-y-4" noValidate>
-            {renameError ? <ErrorNotice error={new Error(renameError)} /> : null}
-            {rename.isError ? <ErrorNotice error={rename.error} /> : null}
             <div className="space-y-2">
               <Label htmlFor="detail-rename-title">Title</Label>
               <Input
@@ -330,7 +329,6 @@ function DocumentDetailPage() {
               from it. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          {remove.isError ? <ErrorNotice error={remove.error} /> : null}
           <DialogFooter>
             <Button
               type="button"
