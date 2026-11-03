@@ -147,7 +147,7 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
 
       const published = await this.jobs.publishExtraction(ownership, extracted);
       if (published) {
-        void this.summaries.summarize({ organizationId: job.organizationId, documentId: job.documentId, documentGeneration: job.documentGeneration }, drafts);
+        void this.summaries.summarize({ organizationId: job.organizationId, documentId: job.documentId, documentGeneration: job.documentGeneration }, drafts).catch((error: unknown) => this.logger.warn('Summary trigger failed', error));
       }
     } catch (error) {
       await this.recordFailure(job, error);

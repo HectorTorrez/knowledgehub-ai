@@ -1,18 +1,27 @@
-import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleInit, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { FactsTarget, StoredChunk } from '../facts/facts.store.js';
-import { FactsStore } from '../facts/facts.store.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { summaryInput } from './summary-input.js';
 import { SUMMARIZER, type Summarizer } from './summarizer.js';
 
 @Injectable()
-export class SummariesService implements OnModuleInit {
+export class SummariesService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SummariesService.name);
-  constructor(private readonly config: ConfigService, private readonly prisma: PrismaService, private readonly factsStore: FactsStore, @Inject(SUMMARIZER) private readonly summarizer: Summarizer) {}
+  private running = false;
+  private currentRun: Promise<void> | null = null;
+  constructor(private readonly config: ConfigService, private readonly prisma: PrismaService, @Inject(SUMMARIZER) private readonly summarizer: Summarizer) {}
 
   onModuleInit(): void {
-    if (this.config.get<string>('SUMMARIES_ENABLED') !== 'false') void this.backfill();
+    if (this.config.get<string>('SUMMARIES_ENABLED') !== 'false') {
+      this.running = true;
+      this.currentRun = this.backfill();
+    }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    this.running = false;
+    await this.currentRun;
   }
 
   async summarize(target: FactsTarget, chunks: StoredChunk[]): Promise<void> {
@@ -28,19 +37,32 @@ export class SummariesService implements OnModuleInit {
         await tx.document.updateMany({ where: { id: target.documentId, organizationId: target.organizationId, generation: target.documentGeneration }, data: { summaryStatus: 'READY', summaryFailureReason: null } });
       });
     } catch (error) {
+      await this.markFailed(target, error);
+    }
+  }
+
+  private async markFailed(target: FactsTarget, error: unknown): Promise<void> {
       this.logger.warn(`Summary failed for document ${target.documentId}`);
       try {
         await this.prisma.document.updateMany({ where: { id: target.documentId, organizationId: target.organizationId, generation: target.documentGeneration, status: 'READY', summaryStatus: { not: 'READY' } }, data: { summaryStatus: 'FAILED', summaryFailureReason: error instanceof Error ? error.name : 'UnknownError' } });
       } catch (recordError) { this.logger.warn('Could not record summary failure', recordError); }
-    }
   }
 
   private async backfill(): Promise<void> {
     try {
-      for (;;) {
-        const documents = await this.prisma.document.findMany({ where: { status: 'READY', summaryStatus: 'PENDING' }, select: { id: true, organizationId: true, generation: true }, take: 5 });
+      while (this.running) {
+        const documents = await this.prisma.document.findMany({ where: { status: 'READY', summaryStatus: 'PENDING' }, select: { id: true, organizationId: true, generation: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 5 });
         if (!documents.length) return;
-        for (const document of documents) await this.summarize({ documentId: document.id, organizationId: document.organizationId, documentGeneration: document.generation }, await this.factsStore.loadChunks(document.id, document.generation));
+        for (const document of documents) {
+          if (!this.running) return;
+          const target = { documentId: document.id, organizationId: document.organizationId, documentGeneration: document.generation };
+          try {
+            const chunks = await this.prisma.documentChunk.findMany({ where: { documentId: document.id, organizationId: document.organizationId, documentGeneration: document.generation }, select: { chunkIndex: true, pageNumber: true, content: true }, orderBy: { chunkIndex: 'asc' } });
+            await this.summarize(target, chunks);
+          } catch (error) {
+            await this.markFailed(target, error);
+          }
+        }
       }
     } catch (error) { this.logger.warn('Summary backfill failed', error); }
   }
