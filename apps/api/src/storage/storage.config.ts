@@ -25,6 +25,10 @@ export class StorageConfig {
     return this.config.getOrThrow<number>('STORAGE_UPLOAD_TTL_SECONDS');
   }
 
+  get downloadTtlSeconds(): number {
+    return this.config.getOrThrow<number>('STORAGE_DOWNLOAD_TTL_SECONDS');
+  }
+
   get accessKeyId(): string {
     return this.config.getOrThrow<string>('STORAGE_ACCESS_KEY_ID');
   }

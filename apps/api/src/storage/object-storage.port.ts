@@ -13,6 +13,16 @@ export interface PresignedUpload {
   expiresAt: Date;
 }
 
+export interface PresignedDownloadInput {
+  key: string;
+  expiresInSeconds: number;
+}
+
+export interface PresignedDownload {
+  url: string;
+  expiresAt: Date;
+}
+
 export interface ObjectMetadata {
   key: string;
   sizeBytes: number;
@@ -73,6 +83,9 @@ export class ObjectStorageIntegrityError extends Error {
 
 export interface ObjectStorage {
   createPresignedUpload(input: PresignedUploadInput): Promise<PresignedUpload>;
+  createPresignedDownload(
+    input: PresignedDownloadInput,
+  ): Promise<PresignedDownload>;
   inspectObject(key: string): Promise<ObjectMetadata | null>;
   readObjectPrefix(input: ReadObjectPrefixInput): Promise<Uint8Array>;
   readObject(input: ReadObjectInput): Promise<Uint8Array>;

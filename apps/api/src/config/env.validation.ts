@@ -94,6 +94,11 @@ const envObjectSchema = z.object({
     .int()
     .positive()
     .default(900),
+  STORAGE_DOWNLOAD_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(900),
   STORAGE_ACCESS_KEY_ID: z
     .string()
     .min(1, 'STORAGE_ACCESS_KEY_ID must not be empty')
