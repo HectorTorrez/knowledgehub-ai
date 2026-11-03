@@ -23,3 +23,13 @@ export function documentContentTypeLabel(contentType: string | null): string {
   if (contentType === null) return '—';
   return CONTENT_TYPE_LABELS[contentType] ?? contentType;
 }
+
+const PREVIEWABLE_CONTENT_TYPES = new Set([
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+]);
+
+export function canPreviewDocument(contentType: string | null): boolean {
+  return contentType !== null && PREVIEWABLE_CONTENT_TYPES.has(contentType);
+}

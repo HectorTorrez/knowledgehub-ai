@@ -1,4 +1,8 @@
-import { documentContentTypeLabel, documentFailureMessage } from '~/lib/document-display';
+import {
+  canPreviewDocument,
+  documentContentTypeLabel,
+  documentFailureMessage,
+} from '~/lib/document-display';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -73,7 +77,15 @@ export const Route = createFileRoute(
           ? Number(raw)
           : Number.NaN;
 
-    return { ...(Number.isInteger(page) && page > 0 ? { page } : {}), ...(typeof search.quote === 'string' && search.quote ? { quote: search.quote } : {}) };
+    const quote =
+      typeof search.quote === 'string' && search.quote.trim().length > 0
+        ? search.quote
+        : undefined;
+
+    return {
+      ...(Number.isInteger(page) && page > 0 ? { page } : {}),
+      ...(quote ? { quote } : {}),
+    };
   },
   component: DocumentDetailPage,
 });
@@ -324,7 +336,16 @@ function DocumentDetailPage() {
         </p>
       ) : null}
 
-      {download.data ? <DocumentViewer key={download.dataUpdatedAt} url={download.data.url} contentType={entry.contentType} page={page} quote={quote} retry={() => { void download.refetch(); }} /> : null}
+      {download.data && canPreviewDocument(entry.contentType) ? (
+        <DocumentViewer
+          key={download.dataUpdatedAt}
+          url={download.data.url}
+          contentType={entry.contentType}
+          page={page}
+          quote={quote}
+          onRetry={() => void download.refetch()}
+        />
+      ) : null}
 
       {entry.status === 'FAILED' ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">

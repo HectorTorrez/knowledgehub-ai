@@ -9,7 +9,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '~/components/ui/collapsible';
-import { sourceId, passageSearch } from '~/lib/answer-source';
+import { sourceId } from '~/lib/answer-source';
 import { cn } from '~/lib/utils';
 
 export function AnswerBody({
@@ -149,7 +149,7 @@ export function SourcesList({
                     organizationId,
                     documentId: citation.documentId,
                   }}
-                  search={passageSearch(citation.pageNumber, citation.excerpt)}
+                  search={{ page: citation.pageNumber, quote: citation.excerpt }}
                   className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
                   title={`Open ${citation.documentTitle} at page ${citation.pageNumber}`}
                 >
@@ -241,7 +241,7 @@ export function AnswerSources({
                       organizationId,
                       documentId: citation.documentId,
                     }}
-                    search={passageSearch(citation.pageNumber, citation.excerpt)}
+                    search={{ page: citation.pageNumber, quote: citation.excerpt }}
                     className="min-w-0 flex-1 truncate text-xs font-medium hover:underline"
                     title={`Open ${citation.documentTitle} at page ${citation.pageNumber}`}
                   >

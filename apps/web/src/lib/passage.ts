@@ -1,34 +1,85 @@
-export function findPassage(text: string, quote: string): { start: number; end: number } | undefined {
-  function normalize(value: string) {
-    let normalized = '';
-    const offsets: number[] = [];
-    for (let i = 0; i < value.length; i++) {
-      if (value[i] === '-' && /^\s*\n\s*/.test(value.slice(i + 1))) { i += value.slice(i + 1).match(/^\s*\n\s*/)?.[0].length ?? 0; continue; }
-      const char = value[i]!.toLowerCase();
-      if (/\s/.test(char)) {
-        if (!normalized || normalized.endsWith(' ')) continue;
-        normalized += ' ';
-      } else normalized += char;
-      offsets.push(i);
+export interface PassageRange {
+  start: number;
+  end: number;
+}
+
+interface NormalizedText {
+  text: string;
+  sourceOffsets: number[];
+}
+
+const MIN_FALLBACK_WORDS = 3;
+const MIN_FALLBACK_CHARACTERS = 20;
+const LINE_BREAK_HYPHENATION = /^-[^\S\n]*\n\s*/;
+
+function normalize(value: string): NormalizedText {
+  let text = '';
+  const sourceOffsets: number[] = [];
+  let index = 0;
+
+  while (index < value.length) {
+    const hyphenation = LINE_BREAK_HYPHENATION.exec(value.slice(index));
+    if (hyphenation) {
+      index += hyphenation[0].length;
+      continue;
     }
-    return { normalized, offsets };
-  }
-  const haystack = normalize(text);
-  const needle = normalize(quote).normalized.trim();
-  if (!needle) return undefined;
-  let match = needle;
-  let index = haystack.normalized.indexOf(match);
-  if (index < 0) {
-    const words = needle.split(' ');
-    for (let length = words.length - 1; length >= 3 && index < 0; length--) {
-      for (let start = 0; start + length <= words.length; start++) {
-        const candidate = words.slice(start, start + length).join(' ');
-        if (candidate.length < 20) continue;
-        index = haystack.normalized.indexOf(candidate);
-        if (index >= 0) { match = candidate; break; }
+
+    const char = value[index]!;
+    if (/\s/.test(char)) {
+      if (text.length > 0 && !text.endsWith(' ')) {
+        text += ' ';
+        sourceOffsets.push(index);
       }
+    } else {
+      text += char.toLowerCase();
+      sourceOffsets.push(index);
+    }
+    index += 1;
+  }
+
+  return { text, sourceOffsets };
+}
+
+function longestMatchingWordSpan(
+  haystack: string,
+  words: string[],
+): { index: number; length: number } | undefined {
+  for (let size = words.length - 1; size >= MIN_FALLBACK_WORDS; size -= 1) {
+    for (let start = 0; start + size <= words.length; start += 1) {
+      const candidate = words.slice(start, start + size).join(' ');
+      if (candidate.length < MIN_FALLBACK_CHARACTERS) continue;
+      const index = haystack.indexOf(candidate);
+      if (index >= 0) return { index, length: candidate.length };
     }
   }
-  if (index < 0) return undefined;
-  return { start: haystack.offsets[index]!, end: haystack.offsets[index + match.length - 1]! + 1 };
+  return undefined;
+}
+
+export function findPassage(
+  text: string,
+  quote: string,
+): PassageRange | undefined {
+  const haystack = normalize(text);
+  const needle = normalize(quote).text.trim();
+  if (needle.length === 0) return undefined;
+
+  const exact = haystack.text.indexOf(needle);
+  const match =
+    exact >= 0
+      ? { index: exact, length: needle.length }
+      : longestMatchingWordSpan(haystack.text, needle.split(' '));
+  if (!match) return undefined;
+
+  return {
+    start: haystack.sourceOffsets[match.index]!,
+    end: haystack.sourceOffsets[match.index + match.length - 1]! + 1,
+  };
+}
+
+export function overlapsPassage(
+  range: PassageRange,
+  start: number,
+  end: number,
+): boolean {
+  return start < range.end && end > range.start;
 }

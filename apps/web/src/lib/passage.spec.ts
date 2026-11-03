@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findPassage } from './passage';
+import { findPassage, overlapsPassage } from './passage';
 
 describe('findPassage', () => {
   it('matches case, whitespace and line-break hyphenation', () => {
@@ -14,5 +14,15 @@ describe('findPassage', () => {
   });
   it('does not highlight unrelated text', () => {
     expect(findPassage('A different sentence', 'nothing in common here')).toBeUndefined();
+  });
+});
+
+describe('overlapsPassage', () => {
+  it('detects spans that intersect the passage', () => {
+    const range = { start: 10, end: 20 };
+    expect(overlapsPassage(range, 5, 11)).toBe(true);
+    expect(overlapsPassage(range, 19, 30)).toBe(true);
+    expect(overlapsPassage(range, 0, 10)).toBe(false);
+    expect(overlapsPassage(range, 20, 25)).toBe(false);
   });
 });
