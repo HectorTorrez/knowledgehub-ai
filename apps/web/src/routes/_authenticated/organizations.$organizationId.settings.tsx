@@ -5,6 +5,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { History, LogOut, Settings, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
+import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
 import { Button, buttonVariants } from '~/components/ui/button';
 import {
@@ -156,7 +157,7 @@ function OrganizationSettingsPage() {
   }
 
   if (organization.isError) {
-    return null;
+    return <RouteError title="Unable to load settings" onRetry={() => void organization.refetch()} />;
   }
 
   return (
@@ -240,7 +241,7 @@ function OrganizationSettingsPage() {
                 })}
                 <p className="text-sm text-muted-foreground">Daily answers reset {formatDateTime(usage.data.usage.answers.resetsAt)}</p>
               </div>
-            ) : usage.isPending ? <Skeleton className="h-16 w-full" /> : null}
+            ) : usage.isPending ? <Skeleton className="h-16 w-full" /> : usage.isError ? <RouteError title="Unable to load usage" onRetry={() => void usage.refetch()} /> : null}
             <Button asChild variant="outline">
               <a href="/#pricing">Upgrade</a>
             </Button>
@@ -252,7 +253,7 @@ function OrganizationSettingsPage() {
         <Card>
           <CardHeader><CardTitle>Activity</CardTitle><CardDescription>Recent organization activity.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            {activity.isPending ? <Skeleton className="h-24 w-full" /> : activity.data?.pages.every((page) => page.activities.length === 0) ? (
+            {activity.isPending ? <Skeleton className="h-24 w-full" /> : activity.isError ? <RouteError title="Unable to load activity" onRetry={() => void activity.refetch()} /> : activity.data?.pages.every((page) => page.activities.length === 0) ? (
               <EmptyState icon={History} title="No activity yet" />
             ) : (
               <ul className="space-y-4">

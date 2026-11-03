@@ -405,6 +405,8 @@ function AskPage() {
             activeConversationId={activeConversationId}
             listId="conversation-list"
             isPending={conversations.isPending}
+            isError={conversations.isError}
+            onRetry={() => void conversations.refetch()}
             hasNextPage={conversations.hasNextPage}
             isFetchingNextPage={conversations.isFetchingNextPage}
             onFetchNextPage={() => void conversations.fetchNextPage()}
@@ -573,6 +575,8 @@ function AskPage() {
               listId="conversation-list-mobile"
               showHeading={false}
               isPending={conversations.isPending}
+            isError={conversations.isError}
+            onRetry={() => void conversations.refetch()}
               hasNextPage={conversations.hasNextPage}
               isFetchingNextPage={conversations.isFetchingNextPage}
               onFetchNextPage={() => void conversations.fetchNextPage()}

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Label } from '~/components/ui/label';
@@ -62,7 +63,14 @@ function InsightsPage() {
         </Select>
       </div>
 
-      {insights.isPending ? <Skeleton className="h-24 w-full" /> : null}
+      {insights.isPending ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />)}
+          <Skeleton className="h-40 w-full sm:col-span-2 lg:col-span-5" />
+          <Skeleton className="h-40 w-full sm:col-span-2 lg:col-span-5" />
+        </div>
+      ) : null}
+      {insights.isError ? <RouteError title="Unable to load insights" onRetry={() => void insights.refetch()} /> : null}
 
       {totals && insights.data ? (
         <>

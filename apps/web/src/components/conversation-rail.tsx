@@ -2,6 +2,8 @@ import type { ConversationSummary } from '@knowledgehub/shared-types';
 import { History, MessageSquarePlus, Trash2, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import { Button } from '~/components/ui/button';
+import { EmptyState } from '~/components/empty-state';
+import { RouteError } from '~/components/route-states';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import { formatDate } from '~/lib/format';
@@ -24,6 +26,8 @@ export function ConversationRail({
   listId,
   showHeading = true,
   isPending,
+  isError,
+  onRetry,
   hasNextPage,
   isFetchingNextPage,
   onFetchNextPage,
@@ -39,6 +43,8 @@ export function ConversationRail({
   listId: string;
   showHeading?: boolean;
   isPending: boolean;
+  isError: boolean;
+  onRetry: () => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   onFetchNextPage: () => void;
@@ -98,10 +104,14 @@ export function ConversationRail({
           </div>
         ) : null}
 
-        {!isPending && conversations.length === 0 ? (
-          <p className="px-2 py-4 text-xs leading-relaxed text-muted-foreground">
-            Your conversations will appear here. Ask a question to start one.
-          </p>
+        {isError ? <RouteError title="Unable to load conversations" onRetry={onRetry} /> : null}
+        {!isPending && !isError && conversations.length === 0 ? (
+          <EmptyState
+            icon={MessageSquarePlus}
+            title="No conversations yet"
+            description="Ask a question to start a conversation."
+            action={<Button onClick={onNew}>New conversation</Button>}
+          />
         ) : null}
 
         {groups.map((group) => (

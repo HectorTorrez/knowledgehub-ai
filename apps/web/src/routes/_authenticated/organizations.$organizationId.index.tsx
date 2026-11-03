@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
+import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
 import { Badge } from '~/components/ui/badge';
 import { Button, buttonVariants } from '~/components/ui/button';
@@ -440,6 +441,7 @@ function OrganizationOverviewPage() {
           {usage.isPending ? (
             <Skeleton className="h-12 w-full" />
           ) : null}
+          {usage.isError ? <RouteError title="Unable to load usage" onRetry={() => void usage.refetch()} /> : null}
           {usage.data ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -503,6 +505,7 @@ function OrganizationOverviewPage() {
               </div>
             ) : null}
 
+            {members.isError ? <RouteError title="Unable to load members" onRetry={() => void members.refetch()} /> : null}
             {members.data && members.data.members.length === 0 ? (
               <EmptyState
                 icon={UserPlus}
@@ -692,6 +695,7 @@ function OrganizationOverviewPage() {
               </div>
             ) : null}
 
+            {invitations.isError ? <RouteError title="Unable to load invitations" onRetry={() => void invitations.refetch()} /> : null}
             {invitations.data && invitations.data.invitations.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No pending invitations. Add an email above to create one.
