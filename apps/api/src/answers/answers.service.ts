@@ -125,6 +125,7 @@ const ANSWER_SELECT = {
   status: true,
   answer: true,
   citations: true,
+  missing: true,
   conversationId: true,
   createdAt: true,
 } as const;
@@ -135,6 +136,7 @@ interface AnswerProjection {
   status: AnswerResponse['status'];
   answer: string | null;
   citations: unknown;
+  missing: unknown;
   conversationId: string | null;
   createdAt: Date;
   feedback?: Array<{ value: 'UP' | 'DOWN'; comment: string | null }>;
@@ -157,6 +159,7 @@ function toAnswerDetail(row: AnswerProjection): AnswerDetail {
     status: row.status,
     answer: row.answer,
     citations: toCitations(row.citations),
+    ...{ missing: Array.isArray(row.missing) ? row.missing.filter((item): item is string => typeof item === 'string') : [] },
     conversationId: row.conversationId,
     createdAt: row.createdAt.toISOString(),
     feedback: row.feedback?.[0] ?? null,
@@ -418,10 +421,14 @@ export class AnswersService {
     }
 
     if (
-      response.status === 'answered' &&
+      response.status !== 'insufficient_evidence' &&
       parts.join(' ') !== response.answer
     ) {
       throw new BadGatewayException('The answer could not be grounded');
+    }
+
+    if (response.status === 'partial') {
+      yield { type: 'missing', missing: response.missing };
     }
 
     if (JSON.stringify(response.citations) !== lastCitations) {
@@ -465,11 +472,10 @@ export class AnswersService {
       return { ...INSUFFICIENT_EVIDENCE_RESPONSE };
     }
 
-    return {
-      status: 'answered',
-      answer: contract.answer,
-      citations: buildCitations(contract.markers, sources),
-    };
+    const citations = buildCitations(contract.markers, sources);
+    return contract.status === 'partial'
+      ? { status: 'partial', answer: contract.answer, citations, missing: contract.missing }
+      : { status: 'answered', answer: contract.answer, citations };
   }
 
   async list(
@@ -605,7 +611,8 @@ export class AnswersService {
           askedById: userId,
           question,
           status: response.status,
-          answer: response.status === 'answered' ? response.answer : null,
+          answer: response.status !== 'insufficient_evidence' ? response.answer : null,
+          ...(response.status === 'partial' ? { missing: response.missing } : {}),
           citations: response.citations as unknown as Prisma.InputJsonValue,
           ...(conversationId ? { conversationId } : {}),
         },
@@ -917,7 +924,7 @@ export class AnswersService {
       where: {
         conversationId,
         organizationId,
-        status: 'answered',
+        status: { in: ['answered', 'partial'] },
         answer: { not: null },
       },
       orderBy: { createdAt: 'desc' },

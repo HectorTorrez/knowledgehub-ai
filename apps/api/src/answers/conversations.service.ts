@@ -102,7 +102,7 @@ export class ConversationsService {
     );
     const turns = await this.prisma.answer.findMany({
       where: { organizationId, conversationId },
-      select: { question: true, answer: true, status: true, citations: true },
+      select: { question: true, answer: true, status: true, citations: true, missing: true },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
     return { title: conversation.title, turns };
