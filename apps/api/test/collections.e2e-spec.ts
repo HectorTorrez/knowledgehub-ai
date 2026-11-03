@@ -8,7 +8,7 @@ import { ACCESS_TOKEN_COOKIE } from '../src/auth/cookies.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { EMBEDDING_PROVIDER } from '../src/embeddings/embedding-provider.port.js';
 import { ANSWER_PROVIDER } from '../src/answers/answer-provider.port.js';
-import { FakeEmbeddingProvider } from './support/fake-embedding-provider.js';
+import { FakeEmbeddingProvider, deterministicVector } from './support/fake-embedding-provider.js';
 import { FakeAnswerProvider } from './support/fake-answer-provider.js';
 
 describe('collections (e2e)', () => {
@@ -71,6 +71,20 @@ describe('collections (e2e)', () => {
     const answer = await request(app.getHttpServer()).post(`${base}/answers`).set('Authorization', owner.auth).send({ question: 'What is in the report?', collectionIds: [collection.id] }).expect(200);
     expect(answer.body.status).toBe('insufficient_evidence');
     await request(app.getHttpServer()).post(`${base}/answers`).set('Authorization', owner.auth).send({ question: 'What is in the report?', collectionIds: [foreign.id] }).expect(404);
+    const selected = await prisma.document.create({ data: { organizationId: org, title: 'Selected', status: 'READY', generation: 1 } });
+    const excluded = await prisma.document.create({ data: { organizationId: org, title: 'Excluded', status: 'READY', generation: 1 } });
+    for (const item of [selected, excluded]) {
+      const content = `The report describes ${item.title} findings.`;
+      const vector = `[${deterministicVector(1).join(',')}]`;
+      await prisma.$executeRaw`INSERT INTO "DocumentChunk" ("id", "documentId", "organizationId", "documentGeneration", "pageNumber", "chunkIndex", "content", "characterCount", "embedding", "createdAt", "updatedAt") VALUES (gen_random_uuid(), ${item.id}::uuid, ${org}::uuid, 1, 1, 0, ${content}, ${content.length}, ${vector}::vector, now(), now())`;
+    }
+    await request(app.getHttpServer()).put(`${base}/documents/${selected.id}/collections`).set('Authorization', owner.auth).send({ collectionIds: [collection.id] }).expect(204);
+    const scopedSearch = await request(app.getHttpServer()).get(`${base}/search`).query({ q: 'report findings', collectionIds: collection.id }).set('Authorization', owner.auth).expect(200);
+    expect(scopedSearch.body.results.map((item: { documentId: string }) => item.documentId)).toEqual([selected.id]);
+    const scopedAnswer = await request(app.getHttpServer()).post(`${base}/answers`).set('Authorization', owner.auth).send({ question: 'What does the report describe?', collectionIds: [collection.id] }).expect(200);
+    expect(scopedAnswer.body.citations.map((item: { documentId: string }) => item.documentId)).toEqual([selected.id]);
+    const intersection = await request(app.getHttpServer()).get(`${base}/search`).query({ q: 'report findings', collectionIds: collection.id, documentIds: excluded.id }).set('Authorization', owner.auth).expect(200);
+    expect(intersection.body.results).toEqual([]);
     await request(app.getHttpServer()).patch(`${base}/collections/${foreign.id}`).set('Authorization', owner.auth).send({ name: 'No' }).expect(404);
     await request(app.getHttpServer()).patch(`${base}/collections/${collection.id}`).set('Authorization', owner.auth).send({ name: 'New' }).expect(200);
     await request(app.getHttpServer()).delete(`${base}/collections/${collection.id}`).set('Authorization', owner.auth).expect(204);
