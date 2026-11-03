@@ -102,6 +102,11 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === '/organizations/org-1/activity' && method === 'GET') {
+      await route.fulfill(json({ activities: [{ id: 'activity-1', action: 'DOCUMENT_UPLOADED', actor: USER, targetType: 'document', targetId: 'doc-1', metadata: { title: 'Handbook' }, createdAt: CREATED_AT }], nextCursor: null }));
+      return;
+    }
+
     if (path === '/organizations/org-1/members') {
       await route.fulfill(
         json({

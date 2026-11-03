@@ -64,3 +64,9 @@ test('asks a question and renders the streamed answer with its source', async ({
   await page.getByRole('button', { name: /Sources/ }).first().click();
   await expect(page.getByRole('link', { name: 'Handbook' })).toBeVisible();
 });
+
+test('owners see organization activity', async ({ page }) => {
+  await mockApi(page, { authenticated: true });
+  await page.goto('/organizations/org-1/settings');
+  await expect(page.getByText('Ada Lovelace uploaded document “Handbook”')).toBeVisible();
+});
