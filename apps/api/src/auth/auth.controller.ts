@@ -102,6 +102,22 @@ export class AuthController {
     return { user: result.user };
   }
 
+  @Get('me/export')
+  @UseGuards(SessionGuard)
+  async exportPersonalData(
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    if (!request.auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    const data = await this.auth.exportPersonalData(request.auth.userId);
+    const date = new Date().toISOString().slice(0, 10);
+    response.attachment(`knowledgehub-export-${date}.json`);
+    return data;
+  }
+
   @Patch('profile')
   @UseGuards(SessionGuard)
   updateProfile(
