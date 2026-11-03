@@ -164,6 +164,9 @@ export interface UsageCounter {
 export interface OrganizationUsageResponse {
   usage: {
     answers: UsageCounter;
+    documents: { used: number; limit: number | null };
+    storageBytes: { used: number; limit: number | null };
+    members: { used: number; limit: number | null };
   };
 }
 

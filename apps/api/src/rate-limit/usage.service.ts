@@ -16,7 +16,8 @@ export class UsageService {
     organizationId: string,
   ): Promise<OrganizationUsageResponse> {
     const periodStart = startOfUtcDay(new Date());
-    const row = await this.prisma.tenantUsage.findUnique({
+    const [row, documents, members] = await Promise.all([
+      this.prisma.tenantUsage.findUnique({
       where: {
         organizationId_kind_periodStart: {
           organizationId,
@@ -25,11 +26,17 @@ export class UsageService {
         },
       },
       select: { count: true },
-    });
+      }),
+      this.prisma.document.aggregate({ where: { organizationId }, _count: { _all: true }, _sum: { sizeBytes: true } }),
+      this.prisma.membership.count({ where: { organizationId } }),
+    ]);
     const limit = this.config.answerQuotaDaily;
 
     return {
       usage: {
+        documents: { used: documents._count._all, limit: null },
+        storageBytes: { used: documents._sum.sizeBytes ?? 0, limit: null },
+        members: { used: members, limit: null },
         answers: {
           used: Math.min(row?.count ?? 0, limit),
           limit,

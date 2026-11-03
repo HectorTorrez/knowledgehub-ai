@@ -1,3 +1,5 @@
+import { FREE_PLAN } from '~/lib/plans';
+import { usageProgress } from '~/lib/usage';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { History, LogOut, Settings, Trash2 } from 'lucide-react';
@@ -24,6 +26,7 @@ import {
 } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { Progress } from '~/components/ui/progress';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import {
@@ -67,6 +70,12 @@ function OrganizationSettingsPage() {
 
   const canDeleteOrganization = organization.data?.organization.capabilities.includes('organization.delete') ?? false;
   const canManage = organization.data?.organization.capabilities.includes('organization.manage') ?? false;
+  const usage = useQuery({
+    queryKey: ['organizations', organizationId, 'usage'],
+    queryFn: () => organizationsApi.usage(organizationId),
+    enabled: canManage,
+  });
+  useQueryErrorToast(usage.error, () => void usage.refetch());
   const activity = useInfiniteQuery({
     queryKey: ['organizations', organizationId, 'activity'],
     queryFn: ({ pageParam }) => activityApi.list(organizationId, { cursor: pageParam }),
@@ -198,6 +207,46 @@ function OrganizationSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {canManage ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Usage &amp; plan</CardTitle>
+            <CardDescription>Current plan: {FREE_PLAN.name}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {usage.data ? (
+              <div className="space-y-4">
+                {([
+                  ['Daily answers', usage.data.usage.answers],
+                  ['Documents', usage.data.usage.documents],
+                  ['Storage (bytes)', usage.data.usage.storageBytes],
+                  ['Members', usage.data.usage.members],
+                ] as const).map(([label, counter]) => {
+                  const progress = usageProgress(counter.used, counter.limit);
+                  return (
+                    <div key={label} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>{label}</span>
+                        <span>{counter.used.toLocaleString()} / {counter.limit?.toLocaleString() ?? 'Unlimited'}</span>
+                      </div>
+                      <Progress
+                        aria-label={label}
+                        value={progress.value}
+                        indicatorClassName={progress.tone === 'destructive' ? 'bg-destructive' : progress.tone === 'warning' ? 'bg-amber-500' : undefined}
+                      />
+                    </div>
+                  );
+                })}
+                <p className="text-sm text-muted-foreground">Daily answers reset {formatDateTime(usage.data.usage.answers.resetsAt)}</p>
+              </div>
+            ) : usage.isPending ? <Skeleton className="h-16 w-full" /> : null}
+            <Button asChild variant="outline">
+              <a href="/#pricing">Upgrade</a>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {canManage ? (
         <Card>
