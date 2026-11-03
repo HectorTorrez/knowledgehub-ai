@@ -1,3 +1,4 @@
+import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +35,7 @@ describe('add_document_extractions migration (e2e)', () => {
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
     prisma = moduleRef.get(PrismaService);
   });
 

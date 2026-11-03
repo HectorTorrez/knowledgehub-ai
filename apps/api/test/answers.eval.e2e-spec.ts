@@ -1,3 +1,4 @@
+import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
 import { randomUUID } from 'node:crypto';
 import {
@@ -284,7 +285,7 @@ describe('answers evaluation (real providers)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(QUERY_REWRITER).useValue({ rewrite: async (question: string) => question }).compile();
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).overrideProvider(QUERY_REWRITER).useValue({ rewrite: async (question: string) => question }).compile();
 
     app = moduleRef.createNestApplication();
     await app.init();

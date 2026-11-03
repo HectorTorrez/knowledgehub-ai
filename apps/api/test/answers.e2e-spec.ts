@@ -1,3 +1,4 @@
+import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
 import { randomUUID } from 'node:crypto';
 import { Logger, type INestApplication } from '@nestjs/common';
@@ -202,7 +203,7 @@ describe('answers (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    })
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue(embeddings)
       .overrideProvider(QUERY_REWRITER)

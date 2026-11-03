@@ -1,3 +1,4 @@
+import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -131,7 +132,7 @@ describe('search (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    })
+    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue(embeddings)
       .compile();
