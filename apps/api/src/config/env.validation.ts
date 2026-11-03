@@ -161,6 +161,9 @@ const envObjectSchema = z.object({
     .default(DEFAULT_EMBEDDING_TIMEOUT_MS),
 
   ANSWER_MODEL: z.string().min(1).default(DEFAULT_ANSWER_MODEL),
+  RERANK_ENABLED: z.enum(['true', 'false']).default('false'),
+  RERANK_MODEL: z.string().min(1).optional(),
+  RERANK_CANDIDATES: z.coerce.number().int().min(1).max(50).default(30),
   QUERY_REWRITE_MODEL: z.string().min(1).optional(),
   QUERY_REWRITE_ENABLED: z.enum(['true', 'false']).default('true'),
   ANSWER_TIMEOUT_MS: z.coerce

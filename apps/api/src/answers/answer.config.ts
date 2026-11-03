@@ -25,6 +25,18 @@ export class AnswerConfig {
     return this.config.get<string>('QUERY_REWRITE_MODEL') ?? this.model;
   }
 
+  get rerankEnabled(): boolean {
+    return this.config.get<string>('RERANK_ENABLED') === 'true';
+  }
+
+  get rerankModel(): string {
+    return this.config.get<string>('RERANK_MODEL') ?? this.model;
+  }
+
+  get rerankCandidates(): number {
+    return this.config.get<number>('RERANK_CANDIDATES') ?? 30;
+  }
+
   get timeoutMs(): number {
     return this.config.getOrThrow<number>('ANSWER_TIMEOUT_MS');
   }

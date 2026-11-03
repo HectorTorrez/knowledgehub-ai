@@ -224,6 +224,7 @@ function createService(options: {
     aggregation,
     factsConfig,
     { rewrite },
+    { rerank: vi.fn() },
   );
 
   return {
