@@ -142,6 +142,7 @@ async function collectStream(
 
 function createPrisma() {
   return {
+    $queryRaw: vi.fn(async (_query: { strings: string[]; values: unknown[] }) => []),
     answer: {
       create: vi.fn(async (_args?: unknown) => ({})),
       findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
@@ -342,6 +343,18 @@ describe('AnswersService', () => {
       text: 'What is alpha?',
       limit: 8,
     });
+  });
+
+  it('loads neighbors in one tenant-scoped query', async () => {
+    const { service, prisma } = createService();
+    await service.answer('org-1', USER_ID, 'What is alpha?');
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    const query = prisma.$queryRaw.mock.calls[0]![0] as { strings: string[]; values: unknown[] };
+    const sql = query.strings.join('?');
+    expect(sql).toContain('neighbor."documentGeneration" = hit."documentGeneration"');
+    expect(sql).toContain('neighbor."organizationId" = hit."organizationId"');
+    expect(sql).toContain("d.status = 'READY'");
+    expect(query.values).toContain('org-1');
   });
 
   it('scopes retrieval to the requested document when one is supplied', async () => {
