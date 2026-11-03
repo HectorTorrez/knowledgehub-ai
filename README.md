@@ -1211,3 +1211,7 @@ proof of entailment; human review remains necessary.
 - **No answer caching and no repair/retry** when model output is invalid; such
   output fails closed.
 
+
+### Retrieval evaluation
+
+With a migrated local PostgreSQL database with pgvector and a real `OPENAI_API_KEY` configured, run `pnpm --filter @knowledgehub/api eval:retrieval`. The opt-in evaluation embeds the synthetic answer corpus in a temporary isolated organization, searches each answerable question, prints ranked page hits and macro recall@5, recall@10 and MRR, and deletes the organization afterward. It uses the configured embedding model and incurs provider charges. Follow-up cases include their history in the query because retrieval currently accepts only text.

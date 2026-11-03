@@ -1,0 +1,36 @@
+import type { EvalQuestion } from '../test/answers-eval/metrics.js';
+import { EVAL_QUESTIONS } from '../test/answers-eval/questions.js';
+
+export const RETRIEVAL_QUESTIONS: EvalQuestion[] = [
+
+  { id: 'document-summary', kind: 'multi_source', question: 'Summarize the Aurora Deployment Guide.', expected: [1, 2, 3].map((pageNumber) => ({ documentTitle: 'Aurora Deployment Guide', pageNumber })), supporting: [1, 2, 3].map((pageNumber) => ({ documentTitle: 'Aurora Deployment Guide', pageNumber })) },
+  { id: 'document-rollback', kind: 'single_source', question: 'Which document talks about production rollbacks?', expected: [{ documentTitle: 'Aurora Deployment Guide', pageNumber: 2 }], supporting: [{ documentTitle: 'Aurora Deployment Guide', pageNumber: 2 }] },
+  { id: 'followup-refund', kind: 'single_source', question: 'Previous question: What is the Helios refund window? Previous answer: 14 days. Follow-up: How is that refund returned?', expected: [{ documentTitle: 'Helios Billing Policy', pageNumber: 2 }], supporting: [{ documentTitle: 'Helios Billing Policy', pageNumber: 2 }] },
+
+  { id: "release-days", kind: 'single_source', question: "Which days does Aurora deploy?", expected: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 1 }], supporting: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 1 }] },
+  { id: "freeze", kind: 'single_source', question: "When is the quarterly code freeze?", expected: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 1 }], supporting: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 1 }] },
+  { id: "rollback-authority", kind: 'single_source', question: "Who authorizes a rollback?", expected: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 2 }], supporting: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 2 }] },
+  { id: "release-log", kind: 'single_source', question: "Where are rollbacks recorded?", expected: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 2 }], supporting: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 2 }] },
+  { id: "migration-strategy", kind: 'single_source', question: "How are database schema changes deployed safely?", expected: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 3 }], supporting: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 3 }] },
+  { id: "migration-rollback", kind: 'single_source', question: "Do migrations run during rollback?", expected: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 3 }], supporting: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 3 }] },
+  { id: "severity-one", kind: 'single_source', question: "Who is paged for a Severity 1 incident?", expected: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 1 }], supporting: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 1 }] },
+  { id: "severity-two", kind: 'single_source', question: "When are Severity 2 incidents answered?", expected: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 1 }], supporting: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 1 }] },
+  { id: "ack-time", kind: 'single_source', question: "How quickly must the primary acknowledge a page?", expected: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 2 }], supporting: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 2 }] },
+  { id: "review-style", kind: 'single_source', question: "What principles guide incident reviews?", expected: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 3 }], supporting: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 3 }] },
+  { id: "invoice-date", kind: 'single_source', question: "When are monthly invoices issued?", expected: [{ documentTitle: "Helios Billing Policy", pageNumber: 1 }], supporting: [{ documentTitle: "Helios Billing Policy", pageNumber: 1 }] },
+  { id: "interest", kind: 'single_source', question: "What interest applies to overdue Helios payments?", expected: [{ documentTitle: "Helios Billing Policy", pageNumber: 1 }], supporting: [{ documentTitle: "Helios Billing Policy", pageNumber: 1 }] },
+  { id: "refund-window", kind: 'single_source', question: "How long do customers have to request a refund?", expected: [{ documentTitle: "Helios Billing Policy", pageNumber: 2 }], supporting: [{ documentTitle: "Helios Billing Policy", pageNumber: 2 }] },
+  { id: "refund-method", kind: 'single_source', question: "How are refunds paid back?", expected: [{ documentTitle: "Helios Billing Policy", pageNumber: 2 }], supporting: [{ documentTitle: "Helios Billing Policy", pageNumber: 2 }] },
+  { id: "p2-target", kind: 'single_source', question: "What is the Priority 2 response target?", expected: [{ documentTitle: "Helios Support SLA", pageNumber: 1 }], supporting: [{ documentTitle: "Helios Support SLA", pageNumber: 1 }] },
+  { id: "support-hours", kind: 'single_source', question: "When is Helios support open?", expected: [{ documentTitle: "Helios Support SLA", pageNumber: 2 }], supporting: [{ documentTitle: "Helios Support SLA", pageNumber: 2 }] },
+  { id: "availability", kind: 'single_source', question: "At what availability level do uptime credits begin?", expected: [{ documentTitle: "Helios Support SLA", pageNumber: 2 }], supporting: [{ documentTitle: "Helios Support SLA", pageNumber: 2 }] },
+  { id: "backup-retention", kind: 'single_source', question: "How long are backups kept?", expected: [{ documentTitle: "Nimbus Data Retention Notice", pageNumber: 1 }], supporting: [{ documentTitle: "Nimbus Data Retention Notice", pageNumber: 1 }] },
+  { id: "audit-retention", kind: 'single_source', question: "How long are audit records retained?", expected: [{ documentTitle: "Nimbus Data Retention Notice", pageNumber: 1 }], supporting: [{ documentTitle: "Nimbus Data Retention Notice", pageNumber: 1 }] },
+  { id: "deletion-backups", kind: 'single_source', question: "What happens to backups after deletion?", expected: [{ documentTitle: "Nimbus Data Retention Notice", pageNumber: 2 }], supporting: [{ documentTitle: "Nimbus Data Retention Notice", pageNumber: 2 }] },
+  { id: "spanish-staging", kind: 'single_source', question: "¿Cuánto tiempo permanece una versión en staging?", expected: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 1 }], supporting: [{ documentTitle: "Aurora Deployment Guide", pageNumber: 1 }] },
+  { id: "spanish-refund", kind: 'single_source', question: "¿Cuál es el plazo para solicitar un reembolso?", expected: [{ documentTitle: "Helios Billing Policy", pageNumber: 2 }], supporting: [{ documentTitle: "Helios Billing Policy", pageNumber: 2 }] },
+  { id: "spanish-logs", kind: 'single_source', question: "¿Cuánto tiempo se conservan los registros de Nimbus?", expected: [{ documentTitle: "Nimbus Data Retention Notice", pageNumber: 1 }], supporting: [{ documentTitle: "Nimbus Data Retention Notice", pageNumber: 1 }] },
+  { id: "semantic-escalation", kind: 'single_source', question: "What happens if the first responder misses their acknowledgement deadline?", expected: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 2 }], supporting: [{ documentTitle: "Aurora On-Call Handbook", pageNumber: 2 }] },
+
+  ...EVAL_QUESTIONS.filter((question) => question.expected.length > 0),
+];
