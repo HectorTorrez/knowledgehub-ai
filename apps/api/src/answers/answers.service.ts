@@ -40,6 +40,7 @@ import {
   MAX_CATALOG_DOCUMENTS,
   type CatalogDocumentRow,
 } from './answer-catalog.js';
+import { expandNeighbors, type NeighborChunk } from './neighbor-expansion.js';
 import { AnswerStreamParser } from './answer-claim-stream.js';
 import {
   buildCitations,
@@ -737,7 +738,22 @@ export class AnswersService {
       throw mapRetrievalError(error);
     }
 
-    return assembleContext(chunks, this.contextBudget());
+    if (chunks.length === 0) return [];
+    const rows = await this.prisma.$queryRaw<NeighborChunk[]>(Prisma.sql`
+      SELECT hit.id AS "hitId", neighbor.id AS "chunkId", neighbor."documentId",
+        neighbor."documentGeneration", neighbor."pageNumber", neighbor."chunkIndex", neighbor.content
+      FROM "DocumentChunk" hit
+      JOIN "Document" d ON d.id = hit."documentId"
+      JOIN "DocumentChunk" neighbor ON neighbor."documentId" = hit."documentId"
+        AND neighbor."documentGeneration" = hit."documentGeneration"
+        AND neighbor."organizationId" = hit."organizationId"
+        AND neighbor."chunkIndex" BETWEEN hit."chunkIndex" - 1 AND hit."chunkIndex" + 1
+      WHERE hit.id IN (${Prisma.join(chunks.map((chunk) => Prisma.sql`${chunk.chunkId}::uuid`))})
+        AND hit."organizationId" = ${organizationId}::uuid
+        AND d."organizationId" = ${organizationId}::uuid AND d.status = 'READY'
+        AND d.generation = hit."documentGeneration"
+    `);
+    return assembleContext(chunks, this.contextBudget(), expandNeighbors(chunks, rows));
   }
 
   private async loadDocumentCatalogRows(

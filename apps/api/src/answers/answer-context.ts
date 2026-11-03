@@ -1,3 +1,4 @@
+import type { ExpandedHit } from './neighbor-expansion.js';
 import type { RetrievedChunk } from '../retrieval/retrieval.service.js';
 
 export interface ContextBudget {
@@ -41,11 +42,14 @@ export function renderSourcesSection(sources: AnswerSource[]): string {
 export function assembleContext(
   chunks: RetrievedChunk[],
   budget: ContextBudget,
+  expanded?: ExpandedHit[],
 ): AnswerSource[] {
   const sources: AnswerSource[] = [];
   let usedChars = 0;
 
-  for (const chunk of chunks) {
+  const candidates = expanded ?? chunks.map((hit) => ({ hit, content: hit.content, chunkIds: [] }));
+  for (const expansion of candidates) {
+    const chunk = expansion.hit;
     if (sources.length >= budget.maxSources) {
       break;
     }
@@ -61,12 +65,16 @@ export function assembleContext(
       documentTitle: chunk.title,
       pageNumber: chunk.pageNumber,
       chunkIndex: chunk.chunkIndex,
-      content: chunk.content,
+      content: expansion.content,
       similarity: chunk.similarity,
     };
 
     const separatorChars = sources.length > 0 ? SOURCE_SEPARATOR.length : 0;
-    const blockChars = renderSourceBlock(candidate).length;
+    let blockChars = renderSourceBlock(candidate).length;
+    if (usedChars + separatorChars + blockChars > budget.maxChars) {
+      candidate.content = chunk.content;
+      blockChars = renderSourceBlock(candidate).length;
+    }
 
     if (usedChars + separatorChars + blockChars > budget.maxChars) {
       continue;

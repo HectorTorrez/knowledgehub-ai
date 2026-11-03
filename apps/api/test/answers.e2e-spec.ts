@@ -774,6 +774,27 @@ describe('answers (e2e)', () => {
     expect(prompt.user).not.toContain('PENDING_DOCUMENT_PASSAGE');
   });
 
+  it('expands only neighbors belonging to the same tenant and generation', async () => {
+    const owner = await registerUser();
+    const organizationId = await createOrganization(owner.token, 'Neighbor Org');
+    const otherId = await createOrganization(owner.token, 'Neighbor Other Org');
+    const documentId = await seedDocument(organizationId, { generation: 2 });
+    const otherDocumentId = await seedDocument(otherId);
+    for (const chunk of [
+      { documentId, organizationId, documentGeneration: 2, chunkIndex: 1, content: 'CURRENT_HIT', embedding: basis(0) },
+      { documentId, organizationId, documentGeneration: 2, chunkIndex: 2, content: 'CURRENT_NEIGHBOR', embedding: basis(1) },
+      { documentId, organizationId, documentGeneration: 1, chunkIndex: 0, content: 'STALE_NEIGHBOR', embedding: basis(1) },
+      { documentId: otherDocumentId, organizationId: otherId, documentGeneration: 1, chunkIndex: 2, content: 'FOREIGN_NEIGHBOR', embedding: basis(1) },
+    ]) await seedChunk({ ...chunk, pageNumber: 1 });
+    answerProvider.generateImpl = async () => draft({ status: 'answered', claims: [{ text: 'Current only.', source: 1 }] });
+    await ask(owner.token, organizationId, { question: 'What is alpha?' }).expect(200);
+    const prompt = answerProvider.calls[0]!.prompt.user;
+    expect(prompt).toContain('CURRENT_HIT');
+    expect(prompt).toContain('CURRENT_NEIGHBOR');
+    expect(prompt).not.toContain('STALE_NEIGHBOR');
+    expect(prompt).not.toContain('FOREIGN_NEIGHBOR');
+  });
+
   it('logs one line per request without question, passage, or answer content', async () => {
     const log = vi.spyOn(Logger.prototype, 'log');
     const { token } = await registerUser();
