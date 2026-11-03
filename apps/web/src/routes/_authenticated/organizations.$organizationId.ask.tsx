@@ -610,7 +610,7 @@ function PermalinkAnswer({
 
   return (
     <Card className="border-primary/30">
-      <CardContent className="space-y-4 p-4 sm:p-6">
+      <CardContent className="space-y-4 p-4 pt-4 sm:p-6 sm:pt-6">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Shared answer

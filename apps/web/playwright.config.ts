@@ -17,6 +17,7 @@ export default defineConfig({
     env: {
       VITE_API_BASE_URL: 'http://localhost:3001',
       VITE_SITE_URL: 'http://localhost:3100',
+      VITE_DISABLE_DEVTOOLS: 'true',
     },
   },
   projects: [

@@ -259,7 +259,7 @@ function DocumentDetailPage() {
 
       {entry.status === 'READY' ? (
         <Card>
-          <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <CardContent className="flex flex-col gap-3 p-6 pt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
             <div className="space-y-1">
               <p className="text-sm font-medium">Use this document in answers</p>
               <p className="text-sm text-muted-foreground">

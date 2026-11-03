@@ -76,7 +76,8 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body>
         {children}
-        {import.meta.env.DEV ? (
+        {import.meta.env.DEV &&
+        import.meta.env.VITE_DISABLE_DEVTOOLS !== 'true' ? (
           <>
             <TanStackRouterDevtools position="bottom-right" />
             <ReactQueryDevtools buttonPosition="bottom-left" />

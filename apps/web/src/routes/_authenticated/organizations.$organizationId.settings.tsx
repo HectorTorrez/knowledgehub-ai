@@ -249,7 +249,7 @@ function OrganizationSettingsPage() {
         </CardContent>
 
         {isOwner ? (
-          <CardContent className="flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <CardContent className="flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
             <div className="space-y-1">
               <p className="text-sm font-medium">Delete this organization</p>
               <p className="text-sm text-muted-foreground">

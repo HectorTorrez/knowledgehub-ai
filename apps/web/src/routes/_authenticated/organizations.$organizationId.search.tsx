@@ -1,6 +1,7 @@
 import type { SearchResult } from '@knowledgehub/shared-types';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { parseISO } from 'date-fns';
 import {
   History,
   LoaderCircle,
@@ -9,12 +10,15 @@ import {
   X as XIcon,
 } from 'lucide-react';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { DatePicker } from '~/components/date-picker';
+import { DocumentMultiSelect } from '~/components/document-multi-select';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { useSlashFocus } from '~/hooks/use-slash-focus';
@@ -63,6 +67,14 @@ function SearchPage() {
 
   const ready = useReadyDocuments(organizationId);
   const documentId = filters.documentIds.length === 1 ? filters.documentIds[0] : undefined;
+  const hasFilters =
+    filters.documentIds.length > 0 ||
+    filters.createdAfter !== '' ||
+    filters.createdBefore !== '';
+  const createdAfter = filters.createdAfter === '' ? undefined : parseISO(filters.createdAfter);
+  const createdBefore = filters.createdBefore === '' ? undefined : parseISO(filters.createdBefore);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
 
   const results = useQuery({
     queryKey: queryKeys.organizations.search(
@@ -159,23 +171,55 @@ function SearchPage() {
         </Button>
       </form>
 
-      <fieldset className="flex flex-wrap items-end gap-3">
-        <legend className="text-sm font-medium">Filters</legend>
-        <div className="space-y-1">
-          <span className="text-sm">Documents</span>
-          <div className="max-h-32 overflow-auto rounded border p-2">
-            {ready.documents.map((document) => (
-              <label key={document.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={filters.documentIds.includes(document.id)} onChange={(event) => updateFilters({ documentIds: event.target.checked ? [...filters.documentIds, document.id].slice(0, 20) : filters.documentIds.filter((id) => id !== document.id) })} />
-                {document.title}
-              </label>
-            ))}
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4 pt-4 sm:flex-row sm:items-end sm:pt-6">
+          <div className="flex-1">
+            <DocumentMultiSelect
+              documents={ready.documents}
+              selectedIds={filters.documentIds}
+              onChange={(documentIds) => updateFilters({ documentIds })}
+            />
           </div>
-        </div>
-        <label className="space-y-1 text-sm">Created after<Input type="date" value={filters.createdAfter} onChange={(event) => updateFilters({ createdAfter: event.target.value })} /></label>
-        <label className="space-y-1 text-sm">Created before<Input type="date" value={filters.createdBefore} onChange={(event) => updateFilters({ createdBefore: event.target.value })} /></label>
-        <Button type="button" variant="outline" onClick={() => updateFilters({ documentIds: [], createdAfter: '', createdBefore: '' })}>Clear filters</Button>
-      </fieldset>
+          <div className="space-y-1.5">
+            <Label htmlFor="search-created-after">Created after</Label>
+            <DatePicker
+              id="search-created-after"
+              ariaLabel="Created after"
+              value={filters.createdAfter}
+              max={createdBefore ?? endOfToday}
+              onChange={(createdAfter) => updateFilters({ createdAfter })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="search-created-before">Created before</Label>
+            <DatePicker
+              id="search-created-before"
+              ariaLabel="Created before"
+              value={filters.createdBefore}
+              min={createdAfter}
+              max={endOfToday}
+              onChange={(createdBefore) =>
+                updateFilters({ createdBefore })
+              }
+            />
+          </div>
+          {hasFilters ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                updateFilters({
+                  documentIds: [],
+                  createdAfter: '',
+                  createdBefore: '',
+                })
+              }
+            >
+              Clear filters
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
 
       {validationError ? <ErrorNotice error={new Error(validationError)} /> : null}
       {results.isError ? (
@@ -288,7 +332,7 @@ function SearchResultCard({
 
   return (
     <Card>
-      <CardContent className="p-4">
+      <CardContent className="p-4 pt-4">
         <div className="flex items-center justify-between gap-2">
           <Link
             to="/organizations/$organizationId/documents/$documentId"

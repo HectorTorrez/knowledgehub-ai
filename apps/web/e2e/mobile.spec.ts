@@ -58,9 +58,9 @@ test('exposes every organization section in the bottom navigation', async ({
 
   const nav = page.getByRole('navigation', { name: 'Organization sections' });
 
-  await expect(nav.getByRole('link')).toHaveCount(6);
+  await expect(nav.getByRole('link')).toHaveCount(4);
 
-  for (const label of ['Overview', 'Documents', 'Ask', 'Search', 'Insights', 'Settings']) {
+  for (const label of ['Overview', 'Documents', 'Ask', 'Search']) {
     await expect(nav.getByRole('link', { name: label })).toBeVisible();
   }
 
@@ -68,6 +68,11 @@ test('exposes every organization section in the bottom navigation', async ({
     'aria-current',
     'page',
   );
+
+  await nav.getByRole('button', { name: 'More' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Insights' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
 
   const brand = page.getByRole('link', { name: 'KnowledgeHub' });
   const brandBox = await brand.boundingBox();

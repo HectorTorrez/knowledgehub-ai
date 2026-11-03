@@ -1,17 +1,30 @@
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useRouterState,
+} from '@tanstack/react-router';
 import {
   BarChart3,
   FileText,
   LayoutGrid,
   MessageSquareText,
+  MoreHorizontal,
   Search,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import { ErrorNotice } from '~/components/route-states';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
+import { cn } from '~/lib/utils';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId',
@@ -65,8 +78,15 @@ const ORGANIZATION_TABS: ReadonlyArray<OrganizationTabItem> = [
   },
 ];
 
+const PRIMARY_MOBILE_TAB_COUNT = 4;
+
+const MOBILE_TAB_CLASSNAME =
+  'flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-1.5 text-[0.6875rem] font-medium transition-colors active:bg-accent/60';
+
 function OrganizationLayout() {
   const { organizationId } = Route.useParams();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const moreActive = /\/(settings|insights)(?:\/|$)/.test(pathname);
   const organization = useQuery({
     queryKey: queryKeys.organizations.detail(organizationId),
     queryFn: () => organizationsApi.detail(organizationId),
@@ -98,13 +118,13 @@ function OrganizationLayout() {
         aria-label="Organization sections"
         className="fixed inset-x-0 bottom-0 z-30 grid grid-flow-col auto-cols-fr border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:hidden"
       >
-        {tabs.map(({ icon: Icon, ...tab }) => (
+        {tabs.slice(0, PRIMARY_MOBILE_TAB_COUNT).map(({ icon: Icon, ...tab }) => (
           <Link
             key={tab.to}
             to={tab.to}
             params={{ organizationId }}
             activeOptions={{ exact: tab.exact ?? false }}
-            className="flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-1.5 text-[0.6875rem] font-medium transition-colors active:bg-accent/60"
+            className={MOBILE_TAB_CLASSNAME}
             inactiveProps={{ className: 'text-muted-foreground' }}
             activeProps={{
               className: 'rounded-xl bg-primary/10 text-primary',
@@ -115,6 +135,36 @@ function OrganizationLayout() {
             {tab.label}
           </Link>
         ))}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-current={moreActive ? 'page' : undefined}
+            className={cn(
+              MOBILE_TAB_CLASSNAME,
+              'rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              moreActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
+            )}
+          >
+            <MoreHorizontal className="size-5" />
+            More
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="min-w-40">
+            {tabs.slice(PRIMARY_MOBILE_TAB_COUNT).map(({ icon: Icon, ...tab }) => (
+              <DropdownMenuItem key={tab.to} asChild>
+                <Link
+                  to={tab.to}
+                  params={{ organizationId }}
+                  activeProps={{
+                    'aria-current': 'page',
+                    className: 'bg-primary/10 text-primary',
+                  }}
+                >
+                  <Icon />
+                  {tab.label}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
     </div>
   );

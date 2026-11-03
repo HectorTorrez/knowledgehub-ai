@@ -376,7 +376,7 @@ function PendingTurn({
           <CardContent
             role="status"
             aria-live="polite"
-            className="space-y-3 p-4 sm:p-5"
+            className="space-y-3 p-4 pt-4 sm:p-5 sm:pt-5"
           >
             {insufficient ? (
               <InsufficientEvidence />
@@ -476,7 +476,7 @@ function AssistantAnswer({
       meta={formatDateTime(createdAt)}
     >
       <Card className="rounded-2xl shadow-none">
-        <CardContent className="space-y-3 p-4 sm:p-5">
+        <CardContent className="space-y-3 p-4 pt-4 sm:p-5 sm:pt-5">
           {status !== 'insufficient_evidence' ? (
             <AnswerBody
               text={answer ?? ''}
