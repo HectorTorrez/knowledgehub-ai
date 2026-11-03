@@ -67,7 +67,24 @@ describe('chunkPages', () => {
     ]);
 
     expect(chunks).toHaveLength(1);
-    expect(chunks[0]?.content).toBe('a b c');
+    expect(chunks[0]?.content).toBe('a\n\nb c');
+  });
+
+  it('preserves paragraphs, lists, and Spanish punctuation', () => {
+    const [chunk] = chunkPages([{ pageNumber: 1, content: ' ¿Qué tal?\r\n - Uno\r\n - Dos\r\n\r\n\r\n ¡Bien! ' }]);
+    expect(chunk?.content).toBe('¿Qué tal?\n- Uno\n- Dos\n\n¡Bien!');
+  });
+
+  it('keeps a table row intact at a window boundary', () => {
+    const row = `| ${'cell '.repeat(70)}|`;
+    const chunks = chunkPages([{ pageNumber: 1, content: `${'a'.repeat(1400)}\n${row}\n${'b'.repeat(1200)}` }]);
+    expect(chunks.some((chunk) => chunk.content.includes(row))).toBe(true);
+    expect(chunks.every((chunk) => chunk.content.length <= CHUNK_TARGET_CHARACTERS)).toBe(true);
+  });
+
+  it('hard splits CJK text without spaces', () => {
+    const chunks = chunkPages([{ pageNumber: 1, content: '漢'.repeat(4000) }]);
+    expect(chunks[0]?.content.length).toBe(CHUNK_TARGET_CHARACTERS);
   });
 
   it('produces no chunk for a whitespace-only page', () => {
