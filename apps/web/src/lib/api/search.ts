@@ -24,10 +24,13 @@ export const searchApi = {
       params.set('documentId', options.documentId);
     }
 
-    for (const id of options.collectionIds ?? []) params.append('collectionIds', id);
-    for (const id of options.documentIds ?? []) params.append('documentIds', id);
+    for (const id of options.collectionIds ?? [])
+      params.append('collectionIds', id);
+    for (const id of options.documentIds ?? [])
+      params.append('documentIds', id);
     if (options.createdAfter) params.set('createdAfter', options.createdAfter);
-    if (options.createdBefore) params.set('createdBefore', options.createdBefore);
+    if (options.createdBefore)
+      params.set('createdBefore', options.createdBefore);
 
     return apiFetch<SearchResponse>(
       `/organizations/${organizationId}/search?${params.toString()}`,

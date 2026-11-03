@@ -2,6 +2,16 @@ import type { DocumentSummary } from '@knowledgehub/shared-types';
 
 export const ALL_DOCUMENTS = 'all';
 
+export function collectionSelection(id: string): string {
+  return `collection:${id}`;
+}
+
+export function selectedCollectionId(selection: string): string | undefined {
+  return selection.startsWith('collection:')
+    ? selection.slice(11) || undefined
+    : undefined;
+}
+
 export interface DocumentScope {
   documentId: string | undefined;
   label: string;

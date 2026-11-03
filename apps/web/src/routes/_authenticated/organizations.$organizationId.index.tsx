@@ -420,7 +420,7 @@ function OrganizationOverviewPage() {
           <Link
             to="/organizations/$organizationId/search"
             params={{ organizationId }}
-            search={{ q: undefined, documentIds: [], createdAfter: '', createdBefore: '' }}
+            search={{ q: undefined, collectionIds: [], documentIds: [], createdAfter: '', createdBefore: '' }}
           >
             <Search />
             Search documents

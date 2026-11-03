@@ -1,6 +1,6 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { FileText } from 'lucide-react';
-import { ALL_DOCUMENTS } from '~/lib/document-scope';
+import { ALL_DOCUMENTS, collectionSelection } from '~/lib/document-scope';
 import { cn } from '~/lib/utils';
 import {
   Select,
@@ -44,7 +44,10 @@ export function DocumentScopeSelect({
       <SelectContent>
         <SelectItem value={ALL_DOCUMENTS}>All documents</SelectItem>
         {collections.map((collection) => (
-          <SelectItem key={collection.id} value={`collection:${collection.id}`}>
+          <SelectItem
+            key={collection.id}
+            value={collectionSelection(collection.id)}
+          >
             {collection.name}
           </SelectItem>
         ))}

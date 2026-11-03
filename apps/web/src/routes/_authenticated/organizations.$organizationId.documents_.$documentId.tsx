@@ -134,25 +134,45 @@ function DocumentDetailPage() {
     queryFn: () => collectionsApi.list(organizationId),
   });
   const assignment = useMutation({
-    mutationFn: (ids: string[]) => collectionsApi.setDocumentCollections(organizationId, documentId, ids),
+    mutationFn: (ids: string[]) =>
+      collectionsApi.setDocumentCollections(organizationId, documentId, ids),
     onMutate: async (ids) => {
-      const key = queryKeys.organizations.documents.detail(organizationId, documentId);
+      const key = queryKeys.organizations.documents.detail(
+        organizationId,
+        documentId,
+      );
       await client.cancelQueries({ queryKey: key });
       const previous = client.getQueryData<DocumentDetailResponse>(key);
-      client.setQueryData<DocumentDetailResponse>(key, (current) => current ? {
-        ...current,
-        document: { ...current.document, collections: (collections.data ?? []).filter((item) => ids.includes(item.id)) },
-      } : current);
+      client.setQueryData<DocumentDetailResponse>(key, (current) =>
+        current
+          ? {
+              ...current,
+              document: {
+                ...current.document,
+                collections: (collections.data ?? []).filter((item) =>
+                  ids.includes(item.id),
+                ),
+              },
+            }
+          : current,
+      );
       return { previous };
     },
     onError: (error, _ids, context) => {
-      client.setQueryData(queryKeys.organizations.documents.detail(organizationId, documentId), context?.previous);
+      client.setQueryData(
+        queryKeys.organizations.documents.detail(organizationId, documentId),
+        context?.previous,
+      );
       reportError(error);
     },
     onSettled: async () => {
       await Promise.all([
-        client.invalidateQueries({ queryKey: queryKeys.organizations.documents.all(organizationId) }),
-        client.invalidateQueries({ queryKey: queryKeys.organizations.collections(organizationId) }),
+        client.invalidateQueries({
+          queryKey: queryKeys.organizations.documents.all(organizationId),
+        }),
+        client.invalidateQueries({
+          queryKey: queryKeys.organizations.collections(organizationId),
+        }),
       ]);
     },
   });
@@ -336,9 +356,13 @@ function DocumentDetailPage() {
         <CollectionBadges collections={entry.collections ?? []} />
         {canWrite ? (
           <DocumentMultiSelect
+            disabled={assignment.isPending}
             label="Collections"
             emptyLabel="No collections"
-            documents={(collections.data ?? []).map((item) => ({ id: item.id, title: item.name }))}
+            documents={(collections.data ?? []).map((item) => ({
+              id: item.id,
+              title: item.name,
+            }))}
             selectedIds={(entry.collections ?? []).map((item) => item.id)}
             onChange={(ids) => assignment.mutate(ids)}
           />

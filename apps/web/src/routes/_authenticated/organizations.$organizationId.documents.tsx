@@ -30,7 +30,10 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
-import { CollectionBadges, CollectionsManager } from '~/components/collections-manager';
+import {
+  CollectionBadges,
+  CollectionsManager,
+} from '~/components/collections-manager';
 import { collectionsApi } from '~/lib/api/collections';
 import { DocumentProgress } from '~/components/document-progress';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
@@ -496,7 +499,12 @@ function DocumentsPage() {
             description="Upload documents and ask questions grounded in their contents."
             action={
               <div className="flex flex-wrap items-center gap-2">
-                {canWrite ? <CollectionsManager organizationId={organizationId} collections={collections.data ?? []} /> : null}
+                {canWrite ? (
+                  <CollectionsManager
+                    organizationId={organizationId}
+                    collections={collections.data ?? []}
+                  />
+                ) : null}
                 <Button
                   variant="outline"
                   size="icon"
@@ -549,13 +557,18 @@ function DocumentsPage() {
                 ) : null}
               </div>
               <Select value={collectionId} onValueChange={setCollectionId}>
-                <SelectTrigger className="w-full sm:w-44" aria-label="Filter by collection">
+                <SelectTrigger
+                  className="w-full sm:w-44"
+                  aria-label="Filter by collection"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All collections</SelectItem>
                   {(collections.data ?? []).map((collection) => (
-                    <SelectItem key={collection.id} value={collection.id}>{collection.name}</SelectItem>
+                    <SelectItem key={collection.id} value={collection.id}>
+                      {collection.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -704,7 +717,9 @@ function DocumentsPage() {
                                 {` · ${formatDate(document.createdAt)}`}
                               </span>
                             </span>
-                            <CollectionBadges collections={document.collections ?? []} />
+                            <CollectionBadges
+                              collections={document.collections ?? []}
+                            />
                             <DocumentProgress document={document} />
                             {document.status === 'FAILED' ? (
                               <span className="mt-1 block text-xs break-words text-destructive">

@@ -9,7 +9,13 @@ import {
   Sparkles,
   X as XIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { DatePicker } from '~/components/date-picker';
 import { DocumentMultiSelect } from '~/components/document-multi-select';
 import { EmptyState } from '~/components/empty-state';
@@ -20,10 +26,7 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { useSlashFocus } from '~/hooks/use-slash-focus';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -47,10 +50,26 @@ export const Route = createFileRoute(
     }),
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === 'string' ? search.q : undefined,
-    collectionIds: Array.isArray(search.collectionIds) ? search.collectionIds.filter((id): id is string => typeof id === 'string').slice(0, 20) : [],
-    documentIds: Array.isArray(search.documentIds) ? search.documentIds.filter((id): id is string => typeof id === 'string').slice(0, 20) : [],
-    createdAfter: typeof search.createdAfter === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.createdAfter) ? search.createdAfter : '',
-    createdBefore: typeof search.createdBefore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.createdBefore) ? search.createdBefore : '',
+    collectionIds: Array.isArray(search.collectionIds)
+      ? search.collectionIds
+          .filter((id): id is string => typeof id === 'string')
+          .slice(0, 20)
+      : [],
+    documentIds: Array.isArray(search.documentIds)
+      ? search.documentIds
+          .filter((id): id is string => typeof id === 'string')
+          .slice(0, 20)
+      : [],
+    createdAfter:
+      typeof search.createdAfter === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(search.createdAfter)
+        ? search.createdAfter
+        : '',
+    createdBefore:
+      typeof search.createdBefore === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(search.createdBefore)
+        ? search.createdBefore
+        : '',
   }),
   component: SearchPage,
 });
@@ -63,7 +82,12 @@ function SearchPage() {
   const [submitted, setSubmitted] = useState<string | null>(null);
   const filters = Route.useSearch();
   const navigate = Route.useNavigate();
-  useEffect(() => { if (filters.q) { setDraft(filters.q); setSubmitted(filters.q); } }, [filters.q]);
+  useEffect(() => {
+    if (filters.q) {
+      setDraft(filters.q);
+      setSubmitted(filters.q);
+    }
+  }, [filters.q]);
   function updateFilters(next: Partial<typeof filters>) {
     void navigate({ search: { ...filters, ...next }, replace: true });
   }
@@ -77,14 +101,17 @@ function SearchPage() {
     queryKey: queryKeys.organizations.collections(organizationId),
     queryFn: () => collectionsApi.list(organizationId),
   });
-  const documentId = filters.documentIds.length === 1 ? filters.documentIds[0] : undefined;
+  const documentId =
+    filters.documentIds.length === 1 ? filters.documentIds[0] : undefined;
   const hasFilters =
     filters.collectionIds.length > 0 ||
     filters.documentIds.length > 0 ||
     filters.createdAfter !== '' ||
     filters.createdBefore !== '';
-  const createdAfter = filters.createdAfter === '' ? undefined : parseISO(filters.createdAfter);
-  const createdBefore = filters.createdBefore === '' ? undefined : parseISO(filters.createdBefore);
+  const createdAfter =
+    filters.createdAfter === '' ? undefined : parseISO(filters.createdAfter);
+  const createdBefore =
+    filters.createdBefore === '' ? undefined : parseISO(filters.createdBefore);
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
 
@@ -133,9 +160,9 @@ function SearchPage() {
     filters.documentIds.length > 1
       ? 'selected documents'
       : documentId === undefined
-      ? 'all ready documents'
-      : (ready.documents.find((document) => document.id === documentId)
-          ?.title ?? 'the selected document');
+        ? 'all ready documents'
+        : (ready.documents.find((document) => document.id === documentId)
+            ?.title ?? 'the selected document');
 
   return (
     <div className="space-y-6">
@@ -196,7 +223,10 @@ function SearchPage() {
           <DocumentMultiSelect
             label="Collections"
             emptyLabel="All collections"
-            documents={(collections.data ?? []).map((item) => ({ id: item.id, title: item.name }))}
+            documents={(collections.data ?? []).map((item) => ({
+              id: item.id,
+              title: item.name,
+            }))}
             selectedIds={filters.collectionIds}
             onChange={(collectionIds) => updateFilters({ collectionIds })}
           />
@@ -218,9 +248,7 @@ function SearchPage() {
               value={filters.createdBefore}
               min={createdAfter}
               max={endOfToday}
-              onChange={(createdBefore) =>
-                updateFilters({ createdBefore })
-              }
+              onChange={(createdBefore) => updateFilters({ createdBefore })}
             />
           </div>
           {hasFilters ? (
@@ -365,23 +393,43 @@ function SearchResultCard({
           </div>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {result.matches[0] ? <HighlightedExcerpt match={result.matches[0]} /> : null}
+          {result.matches[0] ? (
+            <HighlightedExcerpt match={result.matches[0]} />
+          ) : null}
         </p>
         {result.matches.length > 1 ? (
           <div className="mt-3 space-y-2">
-            <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
-              {expanded ? 'Show fewer matches' : `+${result.matchCount - 1} more matches`}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpanded(!expanded)}
+              aria-expanded={expanded}
+            >
+              {expanded
+                ? 'Show fewer matches'
+                : `+${result.matchCount - 1} more matches`}
             </Button>
-            {expanded ? result.matches.slice(1).map((item) => (
-              <div key={`${item.pageNumber}-${item.chunkIndex}`} className="text-sm text-muted-foreground">
-                <span>Page {item.pageNumber}</span>
-                <p><HighlightedExcerpt match={item} /></p>
-              </div>
-            )) : null}
+            {expanded
+              ? result.matches.slice(1).map((item) => (
+                  <div
+                    key={`${item.pageNumber}-${item.chunkIndex}`}
+                    className="text-sm text-muted-foreground"
+                  >
+                    <span>Page {item.pageNumber}</span>
+                    <p>
+                      <HighlightedExcerpt match={item} />
+                    </p>
+                  </div>
+                ))
+              : null}
           </div>
         ) : null}
         <Button variant="outline" size="sm" className="mt-3" asChild>
-          <Link to="/organizations/$organizationId/ask" params={{ organizationId }} search={{ documentId: result.documentId }}>
+          <Link
+            to="/organizations/$organizationId/ask"
+            params={{ organizationId }}
+            search={{ documentId: result.documentId }}
+          >
             Ask about this document
           </Link>
         </Button>
@@ -390,9 +438,14 @@ function SearchResultCard({
   );
 }
 
-function HighlightedExcerpt({ match }: Readonly<{ match: SearchResult['matches'][number] }>) {
+function HighlightedExcerpt({
+  match,
+}: Readonly<{ match: SearchResult['matches'][number] }>) {
   const ranges = match.highlights
-    .map(({ start, end }) => ({ start: Math.max(0, start), end: Math.min(match.excerpt.length, end) }))
+    .map(({ start, end }) => ({
+      start: Math.max(0, start),
+      end: Math.min(match.excerpt.length, end),
+    }))
     .filter(({ start, end }) => start < end)
     .sort((a, b) => a.start - b.start);
   const parts: ReactNode[] = [];
@@ -401,7 +454,11 @@ function HighlightedExcerpt({ match }: Readonly<{ match: SearchResult['matches']
     const start = Math.max(cursor, range.start);
     if (range.end <= start) continue;
     if (start > cursor) parts.push(match.excerpt.slice(cursor, start));
-    parts.push(<mark key={`${start}-${range.end}`}>{match.excerpt.slice(start, range.end)}</mark>);
+    parts.push(
+      <mark key={`${start}-${range.end}`}>
+        {match.excerpt.slice(start, range.end)}
+      </mark>,
+    );
     cursor = range.end;
   }
   parts.push(match.excerpt.slice(cursor));

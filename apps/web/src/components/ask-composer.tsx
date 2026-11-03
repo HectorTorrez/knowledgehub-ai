@@ -108,11 +108,7 @@ export function AskComposer({
                   className="rounded-full"
                   disabled={submitting || question.trim().length === 0}
                 >
-                  {submitting ? (
-                    <Spinner />
-                  ) : (
-                    <ArrowUp />
-                  )}
+                  {submitting ? <Spinner /> : <ArrowUp />}
                 </Button>
               )}
             </div>

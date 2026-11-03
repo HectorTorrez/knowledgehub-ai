@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AnswerCitation, AnswerResponse } from '@knowledgehub/shared-types';
+import type {
+  AnswerCitation,
+  AnswerResponse,
+} from '@knowledgehub/shared-types';
 import { streamAnswer } from '~/lib/api/answers';
 
 type StreamStatus = 'idle' | 'streaming' | 'done' | 'error';
@@ -41,7 +44,12 @@ export function useAnswerStream(organizationId: string) {
   }, []);
 
   const ask = useCallback(
-    async (question: string, documentId?: string, conversationId?: string, collectionIds?: string[]) => {
+    async (
+      question: string,
+      documentId?: string,
+      conversationId?: string,
+      collectionIds?: string[],
+    ) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;

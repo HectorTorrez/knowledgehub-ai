@@ -26,6 +26,7 @@ export function DocumentMultiSelect({
   maxSelected = 20,
   label = 'Documents',
   emptyLabel = 'All ready documents',
+  disabled = false,
 }: Readonly<{
   documents: ReadonlyArray<DocumentOption>;
   selectedIds: ReadonlyArray<string>;
@@ -33,14 +34,15 @@ export function DocumentMultiSelect({
   maxSelected?: number;
   label?: string;
   emptyLabel?: string;
+  disabled?: boolean;
 }>) {
   const labelId = useId();
   const summary =
     selectedIds.length === 0
       ? emptyLabel
       : selectedIds.length === 1
-        ? (documents.find((document) => document.id === selectedIds[0])?.title ??
-          '1 document selected')
+        ? (documents.find((document) => document.id === selectedIds[0])
+            ?.title ?? '1 document selected')
         : `${selectedIds.length} documents selected`;
 
   const atLimit = selectedIds.length >= maxSelected;
@@ -66,7 +68,7 @@ export function DocumentMultiSelect({
             variant="outline"
             role="combobox"
             aria-labelledby={labelId}
-            disabled={documents.length === 0}
+            disabled={disabled || documents.length === 0}
             className="w-full justify-between font-normal sm:w-64"
           >
             <span className="truncate">{summary}</span>
