@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { LogOut, Settings, Trash2 } from 'lucide-react';
+import { History, LogOut, Settings, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
 import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
@@ -24,9 +25,11 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
+import { activityApi } from '~/lib/api/activity';
+import { formatActivity } from '~/lib/activity-format';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
-import { formatRole } from '~/lib/format';
+import { formatDateTime, formatRole } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { organizationNameSchema } from '~/lib/validation';
 
@@ -57,6 +60,13 @@ function OrganizationSettingsPage() {
   });
 
   const isOwner = organization.data?.organization.role === 'OWNER';
+  const activity = useInfiniteQuery({
+    queryKey: ['organizations', organizationId, 'activity'],
+    queryFn: ({ pageParam }) => activityApi.list(organizationId, { cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    enabled: isOwner,
+  });
   const currentName = organization.data?.organization.name ?? '';
   const nameDraft = name ?? currentName;
   const dirty = name !== null && name !== currentName;
@@ -191,6 +201,27 @@ function OrganizationSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {isOwner ? (
+        <Card>
+          <CardHeader><CardTitle>Activity</CardTitle><CardDescription>Recent organization activity.</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            {activity.isPending ? <Skeleton className="h-24 w-full" /> : activity.isError && !activity.data ? (
+              <ErrorNotice error={activity.error} onRetry={() => void activity.refetch()} />
+            ) : activity.data?.pages.every((page) => page.activities.length === 0) ? (
+              <EmptyState icon={History} title="No activity yet" />
+            ) : (
+              <ul className="space-y-4">
+                {activity.data?.pages.flatMap((page) => page.activities).map((item) => (
+                  <li key={item.id} className="text-sm"><p>{formatActivity(item)}</p><p className="text-muted-foreground">{formatDateTime(item.createdAt)}</p></li>
+                ))}
+              </ul>
+            )}
+            {activity.isFetchNextPageError ? <ErrorNotice error={activity.error} onRetry={() => void activity.fetchNextPage()} /> : null}
+            {activity.hasNextPage ? <Button variant="outline" disabled={activity.isFetchingNextPage} onClick={() => void activity.fetchNextPage()}>{activity.isFetchingNextPage ? 'Loading…' : 'Load more'}</Button> : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-destructive/40">
         <CardHeader>
