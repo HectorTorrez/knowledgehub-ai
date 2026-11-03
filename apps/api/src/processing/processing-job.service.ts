@@ -1,3 +1,4 @@
+import { CHUNKING_VERSION } from './chunking.policy.js';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -190,11 +191,11 @@ export class ProcessingJobService {
       const inserted = await tx.$executeRaw`
         INSERT INTO "DocumentExtraction"
           ("id", "documentId", "organizationId", "documentGeneration",
-           "verifiedStorageKey", "pages", "pageCount", "characterCount", "createdAt", "updatedAt")
+           "verifiedStorageKey", "pages", "pageCount", "characterCount", "chunkingVersion", "createdAt", "updatedAt")
         SELECT gen_random_uuid(), j."documentId", j."organizationId",
                j."documentGeneration", j."verifiedStorageKey",
                ${JSON.stringify(result.pages)}::jsonb, ${result.pageCount},
-               ${result.characterCount}, now(), now()
+               ${result.characterCount}, ${CHUNKING_VERSION}, now(), now()
         FROM "DocumentProcessingJob" AS j
         JOIN "Document" AS d ON d.id = j."documentId"
         WHERE j.id = ${ownership.jobId}::uuid

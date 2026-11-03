@@ -13,6 +13,7 @@ import {
   type ClaimedProcessingJob,
   type ProcessingOwnership,
 } from '../src/processing/processing-job.service.js';
+import { ReindexService } from '../src/processing/reindex.service.js';
 import { ProcessingWorkerService } from '../src/processing/processing-worker.service.js';
 import { OBJECT_STORAGE } from '../src/storage/object-storage.port.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -196,6 +197,29 @@ describe('document processing worker (e2e)', () => {
     expect(updatedDocument.status).toBe('READY');
     expect(updatedDocument.failureReason).toBeNull();
     expect(updatedDocument.failureKind).toBeNull();
+  });
+
+  it('reindexes only the selected organization after a read-only dry run', async () => {
+    const first = await seedJob({ bytes: encoder.encode('Alpha\nBeta') });
+    const second = await seedJob();
+    await worker.runOnce();
+    await worker.runOnce();
+    await prisma.documentExtraction.updateMany({
+      where: { documentId: { in: [first.document.id, second.document.id] } },
+      data: { chunkingVersion: 1 },
+    });
+    const reindex = new ReindexService(prisma);
+    expect(await reindex.run({ organizationId: first.organization.id, dryRun: true })).toBe(1);
+    expect((await loadDocument(first.document.id)).generation).toBe(1);
+    expect(await reindex.run({ organizationId: first.organization.id })).toBe(1);
+    expect(await reindex.run({ organizationId: first.organization.id })).toBe(0);
+    await worker.runOnce();
+    expect(await loadDocument(first.document.id)).toMatchObject({ generation: 2, status: 'READY' });
+    expect(await loadDocument(second.document.id)).toMatchObject({ generation: 1, status: 'READY' });
+    expect((await loadExtractions(first.document.id)).find((entry) => entry.documentGeneration === 2)?.chunkingVersion).toBe(2);
+    expect((await loadChunks(first.document.id)).some((entry) => entry.documentGeneration === 2 && entry.content === 'Alpha\nBeta')).toBe(true);
+    const matches = await prisma.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM "DocumentChunk" WHERE "documentId" = ${first.document.id}::uuid AND "documentGeneration" = 2 AND "searchVector" @@ to_tsquery('simple', 'alpha & beta')`;
+    expect(Number(matches[0]?.count)).toBe(1);
   });
 
   it('never readies a document whose embeddings cannot be produced', async () => {
