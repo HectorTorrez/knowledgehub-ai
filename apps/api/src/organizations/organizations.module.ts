@@ -1,5 +1,7 @@
 import { InsightsController } from './insights.controller.js';
 import { InsightsService } from './insights.service.js';
+import { ActivityModule } from '../activity/activity.module.js';
+import { ActivityController } from '../activity/activity.controller.js';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { InvitationAcceptController } from './invitation-accept.controller.js';
@@ -11,8 +13,9 @@ import { OrganizationsController } from './organizations.controller.js';
 import { OrganizationsService } from './organizations.service.js';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ActivityModule],
   controllers: [
+    ActivityController,
     InsightsController,
     OrganizationsController,
     OrganizationTenantController,

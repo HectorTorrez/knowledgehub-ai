@@ -12,6 +12,7 @@ import type {
 } from '@knowledgehub/shared-types';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
+import { ActivityService } from '../activity/activity.service.js';
 import { MembershipRole } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { normalizeEmail } from '../users/email.js';
@@ -49,6 +50,7 @@ export class InvitationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly activity: ActivityService,
   ) {}
 
   async create(
@@ -75,6 +77,7 @@ export class InvitationsService {
       },
     });
 
+    await this.activity.record(this.prisma, { organizationId: context.organizationId, actorId: context.userId, action: 'INVITATION_CREATED', targetType: 'invitation', targetId: invitation.id, metadata: { email: invitation.email, role: invitation.role } });
     return {
       invitation: {
         id: invitation.id,
@@ -111,13 +114,15 @@ export class InvitationsService {
   async revoke(context: OrganizationContext, invitationId: string): Promise<void> {
     await this.assertOwner(context);
 
+    const invitation = await this.prisma.organizationInvitation.findFirst({ where: { id: invitationId, organizationId: context.organizationId }, select: { email: true } });
     const result = await this.prisma.organizationInvitation.deleteMany({
       where: { id: invitationId, organizationId: context.organizationId },
     });
 
-    if (result.count === 0) {
+    if (result.count === 0 || !invitation) {
       throw new NotFoundException('Invitation not found');
     }
+    await this.activity.record(this.prisma, { organizationId: context.organizationId, actorId: context.userId, action: 'INVITATION_REVOKED', targetType: 'invitation', targetId: invitationId, metadata: { email: invitation.email } });
   }
 
   async accept(userId: string, token: string): Promise<AcceptInvitationResponse> {
@@ -164,6 +169,7 @@ export class InvitationsService {
         where: { id: invitation.id },
         data: { acceptedAt: new Date() },
       });
+      await this.activity.record(tx, { organizationId: invitation.organizationId, actorId: userId, action: 'INVITATION_ACCEPTED', targetType: 'invitation', targetId: invitation.id, metadata: { email: invitation.email } });
     });
 
     return { organizationId: invitation.organizationId };

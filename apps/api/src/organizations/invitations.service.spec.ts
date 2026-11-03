@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
+import type { ActivityService } from '../activity/activity.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from './organization-context.js';
 import { InvitationsService } from './invitations.service.js';
@@ -80,6 +81,7 @@ function buildService(options: {
         };
       }),
       findMany: vi.fn(async () => [] as unknown[]),
+      findFirst: vi.fn(async () => invitationRow()),
       findUnique: vi.fn(async () => options.invitation ?? null),
       deleteMany: vi.fn(async () => ({ count: options.deleteCount ?? 1 })),
     },
@@ -97,12 +99,13 @@ function buildService(options: {
     ),
   } as unknown as ConfigService;
 
-  return { service: new InvitationsService(prisma, config), prisma };
+  const activity = { record: vi.fn(async () => {}) };
+  return { service: new InvitationsService(prisma, config, activity as unknown as ActivityService), prisma, activity };
 }
 
 describe('InvitationsService', () => {
   it('creates a pending invitation with a one-time token for an owner', async () => {
-    const { service, prisma } = buildService();
+    const { service, prisma, activity } = buildService();
 
     const result = await service.create(OWNER, '  Invitee@Example.com ');
 
@@ -121,14 +124,16 @@ describe('InvitationsService', () => {
     expect(createArg.data.tokenHash).not.toBe(result.invitation.token);
     expect(createArg.data.tokenHash).toHaveLength(64);
     expect(createArg.data.role).toBe('MEMBER');
+    expect(activity.record).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'INVITATION_CREATED' }));
   });
 
   it('rejects a non-owner trying to create an invitation', async () => {
-    const { service } = buildService({ actorRole: 'MEMBER' });
+    const { service, activity } = buildService({ actorRole: 'MEMBER' });
 
     await expect(service.create(MEMBER, 'invitee@example.com')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+    expect(activity.record).not.toHaveBeenCalled();
   });
 
   it('lists pending invitations for an owner', async () => {
@@ -148,13 +153,14 @@ describe('InvitationsService', () => {
   });
 
   it('revokes an invitation scoped to the organization', async () => {
-    const { service, prisma } = buildService();
+    const { service, prisma, activity } = buildService();
 
     await service.revoke(OWNER, 'inv-1');
 
     expect(prisma.organizationInvitation.deleteMany).toHaveBeenCalledWith({
       where: { id: 'inv-1', organizationId: 'org-1' },
     });
+    expect(activity.record).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'INVITATION_REVOKED' }));
   });
 
   it('returns 404 when revoking an invitation that does not exist', async () => {
@@ -166,7 +172,7 @@ describe('InvitationsService', () => {
   });
 
   it('accepts a valid invitation and returns the organization id', async () => {
-    const { service, prisma } = buildService({ invitation: invitationRow() });
+    const { service, prisma, activity } = buildService({ invitation: invitationRow() });
 
     const result = await service.accept('user-1', 'the-token');
 
@@ -174,6 +180,7 @@ describe('InvitationsService', () => {
     expect(prisma.organizationInvitation.findUnique).toHaveBeenCalledWith({
       where: { tokenHash: expect.any(String) },
     });
+    expect(activity.record).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'INVITATION_ACCEPTED' }));
   });
 
   it('rejects an invitation for a different account', async () => {
