@@ -135,6 +135,11 @@ function AskPage() {
   const [showConversations, setShowConversations] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
+  useEffect(() => {
+    setActiveConversationId(presetConversationId ?? null);
+    setQuestion(presetQuestion ?? readAskDraft(organizationId, presetConversationId));
+  }, [organizationId, presetConversationId, presetQuestion]);
+
   const ready = useReadyDocuments(organizationId);
   const scope = resolveDocumentScope(selection, ready.documents);
   const stream = useAnswerStream(organizationId);

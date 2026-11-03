@@ -9,7 +9,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { useRouterState, createFileRoute, Link } from '@tanstack/react-router';
 import {
   CircleCheck,
   FileText,
@@ -130,6 +130,14 @@ function DocumentsPage() {
   const { toast } = useToast();
   const reportError = useReportError();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const hash = useRouterState({ select: (state) => state.location.hash });
+  const navigate = Route.useNavigate();
+  useEffect(() => {
+    if (hash === 'upload') {
+      setUploadOpen(true);
+      void navigate({ hash: '', replace: true });
+    }
+  }, [hash, navigate]);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const uploadAbortRef = useRef<AbortController | null>(null);

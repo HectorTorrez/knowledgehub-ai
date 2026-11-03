@@ -8,7 +8,7 @@ import {
   Sparkles,
   X as XIcon,
 } from 'lucide-react';
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { DatePicker } from '~/components/date-picker';
 import { DocumentMultiSelect } from '~/components/document-multi-select';
 import { EmptyState } from '~/components/empty-state';
@@ -45,6 +45,7 @@ export const Route = createFileRoute(
         "Search across your organization's documents with semantic retrieval.",
     }),
   validateSearch: (search: Record<string, unknown>) => ({
+    q: typeof search.q === 'string' ? search.q : undefined,
     documentIds: Array.isArray(search.documentIds) ? search.documentIds.filter((id): id is string => typeof id === 'string').slice(0, 20) : [],
     createdAfter: typeof search.createdAfter === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.createdAfter) ? search.createdAfter : '',
     createdBefore: typeof search.createdBefore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.createdBefore) ? search.createdBefore : '',
@@ -60,6 +61,7 @@ function SearchPage() {
   const [submitted, setSubmitted] = useState<string | null>(null);
   const filters = Route.useSearch();
   const navigate = Route.useNavigate();
+  useEffect(() => { if (filters.q) { setDraft(filters.q); setSubmitted(filters.q); } }, [filters.q]);
   function updateFilters(next: Partial<typeof filters>) {
     void navigate({ search: { ...filters, ...next }, replace: true });
   }
