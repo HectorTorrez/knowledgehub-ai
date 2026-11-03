@@ -1244,3 +1244,7 @@ Document summaries are generated after processing and backfilled for existing re
 ### Reindex document chunks
 
 Run `pnpm --filter @knowledgehub/api reindex:chunks --dry-run` to count READY documents with an older chunking version. Add `--organization <id>` to limit the operation to one organization. Remove `--dry-run` to queue new processing generations; processing workers must be running. The command can be rerun to queue remaining eligible documents. Reprocessing creates new embeddings and incurs embedding API costs proportional to the document text.
+
+### Error monitoring
+
+Sentry is disabled by default. Set `SENTRY_DSN` to enable API error reporting, optionally set `SENTRY_ENVIRONMENT`, and set `SENTRY_TRACES_SAMPLE_RATE` between 0 and 1 (default 0). Set `VITE_SENTRY_DSN` at web build time to enable browser error reporting. Events omit request data and exception messages.

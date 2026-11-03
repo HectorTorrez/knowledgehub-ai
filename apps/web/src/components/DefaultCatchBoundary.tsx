@@ -1,9 +1,15 @@
+import { captureException } from '@sentry/react';
+import { useEffect } from 'react';
 import type { ErrorComponentProps } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
 import { Brand } from '~/components/brand';
 import { Button } from '~/components/ui/button';
 
 export function DefaultCatchBoundary({ error, reset }: ErrorComponentProps) {
+  useEffect(() => {
+    captureException(error);
+  }, [error]);
+
   const message = error instanceof Error ? error.message : 'Unexpected error';
 
   return (
