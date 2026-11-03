@@ -60,7 +60,7 @@ function chunkBoundary(text: string, start: number, windowEnd: number, rows: Nor
   const window = text.slice(start, limit);
   const candidates = [window.lastIndexOf('\n\n'), window.lastIndexOf('\n'), ...[...window.matchAll(/[.!?](?= )/g)].map((match) => match.index + 1).slice(-1), window.lastIndexOf(' ')];
   for (const candidate of candidates) {
-    if (candidate !== undefined && candidate >= MIN_SNAPPABLE_CHUNK_CHARACTERS) return start + candidate;
+    if (candidate !== undefined && candidate >= MIN_SNAPPABLE_CHUNK_CHARACTERS && !rows.some((item) => item.start < start + candidate && item.end > start + candidate && item.end - item.start <= CHUNK_TARGET_CHARACTERS)) return start + candidate;
   }
   return limit > start ? limit : windowEnd;
 }
@@ -96,7 +96,7 @@ export function chunkPages(pages: ChunkablePage[]): DocumentChunkDraft[] {
 
       const next = Math.max(end - CHUNK_OVERLAP_CHARACTERS, start + 1);
       const row = tableRows.find((item) => item.start < next && item.end > next && item.end - item.start <= CHUNK_TARGET_CHARACTERS);
-      start = row && row.start > start ? row.start : next;
+      start = row ? (row.start > start ? row.start : row.end) : next;
     }
   }
 

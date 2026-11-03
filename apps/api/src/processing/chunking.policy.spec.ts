@@ -82,6 +82,12 @@ describe('chunkPages', () => {
     expect(chunks.every((chunk) => chunk.content.length <= CHUNK_TARGET_CHARACTERS)).toBe(true);
   });
 
+  it('does not begin overlap inside a table row', () => {
+    const row = `| ${'cell '.repeat(180)}|`;
+    const chunks = chunkPages([{ pageNumber:  1, content: `${'a'.repeat(1200)}\n${row}\n${'b'.repeat(1000)}` }]);
+    expect(chunks.every((chunk) => !chunk.content.includes('cell') || chunk.content.includes(row))).toBe(true);
+  });
+
   it('hard splits CJK text without spaces', () => {
     const chunks = chunkPages([{ pageNumber: 1, content: '漢'.repeat(4000) }]);
     expect(chunks[0]?.content.length).toBe(CHUNK_TARGET_CHARACTERS);
