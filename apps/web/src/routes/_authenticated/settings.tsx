@@ -3,7 +3,16 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { KeyRound, Laptop, UserRound } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { PageHeader } from '~/components/page-header';
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '~/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '~/components/ui/alert-dialog';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -18,19 +27,13 @@ import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { useSession } from '~/hooks/use-auth';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { isApiError } from '~/lib/api/errors';
 import { accountApi } from '~/lib/api/account';
 import { SESSION_QUERY_KEY } from '~/lib/auth/session';
 import { formatDateTime } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
-import {
-  changePasswordFormSchema,
-  profileFormSchema,
-} from '~/lib/validation';
+import { changePasswordFormSchema, profileFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/_authenticated/settings')({
   head: () =>
@@ -88,10 +91,8 @@ function AccountSettingsPage() {
   });
 
   const changePassword = useMutation({
-    mutationFn: (input: {
-      currentPassword: string;
-      newPassword: string;
-    }) => accountApi.changePassword(input),
+    mutationFn: (input: { currentPassword: string; newPassword: string }) =>
+      accountApi.changePassword(input),
     onSuccess: () => {
       setCurrentPassword('');
       setNewPassword('');
@@ -118,7 +119,9 @@ function AccountSettingsPage() {
   const downloadData = useMutation({
     mutationFn: () => accountApi.exportData(),
     onSuccess: (data) => {
-      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+      );
       const link = document.createElement('a');
       link.href = url;
       link.download = `knowledgehub-export-${new Date().toISOString().slice(0, 10)}.json`;
@@ -132,14 +135,27 @@ function AccountSettingsPage() {
   const deleteAccount = useMutation({
     mutationFn: () => accountApi.deleteAccount(deletePassword),
     onSuccess: async () => {
+      const navigation = router.navigate({ to: '/' });
       client.clear();
-      client.setQueryData(SESSION_QUERY_KEY, { status: 'unauthenticated' });
+      client.setQueryData(SESSION_QUERY_KEY, { status: 'unauthenticated', redirectTo: '/' });
+      await navigation;
       toast({ variant: 'success', title: 'Account deleted' });
-      await router.navigate({ to: '/' });
     },
     onError: (error) => {
-      if (isApiError(error) && error.status === 409 && typeof error.cause === 'object' && error.cause !== null && 'organizations' in error.cause && Array.isArray(error.cause.organizations)) {
-        setBlocking(error.cause.organizations.filter((item): item is { id: string; name: string } => typeof item?.id === 'string' && typeof item?.name === 'string'));
+      if (
+        isApiError(error) &&
+        error.status === 409 &&
+        typeof error.cause === 'object' &&
+        error.cause !== null &&
+        'organizations' in error.cause &&
+        Array.isArray(error.cause.organizations)
+      ) {
+        setBlocking(
+          error.cause.organizations.filter(
+            (item): item is { id: string; name: string } =>
+              typeof item?.id === 'string' && typeof item?.name === 'string',
+          ),
+        );
         return;
       }
       reportError(error);
@@ -307,9 +323,7 @@ function AccountSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {sessions.isPending ? (
-            <Skeleton className="h-24 w-full" />
-          ) : null}
+          {sessions.isPending ? <Skeleton className="h-24 w-full" /> : null}
           {sessions.data ? (
             <ul className="divide-y">
               {sessions.data.sessions.map((entry) => (
@@ -353,10 +367,16 @@ function AccountSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Your data</CardTitle>
-          <CardDescription>Download a copy of your personal data.</CardDescription>
+          <CardDescription>
+            Download a copy of your personal data.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" disabled={downloadData.isPending} onClick={() => downloadData.mutate()}>
+          <Button
+            variant="outline"
+            disabled={downloadData.isPending}
+            onClick={() => downloadData.mutate()}
+          >
             Download my data
           </Button>
         </CardContent>
@@ -375,30 +395,61 @@ function AccountSettingsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete account</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Your account and solo organizations will be permanently deleted. You will be signed out on all devices.
+                  Your account and solo organizations will be permanently
+                  deleted. You will be signed out on all devices.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="delete-password">Password</Label>
-                  <Input id="delete-password" type="password" autoComplete="current-password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} />
+                  <Input
+                    id="delete-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={deletePassword}
+                    onChange={(event) => setDeletePassword(event.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="delete-confirmation">Type DELETE to confirm</Label>
-                  <Input id="delete-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
+                  <Label htmlFor="delete-confirmation">
+                    Type DELETE to confirm
+                  </Label>
+                  <Input
+                    id="delete-confirmation"
+                    value={confirmation}
+                    onChange={(event) => setConfirmation(event.target.value)}
+                  />
                 </div>
                 {blocking.length > 0 ? (
                   <div>
                     <p>Transfer ownership before deleting your account:</p>
-                    <ul>{blocking.map((org) => (
-                      <li key={org.id}><Link className="underline" to="/organizations/$organizationId/settings" params={{ organizationId: org.id }}>{org.name}</Link></li>
-                    ))}</ul>
+                    <ul>
+                      {blocking.map((org) => (
+                        <li key={org.id}>
+                          <Link
+                            className="underline"
+                            to="/organizations/$organizationId/settings"
+                            params={{ organizationId: org.id }}
+                          >
+                            {org.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 ) : null}
               </div>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <Button variant="destructive" disabled={!deletePassword || confirmation !== 'DELETE' || deleteAccount.isPending} onClick={() => deleteAccount.mutate()}>
+                <Button
+                  variant="destructive"
+                  disabled={
+                    !deletePassword ||
+                    confirmation !== 'DELETE' ||
+                    deleteAccount.isPending
+                  }
+                  onClick={() => deleteAccount.mutate()}
+                >
                   Delete account
                 </Button>
               </AlertDialogFooter>

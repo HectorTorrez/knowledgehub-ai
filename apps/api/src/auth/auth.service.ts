@@ -297,6 +297,12 @@ export class AuthService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      const lockedUsers = await tx.$queryRaw<{ passwordHash: string }[]>`
+        SELECT "passwordHash" FROM "User" WHERE id = ${userId}::uuid FOR UPDATE
+      `;
+      if (lockedUsers[0]?.passwordHash !== user.passwordHash) {
+        throw new UnauthorizedException('Session is no longer active');
+      }
       const memberships = await tx.membership.findMany({
         where: { userId },
         select: { organizationId: true },

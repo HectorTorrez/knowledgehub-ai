@@ -43,7 +43,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
   const user = session.data?.status === 'authenticated' ? session.data.user : undefined;
   const active = organizations.data?.organizations.find((org) => org.id === organizationId);
   const currentSection = sections.find((section) => pathname === `/organizations/${organizationId}${section.to.split('$organizationId')[1]}` || (section.to !== '/organizations/$organizationId' && pathname.startsWith(`/organizations/${organizationId}${section.to.split('$organizationId')[1]}/`)));
-  useEffect(() => { if (session.data?.status === 'unauthenticated') void navigate({ to: '/login' }); }, [session.data, navigate]);
+  useEffect(() => { if (session.data?.status === 'unauthenticated') void navigate({ to: session.data.redirectTo ?? '/login' }); }, [session.data, navigate]);
   async function handleSignOut() {
     try { await signOut.mutateAsync(); } catch (error) { reportError(error); return; }
     toast({ variant: 'success', title: 'Signed out' });

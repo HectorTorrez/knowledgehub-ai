@@ -13,9 +13,21 @@ describe('PersonalDataService', () => {
     };
     const service = new PersonalDataService(prisma as unknown as PrismaService);
     await service.export('user');
-    expect(prisma.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({ select: expect.not.objectContaining({ passwordHash: true }) }));
-    expect(prisma.conversation.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { createdById: 'user' } }));
-    expect(prisma.answer.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { askedById: 'user', conversationId: null } }));
-    expect(prisma.answerFeedback.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'user' } }));
+    expect(prisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.not.objectContaining({ passwordHash: true }),
+      }),
+    );
+    expect(prisma.conversation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { createdById: 'user' } }),
+    );
+    expect(prisma.answer.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { askedById: 'user', conversationId: null },
+      }),
+    );
+    expect(prisma.answerFeedback.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'user' } }),
+    );
   });
 });
