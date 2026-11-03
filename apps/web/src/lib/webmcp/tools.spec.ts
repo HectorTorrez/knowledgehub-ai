@@ -36,6 +36,7 @@ function organization(
 
 function document(id: string): DocumentSummary {
   return {
+    collections: [],
     id,
     title: `Document ${id}`,
     status: 'READY',

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CollectionsModule } from './collections/collections.module.js';
 import { ConfigModule } from '@nestjs/config';
 import { AggregationModule } from './aggregation/aggregation.module.js';
 import { AnswersModule } from './answers/answers.module.js';
@@ -25,6 +26,7 @@ import { SearchModule } from './search/search.module.js';
     AuthModule,
     OrganizationsModule,
     DocumentsModule,
+    CollectionsModule,
     ProcessingModule,
     RateLimitModule,
     EmbeddingsModule,

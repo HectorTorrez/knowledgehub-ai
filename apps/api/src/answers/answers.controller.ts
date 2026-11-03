@@ -69,6 +69,7 @@ export class AnswersController {
         body.question,
         body.conversationId,
         body.documentId,
+        body.collectionIds,
       );
 
       response.json(result);
@@ -102,6 +103,7 @@ export class AnswersController {
       body.conversationId,
       body.documentId,
       abort.signal,
+      body.collectionIds,
     );
 
     let started = false;

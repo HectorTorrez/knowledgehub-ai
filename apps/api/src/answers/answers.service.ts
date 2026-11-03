@@ -1,3 +1,4 @@
+import { resolveCollectionScope } from '../collections/resolve-collection-scope.js';
 import {
   continuableConversationWhere,
   readableAnswerWhere,
@@ -197,6 +198,7 @@ export class AnswersService {
     question: string,
     conversationId?: string,
     documentId?: string,
+    collectionIds?: string[],
   ): Promise<AnswerResponse> {
     const startedAt = Date.now();
     const event = this.createLogEvent(organizationId, userId);
@@ -222,6 +224,7 @@ export class AnswersService {
         event,
         history,
         documentId,
+        collectionIds,
       );
       event.status = response.status;
       event.citationCount = response.citations.length;
@@ -249,6 +252,7 @@ export class AnswersService {
     conversationId?: string,
     documentId?: string,
     signal?: AbortSignal,
+    collectionIds?: string[],
   ): AsyncGenerator<AnswerStreamEvent, void, void> {
     const startedAt = Date.now();
     const event = this.createLogEvent(organizationId, userId);
@@ -274,6 +278,7 @@ export class AnswersService {
         event,
         history,
         documentId,
+        collectionIds,
       );
 
       let response: AnswerResponse;
@@ -653,6 +658,7 @@ export class AnswersService {
     event: AnswerLogEvent,
     history: ConversationTurn[],
     documentId?: string,
+    collectionIds?: string[],
   ): Promise<AnswerResponse> {
     const plan = await this.planAnswer(
       organizationId,
@@ -660,6 +666,7 @@ export class AnswersService {
       event,
       history,
       documentId,
+      collectionIds,
     );
 
     return plan.kind === 'direct'
@@ -673,6 +680,7 @@ export class AnswersService {
     event: AnswerLogEvent,
     history: ConversationTurn[],
     documentId?: string,
+    collectionIds?: string[],
   ): Promise<AnswerPlan> {
     if (!this.config.enabled) {
       throw new ServiceUnavailableException('Answer generation is not enabled');
@@ -682,7 +690,10 @@ export class AnswersService {
       await this.assertDocumentAnswerable(organizationId, documentId);
     }
 
-    const aggregate = await this.aggregateAnswer(
+    const scopedIds = collectionIds ? await resolveCollectionScope(this.prisma, organizationId, collectionIds, documentId ? [documentId] : undefined) : undefined;
+    if (scopedIds && scopedIds.length === 0) return { kind: 'direct', response: { ...INSUFFICIENT_EVIDENCE_RESPONSE } };
+
+    const aggregate = collectionIds ? null : await this.aggregateAnswer(
       organizationId,
       question,
       documentId,
@@ -711,8 +722,8 @@ export class AnswersService {
       }
     }
     const [sources, catalogRows] = await Promise.all([
-      wholeDocument ?? this.retrieveSources(organizationId, retrievalQuery, event, documentId),
-      this.loadDocumentCatalogRows(organizationId, documentId),
+      wholeDocument ?? this.retrieveSources(organizationId, retrievalQuery, event, documentId, scopedIds),
+      this.loadDocumentCatalogRows(organizationId, documentId, scopedIds),
     ]);
 
     const catalog = buildDocumentCatalog(
@@ -793,6 +804,7 @@ export class AnswersService {
     question: string,
     event: AnswerLogEvent,
     documentId?: string,
+    documentIds?: string[],
   ): Promise<AnswerSource[]> {
     let chunks;
 
@@ -802,6 +814,7 @@ export class AnswersService {
         text: question,
         limit: this.config.rerankEnabled ? Math.max(this.config.maxSources, this.config.rerankCandidates) : this.config.maxSources,
         ...(documentId ? { documentId } : {}),
+        ...(documentIds ? { documentIds } : {}),
       });
     } catch (error) {
       throw mapRetrievalError(error);
@@ -839,11 +852,12 @@ export class AnswersService {
   private async loadDocumentCatalogRows(
     organizationId: string,
     documentId?: string,
+    documentIds?: string[],
   ): Promise<{ rows: CatalogDocumentRow[]; total: number }> {
     const where = {
       organizationId,
       status: 'READY' as const,
-      ...(documentId ? { id: documentId } : {}),
+      ...(documentId ? { id: documentId } : documentIds ? { id: { in: documentIds } } : {}),
     };
 
     const [rows, total] = await Promise.all([

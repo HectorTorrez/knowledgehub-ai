@@ -20,6 +20,7 @@ type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
 type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
 
 interface DocumentRecord {
+  collections: Array<{ collection: { id: string; name: string; color: string } }>;
   id: string;
   organizationId: string;
   title: string;
@@ -50,6 +51,7 @@ function documentRecord(
   overrides: Partial<DocumentRecord> = {},
 ): DocumentRecord {
   return {
+    collections: [],
     id: 'doc-1',
     organizationId: 'org-1',
     title: 'Quarterly report',
@@ -255,6 +257,7 @@ function createCompletionHarness(
 }
 
 const PUBLIC_DOCUMENT_FIELDS = [
+  'collections',
   'contentType',
   'createdAt',
   'failureKind',
@@ -279,6 +282,7 @@ describe('DocumentsService.create', () => {
 
     expect(result).toEqual({
       document: {
+        collections: [],
         id: 'doc-1',
         title: 'Quarterly report',
         status: 'PENDING',
@@ -349,6 +353,7 @@ describe('DocumentsService.list', () => {
     expect(prisma.document.findMany).toHaveBeenCalledWith({
       where: { organizationId: 'org-1' },
       select: {
+        collections: { select: { collection: { select: { id: true, name: true, color: true } } } },
         id: true,
         title: true,
         status: true,
@@ -390,6 +395,7 @@ describe('DocumentsService.list', () => {
     expect(result.documents).toEqual([
       {
         id: 'doc-2',
+        collections: [],
         title: 'Second',
         status: 'PENDING',
         processingStage: 'UPLOADING',
@@ -404,6 +410,7 @@ describe('DocumentsService.list', () => {
       },
       {
         id: 'doc-1',
+        collections: [],
         title: 'First',
         status: 'PENDING',
         processingStage: 'UPLOADING',

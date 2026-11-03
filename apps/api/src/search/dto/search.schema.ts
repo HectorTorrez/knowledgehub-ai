@@ -21,6 +21,7 @@ export const searchSchema = z
       .max(SEARCH_MAX_LIMIT, `limit must be at most ${SEARCH_MAX_LIMIT}`)
       .default(SEARCH_DEFAULT_LIMIT),
     documentId: z.uuid('documentId must be a UUID').optional(),
+    collectionIds: z.union([z.uuid(), z.array(z.uuid()).min(1).max(20)]).transform((value) => Array.isArray(value) ? value : [value]).optional(),
     documentIds: z.union([z.uuid(), z.array(z.uuid()).min(1).max(20)]).transform((value) => Array.isArray(value) ? value : [value]).optional(),
     createdAfter: z.iso.date().optional(),
     createdBefore: z.iso.date().optional(),

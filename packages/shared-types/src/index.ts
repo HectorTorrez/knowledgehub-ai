@@ -303,7 +303,18 @@ export type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
  */
 export type DocumentProcessingStage = 'UPLOADING' | 'QUEUED' | 'PROCESSING' | 'READY' | 'FAILED';
 
+export interface CollectionSummary {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Collection extends CollectionSummary {
+  documentCount: number;
+}
+
 export interface DocumentSummary {
+  collections: CollectionSummary[];
   id: string;
   title: string;
   status: DocumentStatus;
@@ -678,7 +689,10 @@ export type OrganizationActivityAction =
   | 'DOCUMENT_DELETED'
   | 'DOCUMENT_REPROCESSED'
   | 'CONVERSATION_SHARED'
-  | 'CONVERSATION_UNSHARED';
+  | 'CONVERSATION_UNSHARED'
+  | 'COLLECTION_CREATED'
+  | 'COLLECTION_RENAMED'
+  | 'COLLECTION_DELETED';
 
 export interface OrganizationActivityItem {
   id: string;
