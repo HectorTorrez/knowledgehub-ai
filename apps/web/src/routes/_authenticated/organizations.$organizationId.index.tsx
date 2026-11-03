@@ -67,6 +67,9 @@ import {
   useReportError,
 } from '~/hooks/use-error-toast';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
+import { conversationsApi } from '~/lib/api/conversations';
+import { documentsApi } from '~/lib/api/documents';
+import { onboardingSteps } from '~/lib/onboarding';
 import { invitationsApi } from '~/lib/api/invitations';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -100,6 +103,7 @@ function OrganizationOverviewPage() {
   const reportError = useReportError();
   const session = useSession();
   const readyDocuments = useReadyDocuments(organizationId);
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [inviteResult, setInviteResult] =
@@ -125,6 +129,18 @@ function OrganizationOverviewPage() {
   const canManageOwners = organization.data?.organization.capabilities.includes('owners.manage') ?? false;
   const canWrite = organization.data?.organization.capabilities.includes('documents.write') ?? false;
   const [inviteRole, setInviteRole] = useState<OrganizationRole>('MEMBER');
+  const allDocuments = useQuery({
+    queryKey: ['onboarding', organizationId, 'documents'],
+    queryFn: () => documentsApi.list(organizationId, { limit: 1 }),
+  });
+  const readyForOnboarding = useQuery({
+    queryKey: ['onboarding', organizationId, 'ready'],
+    queryFn: () => documentsApi.list(organizationId, { limit: 1, status: 'READY' }),
+  });
+  const conversations = useQuery({
+    queryKey: ['onboarding', organizationId, 'conversations'],
+    queryFn: () => conversationsApi.list(organizationId, { limit: 1 }),
+  });
 
   const usage = useQuery({
     queryKey: queryKeys.organizations.usage(organizationId),
@@ -308,12 +324,40 @@ function OrganizationOverviewPage() {
     }
   }
 
+  const storageKey = `onboarding:${currentUserId}:${organizationId}`;
+  let storedDismissal: boolean;
+  try { storedDismissal = localStorage.getItem(storageKey) === 'dismissed'; } catch { storedDismissal = false; }
+  const steps = onboardingSteps({
+    documents: allDocuments.data?.documents.length ?? 0,
+    readyDocuments: readyForOnboarding.data?.documents.length ?? 0,
+    conversations: conversations.data?.conversations.length ?? 0,
+    members: members.data?.members.length ?? 0,
+    invitations: invitations.data?.invitations.length ?? 0,
+    canManageMembers,
+  });
+  const checklistLoaded = currentUserId && organization.data && members.data && allDocuments.data && readyForOnboarding.data && conversations.data && (!canManageMembers || invitations.data);
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={organization.data?.organization.name ?? 'Organization'}
         description="Your organization at a glance: documents, members, and today's answer usage."
       />
+
+      {checklistLoaded && !storedDismissal && dismissedKey !== storageKey && steps.some((step) => !step.complete) ? (
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div><CardTitle>Get started</CardTitle><CardDescription>Set up your workspace in a few steps.</CardDescription></div>
+            <Button variant="ghost" size="sm" onClick={() => { try { localStorage.setItem(storageKey, 'dismissed'); } catch { setDismissedKey(storageKey); } setDismissedKey(storageKey); }}>Dismiss</Button>
+          </CardHeader>
+          <CardContent><ul className="space-y-3">{steps.map((step) => (
+            <li key={step.id} className="flex items-center gap-3 text-sm">
+              <span aria-label={step.complete ? 'Complete' : 'Not complete'} className={step.complete ? 'text-brand' : 'text-muted-foreground'}>{step.complete ? '✓' : '○'}</span>
+              {step.id === 'invite' ? <button type="button" className="underline underline-offset-4" onClick={() => setAddMemberOpen(true)}>{step.label}</button> : <Link className="underline underline-offset-4" to={step.id === 'ask' ? '/organizations/$organizationId/ask' : '/organizations/$organizationId/documents'} params={{ organizationId }}>{step.label}</Link>}
+            </li>
+          ))}</ul></CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile

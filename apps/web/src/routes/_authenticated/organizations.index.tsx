@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link, useRouterState } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { ArrowRight, Building2, Plus } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
@@ -49,6 +49,7 @@ export const Route = createFileRoute('/_authenticated/organizations/')({
 
 function OrganizationsPage() {
   const client = useQueryClient();
+  const router = useRouter();
   const { toast } = useToast();
   const reportError = useReportError();
   const [name, setName] = useState('');
@@ -92,7 +93,8 @@ function OrganizationsPage() {
     }
 
     try {
-      await create.mutateAsync(result.data.name);
+      const created = await create.mutateAsync(result.data.name);
+      await router.navigate({ to: '/organizations/$organizationId', params: { organizationId: created.organization.id } });
       setName('');
       setCreateOpen(false);
     } catch {
