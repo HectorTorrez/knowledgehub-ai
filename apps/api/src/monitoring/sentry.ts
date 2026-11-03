@@ -5,6 +5,22 @@ import type { ErrorEvent } from '@sentry/node';
 
 const organizationIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function organizationTag(value: unknown): { organizationId: string } | undefined {
+  return typeof value === 'string' && organizationIdPattern.test(value)
+    ? { organizationId: value }
+    : undefined;
+}
+
+const IDENTIFIER = /^[A-Za-z_$][\w$.]*$/;
+
+function withoutQuery(filename: string | undefined): string | undefined {
+  return filename?.split(/[?#]/, 1)[0];
+}
+
+function exceptionType(type: string | undefined): string {
+  return type && IDENTIFIER.test(type) ? type : 'Error';
+}
+
 export function scrubEvent(event: ErrorEvent): ErrorEvent {
   return {
     type: undefined,
@@ -12,14 +28,20 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
     timestamp: event.timestamp,
     platform: event.platform,
     level: event.level,
-    tags: typeof event.tags?.organizationId === 'string' && organizationIdPattern.test(event.tags.organizationId) ? { organizationId: event.tags.organizationId } : undefined,
+    environment: event.environment,
+    release: event.release,
+    tags: organizationTag(event.tags?.organizationId),
     exception: {
       values: event.exception?.values?.map((exception) => ({
-        type: ['Error', 'TypeError', 'ReferenceError', 'RangeError', 'SyntaxError', 'URIError', 'EvalError'].includes(exception.type ?? '') ? exception.type : 'Error',
+        type: exceptionType(exception.type),
         stacktrace: {
           frames: exception.stacktrace?.frames?.map((frame) => ({
+            filename: withoutQuery(frame.filename),
+            function: frame.function,
+            module: frame.module,
             lineno: frame.lineno,
             colno: frame.colno,
+            in_app: frame.in_app,
           })),
         },
       })),

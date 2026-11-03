@@ -20,4 +20,41 @@ describe('Sentry privacy', () => {
     expect(event.exception?.values?.[0]).not.toHaveProperty('value');
     expect(event.tags).toEqual({ organizationId: '123e4567-e89b-12d3-a456-426614174000' });
   });
+
+  it('keeps code locations so errors can be traced', () => {
+    const event = scrubEvent({
+      type: undefined,
+      environment: 'staging',
+      exception: {
+        values: [
+          {
+            type: 'PrismaClientKnownRequestError',
+            value: 'Unique constraint failed on email private@example.com',
+            stacktrace: {
+              frames: [
+                {
+                  filename: '/app/dist/answers/answers.service.js',
+                  function: 'AnswersService.ask',
+                  lineno: 42,
+                  colno: 7,
+                  in_app: true,
+                  vars: { question: 'private' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    expect(event.environment).toBe('staging');
+    expect(event.exception?.values?.[0]?.type).toBe('PrismaClientKnownRequestError');
+    expect(event.exception?.values?.[0]).not.toHaveProperty('value');
+    expect(event.exception?.values?.[0]?.stacktrace?.frames?.[0]).toEqual({
+      filename: '/app/dist/answers/answers.service.js',
+      function: 'AnswersService.ask',
+      lineno: 42,
+      colno: 7,
+      in_app: true,
+    });
+  });
 });
