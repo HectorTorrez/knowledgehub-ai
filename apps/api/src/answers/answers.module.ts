@@ -13,6 +13,8 @@ import { AnswersController } from './answers.controller.js';
 import { AnswersService } from './answers.service.js';
 import { ConversationsController } from './conversations.controller.js';
 import { ConversationsService } from './conversations.service.js';
+import { RERANKER } from './reranker.port.js';
+import { OpenAiReranker } from './openai-reranker.js';
 import { QUERY_REWRITER } from './query-rewriter.port.js';
 import { OpenAiQueryRewriter } from './openai-query-rewriter.js';
 import { OpenAiAnswerProvider } from './openai-answer-provider.js';
@@ -28,6 +30,7 @@ import { OpenAiAnswerProvider } from './openai-answer-provider.js';
   controllers: [AnswersController, ConversationsController],
   providers: [
     AnswerConfig,
+    { provide: RERANKER, inject: [AnswerConfig], useFactory: (config: AnswerConfig) => new OpenAiReranker({ apiKey: config.apiKey, model: config.rerankModel, timeoutMs: config.timeoutMs, baseUrl: config.baseUrl }) },
     { provide: QUERY_REWRITER, inject: [AnswerConfig], useFactory: (config: AnswerConfig) => new OpenAiQueryRewriter({ apiKey: config.apiKey, model: config.queryRewriteModel, timeoutMs: config.timeoutMs, baseUrl: config.baseUrl }) },
     AnswersService,
     ConversationsService,

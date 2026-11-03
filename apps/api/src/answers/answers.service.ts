@@ -1,3 +1,5 @@
+import { RERANKER, type Reranker } from './reranker.port.js';
+import { orderReranked } from './rerank-order.js';
 import { QUERY_REWRITER, type QueryRewriter } from './query-rewriter.port.js';
 import { MAX_ANSWER_QUESTION_CHARS } from './answer-policy.js';
 import {
@@ -90,6 +92,7 @@ interface AnswerLogEvent {
   contextMode: 'retrieval' | 'whole_document';
   sourceCount: number;
   queryRewritten: boolean;
+  reranked: boolean;
   catalogCount: number;
   promptChars: number;
   citationCount: number;
@@ -178,6 +181,7 @@ export class AnswersService {
     private readonly aggregation: AggregationService,
     private readonly factsConfig: FactsConfig,
     @Inject(QUERY_REWRITER) private readonly queryRewriter: QueryRewriter,
+    @Inject(RERANKER) private readonly reranker: Reranker,
   ) {}
 
   async answer(
@@ -305,6 +309,7 @@ export class AnswersService {
       contextMode: 'retrieval',
       sourceCount: 0,
       queryRewritten: false,
+      reranked: false,
       catalogCount: 0,
       promptChars: 0,
       citationCount: 0,
@@ -681,7 +686,7 @@ export class AnswersService {
       }
     }
     const [sources, catalogRows] = await Promise.all([
-      wholeDocument ?? this.retrieveSources(organizationId, retrievalQuery, documentId),
+      wholeDocument ?? this.retrieveSources(organizationId, retrievalQuery, event, documentId),
       this.loadDocumentCatalogRows(organizationId, documentId),
     ]);
 
@@ -761,6 +766,7 @@ export class AnswersService {
   private async retrieveSources(
     organizationId: string,
     question: string,
+    event: AnswerLogEvent,
     documentId?: string,
   ): Promise<AnswerSource[]> {
     let chunks;
@@ -769,7 +775,7 @@ export class AnswersService {
       chunks = await this.retrieval.search({
         organizationId,
         text: question,
-        limit: this.config.maxSources,
+        limit: this.config.rerankEnabled ? Math.max(this.config.maxSources, this.config.rerankCandidates) : this.config.maxSources,
         ...(documentId ? { documentId } : {}),
       });
     } catch (error) {
@@ -777,6 +783,17 @@ export class AnswersService {
     }
 
     if (chunks.length === 0) return [];
+    if (this.config.rerankEnabled) {
+      try {
+        const scores = await this.reranker.rerank(question, chunks.map((chunk) => ({ id: chunk.chunkId, title: chunk.title, page: chunk.pageNumber, text: chunk.content })));
+        const ordered = orderReranked(chunks.map((chunk) => ({ id: chunk.chunkId, chunk })), scores);
+        chunks = ordered.map(({ chunk }) => chunk);
+        event.reranked = true;
+      } catch (error) {
+        this.logger.warn('Reranking failed; using original retrieval order', error);
+      }
+      chunks = chunks.slice(0, this.config.maxSources);
+    }
     const rows = await this.prisma.$queryRaw<NeighborChunk[]>(Prisma.sql`
       SELECT hit.id AS "hitId", neighbor.id AS "chunkId", neighbor."documentId",
         neighbor."documentGeneration", neighbor."pageNumber", neighbor."chunkIndex", neighbor.content

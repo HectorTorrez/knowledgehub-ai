@@ -1072,6 +1072,9 @@ Answer settings live in `apps/api/.env`; see `apps/api/.env.example`.
 | --- | --- | --- |
 | `ANSWERS_ENABLED` | `false` | Mounts answer generation. Requires `OPENAI_API_KEY` when `true`. |
 | `ANSWER_MODEL` | `gpt-4.1-mini` | Completion model. |
+| `RERANK_ENABLED` | `false` | Rerank answer retrieval results; adds latency and model cost. |
+| `RERANK_MODEL` | `ANSWER_MODEL` | Model used for reranking. |
+| `RERANK_CANDIDATES` | `30` | Candidates to rerank (1–50). |
 | `QUERY_REWRITE_ENABLED` | `true` | Rewrite follow-up questions for retrieval. |
 | `QUERY_REWRITE_MODEL` | `ANSWER_MODEL` | Model used to rewrite follow-up questions. |
 | `ANSWER_TIMEOUT_MS` | `30000` | Timeout for one completion. |

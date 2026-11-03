@@ -35,6 +35,7 @@ import {
   type AnswerUsage,
 } from './answer-provider.port.js';
 import { AnswersService } from './answers.service.js';
+import type { Reranker } from './reranker.port.js';
 import type { UsageService } from '../rate-limit/usage.service.js';
 
 const USER_ID = 'user-1';
@@ -186,6 +187,7 @@ function createService(options: {
   factsEnabled?: boolean;
   aggregateImpl?: AggregationService['contractTotals'];
   rewriteImpl?: (question: string) => Promise<string>;
+  rerankImpl?: Reranker['rerank'];
 } = {}) {
   const { retrieval, search } = createRetrieval(
     options.retrievalImpl ?? (async () => options.chunks ?? [CHUNK]),
@@ -215,6 +217,7 @@ function createService(options: {
     enabled: options.factsEnabled ?? false,
   } as unknown as FactsConfig;
   const rewrite = vi.fn(options.rewriteImpl ?? (async (question: string) => question));
+  const rerank = vi.fn(options.rerankImpl ?? (async () => []));
   const service = new AnswersService(
     provider,
     retrieval,
@@ -224,10 +227,12 @@ function createService(options: {
     aggregation,
     factsConfig,
     { rewrite },
+    { rerank },
   );
 
   return {
     service,
+    rerank,
     rewrite,
     search,
     generate,
@@ -271,6 +276,36 @@ describe('AnswersService', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('does not rerank when disabled', async () => {
+    const { service, rerank } = createService();
+    await service.answer('org-1', USER_ID, 'question');
+    expect(rerank).not.toHaveBeenCalled();
+  });
+
+  it('reranks candidates before building the prompt', async () => {
+    const second = { ...CHUNK, chunkId: 'chunk-2', content: 'Second passage' };
+    const { service, rerank, search, generate } = createService({
+      chunks: [CHUNK, second],
+      configOverrides: { rerankEnabled: true, rerankCandidates: 30 },
+      rerankImpl: async () => [{ id: 'chunk-2', score: 3 }, { id: 'chunk-1', score: 0 }],
+    });
+    await service.answer('org-1', USER_ID, 'question');
+    expect(rerank).toHaveBeenCalled();
+    expect(search.mock.calls[0]?.[0].limit).toBe(30);
+    expect(JSON.stringify(generate.mock.calls[0])).toContain('Second passage');
+    expect(JSON.stringify(generate.mock.calls[0])).not.toContain(CHUNK.content);
+  });
+
+  it('falls back to retrieval order when reranking fails', async () => {
+    const { service, rerank, generate } = createService({
+      configOverrides: { rerankEnabled: true, rerankCandidates: 30 },
+      rerankImpl: async () => { throw new Error('unavailable'); },
+    });
+    await service.answer('org-1', USER_ID, 'question');
+    expect(rerank).toHaveBeenCalled();
+    expect(JSON.stringify(generate.mock.calls[0])).toContain(CHUNK.content);
   });
 
   it('answers a total question from facts without calling the provider', async () => {
