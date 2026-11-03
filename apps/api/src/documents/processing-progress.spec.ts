@@ -7,14 +7,17 @@ const nextAttemptAt = new Date('2026-01-01T00:00:00Z');
 describe('deriveProcessingProgress', () => {
   it('maps each lifecycle state to a stage', () => {
     expect(
-      deriveProcessingProgress({ ...processing, status: 'PENDING' }).processingStage,
+      deriveProcessingProgress({ ...processing, status: 'PENDING' })
+        .processingStage,
     ).toBe('UPLOADING');
     expect(deriveProcessingProgress(processing).processingStage).toBe('QUEUED');
     expect(
-      deriveProcessingProgress({ ...processing, status: 'READY' }).processingStage,
+      deriveProcessingProgress({ ...processing, status: 'READY' })
+        .processingStage,
     ).toBe('READY');
     expect(
-      deriveProcessingProgress({ ...processing, status: 'FAILED' }).processingStage,
+      deriveProcessingProgress({ ...processing, status: 'FAILED' })
+        .processingStage,
     ).toBe('FAILED');
   });
 
@@ -49,7 +52,8 @@ describe('deriveProcessingProgress', () => {
 
   it('treats a ready document as ready while enrichment is pending', () => {
     expect(
-      deriveProcessingProgress({ ...processing, status: 'READY' }).processingStage,
+      deriveProcessingProgress({ ...processing, status: 'READY' })
+        .processingStage,
     ).toBe('READY');
   });
 });

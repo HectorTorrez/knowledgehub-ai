@@ -32,8 +32,28 @@ import { OpenAiAnswerProvider } from './openai-answer-provider.js';
   controllers: [AnswersController, ConversationsController],
   providers: [
     AnswerConfig,
-    { provide: RERANKER, inject: [AnswerConfig], useFactory: (config: AnswerConfig) => new OpenAiReranker({ apiKey: config.apiKey, model: config.rerankModel, timeoutMs: config.timeoutMs, baseUrl: config.baseUrl }) },
-    { provide: QUERY_REWRITER, inject: [AnswerConfig], useFactory: (config: AnswerConfig) => new OpenAiQueryRewriter({ apiKey: config.apiKey, model: config.queryRewriteModel, timeoutMs: config.timeoutMs, baseUrl: config.baseUrl }) },
+    {
+      provide: RERANKER,
+      inject: [AnswerConfig],
+      useFactory: (config: AnswerConfig) =>
+        new OpenAiReranker({
+          apiKey: config.apiKey,
+          model: config.rerankModel,
+          timeoutMs: config.timeoutMs,
+          baseUrl: config.baseUrl,
+        }),
+    },
+    {
+      provide: QUERY_REWRITER,
+      inject: [AnswerConfig],
+      useFactory: (config: AnswerConfig) =>
+        new OpenAiQueryRewriter({
+          apiKey: config.apiKey,
+          model: config.queryRewriteModel,
+          timeoutMs: config.timeoutMs,
+          baseUrl: config.baseUrl,
+        }),
+    },
     AnswersService,
     ConversationsService,
     {

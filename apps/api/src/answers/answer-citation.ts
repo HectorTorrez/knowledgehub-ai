@@ -21,7 +21,13 @@ export interface AnswerContractViolation {
 
 export type AnswerContract =
   | { ok: true; status: 'answered'; answer: string; markers: number[] }
-  | { ok: true; status: 'partial'; answer: string; markers: number[]; missing: string[] }
+  | {
+      ok: true;
+      status: 'partial';
+      answer: string;
+      markers: number[];
+      missing: string[];
+    }
   | { ok: true; status: 'insufficient_evidence' }
   | { ok: false; violation: AnswerContractViolation };
 
@@ -94,7 +100,10 @@ function parseClaims(
   for (const entry of value) {
     if (!isRecord(entry)) {
       return {
-        violation: { reason: 'INVALID_CLAIM', detail: 'A claim must be an object' },
+        violation: {
+          reason: 'INVALID_CLAIM',
+          detail: 'A claim must be an object',
+        },
       };
     }
 
@@ -166,31 +175,56 @@ export function validateAnswerContract(
   sources: AnswerSource[],
 ): AnswerContract {
   if (!isRecord(value)) {
-    return violation('NOT_AN_OBJECT', 'The answer provider did not return an object');
+    return violation(
+      'NOT_AN_OBJECT',
+      'The answer provider did not return an object',
+    );
   }
 
   const keys = Object.keys(value).sort();
 
-  if (keys.length !== 3 || keys[0] !== 'claims' || keys[1] !== 'missing' || keys[2] !== 'status') {
+  if (
+    keys.length !== 3 ||
+    keys[0] !== 'claims' ||
+    keys[1] !== 'missing' ||
+    keys[2] !== 'status'
+  ) {
     return violation(
       'UNEXPECTED_FIELDS',
       `The answer provider returned unexpected fields: ${keys.join(', ') || '(none)'}`,
     );
   }
 
-  if (value.status !== 'answered' && value.status !== 'partial' && value.status !== 'insufficient_evidence') {
+  if (
+    value.status !== 'answered' &&
+    value.status !== 'partial' &&
+    value.status !== 'insufficient_evidence'
+  ) {
     return violation(
       'UNEXPECTED_STATUS',
       `The answer provider returned an unexpected status: ${String(value.status)}`,
     );
   }
 
-  if (!Array.isArray(value.missing) || !value.missing.every((item: unknown) => typeof item === 'string')) {
+  if (
+    !Array.isArray(value.missing) ||
+    !value.missing.every((item: unknown) => typeof item === 'string')
+  ) {
     return violation('INVALID_MISSING', 'Missing items must be strings');
   }
-  const missing = (value.missing as string[]).map((item) => item.trim()).filter(Boolean);
-  if (missing.some((item) => item.length > 200) || (value.status === 'partial' ? missing.length < 1 || missing.length > 5 : missing.length !== 0)) {
-    return violation('INVALID_MISSING', 'Invalid missing items for answer status');
+  const missing = (value.missing as string[])
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (
+    missing.some((item) => item.length > 200) ||
+    (value.status === 'partial'
+      ? missing.length < 1 || missing.length > 5
+      : missing.length !== 0)
+  ) {
+    return violation(
+      'INVALID_MISSING',
+      'Invalid missing items for answer status',
+    );
   }
 
   if (value.status === 'insufficient_evidence') {
@@ -211,8 +245,10 @@ export function validateAnswerContract(
   }
 
   const answer = renderAnswer(parsed.claims);
-  const markers = [...new Set(parsed.claims.map((claim) => claim.source))].sort((a, b) => a - b);
+  const markers = [...new Set(parsed.claims.map((claim) => claim.source))].sort(
+    (a, b) => a - b,
+  );
   return value.status === 'partial'
     ? { ok: true, status: 'partial', answer, markers, missing }
-    : { ok: true, status: 'answered', answer, markers }; 
+    : { ok: true, status: 'answered', answer, markers };
 }

@@ -195,9 +195,7 @@ export function AnswerThread({
             onClick={() => history.fetchNextPage()}
             disabled={history.isFetchingNextPage}
           >
-            {history.isFetchingNextPage ? (
-              <Spinner />
-            ) : null}
+            {history.isFetchingNextPage ? <Spinner /> : null}
             Load more
           </Button>
         </div>
@@ -280,7 +278,11 @@ function LatestAnswerCard({
                     : null
                 }
                 status={latest.response.status}
-                missing={latest.response.status === 'partial' ? latest.response.missing : []}
+                missing={
+                  latest.response.status === 'partial'
+                    ? latest.response.missing
+                    : []
+                }
                 citations={latest.response.citations}
               />
               {onRequestDelete ? (
@@ -305,7 +307,9 @@ function LatestAnswerCard({
           ) : (
             <InsufficientEvidence />
           )}
-          {latest.response.status === 'partial' ? <PartialAnswerNotice missing={latest.response.missing} /> : null}
+          {latest.response.status === 'partial' ? (
+            <PartialAnswerNotice missing={latest.response.missing} />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -384,7 +388,10 @@ function HistoryRow({
         </div>
 
         <CollapsibleContent>
-          <ExpandedAnswer organizationId={organizationId} answerId={answer.id} />
+          <ExpandedAnswer
+            organizationId={organizationId}
+            answerId={answer.id}
+          />
         </CollapsibleContent>
       </li>
     </Collapsible>
@@ -426,7 +433,9 @@ function ExpandedAnswer({
         <InsufficientEvidence />
       )}
 
-      {answer.status === 'partial' ? <PartialAnswerNotice missing={answer.missing ?? []} /> : null}
+      {answer.status === 'partial' ? (
+        <PartialAnswerNotice missing={answer.missing ?? []} />
+      ) : null}
 
       {answer.citations.length > 0 ? (
         <div className="mt-4">

@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from 'vitest';
 import { apiFetch, resolveUrl } from './client';
 import { CSRF_COOKIE, CSRF_HEADER } from './csrf';
 import { ApiError, NETWORK_ERROR_STATUS } from './errors';
@@ -43,7 +51,10 @@ describe('apiFetch error handling', () => {
     fetchMock.mockResolvedValue(
       jsonResponse(
         { statusCode: 429, message: 'Too many requests' },
-        { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '12' } },
+        {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '12' },
+        },
       ),
     );
 
@@ -209,7 +220,9 @@ describe('apiFetch', () => {
   });
 
   it('falls back to a status message when the error body is not JSON', async () => {
-    fetchMock.mockResolvedValue(new Response('gateway timeout', { status: 504 }));
+    fetchMock.mockResolvedValue(
+      new Response('gateway timeout', { status: 504 }),
+    );
 
     const error = (await apiFetch('/x').catch(
       (caught: unknown) => caught,

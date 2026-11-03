@@ -149,9 +149,7 @@ function RegisterPage() {
                 id="password-hint"
                 className={cn(
                   'flex items-center gap-1 text-xs',
-                  meetsMinimumLength
-                    ? 'text-success'
-                    : 'text-muted-foreground',
+                  meetsMinimumLength ? 'text-success' : 'text-muted-foreground',
                 )}
               >
                 {meetsMinimumLength ? (

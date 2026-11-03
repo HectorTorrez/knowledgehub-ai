@@ -52,7 +52,9 @@ export function DatePicker({
         >
           <CalendarIcon className="size-4 text-muted-foreground" />
           <span className="truncate">
-            {selected === undefined ? placeholder : format(selected, 'MMM d, yyyy')}
+            {selected === undefined
+              ? placeholder
+              : format(selected, 'MMM d, yyyy')}
           </span>
         </Button>
       </PopoverTrigger>

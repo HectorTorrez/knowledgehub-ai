@@ -21,8 +21,7 @@ export interface PendingDocument {
 }
 
 export type FactsPublish =
-  | { status: 'READY' }
-  | { status: 'FAILED'; reason: string };
+  { status: 'READY' } | { status: 'FAILED'; reason: string };
 
 export interface StoredPage {
   pageNumber: number;

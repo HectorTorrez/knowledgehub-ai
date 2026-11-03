@@ -101,9 +101,7 @@ describe('classifyProcessingFailure', () => {
   });
 
   it('treats a storage integrity violation as a permanent failure', () => {
-    const failure = classifyProcessingFailure(
-      new ObjectVersionMismatchError(),
-    );
+    const failure = classifyProcessingFailure(new ObjectVersionMismatchError());
 
     expect(failure.category).toBe('permanent');
     expect(failure.reason).toBe('STORAGE_INTEGRITY_VIOLATION');

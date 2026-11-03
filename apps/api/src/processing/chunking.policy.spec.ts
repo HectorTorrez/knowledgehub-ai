@@ -62,30 +62,50 @@ describe('chunkPages', () => {
   });
 
   it('normalizes whitespace within a page', () => {
-    const chunks = chunkPages([
-      { pageNumber: 1, content: 'a\n\n   b\tc' },
-    ]);
+    const chunks = chunkPages([{ pageNumber: 1, content: 'a\n\n   b\tc' }]);
 
     expect(chunks).toHaveLength(1);
     expect(chunks[0]?.content).toBe('a\n\nb c');
   });
 
   it('preserves paragraphs, lists, and Spanish punctuation', () => {
-    const [chunk] = chunkPages([{ pageNumber: 1, content: ' ¿Qué tal?\r\n - Uno\r\n - Dos\r\n\r\n\r\n ¡Bien! ' }]);
+    const [chunk] = chunkPages([
+      {
+        pageNumber: 1,
+        content: ' ¿Qué tal?\r\n - Uno\r\n - Dos\r\n\r\n\r\n ¡Bien! ',
+      },
+    ]);
     expect(chunk?.content).toBe('¿Qué tal?\n- Uno\n- Dos\n\n¡Bien!');
   });
 
   it('keeps a table row intact at a window boundary', () => {
     const row = `| ${'cell '.repeat(70)}|`;
-    const chunks = chunkPages([{ pageNumber: 1, content: `${'a'.repeat(1400)}\n${row}\n${'b'.repeat(1200)}` }]);
+    const chunks = chunkPages([
+      {
+        pageNumber: 1,
+        content: `${'a'.repeat(1400)}\n${row}\n${'b'.repeat(1200)}`,
+      },
+    ]);
     expect(chunks.some((chunk) => chunk.content.includes(row))).toBe(true);
-    expect(chunks.every((chunk) => chunk.content.length <= CHUNK_TARGET_CHARACTERS)).toBe(true);
+    expect(
+      chunks.every((chunk) => chunk.content.length <= CHUNK_TARGET_CHARACTERS),
+    ).toBe(true);
   });
 
   it('does not begin overlap inside a table row', () => {
     const row = `| ${'cell '.repeat(180)}|`;
-    const chunks = chunkPages([{ pageNumber:  1, content: `${'a'.repeat(1200)}\n${row}\n${'b'.repeat(1000)}` }]);
-    expect(chunks.every((chunk) => !chunk.content.includes('cell') || chunk.content.includes(row))).toBe(true);
+    const chunks = chunkPages([
+      {
+        pageNumber: 1,
+        content: `${'a'.repeat(1200)}\n${row}\n${'b'.repeat(1000)}`,
+      },
+    ]);
+    expect(
+      chunks.every(
+        (chunk) =>
+          !chunk.content.includes('cell') || chunk.content.includes(row),
+      ),
+    ).toBe(true);
   });
 
   it('hard splits CJK text without spaces', () => {
@@ -94,9 +114,7 @@ describe('chunkPages', () => {
   });
 
   it('produces no chunk for a whitespace-only page', () => {
-    expect(
-      chunkPages([{ pageNumber: 1, content: '   \n\t ' }]),
-    ).toEqual([]);
+    expect(chunkPages([{ pageNumber: 1, content: '   \n\t ' }])).toEqual([]);
   });
 
   it('is deterministic for the same input', () => {

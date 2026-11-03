@@ -54,7 +54,8 @@ export function buildSessionTool(deps: WebMcpToolDeps): WebMcpToolSpec {
 
       return {
         user: { id: session.user.id, email: session.user.email },
-        activeOrganization: active === undefined ? null : projectOrganization(active),
+        activeOrganization:
+          active === undefined ? null : projectOrganization(active),
       };
     },
   };
@@ -126,7 +127,9 @@ function findOrganization(
   organizations: OrganizationSummary[],
   organizationId: string | undefined,
 ): OrganizationSummary | undefined {
-  return organizations.find((organization) => organization.id === organizationId);
+  return organizations.find(
+    (organization) => organization.id === organizationId,
+  );
 }
 
 function projectOrganization(organization: OrganizationSummary) {

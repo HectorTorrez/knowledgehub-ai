@@ -39,9 +39,7 @@ describe('resolveApiBaseUrl', () => {
     expect(() => resolveApiBaseUrl('ftp://example.com')).toThrow(
       /http or https/,
     );
-    expect(() => resolveApiBaseUrl('localhost:3001')).toThrow(
-      /http or https/,
-    );
+    expect(() => resolveApiBaseUrl('localhost:3001')).toThrow(/http or https/);
   });
 
   it('rejects a path beyond the origin', () => {

@@ -22,7 +22,9 @@ export const organizationsApi = {
     });
   },
 
-  create(input: CreateOrganizationRequest): Promise<OrganizationDetailResponse> {
+  create(
+    input: CreateOrganizationRequest,
+  ): Promise<OrganizationDetailResponse> {
     return apiFetch<OrganizationDetailResponse>(ORGANIZATIONS_PATH, {
       method: 'POST',
       body: input,
@@ -48,10 +50,10 @@ export const organizationsApi = {
   },
 
   leave(organizationId: string): Promise<void> {
-    return apiFetch<void>(
-      `${ORGANIZATIONS_PATH}/${organizationId}/leave`,
-      { method: 'POST', authRecovery: true },
-    );
+    return apiFetch<void>(`${ORGANIZATIONS_PATH}/${organizationId}/leave`, {
+      method: 'POST',
+      authRecovery: true,
+    });
   },
 
   usage(organizationId: string): Promise<OrganizationUsageResponse> {

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ObjectMetadata, ObjectStorage } from '../storage/object-storage.port.js';
+import type {
+  ObjectMetadata,
+  ObjectStorage,
+} from '../storage/object-storage.port.js';
 import {
   EmbeddingRejectedError,
   EmbeddingUnavailableError,
@@ -61,14 +64,12 @@ function createWorker(overrides?: {
     recoveryIntervalMs: overrides?.recoveryIntervalMs ?? 0,
   };
   const storage = {
-    inspectObject: vi.fn(
-      async (): Promise<ObjectMetadata | null> => ({
-        key: JOB.verifiedStorageKey,
-        sizeBytes: BYTES.byteLength,
-        contentType: 'text/plain',
-        version: 'version-1',
-      }),
-    ),
+    inspectObject: vi.fn(async (): Promise<ObjectMetadata | null> => ({
+      key: JOB.verifiedStorageKey,
+      sizeBytes: BYTES.byteLength,
+      contentType: 'text/plain',
+      version: 'version-1',
+    })),
     readObject: vi.fn(async () => BYTES.slice()),
   };
 
@@ -153,8 +154,17 @@ describe('ProcessingWorkerService', () => {
       const { worker, jobs, summaries } = createWorker();
       summaries.summarize.mockRejectedValueOnce(new Error('unavailable'));
       await worker.processJob(JOB);
-      expect(summaries.summarize).toHaveBeenCalledWith({ organizationId: JOB.organizationId, documentId: JOB.documentId, documentGeneration: JOB.documentGeneration }, OWNED_CHUNKS);
-      expect(jobs.publishExtraction.mock.invocationCallOrder[0]).toBeLessThan(summaries.summarize.mock.invocationCallOrder[0]!);
+      expect(summaries.summarize).toHaveBeenCalledWith(
+        {
+          organizationId: JOB.organizationId,
+          documentId: JOB.documentId,
+          documentGeneration: JOB.documentGeneration,
+        },
+        OWNED_CHUNKS,
+      );
+      expect(jobs.publishExtraction.mock.invocationCallOrder[0]).toBeLessThan(
+        summaries.summarize.mock.invocationCallOrder[0]!,
+      );
       expect(jobs.recordFailure).not.toHaveBeenCalled();
     });
 

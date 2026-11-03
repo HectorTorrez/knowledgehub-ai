@@ -3,11 +3,7 @@ import { Calculator, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import type { ContractTotalsResponse } from '@knowledgehub/shared-types';
 import { Badge } from '~/components/ui/badge';
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from '~/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -106,9 +102,7 @@ function TotalsResult({
         <p className="text-xs text-muted-foreground">
           {data.coverage.extracted} of {data.coverage.documents} documents
           extracted
-          {data.coverage.failed > 0
-            ? ` · ${data.coverage.failed} failed`
-            : ''}
+          {data.coverage.failed > 0 ? ` · ${data.coverage.failed} failed` : ''}
           {data.coverage.pending > 0
             ? ` · ${data.coverage.pending} pending`
             : ''}
@@ -177,10 +171,7 @@ function TotalsResult({
                   <TableCell className="font-mono text-xs">
                     {fact.contractId}
                   </TableCell>
-                  <TableCell
-                    className="max-w-72 truncate"
-                    title={fact.label}
-                  >
+                  <TableCell className="max-w-72 truncate" title={fact.label}>
                     {fact.label}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">

@@ -63,10 +63,7 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { useSession } from '~/hooks/use-auth';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { conversationsApi } from '~/lib/api/conversations';
 import { documentsApi } from '~/lib/api/documents';
@@ -109,7 +106,9 @@ function OrganizationOverviewPage() {
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [inviteResult, setInviteResult] =
     useState<OrganizationInvitationDetail | null>(null);
-  const [memberToRemove, setMemberToRemove] = useState<MemberToRemove | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<MemberToRemove | null>(
+    null,
+  );
 
   const currentUserId =
     session.data?.status === 'authenticated' ? session.data.user.id : undefined;
@@ -126,9 +125,15 @@ function OrganizationOverviewPage() {
   useQueryErrorToast(organization.error, () => void organization.refetch());
   useQueryErrorToast(members.error, () => void members.refetch());
 
-  const canManageMembers = organization.data?.organization.capabilities.includes('members.manage') ?? false;
-  const canManageOwners = organization.data?.organization.capabilities.includes('owners.manage') ?? false;
-  const canWrite = organization.data?.organization.capabilities.includes('documents.write') ?? false;
+  const canManageMembers =
+    organization.data?.organization.capabilities.includes('members.manage') ??
+    false;
+  const canManageOwners =
+    organization.data?.organization.capabilities.includes('owners.manage') ??
+    false;
+  const canWrite =
+    organization.data?.organization.capabilities.includes('documents.write') ??
+    false;
   const [inviteRole, setInviteRole] = useState<OrganizationRole>('MEMBER');
   const allDocuments = useQuery({
     queryKey: ['onboarding', organizationId, 'documents'],
@@ -136,7 +141,8 @@ function OrganizationOverviewPage() {
   });
   const readyForOnboarding = useQuery({
     queryKey: ['onboarding', organizationId, 'ready'],
-    queryFn: () => documentsApi.list(organizationId, { limit: 1, status: 'READY' }),
+    queryFn: () =>
+      documentsApi.list(organizationId, { limit: 1, status: 'READY' }),
   });
   const conversations = useQuery({
     queryKey: ['onboarding', organizationId, 'conversations'],
@@ -201,8 +207,15 @@ function OrganizationOverviewPage() {
   });
 
   const createInvitation = useMutation({
-    mutationFn: (input: { organizationId: string; email: string; role: OrganizationRole }) =>
-      invitationsApi.create(input.organizationId, { email: input.email, role: input.role }),
+    mutationFn: (input: {
+      organizationId: string;
+      email: string;
+      role: OrganizationRole;
+    }) =>
+      invitationsApi.create(input.organizationId, {
+        email: input.email,
+        role: input.role,
+      }),
     onSuccess: (data, variables) => {
       setInviteResult(data.invitation);
       setEmail('');
@@ -262,7 +275,15 @@ function OrganizationOverviewPage() {
     }
 
     if (inviteRole !== 'MEMBER') {
-      try { await createInvitation.mutateAsync({ organizationId, email: result.data.email, role: inviteRole }); } catch { return; }
+      try {
+        await createInvitation.mutateAsync({
+          organizationId,
+          email: result.data.email,
+          role: inviteRole,
+        });
+      } catch {
+        return;
+      }
       return;
     }
     try {
@@ -327,7 +348,11 @@ function OrganizationOverviewPage() {
 
   const storageKey = `onboarding:${currentUserId}:${organizationId}`;
   let storedDismissal: boolean;
-  try { storedDismissal = localStorage.getItem(storageKey) === 'dismissed'; } catch { storedDismissal = false; }
+  try {
+    storedDismissal = localStorage.getItem(storageKey) === 'dismissed';
+  } catch {
+    storedDismissal = false;
+  }
   const steps = onboardingSteps({
     documents: allDocuments.data?.documents.length ?? 0,
     readyDocuments: readyForOnboarding.data?.documents.length ?? 0,
@@ -336,7 +361,14 @@ function OrganizationOverviewPage() {
     invitations: invitations.data?.invitations.length ?? 0,
     canManageMembers,
   });
-  const checklistLoaded = currentUserId && organization.data && members.data && allDocuments.data && readyForOnboarding.data && conversations.data && (!canManageMembers || invitations.data);
+  const checklistLoaded =
+    currentUserId &&
+    organization.data &&
+    members.data &&
+    allDocuments.data &&
+    readyForOnboarding.data &&
+    conversations.data &&
+    (!canManageMembers || invitations.data);
 
   return (
     <div className="space-y-6">
@@ -345,18 +377,70 @@ function OrganizationOverviewPage() {
         description="Your organization at a glance: documents, members, and today's answer usage."
       />
 
-      {checklistLoaded && !storedDismissal && dismissedKey !== storageKey && steps.some((step) => !step.complete) ? (
+      {checklistLoaded &&
+      !storedDismissal &&
+      dismissedKey !== storageKey &&
+      steps.some((step) => !step.complete) ? (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
-            <div><CardTitle>Get started</CardTitle><CardDescription>Set up your workspace in a few steps.</CardDescription></div>
-            <Button variant="ghost" size="sm" onClick={() => { try { localStorage.setItem(storageKey, 'dismissed'); } catch { setDismissedKey(storageKey); } setDismissedKey(storageKey); }}>Dismiss</Button>
+            <div>
+              <CardTitle>Get started</CardTitle>
+              <CardDescription>
+                Set up your workspace in a few steps.
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                try {
+                  localStorage.setItem(storageKey, 'dismissed');
+                } catch {
+                  setDismissedKey(storageKey);
+                }
+                setDismissedKey(storageKey);
+              }}
+            >
+              Dismiss
+            </Button>
           </CardHeader>
-          <CardContent><ul className="space-y-3">{steps.map((step) => (
-            <li key={step.id} className="flex items-center gap-3 text-sm">
-              <span aria-label={step.complete ? 'Complete' : 'Not complete'} className={step.complete ? 'text-brand' : 'text-muted-foreground'}>{step.complete ? '✓' : '○'}</span>
-              {step.id === 'invite' ? <button type="button" className="underline underline-offset-4" onClick={() => setAddMemberOpen(true)}>{step.label}</button> : <Link className="underline underline-offset-4" to={step.id === 'ask' ? '/organizations/$organizationId/ask' : '/organizations/$organizationId/documents'} params={{ organizationId }}>{step.label}</Link>}
-            </li>
-          ))}</ul></CardContent>
+          <CardContent>
+            <ul className="space-y-3">
+              {steps.map((step) => (
+                <li key={step.id} className="flex items-center gap-3 text-sm">
+                  <span
+                    aria-label={step.complete ? 'Complete' : 'Not complete'}
+                    className={
+                      step.complete ? 'text-brand' : 'text-muted-foreground'
+                    }
+                  >
+                    {step.complete ? '✓' : '○'}
+                  </span>
+                  {step.id === 'invite' ? (
+                    <button
+                      type="button"
+                      className="underline underline-offset-4"
+                      onClick={() => setAddMemberOpen(true)}
+                    >
+                      {step.label}
+                    </button>
+                  ) : (
+                    <Link
+                      className="underline underline-offset-4"
+                      to={
+                        step.id === 'ask'
+                          ? '/organizations/$organizationId/ask'
+                          : '/organizations/$organizationId/documents'
+                      }
+                      params={{ organizationId }}
+                    >
+                      {step.label}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
         </Card>
       ) : null}
 
@@ -399,15 +483,17 @@ function OrganizationOverviewPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {canWrite ? <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
-          <Link
-            to="/organizations/$organizationId/documents"
-            params={{ organizationId }}
-          >
-            <Upload />
-            Upload a document
-          </Link>
-        </Button> : null}
+        {canWrite ? (
+          <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
+            <Link
+              to="/organizations/$organizationId/documents"
+              params={{ organizationId }}
+            >
+              <Upload />
+              Upload a document
+            </Link>
+          </Button>
+        ) : null}
         <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
           <Link
             to="/organizations/$organizationId/ask"
@@ -421,7 +507,13 @@ function OrganizationOverviewPage() {
           <Link
             to="/organizations/$organizationId/search"
             params={{ organizationId }}
-            search={{ q: undefined, collectionIds: [], documentIds: [], createdAfter: '', createdBefore: '' }}
+            search={{
+              q: undefined,
+              collectionIds: [],
+              documentIds: [],
+              createdAfter: '',
+              createdBefore: '',
+            }}
           >
             <Search />
             Search documents
@@ -438,9 +530,7 @@ function OrganizationOverviewPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {usage.isPending ? (
-            <Skeleton className="h-12 w-full" />
-          ) : null}
+          {usage.isPending ? <Skeleton className="h-12 w-full" /> : null}
           {usage.isError ? (
             <RouteError
               title="Unable to load usage"
@@ -485,7 +575,9 @@ function OrganizationOverviewPage() {
         <Card>
           <div className="flex flex-col items-start gap-3 p-4 pb-0 sm:flex-row sm:p-6 sm:pb-0 sm:items-start sm:justify-between sm:gap-4">
             <div className="space-y-1.5">
-              <h2 className="font-semibold leading-none tracking-tight">Members</h2>
+              <h2 className="font-semibold leading-none tracking-tight">
+                Members
+              </h2>
               <p className="text-sm text-muted-foreground">
                 People who can access this organization. If someone has no
                 account yet, adding them creates a shareable invitation.
@@ -550,7 +642,9 @@ function OrganizationOverviewPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                      {canManageMembers && (member.role !== 'OWNER' || canManageOwners) && member.userId !== currentUserId ? (
+                      {canManageMembers &&
+                      (member.role !== 'OWNER' || canManageOwners) &&
+                      member.userId !== currentUserId ? (
                         <Select
                           value={member.role}
                           onValueChange={(role) =>
@@ -569,10 +663,20 @@ function OrganizationOverviewPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {canManageOwners ? <SelectItem value="OWNER">Owner — full access</SelectItem> : null}
-                            <SelectItem value="ADMIN">Admin — manage organization and members</SelectItem>
-                            <SelectItem value="MEMBER">Member — manage documents</SelectItem>
-                            <SelectItem value="VIEWER">Viewer — read and ask questions</SelectItem>
+                            {canManageOwners ? (
+                              <SelectItem value="OWNER">
+                                Owner — full access
+                              </SelectItem>
+                            ) : null}
+                            <SelectItem value="ADMIN">
+                              Admin — manage organization and members
+                            </SelectItem>
+                            <SelectItem value="MEMBER">
+                              Member — manage documents
+                            </SelectItem>
+                            <SelectItem value="VIEWER">
+                              Viewer — read and ask questions
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
@@ -580,7 +684,9 @@ function OrganizationOverviewPage() {
                           {formatRole(member.role)}
                         </Badge>
                       )}
-                      {canManageMembers && (member.role !== 'OWNER' || canManageOwners) && member.userId !== currentUserId ? (
+                      {canManageMembers &&
+                      (member.role !== 'OWNER' || canManageOwners) &&
+                      member.userId !== currentUserId ? (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -589,7 +695,8 @@ function OrganizationOverviewPage() {
                           onClick={() =>
                             setMemberToRemove({
                               userId: member.userId,
-                              name: `${member.firstName} ${member.lastName}`.trim() ||
+                              name:
+                                `${member.firstName} ${member.lastName}`.trim() ||
                                 member.email,
                             })
                           }
@@ -602,7 +709,6 @@ function OrganizationOverviewPage() {
                 ))}
               </ul>
             ) : null}
-
           </CardContent>
         </Card>
 
@@ -610,7 +716,8 @@ function OrganizationOverviewPage() {
           <DialogHeader>
             <DialogTitle>Add a member</DialogTitle>
             <DialogDescription>
-              Members with an existing account join immediately. Other selections create an invitation you can share.
+              Members with an existing account join immediately. Other
+              selections create an invitation you can share.
             </DialogDescription>
           </DialogHeader>
 
@@ -634,7 +741,11 @@ function OrganizationOverviewPage() {
                     value={inviteLink(inviteResult.token)}
                     onFocus={(event) => event.target.select()}
                   />
-                  <Button type="button" variant="outline" onClick={() => void copyInviteLink()}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void copyInviteLink()}
+                  >
                     <Copy />
                     Copy
                   </Button>
@@ -662,7 +773,33 @@ function OrganizationOverviewPage() {
                   onChange={(event) => setEmail(event.target.value)}
                 />
               </div>
-              <div className="space-y-2"><Label>Role</Label><Select value={inviteRole} onValueChange={(value) => setInviteRole(value as OrganizationRole)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{canManageOwners ? <SelectItem value="OWNER">Owner — full access</SelectItem> : null}<SelectItem value="ADMIN">Admin — manage organization and members</SelectItem><SelectItem value="MEMBER">Member — manage documents</SelectItem><SelectItem value="VIEWER">Viewer — read and ask questions</SelectItem></SelectContent></Select></div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select
+                  value={inviteRole}
+                  onValueChange={(value) =>
+                    setInviteRole(value as OrganizationRole)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {canManageOwners ? (
+                      <SelectItem value="OWNER">Owner — full access</SelectItem>
+                    ) : null}
+                    <SelectItem value="ADMIN">
+                      Admin — manage organization and members
+                    </SelectItem>
+                    <SelectItem value="MEMBER">
+                      Member — manage documents
+                    </SelectItem>
+                    <SelectItem value="VIEWER">
+                      Viewer — read and ask questions
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <DialogFooter>
                 <Button
                   type="button"
@@ -734,29 +871,30 @@ function OrganizationOverviewPage() {
                         Expires {formatDateTime(invitation.expiresAt)}
                       </p>
                     </div>
-                    {invitation.role !== 'OWNER' || canManageOwners ? <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      disabled={
-                        revokeInvitation.isPending &&
-                        revokeInvitation.variables?.invitationId ===
-                          invitation.id
-                      }
-                      onClick={() =>
-                        revokeInvitation.mutate({
-                          organizationId,
-                          invitationId: invitation.id,
-                        })
-                      }
-                    >
-                      Revoke
-                    </Button> : null}
+                    {invitation.role !== 'OWNER' || canManageOwners ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        disabled={
+                          revokeInvitation.isPending &&
+                          revokeInvitation.variables?.invitationId ===
+                            invitation.id
+                        }
+                        onClick={() =>
+                          revokeInvitation.mutate({
+                            organizationId,
+                            invitationId: invitation.id,
+                          })
+                        }
+                      >
+                        Revoke
+                      </Button>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             ) : null}
-
           </CardContent>
         </Card>
       ) : null}

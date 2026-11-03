@@ -10,7 +10,11 @@ export interface CatalogDocumentRow {
   title: string;
   originalFileName: string | null;
   generation: number;
-  summaries: Array<{ documentGeneration: number; summary: string; keyTopics: string[] }>;
+  summaries: Array<{
+    documentGeneration: number;
+    summary: string;
+    keyTopics: string[];
+  }>;
   extractions: Array<{
     documentGeneration: number;
     pageCount: number;
@@ -68,7 +72,10 @@ export function buildDocumentCatalog(
       (candidate) => candidate.documentGeneration === row.generation,
     );
     const summaryContent = summary
-      ? `Summary: ${summary.summary}\nKey topics: ${summary.keyTopics.join(', ')}`.slice(0, summaryCharsRemaining)
+      ? `Summary: ${summary.summary}\nKey topics: ${summary.keyTopics.join(', ')}`.slice(
+          0,
+          summaryCharsRemaining,
+        )
       : null;
     summaryCharsRemaining -= summaryContent?.length ?? 0;
 

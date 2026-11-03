@@ -14,7 +14,9 @@ describe('contractTotalsSchema', () => {
   });
 
   it('uppercases the currency code', () => {
-    expect(contractTotalsSchema.parse({ currency: 'usd' }).currency).toBe('USD');
+    expect(contractTotalsSchema.parse({ currency: 'usd' }).currency).toBe(
+      'USD',
+    );
   });
 
   it('rejects a malformed currency code', () => {
@@ -37,8 +39,8 @@ describe('contractTotalsSchema', () => {
   });
 
   it('rejects unknown query parameters', () => {
-    expect(contractTotalsSchema.safeParse({ unexpected: 'value' }).success).toBe(
-      false,
-    );
+    expect(
+      contractTotalsSchema.safeParse({ unexpected: 'value' }).success,
+    ).toBe(false);
   });
 });

@@ -58,7 +58,10 @@ function createSendingAdapter(overrides: Record<string, unknown> = {}) {
 }
 
 function awsError(name: string, httpStatusCode: number): Error {
-  return Object.assign(new Error(name), { name, $metadata: { httpStatusCode } });
+  return Object.assign(new Error(name), {
+    name,
+    $metadata: { httpStatusCode },
+  });
 }
 
 function bodyOf(bytes: number[]): {
@@ -454,7 +457,8 @@ describe('S3ObjectStorage.copyObject', () => {
     expect(command.input).toEqual({
       Bucket: 'knowledgehub-documents',
       Key: copy.destinationKey,
-      CopySource: 'knowledgehub-documents/organizations%2Forg-1%2Fdocuments%2Fdoc-1%2F2f1c',
+      CopySource:
+        'knowledgehub-documents/organizations%2Forg-1%2Fdocuments%2Fdoc-1%2F2f1c',
       CopySourceIfMatch: '"version-1"',
       MetadataDirective: 'REPLACE',
       ContentType: 'application/pdf',

@@ -38,12 +38,18 @@ describe('listDocumentsSchema', () => {
   });
 
   it('rejects an unknown status filter', () => {
-    expect(listDocumentsSchema.safeParse({ status: 'ARCHIVED' }).success).toBe(false);
+    expect(listDocumentsSchema.safeParse({ status: 'ARCHIVED' }).success).toBe(
+      false,
+    );
   });
 
   it('accepts both sort orders and rejects an unknown one', () => {
-    expect(listDocumentsSchema.parse({ order: 'createdAt_asc' }).order).toBe('createdAt_asc');
-    expect(listDocumentsSchema.safeParse({ order: 'title' }).success).toBe(false);
+    expect(listDocumentsSchema.parse({ order: 'createdAt_asc' }).order).toBe(
+      'createdAt_asc',
+    );
+    expect(listDocumentsSchema.safeParse({ order: 'title' }).success).toBe(
+      false,
+    );
   });
 
   it('rejects a limit below 1', () => {
@@ -67,8 +73,8 @@ describe('listDocumentsSchema', () => {
   });
 
   it('rejects unknown properties', () => {
-    expect(
-      listDocumentsSchema.safeParse({ limit: 10, page: 2 }).success,
-    ).toBe(false);
+    expect(listDocumentsSchema.safeParse({ limit: 10, page: 2 }).success).toBe(
+      false,
+    );
   });
 });

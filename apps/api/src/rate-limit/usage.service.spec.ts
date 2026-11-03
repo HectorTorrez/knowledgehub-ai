@@ -4,17 +4,18 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { RateLimitConfig } from './rate-limit.config.js';
 import { UsageService } from './usage.service.js';
 
-function buildUsage(options: {
-  upsertImpl?: (args?: unknown) => Promise<unknown>;
-  quota?: number;
-} = {}) {
-  const upsert = vi.fn(
-    options.upsertImpl ?? (async () => ({ count: 1 })),
-  );
-  const findUnique = vi.fn(
-    async (_args?: unknown): Promise<unknown> => null,
-  );
-  const aggregate = vi.fn(async () => ({ _count: { _all: 2 }, _sum: { sizeBytes: 1024 } }));
+function buildUsage(
+  options: {
+    upsertImpl?: (args?: unknown) => Promise<unknown>;
+    quota?: number;
+  } = {},
+) {
+  const upsert = vi.fn(options.upsertImpl ?? (async () => ({ count: 1 })));
+  const findUnique = vi.fn(async (_args?: unknown): Promise<unknown> => null);
+  const aggregate = vi.fn(async () => ({
+    _count: { _all: 2 },
+    _sum: { sizeBytes: 1024 },
+  }));
   const count = vi.fn(async () => 3);
   const prisma = {
     document: { aggregate },
@@ -84,8 +85,14 @@ describe('UsageService.getAnswerUsage', () => {
   it('aggregates only the requested organization', async () => {
     const { service, aggregate, count } = buildUsage();
     const result = await service.getAnswerUsage('org-1');
-    expect(result.usage).toMatchObject({ documents: { used: 2, limit: null }, storageBytes: { used: 1024, limit: null }, members: { used: 3, limit: null } });
-    expect(aggregate).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: 'org-1' } }));
+    expect(result.usage).toMatchObject({
+      documents: { used: 2, limit: null },
+      storageBytes: { used: 1024, limit: null },
+      members: { used: 3, limit: null },
+    });
+    expect(aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { organizationId: 'org-1' } }),
+    );
     expect(count).toHaveBeenCalledWith({ where: { organizationId: 'org-1' } });
   });
 

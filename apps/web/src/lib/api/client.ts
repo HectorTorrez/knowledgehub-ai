@@ -1,4 +1,7 @@
-import { refreshCoordinator, type RefreshOutcomeStatus } from '~/lib/auth/refresh';
+import {
+  refreshCoordinator,
+  type RefreshOutcomeStatus,
+} from '~/lib/auth/refresh';
 import { buildCsrfHeaders, isUnsafeMethod, readCsrfToken } from './csrf';
 import {
   ApiError,
@@ -78,7 +81,9 @@ export async function apiStream(
   let response = await sendStream(url, method, options);
 
   if (response.status === UNAUTHORIZED_STATUS) {
-    const outcome = await refreshCoordinator.refresh({ signal: options.signal });
+    const outcome = await refreshCoordinator.refresh({
+      signal: options.signal,
+    });
 
     if (outcome.status === 'refreshed' || outcome.status === 'already-valid') {
       response = await sendStream(url, method, options);
@@ -150,7 +155,9 @@ async function applyRecovery(
   response: Response,
 ): Promise<RecoveryResult> {
   if (response.status === UNAUTHORIZED_STATUS) {
-    const outcome = await refreshCoordinator.refresh({ signal: options.signal });
+    const outcome = await refreshCoordinator.refresh({
+      signal: options.signal,
+    });
 
     if (outcome.status === 'refreshed' || outcome.status === 'already-valid') {
       return {

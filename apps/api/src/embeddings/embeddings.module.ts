@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { EmbeddingConfig } from './embedding.config.js';
-import { EMBEDDING_PROVIDER, type EmbeddingProvider } from './embedding-provider.port.js';
+import {
+  EMBEDDING_PROVIDER,
+  type EmbeddingProvider,
+} from './embedding-provider.port.js';
 import { OpenAiEmbeddingProvider } from './openai-embedding-provider.js';
 
 @Module({

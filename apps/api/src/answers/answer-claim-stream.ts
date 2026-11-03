@@ -5,7 +5,8 @@ export interface ParsedAnswerClaim {
   source: number;
 }
 
-const STATUS_PATTERN = /"status"\s*:\s*"(answered|partial|insufficient_evidence)"/;
+const STATUS_PATTERN =
+  /"status"\s*:\s*"(answered|partial|insufficient_evidence)"/;
 const CLAIMS_PATTERN = /"claims"\s*:\s*/;
 const WHITESPACE = /^\s$/;
 

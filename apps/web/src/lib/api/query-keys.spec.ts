@@ -15,9 +15,9 @@ describe('queryKeys', () => {
   });
 
   it('isolates document detail keys by document id', () => {
-    expect(queryKeys.organizations.documents.detail('org-a', 'doc-1')).not.toEqual(
-      queryKeys.organizations.documents.detail('org-a', 'doc-2'),
-    );
+    expect(
+      queryKeys.organizations.documents.detail('org-a', 'doc-1'),
+    ).not.toEqual(queryKeys.organizations.documents.detail('org-a', 'doc-2'));
   });
 
   it('keeps every organization key under the organizations prefix', () => {
@@ -48,12 +48,12 @@ describe('queryKeys', () => {
     const all = queryKeys.organizations.documents.all('org-a');
 
     expect(all).toEqual(['organizations', 'org-a', 'documents']);
-    expect(queryKeys.organizations.documents.list('org-a').slice(0, 3)).toEqual([
-      ...all,
-    ]);
-    expect(queryKeys.organizations.documents.ready('org-a').slice(0, 3)).toEqual([
-      ...all,
-    ]);
+    expect(queryKeys.organizations.documents.list('org-a').slice(0, 3)).toEqual(
+      [...all],
+    );
+    expect(
+      queryKeys.organizations.documents.ready('org-a').slice(0, 3),
+    ).toEqual([...all]);
   });
 
   it('scopes conversation keys and nested answer queries by organization', () => {

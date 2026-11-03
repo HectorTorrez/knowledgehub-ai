@@ -47,11 +47,11 @@ export function useWebMcpTools(): void {
     () => ({
       loadSession: () => queryClient.fetchQuery(sessionQuery),
       loadOrganizations: async (options) =>
-        (await organizationsApi.list({ signal: options?.signal })).organizations,
+        (await organizationsApi.list({ signal: options?.signal }))
+          .organizations,
       loadDocuments: async (organizationId, options) =>
-        (
-          await documentsApi.list(organizationId, { signal: options?.signal })
-        ).documents,
+        (await documentsApi.list(organizationId, { signal: options?.signal }))
+          .documents,
       getActiveOrganizationId: () =>
         readActiveOrganizationId(router.state.matches),
     }),
@@ -70,11 +70,15 @@ export function useWebMcpTools(): void {
     [authenticated, deps],
   );
   const documentsTool = useMemo(
-    () => (authenticated && hasActiveOrganization ? buildDocumentsTool(deps) : null),
+    () =>
+      authenticated && hasActiveOrganization ? buildDocumentsTool(deps) : null,
     [authenticated, hasActiveOrganization, deps],
   );
 
-  useWebMcpTool(sessionTool?.definition ?? null, sessionTool?.execute ?? NOOP_EXECUTE);
+  useWebMcpTool(
+    sessionTool?.definition ?? null,
+    sessionTool?.execute ?? NOOP_EXECUTE,
+  );
   useWebMcpTool(
     organizationsTool?.definition ?? null,
     organizationsTool?.execute ?? NOOP_EXECUTE,

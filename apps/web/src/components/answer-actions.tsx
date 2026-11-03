@@ -12,10 +12,7 @@ import { useToast } from '~/components/ui/toast';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { cn } from '~/lib/utils';
-import {
-  answerPermalink,
-  buildAnswerMarkdown,
-} from '~/lib/answer-markdown';
+import { answerPermalink, buildAnswerMarkdown } from '~/lib/answer-markdown';
 
 export function AnswerActions({
   organizationId,
@@ -68,7 +65,13 @@ export function AnswerActions({
         title="Copy answer"
         onClick={() =>
           void copy(
-            buildAnswerMarkdown({ question, answer, status, citations, missing }),
+            buildAnswerMarkdown({
+              question,
+              answer,
+              status,
+              citations,
+              missing,
+            }),
             'answer',
           )
         }
@@ -87,11 +90,7 @@ export function AnswerActions({
           title="Copy link"
           onClick={() =>
             void copy(
-              answerPermalink(
-                window.location.origin,
-                organizationId,
-                answerId,
-              ),
+              answerPermalink(window.location.origin, organizationId, answerId),
               'link',
             )
           }

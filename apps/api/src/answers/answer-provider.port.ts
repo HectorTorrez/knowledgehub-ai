@@ -17,8 +17,7 @@ export interface AnswerGeneration {
 }
 
 export type AnswerGenerationChunk =
-  | { type: 'delta'; text: string }
-  | { type: 'done'; usage: AnswerUsage };
+  { type: 'delta'; text: string } | { type: 'done'; usage: AnswerUsage };
 
 export interface AnswerProvider {
   generate(

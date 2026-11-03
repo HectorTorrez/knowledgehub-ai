@@ -11,12 +11,7 @@ function documentsListKey(
   organizationId: string,
   filters: DocumentListFilters,
 ) {
-  const base = [
-    'organizations',
-    organizationId,
-    'documents',
-    'list',
-  ] as const;
+  const base = ['organizations', organizationId, 'documents', 'list'] as const;
 
   if (Object.values(filters).every((value) => value === undefined)) {
     return base;
@@ -53,9 +48,21 @@ export const queryKeys = {
       list: (organizationId: string, filters: DocumentListFilters = {}) =>
         documentsListKey(organizationId, filters),
       ready: (organizationId: string) =>
-        ['organizations', organizationId, 'documents', 'list', 'ready'] as const,
+        [
+          'organizations',
+          organizationId,
+          'documents',
+          'list',
+          'ready',
+        ] as const,
       detail: (organizationId: string, documentId: string) =>
-        ['organizations', organizationId, 'documents', 'detail', documentId] as const,
+        [
+          'organizations',
+          organizationId,
+          'documents',
+          'detail',
+          documentId,
+        ] as const,
       download: (organizationId: string, documentId: string) =>
         [
           'organizations',
@@ -70,8 +77,19 @@ export const queryKeys = {
         ['organizations', organizationId, 'conversations'] as const,
       list: (organizationId: string, scope?: 'all' | 'mine' | 'shared') =>
         scope === undefined
-          ? (['organizations', organizationId, 'conversations', 'list'] as const)
-          : (['organizations', organizationId, 'conversations', 'list', scope] as const),
+          ? ([
+              'organizations',
+              organizationId,
+              'conversations',
+              'list',
+            ] as const)
+          : ([
+              'organizations',
+              organizationId,
+              'conversations',
+              'list',
+              scope,
+            ] as const),
       detail: (organizationId: string, conversationId: string) =>
         [
           'organizations',
@@ -105,12 +123,22 @@ export const queryKeys = {
               askedBy ?? '',
             ] as const),
       detail: (organizationId: string, answerId: string) =>
-        ['organizations', organizationId, 'answers', 'detail', answerId] as const,
+        [
+          'organizations',
+          organizationId,
+          'answers',
+          'detail',
+          answerId,
+        ] as const,
     },
     search: (
       organizationId: string,
       query: string | null,
-      filters?: { documentIds: string[]; createdAfter: string; createdBefore: string },
+      filters?: {
+        documentIds: string[];
+        createdAfter: string;
+        createdBefore: string;
+      },
     ) =>
       [
         'organizations',

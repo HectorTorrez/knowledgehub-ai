@@ -61,7 +61,8 @@ export class InvitationsService {
   ): Promise<CreateInvitationResponse> {
     const actorRole = await this.assertManager(context);
 
-    if (!canManageRole(actorRole, role)) throw new ForbiddenException('Cannot grant this role');
+    if (!canManageRole(actorRole, role))
+      throw new ForbiddenException('Cannot grant this role');
     const token = randomBytes(INVITATION_TOKEN_BYTES).toString('base64url');
     const invitation = await this.prisma.organizationInvitation.create({
       data: {
@@ -80,7 +81,14 @@ export class InvitationsService {
       },
     });
 
-    await this.activity.record(this.prisma, { organizationId: context.organizationId, actorId: context.userId, action: 'INVITATION_CREATED', targetType: 'invitation', targetId: invitation.id, metadata: { email: invitation.email, role: invitation.role } });
+    await this.activity.record(this.prisma, {
+      organizationId: context.organizationId,
+      actorId: context.userId,
+      action: 'INVITATION_CREATED',
+      targetType: 'invitation',
+      targetId: invitation.id,
+      metadata: { email: invitation.email, role: invitation.role },
+    });
     return {
       invitation: {
         id: invitation.id,
@@ -114,11 +122,18 @@ export class InvitationsService {
     return { invitations: invitations.map(toInvitationSummary) };
   }
 
-  async revoke(context: OrganizationContext, invitationId: string): Promise<void> {
+  async revoke(
+    context: OrganizationContext,
+    invitationId: string,
+  ): Promise<void> {
     const actorRole = await this.assertManager(context);
 
-    const invitation = await this.prisma.organizationInvitation.findFirst({ where: { id: invitationId, organizationId: context.organizationId }, select: { email: true, role: true } });
-    if (invitation && !canManageRole(actorRole, invitation.role)) throw new ForbiddenException('Cannot manage this role');
+    const invitation = await this.prisma.organizationInvitation.findFirst({
+      where: { id: invitationId, organizationId: context.organizationId },
+      select: { email: true, role: true },
+    });
+    if (invitation && !canManageRole(actorRole, invitation.role))
+      throw new ForbiddenException('Cannot manage this role');
     const result = await this.prisma.organizationInvitation.deleteMany({
       where: { id: invitationId, organizationId: context.organizationId },
     });
@@ -126,10 +141,20 @@ export class InvitationsService {
     if (result.count === 0 || !invitation) {
       throw new NotFoundException('Invitation not found');
     }
-    await this.activity.record(this.prisma, { organizationId: context.organizationId, actorId: context.userId, action: 'INVITATION_REVOKED', targetType: 'invitation', targetId: invitationId, metadata: { email: invitation.email } });
+    await this.activity.record(this.prisma, {
+      organizationId: context.organizationId,
+      actorId: context.userId,
+      action: 'INVITATION_REVOKED',
+      targetType: 'invitation',
+      targetId: invitationId,
+      metadata: { email: invitation.email },
+    });
   }
 
-  async accept(userId: string, token: string): Promise<AcceptInvitationResponse> {
+  async accept(
+    userId: string,
+    token: string,
+  ): Promise<AcceptInvitationResponse> {
     const invitation = await this.prisma.organizationInvitation.findUnique({
       where: { tokenHash: hashToken(token) },
     });
@@ -173,7 +198,14 @@ export class InvitationsService {
         where: { id: invitation.id },
         data: { acceptedAt: new Date() },
       });
-      await this.activity.record(tx, { organizationId: invitation.organizationId, actorId: userId, action: 'INVITATION_ACCEPTED', targetType: 'invitation', targetId: invitation.id, metadata: { email: invitation.email } });
+      await this.activity.record(tx, {
+        organizationId: invitation.organizationId,
+        actorId: userId,
+        action: 'INVITATION_ACCEPTED',
+        targetType: 'invitation',
+        targetId: invitation.id,
+        metadata: { email: invitation.email },
+      });
     });
 
     return { organizationId: invitation.organizationId };
@@ -183,7 +215,14 @@ export class InvitationsService {
     return this.config.getOrThrow<number>('INVITATION_TTL_DAYS') * MS_PER_DAY;
   }
 
-  private async assertManager(context: OrganizationContext): Promise<OrganizationRole> {
-    return requireCapability(this.prisma, context, 'members.manage', 'manage invitations');
+  private async assertManager(
+    context: OrganizationContext,
+  ): Promise<OrganizationRole> {
+    return requireCapability(
+      this.prisma,
+      context,
+      'members.manage',
+      'manage invitations',
+    );
   }
 }

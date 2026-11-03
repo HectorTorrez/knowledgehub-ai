@@ -37,7 +37,10 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { UsageService } from '../rate-limit/usage.service.js';
 import { AggregationService } from '../aggregation/aggregation.service.js';
 import { FactsConfig } from '../facts/facts.config.js';
-import { buildAggregateAnswer, isAggregateQuestion } from './aggregate-answer.js';
+import {
+  buildAggregateAnswer,
+  isAggregateQuestion,
+} from './aggregate-answer.js';
 import {
   EmbeddingRejectedError,
   EmbeddingResponseError,
@@ -49,7 +52,10 @@ import {
   MAX_CATALOG_DOCUMENTS,
   type CatalogDocumentRow,
 } from './answer-catalog.js';
-import { wholeDocumentContext, type DocumentContextChunk } from './whole-document-context.js';
+import {
+  wholeDocumentContext,
+  type DocumentContextChunk,
+} from './whole-document-context.js';
 import { expandNeighbors, type NeighborChunk } from './neighbor-expansion.js';
 import { AnswerStreamParser } from './answer-claim-stream.js';
 import {
@@ -71,7 +77,11 @@ import {
   type AnswerGeneration,
   type AnswerProvider,
 } from './answer-provider.port.js';
-import { buildAnswerPrompt, type AnswerPrompt, type ConversationTurn } from './answer-prompt.js';
+import {
+  buildAnswerPrompt,
+  type AnswerPrompt,
+  type ConversationTurn,
+} from './answer-prompt.js';
 import { AnswerConfig } from './answer.config.js';
 import type { ListAnswersInput } from './dto/list-answers.schema.js';
 import type { SetAnswerFeedbackInput } from './dto/set-answer-feedback.schema.js';
@@ -164,7 +174,11 @@ function toAnswerDetail(row: AnswerProjection): AnswerDetail {
     status: row.status,
     answer: row.answer,
     citations: toCitations(row.citations),
-    ...{ missing: Array.isArray(row.missing) ? row.missing.filter((item): item is string => typeof item === 'string') : [] },
+    ...{
+      missing: Array.isArray(row.missing)
+        ? row.missing.filter((item): item is string => typeof item === 'string')
+        : [],
+    },
     conversationId: row.conversationId,
     createdAt: row.createdAt.toISOString(),
     feedback: row.feedback?.[0] ?? null,
@@ -485,7 +499,12 @@ export class AnswersService {
 
     const citations = buildCitations(contract.markers, sources);
     return contract.status === 'partial'
-      ? { status: 'partial', answer: contract.answer, citations, missing: contract.missing }
+      ? {
+          status: 'partial',
+          answer: contract.answer,
+          citations,
+          missing: contract.missing,
+        }
       : { status: 'answered', answer: contract.answer, citations };
   }
 
@@ -503,7 +522,9 @@ export class AnswersService {
       where: {
         organizationId,
         ...(input.askedBy === 'me' ? { askedById: userId } : {}),
-        ...(input.conversationId ? { conversationId: input.conversationId } : {}),
+        ...(input.conversationId
+          ? { conversationId: input.conversationId }
+          : {}),
         AND: [
           readableAnswerWhere(userId),
           ...(cursor ? [listCursorFilter(cursor)] : []),
@@ -517,7 +538,9 @@ export class AnswersService {
     const hasMore = rows.length > input.limit;
     const page = hasMore ? rows.slice(0, input.limit) : rows;
     const nextCursor =
-      hasMore && page.length > 0 ? encodeListCursor(page[page.length - 1]) : null;
+      hasMore && page.length > 0
+        ? encodeListCursor(page[page.length - 1])
+        : null;
 
     return {
       answers: page.map(toAnswerSummary),
@@ -634,8 +657,13 @@ export class AnswersService {
           askedById: userId,
           question,
           status: response.status,
-          answer: response.status !== 'insufficient_evidence' ? response.answer : null,
-          ...(response.status === 'partial' ? { missing: response.missing } : {}),
+          answer:
+            response.status !== 'insufficient_evidence'
+              ? response.answer
+              : null,
+          ...(response.status === 'partial'
+            ? { missing: response.missing }
+            : {}),
           citations: response.citations as unknown as Prisma.InputJsonValue,
           ...(conversationId ? { conversationId } : {}),
         },
@@ -690,14 +718,23 @@ export class AnswersService {
       await this.assertDocumentAnswerable(organizationId, documentId);
     }
 
-    const scopedIds = collectionIds ? await resolveCollectionScope(this.prisma, organizationId, collectionIds, documentId ? [documentId] : undefined) : undefined;
-    if (scopedIds && scopedIds.length === 0) return { kind: 'direct', response: { ...INSUFFICIENT_EVIDENCE_RESPONSE } };
+    const scopedIds = collectionIds
+      ? await resolveCollectionScope(
+          this.prisma,
+          organizationId,
+          collectionIds,
+          documentId ? [documentId] : undefined,
+        )
+      : undefined;
+    if (scopedIds && scopedIds.length === 0)
+      return {
+        kind: 'direct',
+        response: { ...INSUFFICIENT_EVIDENCE_RESPONSE },
+      };
 
-    const aggregate = collectionIds ? null : await this.aggregateAnswer(
-      organizationId,
-      question,
-      documentId,
-    );
+    const aggregate = collectionIds
+      ? null
+      : await this.aggregateAnswer(organizationId, question, documentId);
 
     if (aggregate) {
       event.sourceCount = aggregate.citations.length;
@@ -711,18 +748,39 @@ export class AnswersService {
     if (wholeDocument) event.contextMode = 'whole_document';
 
     let retrievalQuery = question;
-    if (!wholeDocument && history.length > 0 && this.config.queryRewriteEnabled) {
+    if (
+      !wholeDocument &&
+      history.length > 0 &&
+      this.config.queryRewriteEnabled
+    ) {
       try {
-        const rewritten = (await this.queryRewriter.rewrite(question, history)).trim();
-        if (!rewritten || rewritten.length > 2 * question.length + 200 || rewritten.length > MAX_ANSWER_QUESTION_CHARS) throw new Error('Invalid query rewrite');
+        const rewritten = (
+          await this.queryRewriter.rewrite(question, history)
+        ).trim();
+        if (
+          !rewritten ||
+          rewritten.length > 2 * question.length + 200 ||
+          rewritten.length > MAX_ANSWER_QUESTION_CHARS
+        )
+          throw new Error('Invalid query rewrite');
         retrievalQuery = rewritten;
         event.queryRewritten = rewritten !== question;
       } catch (error) {
-        this.logger.warn('Query rewrite failed; using original question', error);
+        this.logger.warn(
+          'Query rewrite failed; using original question',
+          error,
+        );
       }
     }
     const [sources, catalogRows] = await Promise.all([
-      wholeDocument ?? this.retrieveSources(organizationId, retrievalQuery, event, documentId, scopedIds),
+      wholeDocument ??
+        this.retrieveSources(
+          organizationId,
+          retrievalQuery,
+          event,
+          documentId,
+          scopedIds,
+        ),
       this.loadDocumentCatalogRows(organizationId, documentId, scopedIds),
     ]);
 
@@ -785,7 +843,10 @@ export class AnswersService {
     this.logger.log(event);
   }
 
-  private async loadWholeDocument(organizationId: string, documentId: string): Promise<AnswerSource[] | null> {
+  private async loadWholeDocument(
+    organizationId: string,
+    documentId: string,
+  ): Promise<AnswerSource[] | null> {
     const rows = await this.prisma.$queryRaw<DocumentContextChunk[]>(Prisma.sql`
       SELECT c.id AS "chunkId", c."documentId", d.title AS "documentTitle",
         c."pageNumber", c."chunkIndex", c.content
@@ -812,7 +873,9 @@ export class AnswersService {
       chunks = await this.retrieval.search({
         organizationId,
         text: question,
-        limit: this.config.rerankEnabled ? Math.max(this.config.maxSources, this.config.rerankCandidates) : this.config.maxSources,
+        limit: this.config.rerankEnabled
+          ? Math.max(this.config.maxSources, this.config.rerankCandidates)
+          : this.config.maxSources,
         ...(documentId ? { documentId } : {}),
         ...(documentIds ? { documentIds } : {}),
       });
@@ -823,12 +886,26 @@ export class AnswersService {
     if (chunks.length === 0) return [];
     if (this.config.rerankEnabled) {
       try {
-        const scores = await this.reranker.rerank(question, chunks.map((chunk) => ({ id: chunk.chunkId, title: chunk.title, page: chunk.pageNumber, text: chunk.content })));
-        const ordered = orderReranked(chunks.map((chunk) => ({ id: chunk.chunkId, chunk })), scores);
+        const scores = await this.reranker.rerank(
+          question,
+          chunks.map((chunk) => ({
+            id: chunk.chunkId,
+            title: chunk.title,
+            page: chunk.pageNumber,
+            text: chunk.content,
+          })),
+        );
+        const ordered = orderReranked(
+          chunks.map((chunk) => ({ id: chunk.chunkId, chunk })),
+          scores,
+        );
         chunks = ordered.map(({ chunk }) => chunk);
         event.reranked = true;
       } catch (error) {
-        this.logger.warn('Reranking failed; using original retrieval order', error);
+        this.logger.warn(
+          'Reranking failed; using original retrieval order',
+          error,
+        );
       }
       chunks = chunks.slice(0, this.config.maxSources);
     }
@@ -846,7 +923,11 @@ export class AnswersService {
         AND d."organizationId" = ${organizationId}::uuid AND d.status = 'READY'
         AND d.generation = hit."documentGeneration"
     `);
-    return assembleContext(chunks, this.contextBudget(), expandNeighbors(chunks, rows));
+    return assembleContext(
+      chunks,
+      this.contextBudget(),
+      expandNeighbors(chunks, rows),
+    );
   }
 
   private async loadDocumentCatalogRows(
@@ -857,7 +938,11 @@ export class AnswersService {
     const where = {
       organizationId,
       status: 'READY' as const,
-      ...(documentId ? { id: documentId } : documentIds ? { id: { in: documentIds } } : {}),
+      ...(documentId
+        ? { id: documentId }
+        : documentIds
+          ? { id: { in: documentIds } }
+          : {}),
     };
 
     const [rows, total] = await Promise.all([
@@ -870,7 +955,11 @@ export class AnswersService {
           generation: true,
           summaries: {
             where: { organizationId, document: { summaryStatus: 'READY' } },
-            select: { documentGeneration: true, summary: true, keyTopics: true },
+            select: {
+              documentGeneration: true,
+              summary: true,
+              keyTopics: true,
+            },
           },
           extractions: {
             orderBy: { documentGeneration: 'desc' },

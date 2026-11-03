@@ -8,7 +8,10 @@ export const updateOrganizationSchema = z
       .string()
       .trim()
       .min(1, 'name is required')
-      .max(NAME_MAX_LENGTH, `name must be at most ${NAME_MAX_LENGTH} characters`),
+      .max(
+        NAME_MAX_LENGTH,
+        `name must be at most ${NAME_MAX_LENGTH} characters`,
+      ),
   })
   .strict();
 

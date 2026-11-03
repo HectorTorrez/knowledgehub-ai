@@ -75,10 +75,13 @@ describe('createRequestLogger', () => {
 
     harness.finish();
 
-    expect(harness.metrics.increment).toHaveBeenCalledWith('http_requests_total', {
-      method: 'GET',
-      status_code: '200',
-    });
+    expect(harness.metrics.increment).toHaveBeenCalledWith(
+      'http_requests_total',
+      {
+        method: 'GET',
+        status_code: '200',
+      },
+    );
     expect(harness.metrics.observe).toHaveBeenCalledWith(
       'http_request_duration_seconds',
       { method: 'GET', status_code: '200' },

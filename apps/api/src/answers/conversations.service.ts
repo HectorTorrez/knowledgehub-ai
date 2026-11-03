@@ -204,7 +204,10 @@ export class ConversationsService {
     return { conversation: toConversationSummary(row, scope.actor) };
   }
 
-  async delete(scope: ConversationScope, conversationId: string): Promise<void> {
+  async delete(
+    scope: ConversationScope,
+    conversationId: string,
+  ): Promise<void> {
     const result = await this.prisma.conversation.deleteMany({
       where: {
         id: conversationId,

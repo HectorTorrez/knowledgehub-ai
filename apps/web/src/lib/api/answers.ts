@@ -71,10 +71,13 @@ export const answersApi = {
   },
 
   remove(organizationId: string, answerId: string): Promise<void> {
-    return apiFetch<void>(`/organizations/${organizationId}/answers/${answerId}`, {
-      method: 'DELETE',
-      authRecovery: true,
-    });
+    return apiFetch<void>(
+      `/organizations/${organizationId}/answers/${answerId}`,
+      {
+        method: 'DELETE',
+        authRecovery: true,
+      },
+    );
   },
 
   setFeedback(

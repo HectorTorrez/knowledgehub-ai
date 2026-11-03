@@ -52,9 +52,9 @@ describe('completeUploadSchema', () => {
 
   it('rejects an incorrectly typed name', () => {
     for (const originalFileName of [123, null, ['report.pdf'], true]) {
-      expect(
-        completeUploadSchema.safeParse({ originalFileName }).success,
-      ).toBe(false);
+      expect(completeUploadSchema.safeParse({ originalFileName }).success).toBe(
+        false,
+      );
     }
   });
 

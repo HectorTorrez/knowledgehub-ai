@@ -8,7 +8,9 @@ describe('updateDocumentSchema', () => {
   });
 
   it('rejects an empty title', () => {
-    expect(updateDocumentSchema.safeParse({ title: '   ' }).success).toBe(false);
+    expect(updateDocumentSchema.safeParse({ title: '   ' }).success).toBe(
+      false,
+    );
   });
 
   it('rejects a title longer than 200 characters', () => {

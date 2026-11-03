@@ -134,7 +134,10 @@ describe('origin helpers', () => {
   it('prefers the Origin header', () => {
     expect(
       resolveRequestOrigin({
-        headers: { origin: 'http://localhost:3000', referer: 'http://evil.test' },
+        headers: {
+          origin: 'http://localhost:3000',
+          referer: 'http://evil.test',
+        },
       }),
     ).toBe('http://localhost:3000');
   });
@@ -180,9 +183,9 @@ describe('origin helpers', () => {
 
   it('rejects origins carrying credentials', () => {
     const trusted = ['http://localhost:3000'];
-    expect(
-      isTrustedOrigin('http://user:pass@localhost:3000', trusted),
-    ).toBe(false);
+    expect(isTrustedOrigin('http://user:pass@localhost:3000', trusted)).toBe(
+      false,
+    );
   });
 
   it('rejects malformed origin values', () => {
@@ -195,7 +198,9 @@ describe('origin helpers', () => {
 
   it('parses the Referer origin including a non-default port', () => {
     expect(
-      resolveRequestOrigin({ headers: { referer: 'https://app.example.com:8443/x' } }),
+      resolveRequestOrigin({
+        headers: { referer: 'https://app.example.com:8443/x' },
+      }),
     ).toBe('https://app.example.com:8443');
   });
 });

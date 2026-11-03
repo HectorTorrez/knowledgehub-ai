@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { registerWebMcpTool } from '~/lib/webmcp/register';
-import type { WebMcpToolDefinition, WebMcpToolExecute } from '~/lib/webmcp/types';
+import type {
+  WebMcpToolDefinition,
+  WebMcpToolExecute,
+} from '~/lib/webmcp/types';
 
 export function useWebMcpTool(
   definition: WebMcpToolDefinition | null,

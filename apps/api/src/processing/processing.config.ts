@@ -27,8 +27,7 @@ export class ProcessingConfig {
 
   get sandbox(): 'inline' | 'worker' {
     return this.config.getOrThrow<string>('PROCESSING_SANDBOX') as
-      | 'inline'
-      | 'worker';
+      'inline' | 'worker';
   }
 
   get pdfTimeoutMs(): number {

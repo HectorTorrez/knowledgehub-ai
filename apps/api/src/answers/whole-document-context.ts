@@ -1,4 +1,8 @@
-import { renderSourcesSection, type AnswerSource, type ContextBudget } from './answer-context.js';
+import {
+  renderSourcesSection,
+  type AnswerSource,
+  type ContextBudget,
+} from './answer-context.js';
 import { joinText } from './neighbor-expansion.js';
 
 export interface DocumentContextChunk {
@@ -10,9 +14,14 @@ export interface DocumentContextChunk {
   content: string;
 }
 
-export function wholeDocumentContext(chunks: DocumentContextChunk[], budget: ContextBudget): AnswerSource[] | null {
+export function wholeDocumentContext(
+  chunks: DocumentContextChunk[],
+  budget: ContextBudget,
+): AnswerSource[] | null {
   if (!chunks.length) return null;
-  const ordered = [...chunks].sort((a, b) => a.pageNumber - b.pageNumber || a.chunkIndex - b.chunkIndex);
+  const ordered = [...chunks].sort(
+    (a, b) => a.pageNumber - b.pageNumber || a.chunkIndex - b.chunkIndex,
+  );
   const sources: AnswerSource[] = [];
   for (const chunk of ordered) {
     const previous = sources.at(-1);
@@ -22,5 +31,8 @@ export function wholeDocumentContext(chunks: DocumentContextChunk[], budget: Con
       sources.push({ ...chunk, marker: sources.length + 1, similarity: 1 });
     }
   }
-  return sources.length <= budget.maxSources && renderSourcesSection(sources).length <= budget.maxChars ? sources : null;
+  return sources.length <= budget.maxSources &&
+    renderSourcesSection(sources).length <= budget.maxChars
+    ? sources
+    : null;
 }

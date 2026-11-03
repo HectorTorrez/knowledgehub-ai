@@ -18,7 +18,10 @@ import { ProcessingWorkerService } from '../src/processing/processing-worker.ser
 import { OBJECT_STORAGE } from '../src/storage/object-storage.port.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { FakeObjectStorage } from './support/fake-object-storage.js';
-import { FakeEmbeddingProvider, deterministicVector } from './support/fake-embedding-provider.js';
+import {
+  FakeEmbeddingProvider,
+  deterministicVector,
+} from './support/fake-embedding-provider.js';
 import { createMinimalPdf } from './support/minimal-pdf.js';
 import { createMinimalDocx, createPlainZip } from './support/minimal-docx.js';
 import { DOCX_CONTENT_TYPE } from '../src/documents/upload-policy.js';
@@ -86,9 +89,7 @@ describe('document processing worker (e2e)', () => {
         maxAttempts: PROCESSING_MAX_ATTEMPTS,
         nextAttemptAt: new Date(Date.now() - 1_000),
         leaseId: claimed ? randomUUID() : null,
-        leaseExpiresAt: claimed
-          ? new Date(Date.now() + 60_000)
-          : null,
+        leaseExpiresAt: claimed ? new Date(Date.now() + 60_000) : null,
         claimedBy: claimed ? 'seeded-worker' : null,
       },
     });
@@ -139,7 +140,11 @@ describe('document processing worker (e2e)', () => {
     embeddings = new FakeEmbeddingProvider();
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(OBJECT_STORAGE)
       .useValue(storage)
       .overrideProvider(EMBEDDING_PROVIDER)
@@ -206,7 +211,10 @@ describe('document processing worker (e2e)', () => {
       heading: 'Renewal terms',
       body: 'The contract renews every twelve months.',
     });
-    const { document } = await seedJob({ contentType: DOCX_CONTENT_TYPE, bytes });
+    const { document } = await seedJob({
+      contentType: DOCX_CONTENT_TYPE,
+      bytes,
+    });
 
     await expect(worker.runOnce()).resolves.toBe(true);
 
@@ -215,11 +223,15 @@ describe('document processing worker (e2e)', () => {
     expect(pages).toHaveLength(1);
     expect(pages[0]?.pageNumber).toBe(1);
     expect(pages[0]?.content).toContain('# Renewal terms');
-    expect(pages[0]?.content).toContain('The contract renews every twelve months.');
+    expect(pages[0]?.content).toContain(
+      'The contract renews every twelve months.',
+    );
 
     const chunks = await loadChunks(document.id);
     expect(chunks.length).toBeGreaterThan(0);
-    expect(chunks.map((chunk) => chunk.content).join('\n')).toContain('twelve months');
+    expect(chunks.map((chunk) => chunk.content).join('\n')).toContain(
+      'twelve months',
+    );
 
     const updatedDocument = await loadDocument(document.id);
     expect(updatedDocument.status).toBe('READY');
@@ -250,16 +262,42 @@ describe('document processing worker (e2e)', () => {
       data: { chunkingVersion: 1 },
     });
     const reindex = new ReindexService(prisma);
-    expect(await reindex.run({ organizationId: first.organization.id, dryRun: true })).toBe(1);
+    expect(
+      await reindex.run({
+        organizationId: first.organization.id,
+        dryRun: true,
+      }),
+    ).toBe(1);
     expect((await loadDocument(first.document.id)).generation).toBe(1);
-    expect(await reindex.run({ organizationId: first.organization.id })).toBe(1);
-    expect(await reindex.run({ organizationId: first.organization.id })).toBe(0);
+    expect(await reindex.run({ organizationId: first.organization.id })).toBe(
+      1,
+    );
+    expect(await reindex.run({ organizationId: first.organization.id })).toBe(
+      0,
+    );
     await worker.runOnce();
-    expect(await loadDocument(first.document.id)).toMatchObject({ generation: 2, status: 'READY' });
-    expect(await loadDocument(second.document.id)).toMatchObject({ generation: 1, status: 'READY' });
-    expect((await loadExtractions(first.document.id)).find((entry) => entry.documentGeneration === 2)?.chunkingVersion).toBe(2);
-    expect((await loadChunks(first.document.id)).some((entry) => entry.documentGeneration === 2 && entry.content === 'Alpha\nBeta')).toBe(true);
-    const matches = await prisma.$queryRaw<{ count: bigint }[]>`SELECT count(*) FROM "DocumentChunk" WHERE "documentId" = ${first.document.id}::uuid AND "documentGeneration" = 2 AND "searchVector" @@ to_tsquery('simple', 'alpha & beta')`;
+    expect(await loadDocument(first.document.id)).toMatchObject({
+      generation: 2,
+      status: 'READY',
+    });
+    expect(await loadDocument(second.document.id)).toMatchObject({
+      generation: 1,
+      status: 'READY',
+    });
+    expect(
+      (await loadExtractions(first.document.id)).find(
+        (entry) => entry.documentGeneration === 2,
+      )?.chunkingVersion,
+    ).toBe(2);
+    expect(
+      (await loadChunks(first.document.id)).some(
+        (entry) =>
+          entry.documentGeneration === 2 && entry.content === 'Alpha\nBeta',
+      ),
+    ).toBe(true);
+    const matches = await prisma.$queryRaw<
+      { count: bigint }[]
+    >`SELECT count(*) FROM "DocumentChunk" WHERE "documentId" = ${first.document.id}::uuid AND "documentGeneration" = 2 AND "searchVector" @@ to_tsquery('simple', 'alpha & beta')`;
     expect(Number(matches[0]?.count)).toBe(1);
   });
 
@@ -290,7 +328,11 @@ describe('document processing worker (e2e)', () => {
     expect(await loadChunks(document.id)).toHaveLength(1);
 
     const newerKey = `organizations/${organization.id}/documents/${document.id}/verified/${randomUUID()}`;
-    storage.putObject(newerKey, encoder.encode('Newer generation'), 'text/plain');
+    storage.putObject(
+      newerKey,
+      encoder.encode('Newer generation'),
+      'text/plain',
+    );
     await prisma.document.update({
       where: { id: document.id },
       data: { generation: 2, status: 'PROCESSING', storageKey: newerKey },
@@ -329,7 +371,10 @@ describe('document processing worker (e2e)', () => {
     expect(second?.leaseId).not.toBe(first?.leaseId);
 
     expect(
-      await jobs.publishExtraction(ownershipOf(first!), resultFor('stale result')),
+      await jobs.publishExtraction(
+        ownershipOf(first!),
+        resultFor('stale result'),
+      ),
     ).toBe(false);
 
     await worker.processJob(second!);
@@ -371,7 +416,10 @@ describe('document processing worker (e2e)', () => {
     ).toBe(false);
     expect(
       await jobs.publishExtraction(
-        { ...ownership, verifiedStorageKey: `${ownership.verifiedStorageKey}x` },
+        {
+          ...ownership,
+          verifiedStorageKey: `${ownership.verifiedStorageKey}x`,
+        },
         result,
       ),
     ).toBe(false);
@@ -582,7 +630,9 @@ describe('document processing worker (e2e)', () => {
     expect(requeued.state).toBe('QUEUED');
     expect(requeued.leaseId).toBeNull();
     expect(requeued.attempt).toBe(1);
-    expect(requeued.nextAttemptAt.getTime()).toBeGreaterThan(Date.now() + 1_000);
+    expect(requeued.nextAttemptAt.getTime()).toBeGreaterThan(
+      Date.now() + 1_000,
+    );
     expect(requeued.nextAttemptAt.getTime()).toBeLessThan(Date.now() + 60_000);
     expect((await loadDocument(document.id)).status).toBe('PROCESSING');
     expect(await loadExtractions(document.id)).toHaveLength(0);
@@ -633,9 +683,9 @@ describe('document processing worker (e2e)', () => {
       data: { generation: 2, storageKey: newerKey },
     });
 
-    expect(
-      await jobs.publishExtraction(ownership, resultFor('stale')),
-    ).toBe(false);
+    expect(await jobs.publishExtraction(ownership, resultFor('stale'))).toBe(
+      false,
+    );
     await jobs.recordFailure(ownership, {
       category: 'permanent',
       reason: 'CONTENT_CORRUPT',
@@ -663,9 +713,9 @@ describe('document processing worker (e2e)', () => {
       verifiedStorageKey: succeeded.verifiedStorageKey,
     };
 
-    expect(
-      await jobs.publishExtraction(ownership, resultFor('again')),
-    ).toBe(false);
+    expect(await jobs.publishExtraction(ownership, resultFor('again'))).toBe(
+      false,
+    );
     expect(
       await jobs.recordFailure(ownership, {
         category: 'permanent',

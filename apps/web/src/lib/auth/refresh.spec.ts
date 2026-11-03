@@ -14,20 +14,10 @@ const USER = {
 const CSRF_VALUE = 'csrf-token-1';
 
 type ProbeMode =
-  | 'auto'
-  | 'valid'
-  | 'expired'
-  | 'forbidden'
-  | 'network'
-  | 'server-error';
+  'auto' | 'valid' | 'expired' | 'forbidden' | 'network' | 'server-error';
 
 type RefreshMode =
-  | 'auto'
-  | 'ok'
-  | 'unauthorized'
-  | 'forbidden'
-  | 'network'
-  | 'server-error';
+  'auto' | 'ok' | 'unauthorized' | 'forbidden' | 'network' | 'server-error';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -74,7 +64,10 @@ function createLockManager() {
   }
 
   const request = vi.fn(
-    async (name: string, callback: () => Promise<unknown>): Promise<unknown> => {
+    async (
+      name: string,
+      callback: () => Promise<unknown>,
+    ): Promise<unknown> => {
       await acquire(name);
       try {
         return await callback();
@@ -263,7 +256,10 @@ describe('refreshCoordinator', () => {
 
     const outcome = await coordinator.refresh();
 
-    expect(outcome).toMatchObject({ status: 'forbidden', error: { status: 403 } });
+    expect(outcome).toMatchObject({
+      status: 'forbidden',
+      error: { status: 403 },
+    });
     expect(harness.state.refreshCalls).toBe(0);
   });
 
@@ -274,7 +270,10 @@ describe('refreshCoordinator', () => {
 
     const outcome = await coordinator.refresh();
 
-    expect(outcome).toMatchObject({ status: 'network-error', error: { status: 0 } });
+    expect(outcome).toMatchObject({
+      status: 'network-error',
+      error: { status: 0 },
+    });
     expect(harness.state.refreshCalls).toBe(0);
   });
 
@@ -285,7 +284,10 @@ describe('refreshCoordinator', () => {
 
     const outcome = await coordinator.refresh();
 
-    expect(outcome).toMatchObject({ status: 'failure', error: { status: 500 } });
+    expect(outcome).toMatchObject({
+      status: 'failure',
+      error: { status: 500 },
+    });
     expect(harness.state.refreshCalls).toBe(0);
   });
 

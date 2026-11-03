@@ -154,7 +154,11 @@ export class OpenAiEmbeddingProvider implements EmbeddingProvider {
       );
     }
 
-    return parseEmbeddingResponse(payload, batch.length, this.options.dimensions);
+    return parseEmbeddingResponse(
+      payload,
+      batch.length,
+      this.options.dimensions,
+    );
   }
 
   private async send(batch: string[]): Promise<EmbeddingHttpResponse> {

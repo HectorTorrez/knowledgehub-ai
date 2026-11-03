@@ -380,7 +380,9 @@ function PendingTurn({
               </p>
             )}
 
-            {stream.answerStatus === 'partial' ? <PartialAnswerNotice missing={stream.missing} /> : null}
+            {stream.answerStatus === 'partial' ? (
+              <PartialAnswerNotice missing={stream.missing} />
+            ) : null}
 
             {stream.status === 'streaming' && hasText ? (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -454,10 +456,7 @@ function AssistantAnswer({
   }, [pendingSource, sourcesOpen, sourceIdPrefix]);
 
   return (
-    <AssistantFrame
-      heading="KnowledgeHub"
-      meta={formatDateTime(createdAt)}
-    >
+    <AssistantFrame heading="KnowledgeHub" meta={formatDateTime(createdAt)}>
       <Card className="rounded-2xl shadow-none">
         <CardContent className="space-y-3 p-4 sm:p-5">
           {status !== 'insufficient_evidence' ? (
@@ -472,7 +471,9 @@ function AssistantAnswer({
           ) : (
             <InsufficientEvidence />
           )}
-          {status === 'partial' ? <PartialAnswerNotice missing={missing} /> : null}
+          {status === 'partial' ? (
+            <PartialAnswerNotice missing={missing} />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -538,9 +539,7 @@ function AssistantFrame({
   );
 }
 
-function QuestionBubble({
-  question,
-}: Readonly<{ question: string }>) {
+function QuestionBubble({ question }: Readonly<{ question: string }>) {
   return (
     <div className="flex justify-end">
       <div className="max-w-[88%] rounded-2xl rounded-br-sm bg-muted px-4 py-2.5">

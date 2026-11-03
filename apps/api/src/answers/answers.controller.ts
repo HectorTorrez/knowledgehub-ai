@@ -110,10 +110,7 @@ export class AnswersController {
     const start = () => {
       started = true;
       response.status(HttpStatus.OK);
-      response.setHeader(
-        'Content-Type',
-        'application/x-ndjson; charset=utf-8',
-      );
+      response.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
       response.setHeader('Cache-Control', 'no-store');
       response.setHeader('X-Accel-Buffering', 'no');
       response.flushHeaders();

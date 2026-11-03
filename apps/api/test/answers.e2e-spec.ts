@@ -62,7 +62,10 @@ function bearer(token: string): { Authorization: string } {
 
 function draft(value: unknown) {
   return {
-    draft: typeof value === 'object' && value !== null && 'claims' in value ? { missing: [], ...value } : value,
+    draft:
+      typeof value === 'object' && value !== null && 'claims' in value
+        ? { missing: [], ...value }
+        : value,
     usage: { inputTokens: null, outputTokens: null },
   };
 }
@@ -204,10 +207,16 @@ describe('answers (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue(embeddings)
-      .overrideProvider(RERANKER).useValue({ rerank: async () => [] }).overrideProvider(QUERY_REWRITER)
+      .overrideProvider(RERANKER)
+      .useValue({ rerank: async () => [] })
+      .overrideProvider(QUERY_REWRITER)
       .useValue({ rewrite: async (question: string) => question })
       .overrideProvider(ANSWER_PROVIDER)
       .useValue(answerProvider)
@@ -262,7 +271,11 @@ describe('answers (e2e)', () => {
       'Other Org',
     );
     const conversation = await prisma.conversation.create({
-      data: { organizationId, title: 'Export title', createdById: owner.userId },
+      data: {
+        organizationId,
+        title: 'Export title',
+        createdById: owner.userId,
+      },
     });
     await prisma.answer.create({
       data: {
@@ -335,11 +348,27 @@ describe('answers (e2e)', () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Partial Org');
     await seedReadyChunk(organizationId, 'Retries are bounded.');
-    answerProvider.generateImpl = async () => draft({ status: 'partial', claims: [{ text: 'Retries are bounded.', source: 1 }], missing: ['Retry interval'] });
-    const response = await ask(token, organizationId, { question: 'What are the retry limits and interval?' }).expect(200);
-    expect(response.body).toMatchObject({ status: 'partial', answer: 'Retries are bounded [1].', missing: ['Retry interval'] });
-    const saved = await prisma.answer.findFirstOrThrow({ where: { organizationId } });
-    expect(saved).toMatchObject({ status: 'partial', missing: ['Retry interval'] });
+    answerProvider.generateImpl = async () =>
+      draft({
+        status: 'partial',
+        claims: [{ text: 'Retries are bounded.', source: 1 }],
+        missing: ['Retry interval'],
+      });
+    const response = await ask(token, organizationId, {
+      question: 'What are the retry limits and interval?',
+    }).expect(200);
+    expect(response.body).toMatchObject({
+      status: 'partial',
+      answer: 'Retries are bounded [1].',
+      missing: ['Retry interval'],
+    });
+    const saved = await prisma.answer.findFirstOrThrow({
+      where: { organizationId },
+    });
+    expect(saved).toMatchObject({
+      status: 'partial',
+      missing: ['Retry interval'],
+    });
   });
 
   it('answers from the organization\u2019s READY passages with server-derived citations', async () => {
@@ -452,16 +481,54 @@ describe('answers (e2e)', () => {
   it('includes only the current organization and generation summary in the catalog', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Summary Org');
-    const otherOrganizationId = await createOrganization(token, 'Other Summary Org');
-    const documentId = await seedReadyChunk(organizationId, 'opening passage', { generation: 2, embedding: basis(1) });
-    const otherDocumentId = await seedReadyChunk(otherOrganizationId, 'other passage', { embedding: basis(1) });
-    await prisma.document.updateMany({ where: { id: { in: [documentId, otherDocumentId] } }, data: { summaryStatus: 'READY' } });
-    await prisma.documentSummary.createMany({ data: [
-      { documentId, organizationId, documentGeneration: 1, summary: 'stale secret', keyTopics: [], model: 'test' },
-      { documentId, organizationId, documentGeneration: 2, summary: 'current overview', keyTopics: ['current topic'], model: 'test' },
-      { documentId: otherDocumentId, organizationId: otherOrganizationId, documentGeneration: 1, summary: 'other tenant secret', keyTopics: [], model: 'test' },
-    ] });
-    await ask(token, organizationId, { question: 'Which documents do I have?' }).expect(200);
+    const otherOrganizationId = await createOrganization(
+      token,
+      'Other Summary Org',
+    );
+    const documentId = await seedReadyChunk(organizationId, 'opening passage', {
+      generation: 2,
+      embedding: basis(1),
+    });
+    const otherDocumentId = await seedReadyChunk(
+      otherOrganizationId,
+      'other passage',
+      { embedding: basis(1) },
+    );
+    await prisma.document.updateMany({
+      where: { id: { in: [documentId, otherDocumentId] } },
+      data: { summaryStatus: 'READY' },
+    });
+    await prisma.documentSummary.createMany({
+      data: [
+        {
+          documentId,
+          organizationId,
+          documentGeneration: 1,
+          summary: 'stale secret',
+          keyTopics: [],
+          model: 'test',
+        },
+        {
+          documentId,
+          organizationId,
+          documentGeneration: 2,
+          summary: 'current overview',
+          keyTopics: ['current topic'],
+          model: 'test',
+        },
+        {
+          documentId: otherDocumentId,
+          organizationId: otherOrganizationId,
+          documentGeneration: 1,
+          summary: 'other tenant secret',
+          keyTopics: [],
+          model: 'test',
+        },
+      ],
+    });
+    await ask(token, organizationId, {
+      question: 'Which documents do I have?',
+    }).expect(200);
     const prompt = answerProvider.calls.at(-1)!.prompt.user;
     expect(prompt).toContain('current overview');
     expect(prompt).toContain('current topic');
@@ -727,21 +794,65 @@ describe('answers (e2e)', () => {
 
   it('includes every current page of a scoped document and excludes foreign and stale chunks', async () => {
     const { token } = await registerUser();
-    const organizationId = await createOrganization(token, 'Whole Document Org');
+    const organizationId = await createOrganization(
+      token,
+      'Whole Document Org',
+    );
     const otherId = await createOrganization(token, 'Whole Document Other Org');
     const documentId = await seedDocument(organizationId, { generation: 2 });
     const foreignId = await seedDocument(otherId);
     for (const chunk of [
-      { documentId, organizationId, documentGeneration: 2, pageNumber: 1, chunkIndex: 0, content: 'FIRST_PAGE' },
-      { documentId, organizationId, documentGeneration: 2, pageNumber: 2, chunkIndex: 1, content: 'SECOND_PAGE' },
-      { documentId, organizationId, documentGeneration: 1, pageNumber: 1, chunkIndex: 0, content: 'STALE_PAGE' },
-      { documentId: foreignId, organizationId: otherId, documentGeneration: 1, pageNumber: 1, chunkIndex: 0, content: 'FOREIGN_PAGE' },
-    ]) await seedChunk({ ...chunk, embedding: basis(0) });
-    answerProvider.generateImpl = async () => draft({ status: 'answered', claims: [
-      { text: 'First.', source: 1 }, { text: 'Second.', source: 2 },
-    ] });
-    const response = await ask(token, organizationId, { question: 'Summarize this document', documentId }).expect(200);
-    expect(response.body.citations.map((citation: { pageNumber: number }) => citation.pageNumber)).toEqual([1, 2]);
+      {
+        documentId,
+        organizationId,
+        documentGeneration: 2,
+        pageNumber: 1,
+        chunkIndex: 0,
+        content: 'FIRST_PAGE',
+      },
+      {
+        documentId,
+        organizationId,
+        documentGeneration: 2,
+        pageNumber: 2,
+        chunkIndex: 1,
+        content: 'SECOND_PAGE',
+      },
+      {
+        documentId,
+        organizationId,
+        documentGeneration: 1,
+        pageNumber: 1,
+        chunkIndex: 0,
+        content: 'STALE_PAGE',
+      },
+      {
+        documentId: foreignId,
+        organizationId: otherId,
+        documentGeneration: 1,
+        pageNumber: 1,
+        chunkIndex: 0,
+        content: 'FOREIGN_PAGE',
+      },
+    ])
+      await seedChunk({ ...chunk, embedding: basis(0) });
+    answerProvider.generateImpl = async () =>
+      draft({
+        status: 'answered',
+        claims: [
+          { text: 'First.', source: 1 },
+          { text: 'Second.', source: 2 },
+        ],
+      });
+    const response = await ask(token, organizationId, {
+      question: 'Summarize this document',
+      documentId,
+    }).expect(200);
+    expect(
+      response.body.citations.map(
+        (citation: { pageNumber: number }) => citation.pageNumber,
+      ),
+    ).toEqual([1, 2]);
     const prompt = answerProvider.calls[0]!.prompt.user;
     expect(prompt).toContain('FIRST_PAGE');
     expect(prompt).toContain('SECOND_PAGE');
@@ -837,18 +948,56 @@ describe('answers (e2e)', () => {
 
   it('expands only neighbors belonging to the same tenant and generation', async () => {
     const owner = await registerUser();
-    const organizationId = await createOrganization(owner.token, 'Neighbor Org');
+    const organizationId = await createOrganization(
+      owner.token,
+      'Neighbor Org',
+    );
     const otherId = await createOrganization(owner.token, 'Neighbor Other Org');
     const documentId = await seedDocument(organizationId, { generation: 2 });
     const otherDocumentId = await seedDocument(otherId);
     for (const chunk of [
-      { documentId, organizationId, documentGeneration: 2, chunkIndex: 1, content: 'CURRENT_HIT', embedding: basis(0) },
-      { documentId, organizationId, documentGeneration: 2, chunkIndex: 2, content: 'CURRENT_NEIGHBOR', embedding: basis(1) },
-      { documentId, organizationId, documentGeneration: 1, chunkIndex: 0, content: 'STALE_NEIGHBOR', embedding: basis(1) },
-      { documentId: otherDocumentId, organizationId: otherId, documentGeneration: 1, chunkIndex: 2, content: 'FOREIGN_NEIGHBOR', embedding: basis(1) },
-    ]) await seedChunk({ ...chunk, pageNumber: 1 });
-    answerProvider.generateImpl = async () => draft({ status: 'answered', claims: [{ text: 'Current only.', source: 1 }] });
-    await ask(owner.token, organizationId, { question: 'What is alpha?' }).expect(200);
+      {
+        documentId,
+        organizationId,
+        documentGeneration: 2,
+        chunkIndex: 1,
+        content: 'CURRENT_HIT',
+        embedding: basis(0),
+      },
+      {
+        documentId,
+        organizationId,
+        documentGeneration: 2,
+        chunkIndex: 2,
+        content: 'CURRENT_NEIGHBOR',
+        embedding: basis(1),
+      },
+      {
+        documentId,
+        organizationId,
+        documentGeneration: 1,
+        chunkIndex: 0,
+        content: 'STALE_NEIGHBOR',
+        embedding: basis(1),
+      },
+      {
+        documentId: otherDocumentId,
+        organizationId: otherId,
+        documentGeneration: 1,
+        chunkIndex: 2,
+        content: 'FOREIGN_NEIGHBOR',
+        embedding: basis(1),
+      },
+    ])
+      await seedChunk({ ...chunk, pageNumber: 1 });
+    answerProvider.generateImpl = async () =>
+      draft({
+        status: 'answered',
+        claims: [{ text: 'Current only.', source: 1 }],
+      });
+    await ask(owner.token, organizationId, {
+      question: 'What is alpha?',
+    }).expect(200);
     const prompt = answerProvider.calls[0]!.prompt.user;
     expect(prompt).toContain('CURRENT_HIT');
     expect(prompt).toContain('CURRENT_NEIGHBOR');

@@ -49,13 +49,15 @@ function invitationRow(overrides: Partial<InvitationRow> = {}): InvitationRow {
   };
 }
 
-function buildService(options: {
-  actorRole?: 'OWNER' | 'MEMBER';
-  invitation?: InvitationRow | null;
-  userEmail?: string | null;
-  deleteCount?: number;
-  ttlDays?: number;
-} = {}) {
+function buildService(
+  options: {
+    actorRole?: 'OWNER' | 'MEMBER';
+    invitation?: InvitationRow | null;
+    userEmail?: string | null;
+    deleteCount?: number;
+    ttlDays?: number;
+  } = {},
+) {
   const prisma = {
     membership: {
       findUnique: vi.fn(async () => ({ role: options.actorRole ?? 'OWNER' })),
@@ -88,19 +90,30 @@ function buildService(options: {
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         membership: { upsert: vi.fn(async () => ({})), findUnique: vi.fn() },
-        organizationInvitation: { update: vi.fn(async () => ({})), findUnique: vi.fn() },
+        organizationInvitation: {
+          update: vi.fn(async () => ({})),
+          findUnique: vi.fn(),
+        },
       }),
     ),
   } as unknown as PrismaService;
 
   const config = {
-    getOrThrow: vi.fn(
-      (key: string) => (key === 'INVITATION_TTL_DAYS' ? (options.ttlDays ?? 7) : 0),
+    getOrThrow: vi.fn((key: string) =>
+      key === 'INVITATION_TTL_DAYS' ? (options.ttlDays ?? 7) : 0,
     ),
   } as unknown as ConfigService;
 
   const activity = { record: vi.fn(async () => {}) };
-  return { service: new InvitationsService(prisma, config, activity as unknown as ActivityService), prisma, activity };
+  return {
+    service: new InvitationsService(
+      prisma,
+      config,
+      activity as unknown as ActivityService,
+    ),
+    prisma,
+    activity,
+  };
 }
 
 describe('InvitationsService', () => {
@@ -116,31 +129,35 @@ describe('InvitationsService', () => {
     });
     expect(result.invitation.token).toEqual(expect.any(String));
 
-    const createArg = (prisma.organizationInvitation.create as ReturnType<typeof vi.fn>)
-      .mock.calls[0]?.[0] as {
+    const createArg = (
+      prisma.organizationInvitation.create as ReturnType<typeof vi.fn>
+    ).mock.calls[0]?.[0] as {
       data: { email: string; tokenHash: string; role: string; expiresAt: Date };
     };
     expect(createArg.data.email).toBe('invitee@example.com');
     expect(createArg.data.tokenHash).not.toBe(result.invitation.token);
     expect(createArg.data.tokenHash).toHaveLength(64);
     expect(createArg.data.role).toBe('MEMBER');
-    expect(activity.record).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'INVITATION_CREATED' }));
+    expect(activity.record).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: 'INVITATION_CREATED' }),
+    );
   });
 
   it('rejects a non-owner trying to create an invitation', async () => {
     const { service, activity } = buildService({ actorRole: 'MEMBER' });
 
-    await expect(service.create(MEMBER, 'invitee@example.com')).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      service.create(MEMBER, 'invitee@example.com'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(activity.record).not.toHaveBeenCalled();
   });
 
   it('lists pending invitations for an owner', async () => {
     const { service, prisma } = buildService();
-    (prisma.organizationInvitation.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
-      invitationRow(),
-    ]);
+    (
+      prisma.organizationInvitation.findMany as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce([invitationRow()]);
 
     const result = await service.list(OWNER);
 
@@ -160,7 +177,10 @@ describe('InvitationsService', () => {
     expect(prisma.organizationInvitation.deleteMany).toHaveBeenCalledWith({
       where: { id: 'inv-1', organizationId: 'org-1' },
     });
-    expect(activity.record).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'INVITATION_REVOKED' }));
+    expect(activity.record).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: 'INVITATION_REVOKED' }),
+    );
   });
 
   it('returns 404 when revoking an invitation that does not exist', async () => {
@@ -172,7 +192,9 @@ describe('InvitationsService', () => {
   });
 
   it('accepts a valid invitation and returns the organization id', async () => {
-    const { service, prisma, activity } = buildService({ invitation: invitationRow() });
+    const { service, prisma, activity } = buildService({
+      invitation: invitationRow(),
+    });
 
     const result = await service.accept('user-1', 'the-token');
 
@@ -180,7 +202,10 @@ describe('InvitationsService', () => {
     expect(prisma.organizationInvitation.findUnique).toHaveBeenCalledWith({
       where: { tokenHash: expect.any(String) },
     });
-    expect(activity.record).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'INVITATION_ACCEPTED' }));
+    expect(activity.record).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: 'INVITATION_ACCEPTED' }),
+    );
   });
 
   it('rejects an invitation for a different account', async () => {
@@ -198,13 +223,13 @@ describe('InvitationsService', () => {
     const expired = buildService({
       invitation: invitationRow({ acceptedAt: new Date() }),
     });
-    await expect(expired.service.accept('user-1', 'token')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      expired.service.accept('user-1', 'token'),
+    ).rejects.toBeInstanceOf(NotFoundException);
 
     const missing = buildService({ invitation: null });
-    await expect(missing.service.accept('user-1', 'token')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      missing.service.accept('user-1', 'token'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

@@ -13,7 +13,9 @@ describe('createOrganizationSchema', () => {
   });
 
   it('rejects an empty or whitespace-only name', () => {
-    expect(createOrganizationSchema.safeParse({ name: '' }).success).toBe(false);
+    expect(createOrganizationSchema.safeParse({ name: '' }).success).toBe(
+      false,
+    );
     expect(createOrganizationSchema.safeParse({ name: '   ' }).success).toBe(
       false,
     );

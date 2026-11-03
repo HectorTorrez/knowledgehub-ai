@@ -118,9 +118,9 @@ describe('OpenAiFactExtractor', () => {
       json: async () => completion('{"facts":[]}', 'length'),
     }));
 
-    await expect(createExtractor(fetchMock).extract(PAGE)).rejects.toBeInstanceOf(
-      FactExtractionResponseError,
-    );
+    await expect(
+      createExtractor(fetchMock).extract(PAGE),
+    ).rejects.toBeInstanceOf(FactExtractionResponseError);
   });
 
   it('rejects an unexpected extraction shape', async () => {
@@ -130,9 +130,9 @@ describe('OpenAiFactExtractor', () => {
       json: async () => completion('{"rows":[]}'),
     }));
 
-    await expect(createExtractor(fetchMock).extract(PAGE)).rejects.toBeInstanceOf(
-      FactExtractionResponseError,
-    );
+    await expect(
+      createExtractor(fetchMock).extract(PAGE),
+    ).rejects.toBeInstanceOf(FactExtractionResponseError);
   });
 
   it('rejects a fact entry with a non-string field', async () => {
@@ -155,9 +155,9 @@ describe('OpenAiFactExtractor', () => {
         ),
     }));
 
-    await expect(createExtractor(fetchMock).extract(PAGE)).rejects.toBeInstanceOf(
-      FactExtractionResponseError,
-    );
+    await expect(
+      createExtractor(fetchMock).extract(PAGE),
+    ).rejects.toBeInstanceOf(FactExtractionResponseError);
   });
 
   it('maps a 429 response to an unavailable error', async () => {
@@ -167,9 +167,9 @@ describe('OpenAiFactExtractor', () => {
       json: async () => ({}),
     }));
 
-    await expect(createExtractor(fetchMock).extract(PAGE)).rejects.toBeInstanceOf(
-      FactExtractionUnavailableError,
-    );
+    await expect(
+      createExtractor(fetchMock).extract(PAGE),
+    ).rejects.toBeInstanceOf(FactExtractionUnavailableError);
   });
 
   it('maps a rejected credential to a configuration error', async () => {
@@ -179,7 +179,9 @@ describe('OpenAiFactExtractor', () => {
       json: async () => ({}),
     }));
 
-    await expect(createExtractor(fetchMock).extract(PAGE)).rejects.toMatchObject({
+    await expect(
+      createExtractor(fetchMock).extract(PAGE),
+    ).rejects.toMatchObject({
       name: 'FactExtractionRejectedError',
       kind: 'configuration',
     });
@@ -191,8 +193,8 @@ describe('OpenAiFactExtractor', () => {
       throw new Error('socket hang up');
     });
 
-    await expect(createExtractor(fetchMock).extract(PAGE)).rejects.toBeInstanceOf(
-      FactExtractionUnavailableError,
-    );
+    await expect(
+      createExtractor(fetchMock).extract(PAGE),
+    ).rejects.toBeInstanceOf(FactExtractionUnavailableError);
   });
 });

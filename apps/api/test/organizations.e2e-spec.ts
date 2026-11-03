@@ -121,25 +121,37 @@ describe('organizations (e2e)', () => {
   it('aggregates usage for the requested organization only', async () => {
     const owner = await registerUser();
     const outsider = await registerUser();
-    const first = await createOrganization(owner.token, { name: 'Usage' }).expect(201);
-    const second = await createOrganization(outsider.token, { name: 'Other' }).expect(201);
+    const first = await createOrganization(owner.token, {
+      name: 'Usage',
+    }).expect(201);
+    const second = await createOrganization(outsider.token, {
+      name: 'Other',
+    }).expect(201);
     const org = first.body.organization.id as string;
     const other = second.body.organization.id as string;
     trackedOrganizationIds.add(org);
     trackedOrganizationIds.add(other);
-    await prisma.document.createMany({ data: [
-      { organizationId: org, title: 'One', sizeBytes: 120 },
-      { organizationId: org, title: 'Two', sizeBytes: null },
-      { organizationId: other, title: 'Other', sizeBytes: 900 },
-    ] });
-    const response = await request(app.getHttpServer()).get(`/organizations/${org}/usage`).set(bearer(owner.token)).expect(200);
+    await prisma.document.createMany({
+      data: [
+        { organizationId: org, title: 'One', sizeBytes: 120 },
+        { organizationId: org, title: 'Two', sizeBytes: null },
+        { organizationId: other, title: 'Other', sizeBytes: 900 },
+      ],
+    });
+    const response = await request(app.getHttpServer())
+      .get(`/organizations/${org}/usage`)
+      .set(bearer(owner.token))
+      .expect(200);
     expect(response.body.usage).toMatchObject({
       documents: { used: 2, limit: null },
       storageBytes: { used: 120, limit: null },
       members: { used: 1, limit: null },
       answers: { used: 0, limit: expect.any(Number) },
     });
-    await request(app.getHttpServer()).get(`/organizations/${org}/usage`).set(bearer(outsider.token)).expect(403);
+    await request(app.getHttpServer())
+      .get(`/organizations/${org}/usage`)
+      .set(bearer(outsider.token))
+      .expect(403);
   });
 
   it('enforces viewer and admin permissions across tenants', async () => {
@@ -147,7 +159,9 @@ describe('organizations (e2e)', () => {
     const viewer = await registerUser();
     const admin = await registerUser();
     const outsider = await registerUser();
-    const created = await createOrganization(owner.token, { name: 'Roles' }).expect(201);
+    const created = await createOrganization(owner.token, {
+      name: 'Roles',
+    }).expect(201);
     const org = created.body.organization.id as string;
     trackedOrganizationIds.add(org);
     await addMembership(viewer.userId, org, 'VIEWER');
@@ -155,31 +169,97 @@ describe('organizations (e2e)', () => {
     const doc = randomUUID();
     const base = `/organizations/${org}`;
     const auth = bearer(viewer.token);
-    await request(app.getHttpServer()).post(`${base}/documents`).set(auth).send({ title: 'Test' }).expect(403);
-    await request(app.getHttpServer()).patch(`${base}/documents/${doc}`).set(auth).send({ title: 'Test' }).expect(403);
-    await request(app.getHttpServer()).delete(`${base}/documents/${doc}`).set(auth).expect(403);
-    await request(app.getHttpServer()).post(`${base}/documents/${doc}/reprocess`).set(auth).expect(403);
-    await request(app.getHttpServer()).post(`${base}/documents/${doc}/upload-url`).set(auth).send({ contentType: 'application/pdf' }).expect(403);
-    await request(app.getHttpServer()).post(`${base}/documents/${doc}/upload-complete`).set(auth).send({}).expect(403);
-    await request(app.getHttpServer()).post(`${base}/members`).set(auth).send({ email: outsider.email }).expect(403);
-    await request(app.getHttpServer()).patch(`${base}/members/${owner.userId}`).set(auth).send({ role: 'MEMBER' }).expect(403);
-    await request(app.getHttpServer()).delete(`${base}/members/${owner.userId}`).set(auth).expect(403);
-    await request(app.getHttpServer()).post(`${base}/invitations`).set(auth).send({ email: outsider.email }).expect(403);
-    await request(app.getHttpServer()).get(`${base}/invitations`).set(auth).expect(403);
-    await request(app.getHttpServer()).delete(`${base}/invitations/${randomUUID()}`).set(auth).expect(403);
+    await request(app.getHttpServer())
+      .post(`${base}/documents`)
+      .set(auth)
+      .send({ title: 'Test' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`${base}/documents/${doc}`)
+      .set(auth)
+      .send({ title: 'Test' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`${base}/documents/${doc}`)
+      .set(auth)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`${base}/documents/${doc}/reprocess`)
+      .set(auth)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`${base}/documents/${doc}/upload-url`)
+      .set(auth)
+      .send({ contentType: 'application/pdf' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`${base}/documents/${doc}/upload-complete`)
+      .set(auth)
+      .send({})
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`${base}/members`)
+      .set(auth)
+      .send({ email: outsider.email })
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`${base}/members/${owner.userId}`)
+      .set(auth)
+      .send({ role: 'MEMBER' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`${base}/members/${owner.userId}`)
+      .set(auth)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`${base}/invitations`)
+      .set(auth)
+      .send({ email: outsider.email })
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`${base}/invitations`)
+      .set(auth)
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`${base}/invitations/${randomUUID()}`)
+      .set(auth)
+      .expect(403);
     const adminAuth = bearer(admin.token);
     await request(app.getHttpServer()).delete(base).set(adminAuth).expect(403);
-    await request(app.getHttpServer()).patch(`${base}/members/${owner.userId}`).set(adminAuth).send({ role: 'VIEWER' }).expect(403);
-    await request(app.getHttpServer()).delete(`${base}/members/${owner.userId}`).set(adminAuth).expect(403);
-    await request(app.getHttpServer()).patch(`${base}/members/${viewer.userId}`).set(adminAuth).send({ role: 'OWNER' }).expect(403);
-    await request(app.getHttpServer()).post(`${base}/invitations`).set(adminAuth).send({ email: outsider.email, role: 'OWNER' }).expect(403);
-    await request(app.getHttpServer()).get(base).set(bearer(outsider.token)).expect(403);
+    await request(app.getHttpServer())
+      .patch(`${base}/members/${owner.userId}`)
+      .set(adminAuth)
+      .send({ role: 'VIEWER' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`${base}/members/${owner.userId}`)
+      .set(adminAuth)
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`${base}/members/${viewer.userId}`)
+      .set(adminAuth)
+      .send({ role: 'OWNER' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`${base}/invitations`)
+      .set(adminAuth)
+      .send({ email: outsider.email, role: 'OWNER' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(base)
+      .set(bearer(outsider.token))
+      .expect(403);
   });
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());
@@ -222,7 +302,7 @@ describe('organizations (e2e)', () => {
         id: expect.any(String),
         name: 'Acme Inc.',
         role: 'OWNER',
-          capabilities: [...capabilitiesFor('OWNER')],
+        capabilities: [...capabilitiesFor('OWNER')],
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
       },
@@ -408,14 +488,25 @@ describe('organizations (e2e)', () => {
   it('restricts insights to owners and validates the window', async () => {
     const owner = await registerUser();
     const member = await registerUser();
-    const created = await createOrganization(owner.token, { name: 'Insights Org' }).expect(201);
+    const created = await createOrganization(owner.token, {
+      name: 'Insights Org',
+    }).expect(201);
     const organizationId = created.body.organization.id as string;
     trackedOrganizationIds.add(organizationId);
     await addMembership(member.userId, organizationId, 'MEMBER');
     const path = `/organizations/${organizationId}/insights`;
-    await request(app.getHttpServer()).get(path).set(bearer(member.token)).expect(403);
-    await request(app.getHttpServer()).get(`${path}?days=8`).set(bearer(owner.token)).expect(400);
-    const response = await request(app.getHttpServer()).get(path).set(bearer(owner.token)).expect(200);
+    await request(app.getHttpServer())
+      .get(path)
+      .set(bearer(member.token))
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`${path}?days=8`)
+      .set(bearer(owner.token))
+      .expect(400);
+    const response = await request(app.getHttpServer())
+      .get(path)
+      .set(bearer(owner.token))
+      .expect(200);
     expect(response.body.totals.questionsAsked).toBe(0);
     expect(response.body.unansweredQuestions).toEqual([]);
   });
@@ -523,7 +614,9 @@ describe('organizations (e2e)', () => {
       trackedOrganizationIds.add(otherOrganizationId);
 
       const response = await request(app.getHttpServer())
-        .get(`/organizations/${ownOrganizationId}?organizationId=${otherOrganizationId}`)
+        .get(
+          `/organizations/${ownOrganizationId}?organizationId=${otherOrganizationId}`,
+        )
         .set(bearer(owner.token))
         .expect(200);
 
@@ -621,7 +714,9 @@ describe('organizations (e2e)', () => {
       const organizationId = created.body.organization.id as string;
       trackedOrganizationIds.add(organizationId);
 
-      const response = await listMembers(owner.token, organizationId).expect(200);
+      const response = await listMembers(owner.token, organizationId).expect(
+        200,
+      );
 
       const [first] = response.body.members;
       expect(Object.keys(first).sort()).toEqual(
@@ -644,11 +739,7 @@ describe('organizations (e2e)', () => {
   });
 
   describe('add member', () => {
-    const addMember = (
-      token: string,
-      organizationId: string,
-      body: object,
-    ) =>
+    const addMember = (token: string, organizationId: string, body: object) =>
       request(app.getHttpServer())
         .post(`/organizations/${organizationId}/members`)
         .set(bearer(token))
@@ -1070,12 +1161,9 @@ describe('organizations (e2e)', () => {
       const outsider = await registerUser();
       const organizationId = await createOwnedOrganization(owner.token);
 
-      await updateMemberRole(
-        owner.token,
-        organizationId,
-        outsider.userId,
-        { role: 'OWNER' },
-      ).expect(404);
+      await updateMemberRole(owner.token, organizationId, outsider.userId, {
+        role: 'OWNER',
+      }).expect(404);
 
       expect(
         await prisma.membership.count({
@@ -1381,9 +1469,11 @@ describe('organizations (e2e)', () => {
       const organizationId = await createOwnedOrganization(owner.token);
       await addMembership(secondOwner.userId, organizationId, 'OWNER');
 
-      await removeMember(owner.token, organizationId, secondOwner.userId).expect(
-        204,
-      );
+      await removeMember(
+        owner.token,
+        organizationId,
+        secondOwner.userId,
+      ).expect(204);
 
       expect(await countMembership(secondOwner.userId, organizationId)).toBe(0);
       expect(
@@ -1402,9 +1492,9 @@ describe('organizations (e2e)', () => {
       await removeMember(owner.token, organizationId, owner.userId).expect(204);
 
       expect(await countMembership(owner.userId, organizationId)).toBe(0);
-      expect((await findMembership(secondOwner.userId, organizationId)).role).toBe(
-        'OWNER',
-      );
+      expect(
+        (await findMembership(secondOwner.userId, organizationId)).role,
+      ).toBe('OWNER');
     });
 
     it('returns 409 when removing the last owner would leave no owner', async () => {
@@ -1439,7 +1529,9 @@ describe('organizations (e2e)', () => {
       const organizationA = await createOwnedOrganization(ownerA.token);
       const organizationB = await createOwnedOrganization(ownerB.token);
 
-      await removeMember(ownerA.token, organizationA, ownerB.userId).expect(404);
+      await removeMember(ownerA.token, organizationA, ownerB.userId).expect(
+        404,
+      );
 
       expect((await findMembership(ownerB.userId, organizationB)).role).toBe(
         'OWNER',
@@ -1471,7 +1563,9 @@ describe('organizations (e2e)', () => {
         data: { role: 'MEMBER' },
       });
 
-      await removeMember(owner.token, organizationId, target.userId).expect(403);
+      await removeMember(owner.token, organizationId, target.userId).expect(
+        403,
+      );
 
       expect(await countMembership(target.userId, organizationId)).toBe(1);
     });
@@ -1508,7 +1602,10 @@ describe('organizations (e2e)', () => {
         await waitForOrganizationLockWaiter(prisma, 2);
         release.resolve();
 
-        const [first, second] = await Promise.all([removeSelf, removeOtherSelf]);
+        const [first, second] = await Promise.all([
+          removeSelf,
+          removeOtherSelf,
+        ]);
         expect([first.status, second.status].sort()).toEqual([204, 409]);
       } finally {
         release.resolve();
@@ -1554,10 +1651,7 @@ describe('organizations (e2e)', () => {
         await waitForOrganizationLockWaiter(prisma, 2);
         release.resolve();
 
-        const [first, second] = await Promise.all([
-          removeSecond,
-          removeOwner,
-        ]);
+        const [first, second] = await Promise.all([removeSecond, removeOwner]);
         expect([first.status, second.status].sort()).toEqual([204, 403]);
       } finally {
         release.resolve();

@@ -12,7 +12,10 @@ export const accountApi = {
   },
 
   deleteAccount(password: string): Promise<void> {
-    return apiFetch('/auth/me', { method: 'DELETE', body: { password, confirmation: 'DELETE' } });
+    return apiFetch('/auth/me', {
+      method: 'DELETE',
+      body: { password, confirmation: 'DELETE' },
+    });
   },
 
   updateProfile(input: UpdateProfileRequest): Promise<UpdateProfileResponse> {

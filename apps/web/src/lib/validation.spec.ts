@@ -72,7 +72,9 @@ describe('loginFormSchema', () => {
 
 describe('organizationNameSchema', () => {
   it('rejects a blank name', () => {
-    expect(organizationNameSchema.safeParse({ name: '  ' }).success).toBe(false);
+    expect(organizationNameSchema.safeParse({ name: '  ' }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -88,17 +90,23 @@ describe('questionSchema', () => {
   });
 
   it('trims the question', () => {
-    expect(questionSchema.parse({ question: '  Why?  ' }).question).toBe('Why?');
+    expect(questionSchema.parse({ question: '  Why?  ' }).question).toBe(
+      'Why?',
+    );
   });
 });
 
 describe('documentTitleSchema', () => {
   it('accepts a 200 character title, matching the API limit', () => {
-    expect(documentTitleSchema.safeParse({ title: 'a'.repeat(200) }).success).toBe(true);
+    expect(
+      documentTitleSchema.safeParse({ title: 'a'.repeat(200) }).success,
+    ).toBe(true);
   });
 
   it('rejects a 201 character title', () => {
-    expect(documentTitleSchema.safeParse({ title: 'a'.repeat(201) }).success).toBe(false);
+    expect(
+      documentTitleSchema.safeParse({ title: 'a'.repeat(201) }).success,
+    ).toBe(false);
   });
 });
 

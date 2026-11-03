@@ -127,9 +127,11 @@ describe('computeMetrics', () => {
 
 describe('scoreOutcome', () => {
   it('returns nulls when precision, recall, or grounding have no basis', () => {
-    expect(
-      scoreOutcome(outcome({ id: 'empty' })),
-    ).toEqual({ precision: null, recall: null, groundingHit: null });
+    expect(scoreOutcome(outcome({ id: 'empty' }))).toEqual({
+      precision: null,
+      recall: null,
+      groundingHit: null,
+    });
   });
 
   it('marks a grounding miss when citations avoid the supporting evidence', () => {

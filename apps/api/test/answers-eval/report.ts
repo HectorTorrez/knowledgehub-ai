@@ -84,7 +84,10 @@ function formatFailures(outcomes: QuestionOutcome[]): string {
       return [`${outcome.id}: structural violation (${outcome.violation})`];
     }
 
-    if (outcome.expected.length > 0 && outcome.status === 'insufficient_evidence') {
+    if (
+      outcome.expected.length > 0 &&
+      outcome.status === 'insufficient_evidence'
+    ) {
       return [
         `${outcome.id}: false refusal (expected ${outcome.expected.map(formatCitation).join(', ')})`,
       ];

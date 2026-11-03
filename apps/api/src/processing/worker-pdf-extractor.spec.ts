@@ -107,9 +107,7 @@ describe('WorkerPdfExtractor', () => {
 
     latestWorker().emit('error', new Error('crashed'));
 
-    await expect(promise).rejects.toBeInstanceOf(
-      PdfExtractionUnavailableError,
-    );
+    await expect(promise).rejects.toBeInstanceOf(PdfExtractionUnavailableError);
   });
 
   it('rejects when extraction exceeds the timeout', async () => {
@@ -119,9 +117,7 @@ describe('WorkerPdfExtractor', () => {
 
     vi.advanceTimersByTime(5_001);
 
-    await expect(promise).rejects.toBeInstanceOf(
-      PdfExtractionUnavailableError,
-    );
+    await expect(promise).rejects.toBeInstanceOf(PdfExtractionUnavailableError);
     expect(latestWorker().terminated).toBe(true);
   });
 
@@ -131,8 +127,6 @@ describe('WorkerPdfExtractor', () => {
 
     latestWorker().emit('exit', 1);
 
-    await expect(promise).rejects.toBeInstanceOf(
-      PdfExtractionUnavailableError,
-    );
+    await expect(promise).rejects.toBeInstanceOf(PdfExtractionUnavailableError);
   });
 });

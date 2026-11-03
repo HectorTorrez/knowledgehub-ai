@@ -8,10 +8,7 @@ import {
   type Mock,
   type MockInstance,
 } from 'vitest';
-import {
-  refreshCoordinator,
-  type RefreshOutcome,
-} from '~/lib/auth/refresh';
+import { refreshCoordinator, type RefreshOutcome } from '~/lib/auth/refresh';
 import { apiFetch } from './client';
 import { CSRF_COOKIE, CSRF_HEADER } from './csrf';
 import { ApiError } from './errors';
@@ -73,7 +70,9 @@ afterEach(() => {
 
 describe('apiFetch auth recovery', () => {
   it('does not attempt recovery unless explicitly enabled', async () => {
-    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(401, 'Authentication required'),
+    );
 
     const error = await apiFetch('/organizations').catch(caught());
 
@@ -116,7 +115,9 @@ describe('apiFetch auth recovery', () => {
   });
 
   it('throws the original error when the refresh session is unusable', async () => {
-    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(401, 'Authentication required'),
+    );
     refreshReturns({
       status: 'unauthenticated',
       error: new ApiError({
@@ -301,7 +302,9 @@ describe('apiFetch retry fidelity', () => {
   });
 
   it('propagates an abort raised during recovery without retrying', async () => {
-    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(401, 'Authentication required'),
+    );
     refreshSpy.mockRejectedValue(
       new DOMException('The operation was aborted.', 'AbortError'),
     );
@@ -315,10 +318,15 @@ describe('apiFetch retry fidelity', () => {
 
 describe('apiFetch recovery provenance', () => {
   it('records the refresh outcome when a 401 survives recovery', async () => {
-    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(401, 'Authentication required'),
+    );
     refreshReturns({
       status: 'forbidden',
-      error: new ApiError({ status: 403, message: 'Invalid or missing CSRF token' }),
+      error: new ApiError({
+        status: 403,
+        message: 'Invalid or missing CSRF token',
+      }),
     });
 
     const error = await apiFetch('/x', { authRecovery: true }).catch(caught());
@@ -338,7 +346,9 @@ describe('apiFetch recovery provenance', () => {
   });
 
   it('leaves the outcome unset when recovery is disabled', async () => {
-    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(401, 'Authentication required'),
+    );
 
     const error = await apiFetch('/x').catch(caught());
 
@@ -360,7 +370,9 @@ describe('apiFetch recovery provenance', () => {
     'failure',
     'unsupported',
   ])('records the %s outcome on a surviving 401', async (status) => {
-    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(401, 'Authentication required'),
+    );
     refreshReturns({ status } as RefreshOutcome);
 
     const error = await apiFetch('/x', { authRecovery: true }).catch(caught());
@@ -376,7 +388,10 @@ describe('apiFetch recovery provenance', () => {
 
     const error = await apiFetch('/x', { authRecovery: true }).catch(caught());
 
-    expect(error).toMatchObject({ status: 401, recoveryOutcome: 'already-valid' });
+    expect(error).toMatchObject({
+      status: 401,
+      recoveryOutcome: 'already-valid',
+    });
   });
 
   it('leaves the outcome unset when a CSRF 403 is retried', async () => {
@@ -384,7 +399,9 @@ describe('apiFetch recovery provenance', () => {
       documentStub.cookie = `${CSRF_COOKIE}=csrf-2`;
       return errorResponse(403, 'Invalid or missing CSRF token');
     });
-    fetchMock.mockResolvedValueOnce(errorResponse(403, 'Invalid or missing CSRF token'));
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(403, 'Invalid or missing CSRF token'),
+    );
 
     const error = await apiFetch('/organizations', {
       method: 'POST',

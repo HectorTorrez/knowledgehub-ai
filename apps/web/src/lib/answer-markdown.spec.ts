@@ -33,7 +33,13 @@ describe('buildAnswerMarkdown', () => {
   });
 
   it('includes missing parts alongside a partial answer and sources', () => {
-    const markdown = buildAnswerMarkdown({ question: 'Leave?', answer: 'Twenty days [1].', status: 'partial', citations: [CITATION], missing: ['Carryover policy'] });
+    const markdown = buildAnswerMarkdown({
+      question: 'Leave?',
+      answer: 'Twenty days [1].',
+      status: 'partial',
+      citations: [CITATION],
+      missing: ['Carryover policy'],
+    });
     expect(markdown).toContain('Twenty days [1].');
     expect(markdown).toContain('### Missing information\n\n- Carryover policy');
     expect(markdown).toContain('### Sources');
@@ -55,8 +61,8 @@ describe('buildAnswerMarkdown', () => {
 
 describe('answerPermalink', () => {
   it('builds an encoded absolute link', () => {
-    expect(answerPermalink('https://app.example.com', 'org-1', 'answer 1')).toBe(
-      'https://app.example.com/organizations/org-1/ask?answer=answer%201',
-    );
+    expect(
+      answerPermalink('https://app.example.com', 'org-1', 'answer 1'),
+    ).toBe('https://app.example.com/organizations/org-1/ask?answer=answer%201');
   });
 });

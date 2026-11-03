@@ -8,7 +8,12 @@ import type {
 } from '@knowledgehub/shared-types';
 import { queryOptions, type QueryClient } from '@tanstack/react-query';
 import { apiFetch } from '~/lib/api/client';
-import { isApiError, isNetworkError, isUnauthorized, type ApiError } from '~/lib/api/errors';
+import {
+  isApiError,
+  isNetworkError,
+  isUnauthorized,
+  type ApiError,
+} from '~/lib/api/errors';
 
 export const SESSION_QUERY_KEY = ['session'] as const;
 

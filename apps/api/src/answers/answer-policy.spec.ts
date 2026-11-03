@@ -7,7 +7,9 @@ import {
 
 describe('assertAnswerQuestion', () => {
   it('accepts a normal question', () => {
-    expect(() => assertAnswerQuestion('What is our retry policy?')).not.toThrow();
+    expect(() =>
+      assertAnswerQuestion('What is our retry policy?'),
+    ).not.toThrow();
   });
 
   it('accepts a question of exactly the maximum length', () => {

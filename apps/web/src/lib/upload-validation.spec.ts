@@ -83,10 +83,7 @@ describe('evaluateUploadMetadata', () => {
 describe('evaluateUploadSignature', () => {
   it('accepts a PDF signature at the start of the prefix', () => {
     expect(
-      evaluateUploadSignature(
-        'application/pdf',
-        encoder.encode('%PDF-1.7\n'),
-      ),
+      evaluateUploadSignature('application/pdf', encoder.encode('%PDF-1.7\n')),
     ).toBeNull();
   });
 
@@ -101,10 +98,7 @@ describe('evaluateUploadSignature', () => {
 
   it('rejects a PDF without its signature', () => {
     expect(
-      evaluateUploadSignature(
-        'application/pdf',
-        encoder.encode('not a pdf'),
-      ),
+      evaluateUploadSignature('application/pdf', encoder.encode('not a pdf')),
     ).toBe('SIGNATURE_MISMATCH');
   });
 

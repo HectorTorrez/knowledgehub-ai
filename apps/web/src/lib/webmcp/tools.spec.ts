@@ -31,7 +31,14 @@ function organization(
   name: string,
   role: OrganizationRole = 'MEMBER',
 ): OrganizationSummary {
-  return { id, name, role, capabilities: [], createdAt: TIMESTAMP, updatedAt: TIMESTAMP };
+  return {
+    id,
+    name,
+    role,
+    capabilities: [],
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+  };
 }
 
 function document(id: string): DocumentSummary {
@@ -81,7 +88,9 @@ describe('get_session tool', () => {
   });
 
   it('reports no active organization when none is open', async () => {
-    const spec = buildSessionTool(deps({ getActiveOrganizationId: () => undefined }));
+    const spec = buildSessionTool(
+      deps({ getActiveOrganizationId: () => undefined }),
+    );
 
     await expect(spec.execute()).resolves.toMatchObject({
       activeOrganization: null,
@@ -90,7 +99,11 @@ describe('get_session tool', () => {
 
   it('refuses to report a session that is not authenticated', async () => {
     const spec = buildSessionTool(
-      deps({ loadSession: async (): Promise<SessionState> => ({ status: 'unauthenticated' }) }),
+      deps({
+        loadSession: async (): Promise<SessionState> => ({
+          status: 'unauthenticated',
+        }),
+      }),
     );
 
     await expect(spec.execute()).rejects.toThrow(/signed-in/);
@@ -155,7 +168,9 @@ describe('list_documents tool', () => {
   });
 
   it('refuses to run without an open organization', async () => {
-    const spec = buildDocumentsTool(deps({ getActiveOrganizationId: () => undefined }));
+    const spec = buildDocumentsTool(
+      deps({ getActiveOrganizationId: () => undefined }),
+    );
 
     await expect(spec.execute()).rejects.toThrow(/No organization is open/);
   });

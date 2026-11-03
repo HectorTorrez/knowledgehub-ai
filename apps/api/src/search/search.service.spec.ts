@@ -29,11 +29,17 @@ const CHUNK: RetrievedChunk = {
   matchedLexically: false,
 };
 
-function createService(
-  impl: RetrievalService['search'] = async () => [CHUNK],
-) {
+function createService(impl: RetrievalService['search'] = async () => [CHUNK]) {
   const search = vi.fn(impl);
-  const service = new SearchService({ search } as unknown as RetrievalService, { document: { count: async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.length } } as unknown as PrismaService);
+  const service = new SearchService(
+    { search } as unknown as RetrievalService,
+    {
+      document: {
+        count: async ({ where }: { where: { id: { in: string[] } } }) =>
+          where.id.in.length,
+      },
+    } as unknown as PrismaService,
+  );
   return { service, search };
 }
 
@@ -72,7 +78,14 @@ describe('SearchService', () => {
           documentTitle: 'Architecture Notes',
           score: 0.9,
           matchCount: 1,
-          matches: [{ pageNumber: 2, chunkIndex: 4, excerpt: 'Retries are bounded by maxAttempts.', highlights: [{ start: 0, end: 7 }] }],
+          matches: [
+            {
+              pageNumber: 2,
+              chunkIndex: 4,
+              excerpt: 'Retries are bounded by maxAttempts.',
+              highlights: [{ start: 0, end: 7 }],
+            },
+          ],
         },
       ],
     });

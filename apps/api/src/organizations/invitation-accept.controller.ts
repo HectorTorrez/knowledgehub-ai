@@ -9,7 +9,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { AcceptInvitationResponse } from '@knowledgehub/shared-types';
-import { SessionGuard, type AuthenticatedRequest } from '../auth/session.guard.js';
+import {
+  SessionGuard,
+  type AuthenticatedRequest,
+} from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
 import {
   acceptInvitationSchema,

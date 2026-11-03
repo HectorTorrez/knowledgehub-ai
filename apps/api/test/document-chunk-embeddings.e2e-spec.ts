@@ -115,7 +115,11 @@ describe('document chunk embeddings (e2e)', () => {
     embedImpl = async (texts) => texts.map((_, index) => vectorOf(index + 1));
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue(embeddings)
       .compile();
@@ -143,7 +147,9 @@ describe('document chunk embeddings (e2e)', () => {
     const second = vectorOf(2);
     const { document, job, ownership } = await seedClaimedJob();
 
-    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(true);
+    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(
+      true,
+    );
 
     const chunks = await loadChunks(document.id, first, second);
     expect(chunks).toEqual([
@@ -189,13 +195,15 @@ describe('document chunk embeddings (e2e)', () => {
 
     const replaced = vectorOf(9);
     embedImpl = async () => [replaced, replaced];
-    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(true);
+    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(
+      true,
+    );
 
     const chunks = await loadChunks(document.id, vectorOf(1), replaced);
     expect(chunks).toHaveLength(2);
-    expect(chunks.every((chunk) => chunk.matchesSecond && !chunk.matchesFirst)).toBe(
-      true,
-    );
+    expect(
+      chunks.every((chunk) => chunk.matchesSecond && !chunk.matchesFirst),
+    ).toBe(true);
   });
 
   it('keeps previously stored vectors when the provider fails', async () => {
@@ -205,12 +213,14 @@ describe('document chunk embeddings (e2e)', () => {
     await store.replaceForGeneration(ownership, CHUNKS);
 
     embedImpl = async () => {
-      throw new EmbeddingUnavailableError('The embedding provider is unavailable');
+      throw new EmbeddingUnavailableError(
+        'The embedding provider is unavailable',
+      );
     };
 
-    await expect(store.replaceForGeneration(ownership, CHUNKS)).rejects.toBeInstanceOf(
-      EmbeddingUnavailableError,
-    );
+    await expect(
+      store.replaceForGeneration(ownership, CHUNKS),
+    ).rejects.toBeInstanceOf(EmbeddingUnavailableError);
 
     const chunks = await loadChunks(document.id, first, second);
     expect(chunks.map((chunk) => chunk.matchesFirst)).toEqual([true, false]);
@@ -231,7 +241,9 @@ describe('document chunk embeddings (e2e)', () => {
       throw new Error('stale ownership must not embed');
     };
 
-    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(false);
+    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(
+      false,
+    );
 
     const chunks = await loadChunks(document.id, first, second);
     expect(chunks).toHaveLength(2);
@@ -245,13 +257,17 @@ describe('document chunk embeddings (e2e)', () => {
       where: { id: document.id },
       data: { generation: 2 },
     });
-    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(false);
+    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(
+      false,
+    );
 
     await prisma.document.update({
       where: { id: document.id },
       data: { generation: 1, status: 'READY' },
     });
-    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(false);
+    await expect(store.replaceForGeneration(ownership, CHUNKS)).resolves.toBe(
+      false,
+    );
 
     expect(
       await prisma.documentChunk.count({ where: { documentId: document.id } }),
@@ -282,9 +298,7 @@ describe('document chunk embeddings (e2e)', () => {
       )
     `;
     await store.replaceForGeneration(other.ownership, CHUNKS);
-    await store.replaceForGeneration(ownership, [
-      CHUNKS[0]!,
-    ]);
+    await store.replaceForGeneration(ownership, [CHUNKS[0]!]);
 
     const older = await prisma.$queryRaw<{ matches: boolean }[]>`
       SELECT ("embedding" = ${vectorLiteral(preserved)}::vector) AS matches
@@ -294,7 +308,9 @@ describe('document chunk embeddings (e2e)', () => {
     `;
     expect(older).toEqual([{ matches: true }]);
     expect(
-      await prisma.documentChunk.count({ where: { documentId: other.document.id } }),
+      await prisma.documentChunk.count({
+        where: { documentId: other.document.id },
+      }),
     ).toBe(2);
     expect(
       await prisma.documentChunk.count({

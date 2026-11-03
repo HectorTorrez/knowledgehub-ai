@@ -108,9 +108,9 @@ describe('status helpers', () => {
 
 describe('rate limiting', () => {
   it('identifies a 429 response', () => {
-    expect(isRateLimited(new ApiError({ status: 429, message: 'slow down' }))).toBe(
-      true,
-    );
+    expect(
+      isRateLimited(new ApiError({ status: 429, message: 'slow down' })),
+    ).toBe(true);
     expect(isRateLimited(new ApiError({ status: 500, message: 'boom' }))).toBe(
       false,
     );

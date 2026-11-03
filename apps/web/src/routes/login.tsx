@@ -52,7 +52,11 @@ export const Route = createFileRoute('/login')({
 });
 
 function toSameOriginPath(value: unknown): string | undefined {
-  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
+  if (
+    typeof value !== 'string' ||
+    !value.startsWith('/') ||
+    value.startsWith('//')
+  ) {
     return undefined;
   }
 
@@ -164,11 +168,7 @@ function LoginPage() {
                 onChange={setPassword}
               />
             </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={login.isPending}
-            >
+            <Button type="submit" className="w-full" disabled={login.isPending}>
               {login.isPending ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>

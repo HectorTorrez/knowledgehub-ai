@@ -44,11 +44,7 @@ export function PasswordInput({
         aria-pressed={visible}
         className="absolute top-1/2 right-1.5 size-9 -translate-y-1/2 sm:size-8 text-muted-foreground hover:text-foreground"
       >
-        {visible ? (
-          <EyeOff className="size-4" />
-        ) : (
-          <Eye className="size-4" />
-        )}
+        {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       </Button>
     </div>
   );

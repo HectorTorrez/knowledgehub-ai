@@ -34,10 +34,7 @@ import {
   type QuestionOutcome,
 } from './answers-eval/metrics.js';
 import { EVAL_QUESTIONS } from './answers-eval/questions.js';
-import {
-  formatSweepReport,
-  type SweepRun,
-} from './answers-eval/report.js';
+import { formatSweepReport, type SweepRun } from './answers-eval/report.js';
 
 const TEST_PLACEHOLDER_KEY = 'test-only-openai-api-key';
 const EVAL_USER_ID = 'answers-evaluation';
@@ -286,7 +283,16 @@ describe('answers evaluation (real providers)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).overrideProvider(RERANKER).useValue({ rerank: async () => [] }).overrideProvider(QUERY_REWRITER).useValue({ rewrite: async (question: string) => question }).compile();
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
+      .overrideProvider(RERANKER)
+      .useValue({ rerank: async () => [] })
+      .overrideProvider(QUERY_REWRITER)
+      .useValue({ rewrite: async (question: string) => question })
+      .compile();
 
     app = moduleRef.createNestApplication();
     await app.init();
@@ -382,39 +388,35 @@ describe('answers evaluation (real providers)', () => {
     };
   };
 
-  it(
-    'reports metrics across the similarity-floor sweep and enforces the hard gates',
-    async () => {
-      const runs: SweepRun[] = [];
+  it('reports metrics across the similarity-floor sweep and enforces the hard gates', async () => {
+    const runs: SweepRun[] = [];
 
-      for (const threshold of SIMILARITY_THRESHOLDS) {
-        config.set('ANSWER_MIN_SIMILARITY', threshold);
-        const outcomes: QuestionOutcome[] = [];
+    for (const threshold of SIMILARITY_THRESHOLDS) {
+      config.set('ANSWER_MIN_SIMILARITY', threshold);
+      const outcomes: QuestionOutcome[] = [];
 
-        for (const item of EVAL_QUESTIONS) {
-          outcomes.push(await ask(item));
-        }
-
-        runs.push({
-          threshold,
-          outcomes,
-          metrics: computeMetrics(outcomes),
-        });
+      for (const item of EVAL_QUESTIONS) {
+        outcomes.push(await ask(item));
       }
 
-      console.log(
-        formatSweepReport(runs, {
-          model: config.get<string>('ANSWER_MODEL') ?? 'unknown',
-          embeddingModel: config.get<string>('EMBEDDING_MODEL') ?? 'unknown',
-          questionCount: EVAL_QUESTIONS.length,
-        }),
-      );
+      runs.push({
+        threshold,
+        outcomes,
+        metrics: computeMetrics(outcomes),
+      });
+    }
 
-      for (const run of runs) {
-        expect(run.metrics.structuralIntegrity).toBe(1);
-        expect(run.metrics.refusalAccuracy).toBe(1);
-      }
-    },
-    600_000,
-  );
+    console.log(
+      formatSweepReport(runs, {
+        model: config.get<string>('ANSWER_MODEL') ?? 'unknown',
+        embeddingModel: config.get<string>('EMBEDDING_MODEL') ?? 'unknown',
+        questionCount: EVAL_QUESTIONS.length,
+      }),
+    );
+
+    for (const run of runs) {
+      expect(run.metrics.structuralIntegrity).toBe(1);
+      expect(run.metrics.refusalAccuracy).toBe(1);
+    }
+  }, 600_000);
 });

@@ -56,8 +56,7 @@ export function isTransientTransactionFailure(error: unknown): boolean {
 
   if (error.code === 'P2028') {
     const meta = error.meta as
-      | { timeout?: unknown; timeTaken?: unknown }
-      | undefined;
+      { timeout?: unknown; timeTaken?: unknown } | undefined;
 
     if (
       typeof meta?.timeout === 'number' &&

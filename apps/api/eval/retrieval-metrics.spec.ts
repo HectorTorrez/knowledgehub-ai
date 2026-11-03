@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { meanReciprocalRank, recallAtK, reciprocalRank } from './retrieval-metrics.js';
+import {
+  meanReciprocalRank,
+  recallAtK,
+  reciprocalRank,
+} from './retrieval-metrics.js';
 
 describe('retrieval metrics', () => {
   const a = { title: 'A', pageNumber: 1 };

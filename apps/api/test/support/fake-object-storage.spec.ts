@@ -179,7 +179,11 @@ describe('FakeObjectStorage', () => {
 
   it('fails the prefix read when the version no longer matches', async () => {
     const storage = new FakeObjectStorage();
-    const version = storage.putObject(input.key, 'original bytes', 'text/plain');
+    const version = storage.putObject(
+      input.key,
+      'original bytes',
+      'text/plain',
+    );
     storage.putObject(input.key, 'replaced bytes', 'text/plain');
 
     await expect(
@@ -201,7 +205,11 @@ describe('FakeObjectStorage', () => {
 
   it('fails the copy when the source is overwritten after the prefix read', async () => {
     const storage = new FakeObjectStorage();
-    const version = storage.putObject(input.key, 'original bytes', 'text/plain');
+    const version = storage.putObject(
+      input.key,
+      'original bytes',
+      'text/plain',
+    );
 
     await storage.readObjectPrefix({ key: input.key, maxBytes: 1024, version });
     storage.putObject(input.key, 'replaced bytes', 'text/plain');
@@ -247,7 +255,11 @@ describe('FakeObjectStorage', () => {
 
   it('promotes the verified bytes to the destination, independent of later changes', async () => {
     const storage = new FakeObjectStorage();
-    const version = storage.putObject(input.key, 'verified bytes', 'text/plain');
+    const version = storage.putObject(
+      input.key,
+      'verified bytes',
+      'text/plain',
+    );
 
     await storage.copyObject({
       sourceKey: input.key,

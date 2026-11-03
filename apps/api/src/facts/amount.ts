@@ -101,7 +101,8 @@ export function parseAmountText(raw: string, scale: number): bigint {
 
   const padded = fractionDigits.padEnd(scale, '0');
   const minor =
-    BigInt(integerDigits) * 10n ** BigInt(scale) + (padded ? BigInt(padded) : 0n);
+    BigInt(integerDigits) * 10n ** BigInt(scale) +
+    (padded ? BigInt(padded) : 0n);
 
   if (minor > MAX_AMOUNT_MINOR) {
     throw new AmountParseError('The amount is out of range');

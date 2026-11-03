@@ -16,10 +16,14 @@ const pages = [
 
 for (const [name, path] of pages) {
   test(`${name} meets WCAG 2.1 A and AA`, async ({ page }) => {
-    await mockApi(page, { authenticated: !['/', '/login', '/register', '/security'].includes(path) });
+    await mockApi(page, {
+      authenticated: !['/', '/login', '/register', '/security'].includes(path),
+    });
     await page.goto(path);
     await page.waitForLoadState('networkidle');
-    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
     expect(results.violations).toEqual([]);
   });
 }
@@ -30,20 +34,46 @@ test('answer meets WCAG 2.1 A and AA', async ({ page }) => {
   await page.getByLabel('Your question').fill('How much leave do I get?');
   await page.getByRole('button', { name: 'Ask' }).click();
   await expect(page.getByText('You get twenty days')).toBeVisible();
-  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
   expect(results.violations).toEqual([]);
 });
 
 test('search results meet WCAG 2.1 A and AA', async ({ page }) => {
   await mockApi(page, { authenticated: true });
-  await page.route('http://localhost:3001/organizations/org-1/search*', async (route) => {
-    await route.fulfill({ json: { results: [{ documentId: 'doc-1', documentTitle: 'Handbook', score: 0.9, matchCount: 1, matches: [{ excerpt: 'Paid leave', pageNumber: 1, chunkIndex: 0, highlights: [] }] }] } });
-  });
+  await page.route(
+    'http://localhost:3001/organizations/org-1/search*',
+    async (route) => {
+      await route.fulfill({
+        json: {
+          results: [
+            {
+              documentId: 'doc-1',
+              documentTitle: 'Handbook',
+              score: 0.9,
+              matchCount: 1,
+              matches: [
+                {
+                  excerpt: 'Paid leave',
+                  pageNumber: 1,
+                  chunkIndex: 0,
+                  highlights: [],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    },
+  );
   await page.goto('/organizations/org-1/search');
   await page.getByLabel('Search query').fill('leave');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByText('Paid leave')).toBeVisible();
-  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
   expect(results.violations).toEqual([]);
 });
 

@@ -4,12 +4,15 @@ import { Mail } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Brand } from '~/components/brand';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
-import { useToast } from '~/components/ui/toast';
 import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card';
+import { useToast } from '~/components/ui/toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { invitationsApi } from '~/lib/api/invitations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { pageHead } from '~/lib/seo';
@@ -21,9 +24,7 @@ export const Route = createFileRoute('/_authenticated/invitations/accept')({
       description: 'Join an organization on KnowledgeHub AI.',
       path: '/invitations/accept',
     }),
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { token?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { token?: string } => ({
     token:
       typeof search.token === 'string' && search.token.trim().length > 0
         ? search.token

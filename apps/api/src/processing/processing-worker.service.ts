@@ -147,7 +147,18 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
 
       const published = await this.jobs.publishExtraction(ownership, extracted);
       if (published) {
-        void this.summaries.summarize({ organizationId: job.organizationId, documentId: job.documentId, documentGeneration: job.documentGeneration }, drafts).catch((error: unknown) => this.logger.warn('Summary trigger failed', error));
+        void this.summaries
+          .summarize(
+            {
+              organizationId: job.organizationId,
+              documentId: job.documentId,
+              documentGeneration: job.documentGeneration,
+            },
+            drafts,
+          )
+          .catch((error: unknown) =>
+            this.logger.warn('Summary trigger failed', error),
+          );
       }
     } catch (error) {
       await this.recordFailure(job, error);
@@ -229,7 +240,10 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
           lost = !renewed;
         })
         .catch((error: unknown) => {
-          this.logger.warn(`Could not renew the lease for job ${job.id}`, error);
+          this.logger.warn(
+            `Could not renew the lease for job ${job.id}`,
+            error,
+          );
         });
     }, this.config.renewalIntervalMs);
 

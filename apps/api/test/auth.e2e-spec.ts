@@ -17,8 +17,15 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { AuthConfig } from '../src/auth/auth.config.js';
 import { AuthModule } from '../src/auth/auth.module.js';
-import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from '../src/auth/cookies.js';
-import { CSRF_COOKIE, CSRF_HEADER, generateCsrfToken } from '../src/auth/csrf.js';
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+} from '../src/auth/cookies.js';
+import {
+  CSRF_COOKIE,
+  CSRF_HEADER,
+  generateCsrfToken,
+} from '../src/auth/csrf.js';
 import { PasswordService } from '../src/auth/password.service.js';
 import { SessionGuard } from '../src/auth/session.guard.js';
 import { TokenService } from '../src/auth/token.service.js';
@@ -58,7 +65,9 @@ function requireCookie(cookies: string[], name: string): string {
 }
 
 function cookieValue(cookies: string[], name: string): string {
-  return requireCookie(cookies, name).slice(name.length + 1).split(';')[0];
+  return requireCookie(cookies, name)
+    .slice(name.length + 1)
+    .split(';')[0];
 }
 
 function setCookies(response: request.Response): string[] {
@@ -77,7 +86,12 @@ describe('POST /auth/register (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());
@@ -319,7 +333,11 @@ describe('POST /auth/register transaction rollback (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(TokenService)
       .useValue({
         signAccessToken: async () => 'unused',
@@ -516,7 +534,12 @@ describe('POST /auth/login (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());
@@ -553,7 +576,9 @@ describe('POST /auth/login (e2e)', () => {
     expect(access).toMatch(/HttpOnly/i);
     expect(access).toMatch(/SameSite=Lax/i);
     expect(access).toMatch(/Path=\//i);
-    expect(access).toMatch(new RegExp(`Max-Age=${accessMaxAgeSeconds}\\b`, 'i'));
+    expect(access).toMatch(
+      new RegExp(`Max-Age=${accessMaxAgeSeconds}\\b`, 'i'),
+    );
     expect(refresh).toMatch(/HttpOnly/i);
     expect(refresh).toMatch(/Path=\/auth/i);
     expect(refresh).toMatch(
@@ -598,7 +623,9 @@ describe('POST /auth/login (e2e)', () => {
 
     const storedHash = loginSession!.refreshTokens[0].tokenHash;
     const rawRefresh = cookieValue(cookies, REFRESH_TOKEN_COOKIE);
-    expect(storedHash).toBe(createHash('sha256').update(rawRefresh).digest('hex'));
+    expect(storedHash).toBe(
+      createHash('sha256').update(rawRefresh).digest('hex'),
+    );
     expect(storedHash).not.toBe(rawRefresh);
   });
 
@@ -707,9 +734,9 @@ describe('POST /auth/login (e2e)', () => {
       password: PASSWORD,
     }).expect(401);
 
-    expect(
-      await prisma.authSession.count({ where: { userId: user.id } }),
-    ).toBe(sessionsBefore);
+    expect(await prisma.authSession.count({ where: { userId: user.id } })).toBe(
+      sessionsBefore,
+    );
     expect(await countRefreshTokens()).toBe(tokensBefore);
   });
 
@@ -740,7 +767,11 @@ describe('POST /auth/login transaction rollback (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(TokenService)
       .useValue({
         signAccessToken: async () => 'unused',
@@ -1149,8 +1180,9 @@ describe('POST /auth/refresh and /auth/logout (e2e)', () => {
       (token) => token.tokenHash !== sha256(originalRefresh),
     );
     expect(successors.length).toBeLessThanOrEqual(1);
-    expect(successors.filter((token) => token.usedAt === null).length)
-      .toBeLessThanOrEqual(1);
+    expect(
+      successors.filter((token) => token.usedAt === null).length,
+    ).toBeLessThanOrEqual(1);
 
     await request(app.getHttpServer())
       .post('/__test/protected')
@@ -1228,8 +1260,12 @@ describe('POST /auth/refresh and /auth/logout (e2e)', () => {
     await logoutWith(deviceBJar).expect(204);
 
     const sessions = await prisma.authSession.findMany({ where: { userId } });
-    const deviceA = sessions.find((session) => session.userAgent === 'device-a');
-    const deviceB = sessions.find((session) => session.userAgent === 'device-b');
+    const deviceA = sessions.find(
+      (session) => session.userAgent === 'device-a',
+    );
+    const deviceB = sessions.find(
+      (session) => session.userAgent === 'device-b',
+    );
     expect(deviceB!.revokedAt).not.toBeNull();
     expect(deviceA!.revokedAt).toBeNull();
   });
@@ -1365,7 +1401,9 @@ describe('browser-auth gate for refresh and logout (e2e)', () => {
     expect(access).toMatch(/Path=\//i);
     expect(access).toMatch(/HttpOnly/i);
     expect(access).toMatch(/Expires=Thu, 01 Jan 1970/i);
-    expect(requireCookie(cleared, REFRESH_TOKEN_COOKIE)).toMatch(/Path=\/auth/i);
+    expect(requireCookie(cleared, REFRESH_TOKEN_COOKIE)).toMatch(
+      /Path=\/auth/i,
+    );
     const csrf = requireCookie(cleared, CSRF_COOKIE);
     expect(csrf).toMatch(/Path=\//i);
     expect(csrf).not.toMatch(/HttpOnly/i);
@@ -1444,7 +1482,9 @@ describe('browser-auth gate for refresh and logout (e2e)', () => {
 
     const cleared = setCookies(response);
     expect(requireCookie(cleared, ACCESS_TOKEN_COOKIE)).toMatch(/HttpOnly/i);
-    expect(requireCookie(cleared, REFRESH_TOKEN_COOKIE)).toMatch(/Path=\/auth/i);
+    expect(requireCookie(cleared, REFRESH_TOKEN_COOKIE)).toMatch(
+      /Path=\/auth/i,
+    );
     expect(requireCookie(cleared, CSRF_COOKIE)).toMatch(/Path=\//i);
   });
 });
@@ -1480,7 +1520,12 @@ describe('GET /auth/session (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.use(cookieParser());

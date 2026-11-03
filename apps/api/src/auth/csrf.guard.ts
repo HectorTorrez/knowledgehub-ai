@@ -139,8 +139,10 @@ function isCookieAuthenticated(request: Request): boolean {
     return false;
   }
 
-  return isNonEmptyString(cookies[ACCESS_TOKEN_COOKIE]) ||
-    isNonEmptyString(cookies[REFRESH_TOKEN_COOKIE]);
+  return (
+    isNonEmptyString(cookies[ACCESS_TOKEN_COOKIE]) ||
+    isNonEmptyString(cookies[REFRESH_TOKEN_COOKIE])
+  );
 }
 
 function isNonEmptyString(value: unknown): boolean {

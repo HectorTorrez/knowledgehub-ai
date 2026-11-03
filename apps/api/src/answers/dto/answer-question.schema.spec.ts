@@ -19,9 +19,7 @@ describe('answerQuestionSchema', () => {
   it('accepts a question of exactly the maximum length', () => {
     const question = 'a'.repeat(MAX_ANSWER_QUESTION_CHARS);
 
-    expect(
-      answerQuestionSchema.safeParse({ question }).success,
-    ).toBe(true);
+    expect(answerQuestionSchema.safeParse({ question }).success).toBe(true);
   });
 
   it('rejects a blank or whitespace-only question', () => {
@@ -39,7 +37,13 @@ describe('answerQuestionSchema', () => {
   });
 
   it('rejects a non-string question', () => {
-    for (const question of [123, null, undefined, ['alpha'], { text: 'alpha' }]) {
+    for (const question of [
+      123,
+      null,
+      undefined,
+      ['alpha'],
+      { text: 'alpha' },
+    ]) {
       expect(answerQuestionSchema.safeParse({ question }).success).toBe(false);
     }
   });

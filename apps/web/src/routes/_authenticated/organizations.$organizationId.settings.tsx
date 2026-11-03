@@ -1,6 +1,11 @@
 import { FREE_PLAN } from '~/lib/plans';
 import { usageProgress } from '~/lib/usage';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { History, LogOut, Settings, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
@@ -30,10 +35,7 @@ import { Label } from '~/components/ui/label';
 import { Progress } from '~/components/ui/progress';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { activityApi } from '~/lib/api/activity';
 import { formatActivity } from '~/lib/activity-format';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -69,8 +71,14 @@ function OrganizationSettingsPage() {
   });
   useQueryErrorToast(organization.error, () => void organization.refetch());
 
-  const canDeleteOrganization = organization.data?.organization.capabilities.includes('organization.delete') ?? false;
-  const canManage = organization.data?.organization.capabilities.includes('organization.manage') ?? false;
+  const canDeleteOrganization =
+    organization.data?.organization.capabilities.includes(
+      'organization.delete',
+    ) ?? false;
+  const canManage =
+    organization.data?.organization.capabilities.includes(
+      'organization.manage',
+    ) ?? false;
   const usage = useQuery({
     queryKey: ['organizations', organizationId, 'usage'],
     queryFn: () => organizationsApi.usage(organizationId),
@@ -79,7 +87,8 @@ function OrganizationSettingsPage() {
   useQueryErrorToast(usage.error, () => void usage.refetch());
   const activity = useInfiniteQuery({
     queryKey: ['organizations', organizationId, 'activity'],
-    queryFn: ({ pageParam }) => activityApi.list(organizationId, { cursor: pageParam }),
+    queryFn: ({ pageParam }) =>
+      activityApi.list(organizationId, { cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     enabled: canManage,
@@ -209,7 +218,9 @@ function OrganizationSettingsPage() {
               </div>
               <Button
                 type="submit"
-                disabled={!dirty || rename.isPending || nameDraft.trim().length === 0}
+                disabled={
+                  !dirty || rename.isPending || nameDraft.trim().length === 0
+                }
               >
                 {rename.isPending ? 'Saving…' : 'Save'}
               </Button>
@@ -229,28 +240,42 @@ function OrganizationSettingsPage() {
           <CardContent className="space-y-4">
             {usage.data ? (
               <div className="space-y-4">
-                {([
-                  ['Daily answers', usage.data.usage.answers],
-                  ['Documents', usage.data.usage.documents],
-                  ['Storage (bytes)', usage.data.usage.storageBytes],
-                  ['Members', usage.data.usage.members],
-                ] as const).map(([label, counter]) => {
+                {(
+                  [
+                    ['Daily answers', usage.data.usage.answers],
+                    ['Documents', usage.data.usage.documents],
+                    ['Storage (bytes)', usage.data.usage.storageBytes],
+                    ['Members', usage.data.usage.members],
+                  ] as const
+                ).map(([label, counter]) => {
                   const progress = usageProgress(counter.used, counter.limit);
                   return (
                     <div key={label} className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>{label}</span>
-                        <span>{counter.used.toLocaleString()} / {counter.limit?.toLocaleString() ?? 'Unlimited'}</span>
+                        <span>
+                          {counter.used.toLocaleString()} /{' '}
+                          {counter.limit?.toLocaleString() ?? 'Unlimited'}
+                        </span>
                       </div>
                       <Progress
                         aria-label={label}
                         value={progress.value}
-                        indicatorClassName={progress.tone === 'destructive' ? 'bg-destructive' : progress.tone === 'warning' ? 'bg-amber-500' : undefined}
+                        indicatorClassName={
+                          progress.tone === 'destructive'
+                            ? 'bg-destructive'
+                            : progress.tone === 'warning'
+                              ? 'bg-amber-500'
+                              : undefined
+                        }
                       />
                     </div>
                   );
                 })}
-                <p className="text-sm text-muted-foreground">Daily answers reset {formatDateTime(usage.data.usage.answers.resetsAt)}</p>
+                <p className="text-sm text-muted-foreground">
+                  Daily answers reset{' '}
+                  {formatDateTime(usage.data.usage.answers.resetsAt)}
+                </p>
               </div>
             ) : usage.isPending ? (
               <Skeleton className="h-16 w-full" />
@@ -269,7 +294,10 @@ function OrganizationSettingsPage() {
 
       {canManage ? (
         <Card>
-          <CardHeader><CardTitle>Activity</CardTitle><CardDescription>Recent organization activity.</CardDescription></CardHeader>
+          <CardHeader>
+            <CardTitle>Activity</CardTitle>
+            <CardDescription>Recent organization activity.</CardDescription>
+          </CardHeader>
           <CardContent className="space-y-4">
             {activity.isPending ? (
               <Skeleton className="h-24 w-full" />
@@ -284,12 +312,27 @@ function OrganizationSettingsPage() {
               <EmptyState icon={History} title="No activity yet" />
             ) : (
               <ul className="space-y-4">
-                {activity.data?.pages.flatMap((page) => page.activities).map((item) => (
-                  <li key={item.id} className="text-sm"><p>{formatActivity(item)}</p><p className="text-muted-foreground">{formatDateTime(item.createdAt)}</p></li>
-                ))}
+                {activity.data?.pages
+                  .flatMap((page) => page.activities)
+                  .map((item) => (
+                    <li key={item.id} className="text-sm">
+                      <p>{formatActivity(item)}</p>
+                      <p className="text-muted-foreground">
+                        {formatDateTime(item.createdAt)}
+                      </p>
+                    </li>
+                  ))}
               </ul>
             )}
-            {activity.hasNextPage ? <Button variant="outline" disabled={activity.isFetchingNextPage} onClick={() => void activity.fetchNextPage()}>{activity.isFetchingNextPage ? 'Loading…' : 'Load more'}</Button> : null}
+            {activity.hasNextPage ? (
+              <Button
+                variant="outline"
+                disabled={activity.isFetchingNextPage}
+                onClick={() => void activity.fetchNextPage()}
+              >
+                {activity.isFetchingNextPage ? 'Loading…' : 'Load more'}
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
@@ -310,10 +353,7 @@ function OrganizationSettingsPage() {
                 : 'You will lose access to its documents and answers.'}
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setLeaveOpen(true)}
-          >
+          <Button variant="outline" onClick={() => setLeaveOpen(true)}>
             <LogOut />
             Leave
           </Button>

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  AmountParseError,
-  currencyScale,
-  parseAmountText,
-} from './amount.js';
+import { AmountParseError, currencyScale, parseAmountText } from './amount.js';
 
 describe('currencyScale', () => {
   it('uses two decimals for USD and zero for JPY', () => {

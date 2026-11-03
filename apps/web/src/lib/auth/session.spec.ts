@@ -38,7 +38,10 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 }
 
 function errorResponse(status: number, message: string): Response {
-  return jsonResponse({ statusCode: status, message, error: 'Error' }, { status });
+  return jsonResponse(
+    { statusCode: status, message, error: 'Error' },
+    { status },
+  );
 }
 
 function publicUser(id = 'user-1'): PublicUser {
@@ -147,10 +150,15 @@ describe('sessionQuery', () => {
   });
 
   it('resolves unauthenticated when the refresh session is gone', async () => {
-    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(401, 'Authentication required'),
+    );
     refreshReturns(
       refreshFailure(
-        new ApiError({ status: 401, message: 'Invalid or expired refresh token' }),
+        new ApiError({
+          status: 401,
+          message: 'Invalid or expired refresh token',
+        }),
       ),
     );
 
@@ -181,29 +189,43 @@ describe('sessionQuery', () => {
       'forbidden',
       {
         status: 'forbidden',
-        error: new ApiError({ status: 403, message: 'Invalid or missing CSRF token' }),
+        error: new ApiError({
+          status: 403,
+          message: 'Invalid or missing CSRF token',
+        }),
       },
     ],
     [
       'network-error',
-      { status: 'network-error', error: new ApiError({ status: NETWORK_ERROR_STATUS, message: 'down' }) },
+      {
+        status: 'network-error',
+        error: new ApiError({ status: NETWORK_ERROR_STATUS, message: 'down' }),
+      },
     ],
     [
       'failure',
-      { status: 'failure', error: new ApiError({ status: 500, message: 'boom' }) },
+      {
+        status: 'failure',
+        error: new ApiError({ status: 500, message: 'boom' }),
+      },
     ],
     ['unsupported', { status: 'unsupported' }],
-  ])('throws instead of signing out when recovery fails with %s', async (name, outcome) => {
-    fetchMock.mockResolvedValueOnce(errorResponse(401, 'Authentication required'));
-    refreshReturns(outcome);
+  ])(
+    'throws instead of signing out when recovery fails with %s',
+    async (name, outcome) => {
+      fetchMock.mockResolvedValueOnce(
+        errorResponse(401, 'Authentication required'),
+      );
+      refreshReturns(outcome);
 
-    const error = await makeClient()
-      .fetchQuery(sessionOptions())
-      .catch(caught());
+      const error = await makeClient()
+        .fetchQuery(sessionOptions())
+        .catch(caught());
 
-    expect(error).toBeInstanceOf(ApiError);
-    expect(error).toMatchObject({ status: 401, recoveryOutcome: name });
-  });
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error).toMatchObject({ status: 401, recoveryOutcome: name });
+    },
+  );
 
   it('throws when the session request cannot reach the API', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
@@ -230,9 +252,9 @@ describe('sessionQuery', () => {
   it('refuses to resolve a session outside the browser', async () => {
     vi.stubGlobal('window', undefined);
 
-    await expect(
-      makeClient().fetchQuery(sessionOptions()),
-    ).rejects.toThrow(/browser/);
+    await expect(makeClient().fetchQuery(sessionOptions())).rejects.toThrow(
+      /browser/,
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -242,12 +264,22 @@ describe('sessionQuery', () => {
       error: unknown,
     ) => boolean;
 
-    expect(retry(0, new ApiError({ status: NETWORK_ERROR_STATUS, message: 'down' }))).toBe(true);
+    expect(
+      retry(0, new ApiError({ status: NETWORK_ERROR_STATUS, message: 'down' })),
+    ).toBe(true);
     expect(retry(0, new ApiError({ status: 503, message: 'down' }))).toBe(true);
-    expect(retry(0, new ApiError({ status: 401, message: 'nope' }))).toBe(false);
-    expect(retry(0, new ApiError({ status: 403, message: 'nope' }))).toBe(false);
-    expect(retry(1, new ApiError({ status: NETWORK_ERROR_STATUS, message: 'down' }))).toBe(false);
-    expect(retry(0, new DOMException('The operation was aborted.', 'AbortError'))).toBe(false);
+    expect(retry(0, new ApiError({ status: 401, message: 'nope' }))).toBe(
+      false,
+    );
+    expect(retry(0, new ApiError({ status: 403, message: 'nope' }))).toBe(
+      false,
+    );
+    expect(
+      retry(1, new ApiError({ status: NETWORK_ERROR_STATUS, message: 'down' })),
+    ).toBe(false);
+    expect(
+      retry(0, new DOMException('The operation was aborted.', 'AbortError')),
+    ).toBe(false);
     expect(retry(0, new Error('outside the browser'))).toBe(false);
   });
 });
@@ -413,14 +445,25 @@ describe('createUnauthorizedHandler', () => {
   });
 
   it.each<[string, unknown]>([
-    ['a failed login', new ApiError({ status: 401, message: 'Invalid email or password' })],
+    [
+      'a failed login',
+      new ApiError({ status: 401, message: 'Invalid email or password' }),
+    ],
     [
       'a forbidden refresh',
-      new ApiError({ status: 401, message: 'Authentication required', recoveryOutcome: 'forbidden' }),
+      new ApiError({
+        status: 401,
+        message: 'Authentication required',
+        recoveryOutcome: 'forbidden',
+      }),
     ],
     [
       'an unsupported refresh',
-      new ApiError({ status: 401, message: 'Authentication required', recoveryOutcome: 'unsupported' }),
+      new ApiError({
+        status: 401,
+        message: 'Authentication required',
+        recoveryOutcome: 'unsupported',
+      }),
     ],
     ['a server error', new ApiError({ status: 500, message: 'Server error' })],
     ['a non-API error', new Error('boom')],
@@ -451,7 +494,10 @@ describe('session storage isolation', () => {
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
 
     await client.fetchQuery(sessionQuery);
-    await login(client, { email: 'hector@example.com', password: 'correct-horse-battery' });
+    await login(client, {
+      email: 'hector@example.com',
+      password: 'correct-horse-battery',
+    });
     await logout(client);
 
     expect(fetchMock).toHaveBeenCalledTimes(3);

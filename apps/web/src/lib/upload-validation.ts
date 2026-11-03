@@ -36,8 +36,7 @@ export interface UploadValidationFailure {
 }
 
 export type UploadValidationResult =
-  | UploadValidationSuccess
-  | UploadValidationFailure;
+  UploadValidationSuccess | UploadValidationFailure;
 
 const REJECTION_MESSAGES: Record<UploadRejectionReason, string> = {
   EMPTY_FILE: 'This file is empty.',

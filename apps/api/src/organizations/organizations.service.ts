@@ -78,10 +78,12 @@ export async function lockOrganization(
   }
 }
 
-
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService, private readonly activity: ActivityService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityService,
+  ) {}
 
   private runMembershipTransaction<T>(
     work: (tx: Prisma.TransactionClient) => Promise<T>,
@@ -154,29 +156,46 @@ export class OrganizationsService {
   ): Promise<OrganizationDetailResponse> {
     const organization = await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
-      await requireCapability(tx, context, 'organization.manage', 'rename the organization');
+      await requireCapability(
+        tx,
+        context,
+        'organization.manage',
+        'rename the organization',
+      );
 
-      const previous = await tx.organization.findUniqueOrThrow({ where: { id: context.organizationId }, select: { name: true } });
+      const previous = await tx.organization.findUniqueOrThrow({
+        where: { id: context.organizationId },
+        select: { name: true },
+      });
       const organization = await tx.organization.update({
         where: { id: context.organizationId },
         data: { name: input.name },
       });
-      await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'ORGANIZATION_RENAMED', targetType: 'organization', targetId: context.organizationId, metadata: { from: previous.name, to: organization.name } });
+      await this.activity.record(tx, {
+        organizationId: context.organizationId,
+        actorId: context.userId,
+        action: 'ORGANIZATION_RENAMED',
+        targetType: 'organization',
+        targetId: context.organizationId,
+        metadata: { from: previous.name, to: organization.name },
+      });
       return organization;
     });
 
     return {
-      organization: toOrganizationSummary(
-        organization,
-        context.role,
-      ),
+      organization: toOrganizationSummary(organization, context.role),
     };
   }
 
   async deleteOrganization(context: OrganizationContext): Promise<void> {
     await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
-      await requireCapability(tx, context, 'organization.delete', 'delete the organization');
+      await requireCapability(
+        tx,
+        context,
+        'organization.delete',
+        'delete the organization',
+      );
 
       await tx.organization.delete({ where: { id: context.organizationId } });
     });
@@ -197,7 +216,9 @@ export class OrganizationsService {
       });
 
       if (!membership) {
-        throw new NotFoundException('You are not a member of this organization');
+        throw new NotFoundException(
+          'You are not a member of this organization',
+        );
       }
 
       if (membership.role === MembershipRole.OWNER) {
@@ -223,7 +244,14 @@ export class OrganizationsService {
           },
         },
       });
-      await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'MEMBER_LEFT', targetType: 'member', targetId: context.userId, metadata: {} });
+      await this.activity.record(tx, {
+        organizationId: context.organizationId,
+        actorId: context.userId,
+        action: 'MEMBER_LEFT',
+        targetType: 'member',
+        targetId: context.userId,
+        metadata: {},
+      });
     });
   }
 
@@ -259,9 +287,7 @@ export class OrganizationsService {
         });
 
         if (!user) {
-          throw new NotFoundException(
-            'No user found with this email address',
-          );
+          throw new NotFoundException('No user found with this email address');
         }
 
         const membership = await tx.membership.create({
@@ -273,7 +299,14 @@ export class OrganizationsService {
           select: { role: true, createdAt: true },
         });
 
-        await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'MEMBER_ADDED', targetType: 'member', targetId: user.id, metadata: { email: user.email, role: membership.role } });
+        await this.activity.record(tx, {
+          organizationId: context.organizationId,
+          actorId: context.userId,
+          action: 'MEMBER_ADDED',
+          targetType: 'member',
+          targetId: user.id,
+          metadata: { email: user.email, role: membership.role },
+        });
         return toOrganizationMember({
           role: membership.role,
           createdAt: membership.createdAt,
@@ -299,7 +332,12 @@ export class OrganizationsService {
   ): Promise<UpdateMemberRoleResponse> {
     const member = await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
-      const actorRole = await requireCapability(tx, context, 'members.manage', 'change member roles');
+      const actorRole = await requireCapability(
+        tx,
+        context,
+        'members.manage',
+        'change member roles',
+      );
 
       const target = await tx.membership.findUnique({
         where: {
@@ -315,7 +353,11 @@ export class OrganizationsService {
         throw new NotFoundException('Member not found');
       }
 
-      if (!canManageRole(actorRole, target.role) || !canManageRole(actorRole, input.role)) throw new ForbiddenException('Cannot manage this role');
+      if (
+        !canManageRole(actorRole, target.role) ||
+        !canManageRole(actorRole, input.role)
+      )
+        throw new ForbiddenException('Cannot manage this role');
 
       if (target.role === input.role) {
         return toOrganizationMember(target);
@@ -350,7 +392,18 @@ export class OrganizationsService {
         select: MEMBER_PROJECTION,
       });
 
-      await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'MEMBER_ROLE_CHANGED', targetType: 'member', targetId: targetUserId, metadata: { email: target.user.email, from: target.role, to: updated.role } });
+      await this.activity.record(tx, {
+        organizationId: context.organizationId,
+        actorId: context.userId,
+        action: 'MEMBER_ROLE_CHANGED',
+        targetType: 'member',
+        targetId: targetUserId,
+        metadata: {
+          email: target.user.email,
+          from: target.role,
+          to: updated.role,
+        },
+      });
       return toOrganizationMember(updated);
     });
 
@@ -363,7 +416,12 @@ export class OrganizationsService {
   ): Promise<void> {
     await this.runMembershipTransaction(async (tx) => {
       await lockOrganization(tx, context.organizationId);
-      const actorRole = await requireCapability(tx, context, 'members.manage', 'remove members');
+      const actorRole = await requireCapability(
+        tx,
+        context,
+        'members.manage',
+        'remove members',
+      );
 
       const target = await tx.membership.findUnique({
         where: {
@@ -379,7 +437,8 @@ export class OrganizationsService {
         throw new NotFoundException('Member not found');
       }
 
-      if (!canManageRole(actorRole, target.role)) throw new ForbiddenException('Cannot manage this role');
+      if (!canManageRole(actorRole, target.role))
+        throw new ForbiddenException('Cannot manage this role');
 
       if (target.role === MembershipRole.OWNER) {
         const ownerCount = await tx.membership.count({
@@ -404,7 +463,14 @@ export class OrganizationsService {
           },
         },
       });
-      await this.activity.record(tx, { organizationId: context.organizationId, actorId: context.userId, action: 'MEMBER_REMOVED', targetType: 'member', targetId: targetUserId, metadata: { email: target.user.email } });
+      await this.activity.record(tx, {
+        organizationId: context.organizationId,
+        actorId: context.userId,
+        action: 'MEMBER_REMOVED',
+        targetType: 'member',
+        targetId: targetUserId,
+        metadata: { email: target.user.email },
+      });
     });
   }
 }
@@ -434,7 +500,9 @@ interface MemberProjection {
   };
 }
 
-function toOrganizationMember(membership: MemberProjection): OrganizationMember {
+function toOrganizationMember(
+  membership: MemberProjection,
+): OrganizationMember {
   return {
     userId: membership.user.id,
     email: membership.user.email,

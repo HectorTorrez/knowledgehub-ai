@@ -32,7 +32,9 @@ async function overflowingElements(page: Page): Promise<string[]> {
   });
 }
 
-test('keeps organization pages within the mobile viewport', async ({ page }) => {
+test('keeps organization pages within the mobile viewport', async ({
+  page,
+}) => {
   await mockApi(page, { authenticated: true });
 
   for (const path of [
@@ -49,12 +51,23 @@ test('keeps organization pages within the mobile viewport', async ({ page }) => 
   }
 });
 
-test('exposes organization sections in the mobile sidebar', async ({ page }) => {
+test('exposes organization sections in the mobile sidebar', async ({
+  page,
+}) => {
   await mockApi(page, { authenticated: true });
   await page.goto('/organizations/org-1/documents');
   await page.getByRole('button', { name: 'Toggle Sidebar' }).click();
-  for (const label of ['Overview', 'Documents', 'Ask', 'Search', 'Insights', 'Settings']) {
-    await expect(page.getByRole('link', { name: label, exact: true })).toBeVisible();
+  for (const label of [
+    'Overview',
+    'Documents',
+    'Ask',
+    'Search',
+    'Insights',
+    'Settings',
+  ]) {
+    await expect(
+      page.getByRole('link', { name: label, exact: true }),
+    ).toBeVisible();
   }
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await expect(page).toHaveURL(/\/settings$/);
@@ -73,7 +86,9 @@ test('keeps key touch targets at least 44px tall', async ({ page }) => {
   expect(newConversationBox!.height).toBeGreaterThanOrEqual(44);
 
   await page.getByRole('button', { name: 'Toggle Sidebar' }).click();
-  const navLinkBox = await page.getByRole('link', { name: 'Ask', exact: true }).boundingBox();
+  const navLinkBox = await page
+    .getByRole('link', { name: 'Ask', exact: true })
+    .boundingBox();
   expect(navLinkBox).not.toBeNull();
   expect(navLinkBox!.height).toBeGreaterThanOrEqual(44);
   await page.getByRole('link', { name: 'Ask', exact: true }).click();

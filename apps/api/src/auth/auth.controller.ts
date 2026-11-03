@@ -40,13 +40,13 @@ import {
   buildCsrfCookieOptions,
   generateCsrfToken,
 } from './csrf.js';
-import { deleteAccountSchema, type DeleteAccountInput } from './dto/delete-account.schema.js';
+import {
+  deleteAccountSchema,
+  type DeleteAccountInput,
+} from './dto/delete-account.schema.js';
 import { loginSchema, type LoginInput } from './dto/login.schema.js';
 import { registerSchema, type RegisterInput } from './dto/register.schema.js';
-import {
-  SessionGuard,
-  type AuthenticatedRequest,
-} from './session.guard.js';
+import { SessionGuard, type AuthenticatedRequest } from './session.guard.js';
 import {
   changePasswordSchema,
   type ChangePasswordInput,

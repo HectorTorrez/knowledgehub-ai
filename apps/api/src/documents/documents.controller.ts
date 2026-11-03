@@ -50,8 +50,12 @@ import {
 } from './dto/update-document.schema.js';
 import { DocumentsService } from './documents.service.js';
 
-function requireDocumentCapability(request: OrganizationRequest, capability: Capability): void {
-  if (!can(requireOrganizationContext(request).role, capability)) throw new ForbiddenException();
+function requireDocumentCapability(
+  request: OrganizationRequest,
+  capability: Capability,
+): void {
+  if (!can(requireOrganizationContext(request).role, capability))
+    throw new ForbiddenException();
 }
 
 @Controller('organizations/:organizationId/documents')

@@ -133,7 +133,11 @@ describe('search (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue(embeddings)
       .compile();
@@ -171,15 +175,27 @@ describe('search (e2e)', () => {
       'Employee Handbook',
     );
 
-    const response = await search(token, organizationId, 'parental leave').expect(
-      200,
-    );
+    const response = await search(
+      token,
+      organizationId,
+      'parental leave',
+    ).expect(200);
 
     expect(response.body.results).toHaveLength(1);
     expect(response.body.results[0]).toMatchObject({
       documentTitle: 'Employee Handbook',
       matchCount: 1,
-      matches: [{ pageNumber: 2, chunkIndex: 4, excerpt: 'The parental leave policy is generous.', highlights: [{ start: 4, end: 12 }, { start: 13, end: 18 }] }],
+      matches: [
+        {
+          pageNumber: 2,
+          chunkIndex: 4,
+          excerpt: 'The parental leave policy is generous.',
+          highlights: [
+            { start: 4, end: 12 },
+            { start: 13, end: 18 },
+          ],
+        },
+      ],
     });
     expect(response.body.results[0].score).toBeGreaterThan(0);
   });
@@ -187,7 +203,10 @@ describe('search (e2e)', () => {
   it('groups multiple chunks from one document', async () => {
     const { token } = await registerUser();
     const organizationId = await createOrganization(token, 'Grouped Search');
-    const documentId = await seedReadyChunk(organizationId, 'parental leave policy');
+    const documentId = await seedReadyChunk(
+      organizationId,
+      'parental leave policy',
+    );
     await prisma.$executeRaw`
       INSERT INTO "DocumentChunk"
         ("id", "documentId", "organizationId", "documentGeneration", "pageNumber",
@@ -196,9 +215,16 @@ describe('search (e2e)', () => {
         5, 'parental leave benefits', 23, ${vectorLiteral(basis(0))}::vector, now(), now())
     `;
 
-    const response = await search(token, organizationId, 'parental leave').expect(200);
+    const response = await search(
+      token,
+      organizationId,
+      'parental leave',
+    ).expect(200);
     expect(response.body.results).toHaveLength(1);
-    expect(response.body.results[0]).toMatchObject({ documentId, matchCount: 2 });
+    expect(response.body.results[0]).toMatchObject({
+      documentId,
+      matchCount: 2,
+    });
     expect(response.body.results[0].matches).toHaveLength(2);
   });
 
@@ -209,13 +235,29 @@ describe('search (e2e)', () => {
     const ownDocument = await seedReadyChunk(organizationId, 'parental leave');
     const otherDocument = await seedReadyChunk(otherId, 'parental leave');
     const endpoint = `/organizations/${organizationId}/search`;
-    const filtered = await request(app.getHttpServer()).get(endpoint)
-      .query({ q: 'parental leave', documentIds: ownDocument, createdAfter: '2000-01-01' })
-      .set(bearer(token)).expect(200);
-    expect(filtered.body.results.map((result: { documentId: string }) => result.documentId)).toEqual([ownDocument]);
-    const isolated = await request(app.getHttpServer()).get(endpoint)
-      .query({ q: 'parental leave', documentIds: otherDocument, createdAfter: '2000-01-01' })
-      .set(bearer(token)).expect(200);
+    const filtered = await request(app.getHttpServer())
+      .get(endpoint)
+      .query({
+        q: 'parental leave',
+        documentIds: ownDocument,
+        createdAfter: '2000-01-01',
+      })
+      .set(bearer(token))
+      .expect(200);
+    expect(
+      filtered.body.results.map(
+        (result: { documentId: string }) => result.documentId,
+      ),
+    ).toEqual([ownDocument]);
+    const isolated = await request(app.getHttpServer())
+      .get(endpoint)
+      .query({
+        q: 'parental leave',
+        documentIds: otherDocument,
+        createdAfter: '2000-01-01',
+      })
+      .set(bearer(token))
+      .expect(200);
     expect(isolated.body.results).toEqual([]);
   });
 
@@ -240,7 +282,10 @@ describe('search (e2e)', () => {
   it('rejects a non-member with 403', async () => {
     const owner = await registerUser();
     const outsider = await registerUser();
-    const organizationId = await createOrganization(owner.token, 'Scoped Search');
+    const organizationId = await createOrganization(
+      owner.token,
+      'Scoped Search',
+    );
 
     await search(outsider.token, organizationId, 'parental leave').expect(403);
   });

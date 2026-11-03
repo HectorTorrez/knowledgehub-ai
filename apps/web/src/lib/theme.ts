@@ -29,5 +29,7 @@ export function applyTheme(theme: Theme): void {
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute('content', THEME_COLORS[theme]);
   window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-  window.dispatchEvent(new CustomEvent<Theme>(THEME_CHANGE_EVENT, { detail: theme }));
+  window.dispatchEvent(
+    new CustomEvent<Theme>(THEME_CHANGE_EVENT, { detail: theme }),
+  );
 }

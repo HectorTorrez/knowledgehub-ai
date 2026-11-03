@@ -77,7 +77,9 @@ const PROCESSING_FAILED_REASON: ProcessingFailureReason = 'PROCESSING_FAILED';
 export class ProcessingJobService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async claimNextDueJob(workerId: string): Promise<ClaimedProcessingJob | null> {
+  async claimNextDueJob(
+    workerId: string,
+  ): Promise<ClaimedProcessingJob | null> {
     const rows = await this.prisma.$queryRaw<ClaimedProcessingJob[]>`
       UPDATE "DocumentProcessingJob"
       SET state = 'CLAIMED',
@@ -307,7 +309,9 @@ export class ProcessingJobService {
       }
 
       const reason: ProcessingFailureReason =
-        failure.category === 'permanent' ? failure.reason : PROCESSING_FAILED_REASON;
+        failure.category === 'permanent'
+          ? failure.reason
+          : PROCESSING_FAILED_REASON;
 
       await tx.$executeRaw`
         UPDATE "DocumentProcessingJob"

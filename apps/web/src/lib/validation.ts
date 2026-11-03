@@ -26,7 +26,10 @@ const email = z
   .string()
   .trim()
   .min(1, 'Email is required.')
-  .max(EMAIL_MAX_LENGTH, `Email must be at most ${EMAIL_MAX_LENGTH} characters.`)
+  .max(
+    EMAIL_MAX_LENGTH,
+    `Email must be at most ${EMAIL_MAX_LENGTH} characters.`,
+  )
   .pipe(z.email('Enter a valid email address.'));
 
 export const loginFormSchema = z.object({
@@ -34,25 +37,40 @@ export const loginFormSchema = z.object({
   password: z
     .string()
     .min(1, 'Password is required.')
-    .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`),
+    .max(
+      PASSWORD_MAX_LENGTH,
+      `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`,
+    ),
 });
 
 export const registerFormSchema = z.object({
   email,
   password: z
     .string()
-    .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`)
-    .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`),
+    .min(
+      PASSWORD_MIN_LENGTH,
+      `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`,
+    )
+    .max(
+      PASSWORD_MAX_LENGTH,
+      `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`,
+    ),
   firstName: z
     .string()
     .trim()
     .min(1, 'First name is required.')
-    .max(NAME_MAX_LENGTH, `First name must be at most ${NAME_MAX_LENGTH} characters.`),
+    .max(
+      NAME_MAX_LENGTH,
+      `First name must be at most ${NAME_MAX_LENGTH} characters.`,
+    ),
   lastName: z
     .string()
     .trim()
     .min(1, 'Last name is required.')
-    .max(NAME_MAX_LENGTH, `Last name must be at most ${NAME_MAX_LENGTH} characters.`),
+    .max(
+      NAME_MAX_LENGTH,
+      `Last name must be at most ${NAME_MAX_LENGTH} characters.`,
+    ),
 });
 
 export const profileFormSchema = z.object({
@@ -60,12 +78,18 @@ export const profileFormSchema = z.object({
     .string()
     .trim()
     .min(1, 'First name is required.')
-    .max(NAME_MAX_LENGTH, `First name must be at most ${NAME_MAX_LENGTH} characters.`),
+    .max(
+      NAME_MAX_LENGTH,
+      `First name must be at most ${NAME_MAX_LENGTH} characters.`,
+    ),
   lastName: z
     .string()
     .trim()
     .min(1, 'Last name is required.')
-    .max(NAME_MAX_LENGTH, `Last name must be at most ${NAME_MAX_LENGTH} characters.`),
+    .max(
+      NAME_MAX_LENGTH,
+      `Last name must be at most ${NAME_MAX_LENGTH} characters.`,
+    ),
 });
 
 export const changePasswordFormSchema = z
@@ -97,7 +121,10 @@ export const organizationNameSchema = z.object({
     .string()
     .trim()
     .min(1, 'Organization name is required.')
-    .max(NAME_MAX_LENGTH, `Organization name must be at most ${NAME_MAX_LENGTH} characters.`),
+    .max(
+      NAME_MAX_LENGTH,
+      `Organization name must be at most ${NAME_MAX_LENGTH} characters.`,
+    ),
 });
 
 export const memberEmailSchema = z.object({
