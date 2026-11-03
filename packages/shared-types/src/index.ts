@@ -477,6 +477,7 @@ export interface AnswerFeedbackResponse {
 
 /** Full persisted answer, including prose and citations when `answered`. */
 export interface AnswerDetail {
+  missing?: string[];
   id: string;
   question: string;
   status: AnswerResponse['status'];

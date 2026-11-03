@@ -24,6 +24,7 @@ export function AnswerActions({
   answer,
   status,
   citations,
+  missing = [],
 }: Readonly<{
   organizationId: string;
   answerId?: string;
@@ -31,6 +32,7 @@ export function AnswerActions({
   answer: string | null;
   status: AnswerResponse['status'];
   citations: AnswerCitation[];
+  missing?: string[];
 }>) {
   const { toast } = useToast();
   const [copied, setCopied] = useState<'answer' | 'link' | null>(null);
@@ -66,7 +68,7 @@ export function AnswerActions({
         title="Copy answer"
         onClick={() =>
           void copy(
-            buildAnswerMarkdown({ question, answer, status, citations }),
+            buildAnswerMarkdown({ question, answer, status, citations, missing }),
             'answer',
           )
         }

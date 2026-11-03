@@ -253,3 +253,14 @@ export function AnswerSources({
     </div>
   );
 }
+
+export function PartialAnswerNotice({ missing }: Readonly<{ missing: string[] }>) {
+  return (
+    <section aria-label="Missing information" className="rounded-md border p-3 text-sm">
+      <p className="font-medium">Partial answer — missing information</p>
+      <ul className="mt-1 list-disc pl-5">
+        {missing.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+      </ul>
+    </section>
+  );
+}
