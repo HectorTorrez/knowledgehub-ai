@@ -8,7 +8,7 @@ const chunks = [{ chunkIndex: 0, pageNumber: 1, content: 'text' }];
 
 function setup(enabled = true) {
   const tx = { $queryRaw: vi.fn(async () => [] as { id: string }[]), documentSummary: { upsert: vi.fn() }, document: { updateMany: vi.fn() } };
-  const prisma = { $transaction: vi.fn(async (fn: (value: typeof tx) => Promise<void>) => fn(tx)), document: { updateMany: vi.fn() } };
+  const prisma = { $transaction: vi.fn(async (fn: (value: typeof tx) => Promise<void>) => fn(tx)), document: { updateMany: vi.fn(), findMany: vi.fn() }, documentChunk: { findMany: vi.fn() } };
   const summarizer = { summarize: vi.fn(async () => ({ summary: 'summary', keyTopics: [] })) };
   const config = { get: (key: string) => key === 'SUMMARIES_ENABLED' ? (enabled ? 'true' : 'false') : undefined, getOrThrow: () => 'model' };
   return { service: new SummariesService(config as unknown as ConfigService, prisma as unknown as PrismaService, summarizer), tx, prisma, summarizer };
@@ -28,6 +28,17 @@ describe('SummariesService', () => {
     summarizer.summarize.mockRejectedValue(new Error('failed'));
     await service.summarize(target, chunks);
     expect(prisma.document.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'doc', organizationId: 'org', generation: 2 }), data: expect.objectContaining({ summaryStatus: 'FAILED' }) }));
+  });
+
+  it('backfills pending documents using tenant and generation scoped chunks', async () => {
+    const { service, prisma, summarizer } = setup();
+    prisma.document.findMany.mockResolvedValueOnce([{ id: 'doc', organizationId: 'org', generation: 2 }]).mockResolvedValueOnce([]);
+    prisma.documentChunk.findMany.mockResolvedValueOnce(chunks);
+    service.onModuleInit();
+    await vi.waitFor(() => expect(prisma.document.findMany).toHaveBeenCalledTimes(2));
+    await service.onModuleDestroy();
+    expect(prisma.documentChunk.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: target }));
+    expect(summarizer.summarize).toHaveBeenCalledOnce();
   });
 
   it('does nothing when disabled', async () => {
