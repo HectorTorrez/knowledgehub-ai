@@ -1072,6 +1072,8 @@ Answer settings live in `apps/api/.env`; see `apps/api/.env.example`.
 | --- | --- | --- |
 | `ANSWERS_ENABLED` | `false` | Mounts answer generation. Requires `OPENAI_API_KEY` when `true`. |
 | `ANSWER_MODEL` | `gpt-4.1-mini` | Completion model. |
+| `QUERY_REWRITE_ENABLED` | `true` | Rewrite follow-up questions for retrieval. |
+| `QUERY_REWRITE_MODEL` | `ANSWER_MODEL` | Model used to rewrite follow-up questions. |
 | `ANSWER_TIMEOUT_MS` | `30000` | Timeout for one completion. |
 | `ANSWER_MAX_OUTPUT_TOKENS` | `700` | Completion cap (1–4,096). |
 | `ANSWER_MAX_SOURCES` | `14` | Maximum retrieved passages (1–20). |

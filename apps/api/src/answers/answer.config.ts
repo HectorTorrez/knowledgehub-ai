@@ -17,6 +17,14 @@ export class AnswerConfig {
     return this.config.getOrThrow<string>('ANSWER_MODEL');
   }
 
+  get queryRewriteEnabled(): boolean {
+    return this.config.get<string>('QUERY_REWRITE_ENABLED') !== 'false';
+  }
+
+  get queryRewriteModel(): string {
+    return this.config.get<string>('QUERY_REWRITE_MODEL') ?? this.model;
+  }
+
   get timeoutMs(): number {
     return this.config.getOrThrow<number>('ANSWER_TIMEOUT_MS');
   }

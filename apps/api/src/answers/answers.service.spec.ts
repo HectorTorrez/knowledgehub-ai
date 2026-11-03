@@ -77,6 +77,7 @@ const CATALOG_DOCUMENT: CatalogDocumentRow = {
 function createConfig(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     enabled: true,
+    queryRewriteEnabled: true,
     model: 'gpt-4.1-mini',
     maxSources: 8,
     contextMaxChars: 100_000,
@@ -183,6 +184,7 @@ function createService(options: {
   usageImpl?: () => Promise<void>;
   factsEnabled?: boolean;
   aggregateImpl?: AggregationService['contractTotals'];
+  rewriteImpl?: (question: string) => Promise<string>;
 } = {}) {
   const { retrieval, search } = createRetrieval(
     options.retrievalImpl ?? (async () => options.chunks ?? [CHUNK]),
@@ -211,6 +213,7 @@ function createService(options: {
   const factsConfig = {
     enabled: options.factsEnabled ?? false,
   } as unknown as FactsConfig;
+  const rewrite = vi.fn(options.rewriteImpl ?? (async (question: string) => question));
   const service = new AnswersService(
     provider,
     retrieval,
@@ -219,10 +222,12 @@ function createService(options: {
     usage as unknown as UsageService,
     aggregation,
     factsConfig,
+    { rewrite },
   );
 
   return {
     service,
+    rewrite,
     search,
     generate,
     stream,
@@ -665,6 +670,24 @@ describe('AnswersService', () => {
       data: expect.objectContaining({ conversationId: 'conversation-1' }),
     });
     expect(generate).toHaveBeenCalled();
+  });
+
+  it('rewrites only follow-ups for retrieval and preserves the answer question', async () => {
+    const { service, prisma, search, generate, rewrite } = createService({ rewriteImpl: async () => 'standalone query' });
+    await service.answer('org-1', USER_ID, 'first');
+    expect(rewrite).not.toHaveBeenCalled();
+    prisma.answer.findMany.mockResolvedValueOnce([{ question: 'first', answer: 'answer' }]);
+    await service.answer('org-1', USER_ID, 'follow up', 'conversation-1');
+    expect(rewrite).toHaveBeenCalledOnce();
+    expect(JSON.stringify(search.mock.calls.at(-1))).toContain('standalone query');
+    expect(JSON.stringify(generate.mock.calls.at(-1))).toContain('follow up');
+  });
+
+  it('falls back to the original question when rewriting fails', async () => {
+    const { service, prisma, search } = createService({ rewriteImpl: async () => { throw new Error('unavailable'); } });
+    prisma.answer.findMany.mockResolvedValueOnce([{ question: 'first', answer: 'answer' }]);
+    await service.answer('org-1', USER_ID, 'follow up', 'conversation-1');
+    expect(JSON.stringify(search.mock.calls.at(-1))).toContain('follow up');
   });
 
   it('titles the conversation from its first question', async () => {
