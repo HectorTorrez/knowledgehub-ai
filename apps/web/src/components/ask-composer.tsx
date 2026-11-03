@@ -6,13 +6,13 @@ import { DocumentScopeSelect } from '~/components/document-scope-select';
 import { Button } from '~/components/ui/button';
 import { Spinner } from '~/components/ui/spinner';
 import { Textarea } from '~/components/ui/textarea';
-import { ALL_DOCUMENTS } from '~/lib/document-scope';
 import { QUESTION_MAX_LENGTH } from '~/lib/validation';
 
 export function AskComposer({
   organizationId,
   documents,
-  documentId,
+  selection,
+  collections,
   question,
   onQuestionChange,
   onDocumentChange,
@@ -24,7 +24,8 @@ export function AskComposer({
 }: Readonly<{
   organizationId: string;
   documents: DocumentSummary[];
-  documentId: string | undefined;
+  selection: string;
+  collections: { id: string; name: string }[];
   question: string;
   onQuestionChange: (value: string) => void;
   onDocumentChange: (value: string) => void;
@@ -78,7 +79,8 @@ export function AskComposer({
             <DocumentScopeSelect
               variant="compact"
               documents={documents}
-              value={documentId ?? ALL_DOCUMENTS}
+              collections={collections}
+              value={selection}
               onValueChange={onDocumentChange}
               disabled={documentsPending || streaming}
             />
@@ -106,11 +108,7 @@ export function AskComposer({
                   className="rounded-full"
                   disabled={submitting || question.trim().length === 0}
                 >
-                  {submitting ? (
-                    <Spinner />
-                  ) : (
-                    <ArrowUp />
-                  )}
+                  {submitting ? <Spinner /> : <ArrowUp />}
                 </Button>
               )}
             </div>

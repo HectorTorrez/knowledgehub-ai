@@ -4,6 +4,7 @@ interface DocumentListFilters {
   q?: string;
   status?: DocumentStatus;
   order?: 'createdAt_desc' | 'createdAt_asc';
+  collectionId?: string;
 }
 
 function documentsListKey(
@@ -26,6 +27,7 @@ function documentsListKey(
     filters.q ?? '',
     filters.status ?? '',
     filters.order ?? 'createdAt_desc',
+    filters.collectionId ?? '',
   ] as const;
 }
 
@@ -43,6 +45,8 @@ export const queryKeys = {
       list: (organizationId: string) =>
         ['organizations', organizationId, 'invitations', 'list'] as const,
     },
+    collections: (organizationId: string) =>
+      ['organizations', organizationId, 'collections'] as const,
     documents: {
       all: (organizationId: string) =>
         ['organizations', organizationId, 'documents'] as const,

@@ -16,6 +16,7 @@ function documentsPath(organizationId: string): string {
 }
 
 export interface ListDocumentsOptions extends RequestOptions {
+  collectionId?: string;
   cursor?: string;
   limit?: number;
   q?: string;
@@ -29,6 +30,9 @@ export const documentsApi = {
     options: ListDocumentsOptions = {},
   ): Promise<DocumentListResponse> {
     const params = new URLSearchParams();
+    if (options.collectionId) {
+      params.set('collectionId', options.collectionId);
+    }
     if (options.limit !== undefined) {
       params.set('limit', String(options.limit));
     }

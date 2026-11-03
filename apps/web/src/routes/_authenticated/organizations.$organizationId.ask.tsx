@@ -1,3 +1,4 @@
+import { collectionsApi } from '~/lib/api/collections';
 import type { ConversationSummary } from '@knowledgehub/shared-types';
 import {
   useInfiniteQuery,
@@ -58,7 +59,12 @@ import { answersApi } from '~/lib/api/answers';
 import { clearAskDraft, readAskDraft, writeAskDraft } from '~/lib/ask-draft';
 import { conversationsApi } from '~/lib/api/conversations';
 import { queryKeys } from '~/lib/api/query-keys';
-import { ALL_DOCUMENTS, resolveDocumentScope } from '~/lib/document-scope';
+import {
+  ALL_DOCUMENTS,
+  collectionSelection,
+  selectedCollectionId,
+  resolveDocumentScope,
+} from '~/lib/document-scope';
 import { formatDateTime } from '~/lib/format';
 import { pageHead } from '~/lib/seo';
 import { questionSchema } from '~/lib/validation';
@@ -78,6 +84,7 @@ export const Route = createFileRoute(
     answer?: string;
     q?: string;
     documentId?: string;
+    collectionId?: string;
     conversation?: string;
   } => ({
     answer:
@@ -93,6 +100,8 @@ export const Route = createFileRoute(
       search.documentId.trim().length > 0
         ? search.documentId
         : undefined,
+    collectionId:
+      typeof search.collectionId === 'string' ? search.collectionId : undefined,
     conversation:
       typeof search.conversation === 'string' &&
       search.conversation.trim().length > 0
@@ -114,6 +123,7 @@ function AskPage() {
     answer: permalinkAnswerId,
     q: presetQuestion,
     documentId: presetDocumentId,
+    collectionId: presetCollectionId,
     conversation: presetConversationId,
   } = Route.useSearch();
   const search = Route.useSearch();
@@ -123,7 +133,11 @@ function AskPage() {
   const [question, setQuestion] = useState(
     () => presetQuestion ?? readAskDraft(organizationId, presetConversationId),
   );
-  const [selection, setSelection] = useState(presetDocumentId ?? ALL_DOCUMENTS);
+  const [selection, setSelection] = useState(
+    presetCollectionId
+      ? collectionSelection(presetCollectionId)
+      : (presetDocumentId ?? ALL_DOCUMENTS),
+  );
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
   >(presetConversationId ?? null);
@@ -144,8 +158,28 @@ function AskPage() {
     );
   }, [organizationId, presetConversationId, presetQuestion]);
 
+  useEffect(() => {
+    setSelection(
+      presetCollectionId
+        ? collectionSelection(presetCollectionId)
+        : (presetDocumentId ?? ALL_DOCUMENTS),
+    );
+  }, [organizationId, presetCollectionId, presetDocumentId]);
+
   const ready = useReadyDocuments(organizationId);
-  const scope = resolveDocumentScope(selection, ready.documents);
+  const collections = useQuery({
+    queryKey: queryKeys.organizations.collections(organizationId),
+    queryFn: () => collectionsApi.list(organizationId),
+  });
+  const collectionId = selectedCollectionId(selection);
+  const selectedCollection = (collections.data ?? []).find(
+    (item) => item.id === collectionId,
+  );
+  const scope = selectedCollection
+    ? { documentId: undefined, label: `“${selectedCollection.name}”` }
+    : collectionId
+      ? { documentId: undefined, label: 'the selected collection' }
+      : resolveDocumentScope(selection, ready.documents);
   const stream = useAnswerStream(organizationId);
   const reportError = useReportError();
 
@@ -260,7 +294,12 @@ function AskPage() {
     clearAskDraft(organizationId, conversationId);
     setQuestion('');
 
-    await stream.ask(questionText, scope.documentId, conversationId);
+    await stream.ask(
+      questionText,
+      scope.documentId,
+      conversationId,
+      collectionId ? [collectionId] : undefined,
+    );
   }
 
   function updateConversationSearch(conversationId: string | undefined) {
@@ -487,10 +526,26 @@ function AskPage() {
             <AskComposer
               organizationId={organizationId}
               documents={ready.documents}
-              documentId={scope.documentId}
+              selection={selection}
+              collections={collections.data ?? []}
               question={question}
               onQuestionChange={changeQuestion}
-              onDocumentChange={setSelection}
+              onDocumentChange={(value) => {
+                setSelection(value);
+                void navigate({
+                  to: '/organizations/$organizationId/ask',
+                  params: { organizationId },
+                  search: {
+                    ...search,
+                    documentId:
+                      value !== ALL_DOCUMENTS && !selectedCollectionId(value)
+                        ? value
+                        : undefined,
+                    collectionId: selectedCollectionId(value),
+                  },
+                  replace: true,
+                });
+              }}
               onSubmit={() => void submit()}
               onStop={stream.cancel}
               streaming={streaming}

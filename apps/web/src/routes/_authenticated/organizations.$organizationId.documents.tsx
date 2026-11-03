@@ -30,6 +30,11 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
+import {
+  CollectionBadges,
+  CollectionsManager,
+} from '~/components/collections-manager';
+import { collectionsApi } from '~/lib/api/collections';
 import { DocumentProgress } from '~/components/document-progress';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
@@ -155,6 +160,11 @@ function DocumentsPage() {
   const [queryDraft, setQueryDraft] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(ALL_STATUSES);
+  const [collectionId, setCollectionId] = useState('all');
+  const collections = useQuery({
+    queryKey: queryKeys.organizations.collections(organizationId),
+    queryFn: () => collectionsApi.list(organizationId),
+  });
   const [order, setOrder] = useState<DocumentOrder>('createdAt_desc');
 
   useEffect(() => {
@@ -169,8 +179,10 @@ function DocumentsPage() {
     ...(query.length > 0 ? { q: query } : {}),
     ...(statusFilter === ALL_STATUSES ? {} : { status: statusFilter }),
     order,
+    ...(collectionId === 'all' ? {} : { collectionId }),
   };
   const hasFilters =
+    collectionId !== 'all' ||
     query.length > 0 ||
     statusFilter !== ALL_STATUSES ||
     order !== 'createdAt_desc';
@@ -475,6 +487,7 @@ function DocumentsPage() {
     setQuery('');
     setStatusFilter(ALL_STATUSES);
     setOrder('createdAt_desc');
+    setCollectionId('all');
   }
 
   return (
@@ -485,7 +498,13 @@ function DocumentsPage() {
             title="Documents"
             description="Upload documents and ask questions grounded in their contents."
             action={
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {canWrite ? (
+                  <CollectionsManager
+                    organizationId={organizationId}
+                    collections={collections.data ?? []}
+                  />
+                ) : null}
                 <Button
                   variant="outline"
                   size="icon"
@@ -537,6 +556,22 @@ function DocumentsPage() {
                   </Button>
                 ) : null}
               </div>
+              <Select value={collectionId} onValueChange={setCollectionId}>
+                <SelectTrigger
+                  className="w-full sm:w-44"
+                  aria-label="Filter by collection"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All collections</SelectItem>
+                  {(collections.data ?? []).map((collection) => (
+                    <SelectItem key={collection.id} value={collection.id}>
+                      {collection.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select
                 value={statusFilter}
                 onValueChange={(value) =>
@@ -682,6 +717,9 @@ function DocumentsPage() {
                                 {` · ${formatDate(document.createdAt)}`}
                               </span>
                             </span>
+                            <CollectionBadges
+                              collections={document.collections ?? []}
+                            />
                             <DocumentProgress document={document} />
                             {document.status === 'FAILED' ? (
                               <span className="mt-1 block text-xs break-words text-destructive">

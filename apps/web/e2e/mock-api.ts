@@ -35,6 +35,7 @@ const ORGANIZATION = {
 };
 
 const DOCUMENT = {
+  collections: [],
   id: 'doc-1',
   title: 'Handbook',
   status: 'READY',
@@ -83,6 +84,13 @@ function json(
 export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
   let authenticated = options.authenticated;
   let documentRequests = 0;
+  let collections: Array<{
+    id: string;
+    name: string;
+    color: string;
+    documentCount: number;
+  }> = [];
+  let assigned: string[] = [];
   const conversations = [
     {
       id: 'conversation-1',
@@ -120,7 +128,10 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
         processingStage: 'PROCESSING',
       };
     }
-    return DOCUMENT;
+    return {
+      ...DOCUMENT,
+      collections: collections.filter((item) => assigned.includes(item.id)),
+    };
   }
   const organization =
     options.role === 'VIEWER'
@@ -153,12 +164,22 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     const method = request.method();
 
     if (path === '/auth/me/export') {
-      await route.fulfill(json({ profile: USER, memberships: [], conversations: [], answers: [], feedback: [] }));
+      await route.fulfill(
+        json({
+          profile: USER,
+          memberships: [],
+          conversations: [],
+          answers: [],
+          feedback: [],
+        }),
+      );
       return;
     }
     if (path === '/auth/me' && method === 'DELETE') {
       if (options.deletionBlocked) {
-        await route.fulfill(json({ organizations: [{ id: 'org-1', name: 'Acme' }] }, 409));
+        await route.fulfill(
+          json({ organizations: [{ id: 'org-1', name: 'Acme' }] }, 409),
+        );
       } else {
         authenticated = false;
         await route.fulfill({ status: 204, body: '' });
@@ -335,11 +356,58 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === '/organizations/org-1/collections') {
+      if (method === 'POST') {
+        const item = {
+          ...request.postDataJSON(),
+          id: 'collection-1',
+          documentCount: 0,
+        };
+        collections.push(item);
+        await route.fulfill(json(item, 201));
+      } else {
+        await route.fulfill(json(collections));
+      }
+      return;
+    }
+    const collectionMatch =
+      /^\/organizations\/org-1\/collections\/([^/]+)$/.exec(path);
+    if (collectionMatch) {
+      if (method === 'DELETE') {
+        collections = collections.filter(
+          (item) => item.id !== collectionMatch[1],
+        );
+        assigned = assigned.filter((id) => id !== collectionMatch[1]);
+        await route.fulfill({ status: 204 });
+      } else {
+        const item = collections.find(
+          (entry) => entry.id === collectionMatch[1],
+        );
+        Object.assign(item!, request.postDataJSON());
+        await route.fulfill(json(item));
+      }
+      return;
+    }
+    if (
+      path === `/organizations/org-1/documents/${DOCUMENT.id}/collections` &&
+      method === 'PUT'
+    ) {
+      assigned = request.postDataJSON().collectionIds;
+      await route.fulfill({ status: 204 });
+      return;
+    }
+
     if (path === '/organizations/org-1/documents') {
       const failedOnly = url.searchParams.get('status') === 'FAILED';
       await route.fulfill(
         json({
-          documents: failedOnly || options.empty ? [] : [DOCUMENT],
+          documents:
+            failedOnly ||
+            options.empty ||
+            (url.searchParams.has('collectionId') &&
+              !assigned.includes(url.searchParams.get('collectionId')!))
+              ? []
+              : [currentDocument()],
           nextCursor: null,
         }),
       );

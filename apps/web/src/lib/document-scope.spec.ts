@@ -2,6 +2,8 @@ import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   ALL_DOCUMENTS,
+  collectionSelection,
+  selectedCollectionId,
   readyDocuments,
   resolveDocumentScope,
 } from './document-scope';
@@ -51,10 +53,12 @@ describe('resolveDocumentScope', () => {
   });
 
   it('falls back to all documents for a document that is not ready', () => {
-    expect(resolveDocumentScope('doc-processing', [READY, PROCESSING])).toEqual({
-      documentId: undefined,
-      label: 'all documents',
-    });
+    expect(resolveDocumentScope('doc-processing', [READY, PROCESSING])).toEqual(
+      {
+        documentId: undefined,
+        label: 'all documents',
+      },
+    );
   });
 
   it('falls back to all documents for an unknown document id', () => {
@@ -62,5 +66,15 @@ describe('resolveDocumentScope', () => {
       documentId: undefined,
       label: 'all documents',
     });
+  });
+});
+
+describe('collection scope serialization', () => {
+  it('round trips collection IDs and rejects document selections', () => {
+    expect(selectedCollectionId(collectionSelection('collection-id'))).toBe(
+      'collection-id',
+    );
+    expect(selectedCollectionId('document-id')).toBeUndefined();
+    expect(selectedCollectionId('collection:')).toBeUndefined();
   });
 });

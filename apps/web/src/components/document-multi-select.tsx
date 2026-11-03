@@ -24,19 +24,25 @@ export function DocumentMultiSelect({
   selectedIds,
   onChange,
   maxSelected = 20,
+  label = 'Documents',
+  emptyLabel = 'All ready documents',
+  disabled = false,
 }: Readonly<{
   documents: ReadonlyArray<DocumentOption>;
   selectedIds: ReadonlyArray<string>;
   onChange: (next: Array<string>) => void;
   maxSelected?: number;
+  label?: string;
+  emptyLabel?: string;
+  disabled?: boolean;
 }>) {
   const labelId = useId();
   const summary =
     selectedIds.length === 0
-      ? 'All ready documents'
+      ? emptyLabel
       : selectedIds.length === 1
-        ? (documents.find((document) => document.id === selectedIds[0])?.title ??
-          '1 document selected')
+        ? (documents.find((document) => document.id === selectedIds[0])
+            ?.title ?? '1 document selected')
         : `${selectedIds.length} documents selected`;
 
   const atLimit = selectedIds.length >= maxSelected;
@@ -54,7 +60,7 @@ export function DocumentMultiSelect({
 
   return (
     <div className="space-y-1.5">
-      <Label id={labelId}>Documents</Label>
+      <Label id={labelId}>{label}</Label>
       <Popover>
         <PopoverTrigger asChild>
           <Button
@@ -62,7 +68,7 @@ export function DocumentMultiSelect({
             variant="outline"
             role="combobox"
             aria-labelledby={labelId}
-            disabled={documents.length === 0}
+            disabled={disabled || documents.length === 0}
             className="w-full justify-between font-normal sm:w-64"
           >
             <span className="truncate">{summary}</span>
@@ -75,11 +81,11 @@ export function DocumentMultiSelect({
         >
           <Command>
             <CommandInput
-              placeholder="Search documents…"
-              aria-label="Search documents"
+              placeholder={`Search ${label.toLowerCase()}…`}
+              aria-label={`Search ${label.toLowerCase()}`}
             />
             <CommandList>
-              <CommandEmpty>No ready documents match.</CommandEmpty>
+              <CommandEmpty>No matches.</CommandEmpty>
               <CommandGroup>
                 {documents.map((document) => {
                   const selected = selectedIds.includes(document.id);
