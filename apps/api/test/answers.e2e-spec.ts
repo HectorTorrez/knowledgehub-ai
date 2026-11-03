@@ -688,6 +688,30 @@ describe('answers (e2e)', () => {
     expect(prompt.user).not.toContain('OTHER_DOCUMENT_PASSAGE');
   });
 
+  it('includes every current page of a scoped document and excludes foreign and stale chunks', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Whole Document Org');
+    const otherId = await createOrganization(token, 'Whole Document Other Org');
+    const documentId = await seedDocument(organizationId, { generation: 2 });
+    const foreignId = await seedDocument(otherId);
+    for (const chunk of [
+      { documentId, organizationId, documentGeneration: 2, pageNumber: 1, chunkIndex: 0, content: 'FIRST_PAGE' },
+      { documentId, organizationId, documentGeneration: 2, pageNumber: 2, chunkIndex: 1, content: 'SECOND_PAGE' },
+      { documentId, organizationId, documentGeneration: 1, pageNumber: 1, chunkIndex: 0, content: 'STALE_PAGE' },
+      { documentId: foreignId, organizationId: otherId, documentGeneration: 1, pageNumber: 1, chunkIndex: 0, content: 'FOREIGN_PAGE' },
+    ]) await seedChunk({ ...chunk, embedding: basis(0) });
+    answerProvider.generateImpl = async () => draft({ status: 'answered', claims: [
+      { text: 'First.', source: 1 }, { text: 'Second.', source: 2 },
+    ] });
+    const response = await ask(token, organizationId, { question: 'Summarize this document', documentId }).expect(200);
+    expect(response.body.citations.map((citation: { pageNumber: number }) => citation.pageNumber)).toEqual([1, 2]);
+    const prompt = answerProvider.calls[0]!.prompt.user;
+    expect(prompt).toContain('FIRST_PAGE');
+    expect(prompt).toContain('SECOND_PAGE');
+    expect(prompt).not.toContain('STALE_PAGE');
+    expect(prompt).not.toContain('FOREIGN_PAGE');
+  });
+
   it('rejects a documentId outside the organization with 404 without calling the provider', async () => {
     const owner = await registerUser();
     const other = await registerUser();

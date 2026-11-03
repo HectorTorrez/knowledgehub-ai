@@ -142,7 +142,7 @@ async function collectStream(
 
 function createPrisma() {
   return {
-    $queryRaw: vi.fn(async (_query: { strings: string[]; values: unknown[] }) => []),
+    $queryRaw: vi.fn(async (_query: { strings: string[]; values: unknown[] }): Promise<unknown[]> => []),
     answer: {
       create: vi.fn(async (_args?: unknown) => ({})),
       findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
@@ -372,6 +372,19 @@ describe('AnswersService', () => {
       limit: 8,
       documentId: 'doc-9',
     });
+  });
+
+  it('uses whole-document sources without retrieval when they fit', async () => {
+    const { service, search, prisma } = createService();
+    prisma.$queryRaw.mockResolvedValueOnce([{
+      chunkId: 'chunk-1', documentId: 'doc-9', documentTitle: 'Document',
+      pageNumber: 1, chunkIndex: 0, content: 'Complete page',
+    }]);
+    await service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9');
+    expect(search).not.toHaveBeenCalled();
+    const query = prisma.$queryRaw.mock.calls[0]![0];
+    expect(query.strings.join('?')).toContain('c."documentGeneration" = d.generation');
+    expect(query.values).toContain('org-1');
   });
 
   it('does not check a document when the question is unscoped', async () => {
