@@ -62,7 +62,7 @@ function bearer(token: string): { Authorization: string } {
 
 function draft(value: unknown) {
   return {
-    draft: value,
+    draft: typeof value === 'object' && value !== null && 'claims' in value ? { missing: [], ...value } : value,
     usage: { inputTokens: null, outputTokens: null },
   };
 }
@@ -329,6 +329,17 @@ describe('answers (e2e)', () => {
     }
 
     expect(answerProvider.calls).toHaveLength(0);
+  });
+
+  it('returns and persists a partial answer', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Partial Org');
+    await seedReadyChunk(organizationId, 'Retries are bounded.');
+    answerProvider.generateImpl = async () => draft({ status: 'partial', claims: [{ text: 'Retries are bounded.', source: 1 }], missing: ['Retry interval'] });
+    const response = await ask(token, organizationId, { question: 'What are the retry limits and interval?' }).expect(200);
+    expect(response.body).toMatchObject({ status: 'partial', answer: 'Retries are bounded [1].', missing: ['Retry interval'] });
+    const saved = await prisma.answer.findFirstOrThrow({ where: { organizationId } });
+    expect(saved).toMatchObject({ status: 'partial', missing: ['Retry interval'] });
   });
 
   it('answers from the organization\u2019s READY passages with server-derived citations', async () => {

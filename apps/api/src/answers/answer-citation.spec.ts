@@ -86,11 +86,23 @@ describe('buildCitations', () => {
 describe('validateAnswerContract', () => {
   const sources = [source(1), source(2)];
 
+  it('accepts grounded partial answers and normalizes missing items', () => {
+    expect(validateAnswerContract({ status: 'partial', claims: [{ text: 'Known.', source: 1 }], missing: ['  Unknown date  ', ' '] }, sources)).toEqual({ ok: true, status: 'partial', answer: 'Known [1].', markers: [1], missing: ['Unknown date'] });
+  });
+
+  it.each([[], [' '.repeat(2)], ['x'.repeat(201)], Array(6).fill('x')])('rejects invalid partial missing items', (missing) => {
+    expect(validateAnswerContract({ status: 'partial', claims: [{ text: 'Known.', source: 1 }], missing }, sources)).toMatchObject({ ok: false });
+  });
+
+  it('rejects missing items for answered responses', () => {
+    expect(validateAnswerContract({ status: 'answered', claims: [{ text: 'Known.', source: 1 }], missing: ['Unknown'] }, sources)).toMatchObject({ ok: false });
+  });
+
   it('renders an answered response from its claims and derives the markers', () => {
     expect(
       validateAnswerContract(
         {
-          status: 'answered',
+          status: 'answered', missing: [],
           claims: [
             { text: 'Bounded retries.', source: 1 },
             { text: 'Leases are time-limited.', source: 2 },
@@ -109,7 +121,7 @@ describe('validateAnswerContract', () => {
   it('appends the marker when a claim has no sentence punctuation', () => {
     const result = validateAnswerContract(
       {
-        status: 'answered',
+        status: 'answered', missing: [],
         claims: [{ text: 'torrezhectorb@gmail.com', source: 1 }],
       },
       sources,
@@ -121,7 +133,7 @@ describe('validateAnswerContract', () => {
   it('de-duplicates repeated markers in the accepted response', () => {
     const result = validateAnswerContract(
       {
-        status: 'answered',
+        status: 'answered', missing: [],
         claims: [
           { text: 'First.', source: 1 },
           { text: 'Again.', source: 1 },
@@ -136,7 +148,7 @@ describe('validateAnswerContract', () => {
   it('drops a repeated sentence while keeping its first source', () => {
     const result = validateAnswerContract(
       {
-        status: 'answered',
+        status: 'answered', missing: [],
         claims: [
           { text: 'The same sentence.', source: 1 },
           { text: 'The same sentence.', source: 2 },
@@ -155,7 +167,7 @@ describe('validateAnswerContract', () => {
 
   it('trims claim text before rendering', () => {
     const result = validateAnswerContract(
-      { status: 'answered', claims: [{ text: '  Alpha.  ', source: 1 }] },
+      { status: 'answered', missing: [], claims: [{ text: '  Alpha.  ', source: 1 }] },
       sources,
     );
 
@@ -165,7 +177,7 @@ describe('validateAnswerContract', () => {
   it('accepts a refusal that carries no claims', () => {
     expect(
       validateAnswerContract(
-        { status: 'insufficient_evidence', claims: null },
+        { status: 'insufficient_evidence', missing: [], claims: null },
         sources,
       ),
     ).toEqual({ ok: true, status: 'insufficient_evidence' });
@@ -191,7 +203,7 @@ describe('validateAnswerContract', () => {
     expect(
       validateAnswerContract(
         {
-          status: 'answered',
+          status: 'answered', missing: [],
           claims: [{ text: 'Alpha.', source: 1 }],
           extra: true,
         },
@@ -202,7 +214,7 @@ describe('validateAnswerContract', () => {
 
   it('fails closed on an unexpected status', () => {
     expect(
-      validateAnswerContract({ status: 'maybe', claims: null }, sources),
+      validateAnswerContract({ status: 'maybe', claims: null, missing: [] }, sources),
     ).toMatchObject({ ok: false, violation: { reason: 'UNEXPECTED_STATUS' } });
   });
 
@@ -210,21 +222,21 @@ describe('validateAnswerContract', () => {
     'fails closed when an answered response carries no claim list: %j',
     (claims) => {
       expect(
-        validateAnswerContract({ status: 'answered', claims }, sources),
+        validateAnswerContract({ status: 'answered', claims, missing: [] }, sources),
       ).toMatchObject({ ok: false, violation: { reason: 'NO_CLAIMS' } });
     },
   );
 
   it('fails closed when an answered response carries an empty claim list', () => {
     expect(
-      validateAnswerContract({ status: 'answered', claims: [] }, sources),
+      validateAnswerContract({ status: 'answered', missing: [], claims: [] }, sources),
     ).toMatchObject({ ok: false, violation: { reason: 'NO_CLAIMS' } });
   });
 
   it('fails closed on a claim that is not an object', () => {
     expect(
       validateAnswerContract(
-        { status: 'answered', claims: ['Alpha.'] },
+        { status: 'answered', missing: [], claims: ['Alpha.'] },
         sources,
       ),
     ).toMatchObject({ ok: false, violation: { reason: 'INVALID_CLAIM' } });
@@ -235,7 +247,7 @@ describe('validateAnswerContract', () => {
     ['a blank text', { text: '   ', source: 1 }],
   ])('fails closed on %s', (_label, claim) => {
     expect(
-      validateAnswerContract({ status: 'answered', claims: [claim] }, sources),
+      validateAnswerContract({ status: 'answered', missing: [], claims: [claim] }, sources),
     ).toMatchObject({ ok: false, violation: { reason: 'INVALID_CLAIM_TEXT' } });
   });
 
@@ -245,7 +257,7 @@ describe('validateAnswerContract', () => {
     ['a string source', { text: 'Alpha.', source: '1' }],
   ])('fails closed on %s', (_label, claim) => {
     expect(
-      validateAnswerContract({ status: 'answered', claims: [claim] }, sources),
+      validateAnswerContract({ status: 'answered', missing: [], claims: [claim] }, sources),
     ).toMatchObject({
       ok: false,
       violation: { reason: 'INVALID_CLAIM_SOURCE' },
@@ -255,14 +267,14 @@ describe('validateAnswerContract', () => {
   it('fails closed when a claim references a source that was not provided', () => {
     expect(
       validateAnswerContract(
-        { status: 'answered', claims: [{ text: 'Alpha.', source: 9 }] },
+        { status: 'answered', missing: [], claims: [{ text: 'Alpha.', source: 9 }] },
         sources,
       ),
     ).toMatchObject({ ok: false, violation: { reason: 'UNKNOWN_SOURCE' } });
 
     expect(
       validateAnswerContract(
-        { status: 'answered', claims: [{ text: 'Alpha.', source: 0 }] },
+        { status: 'answered', missing: [], claims: [{ text: 'Alpha.', source: 0 }] },
         sources,
       ),
     ).toMatchObject({ ok: false, violation: { reason: 'UNKNOWN_SOURCE' } });
@@ -272,7 +284,7 @@ describe('validateAnswerContract', () => {
     expect(
       validateAnswerContract(
         {
-          status: 'insufficient_evidence',
+          status: 'insufficient_evidence', missing: [],
           claims: [{ text: 'I do not know.', source: 1 }],
         },
         sources,
@@ -286,7 +298,7 @@ describe('validateAnswerContract', () => {
   it('accepts a valid source even when the cited passage does not support the claim', () => {
     const result = validateAnswerContract(
       {
-        status: 'answered',
+        status: 'answered', missing: [],
         claims: [{ text: 'Revenue grew 40% last quarter.', source: 1 }],
       },
       [source(1, { content: 'The office is closed on Mondays.' })],

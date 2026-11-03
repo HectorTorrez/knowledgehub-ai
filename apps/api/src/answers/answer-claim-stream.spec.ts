@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { AnswerStreamParser } from './answer-claim-stream.js';
 
 describe('AnswerStreamParser', () => {
+  it('parses partial status and grounded claims', () => {
+    const parser = new AnswerStreamParser();
+    expect(parser.push('{"status":"partial","claims":[{"text":"Known.","source":1}]}')).toEqual([{ text: 'Known.', source: 1 }]);
+    expect(parser.answerStatus).toBe('partial');
+  });
+
   it('emits a claim only after its object is complete', () => {
     const parser = new AnswerStreamParser();
 
