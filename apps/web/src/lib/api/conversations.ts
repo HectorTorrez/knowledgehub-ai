@@ -2,7 +2,7 @@ import type {
   ConversationDetailResponse,
   ConversationListResponse,
 } from '@knowledgehub/shared-types';
-import { apiFetch, type RequestOptions } from './client';
+import { apiFetch, apiStream, type RequestOptions } from './client';
 
 export interface ListConversationsOptions extends RequestOptions {
   cursor?: string;
@@ -48,6 +48,27 @@ export const conversationsApi = {
       `${conversationsPath(organizationId)}/${conversationId}`,
       { authRecovery: true },
     );
+  },
+
+  async export(organizationId: string, conversationId: string): Promise<void> {
+    const response = await apiStream(
+      `${conversationsPath(organizationId)}/${conversationId}/export`,
+      {
+        method: 'GET',
+        headers: { Accept: 'text/markdown' },
+      },
+    );
+    const blob = await response.blob();
+    const filename =
+      response.headers
+        .get('Content-Disposition')
+        ?.match(/filename="([a-zA-Z0-9.-]+)"/)?.[1] ?? 'conversation.md';
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   },
 
   remove(organizationId: string, conversationId: string): Promise<void> {

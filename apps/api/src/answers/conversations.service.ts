@@ -69,7 +69,9 @@ export class ConversationsService {
     const hasMore = rows.length > input.limit;
     const page = hasMore ? rows.slice(0, input.limit) : rows;
     const nextCursor =
-      hasMore && page.length > 0 ? encodeListCursor(page[page.length - 1]) : null;
+      hasMore && page.length > 0
+        ? encodeListCursor(page[page.length - 1])
+        : null;
 
     return {
       conversations: page.map(toConversationSummary),
@@ -91,6 +93,19 @@ export class ConversationsService {
     }
 
     return { conversation: toConversationSummary(row) };
+  }
+
+  async getExport(organizationId: string, conversationId: string) {
+    const { conversation } = await this.getDetail(
+      organizationId,
+      conversationId,
+    );
+    const turns = await this.prisma.answer.findMany({
+      where: { organizationId, conversationId },
+      select: { question: true, answer: true, status: true, citations: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return { title: conversation.title, turns };
   }
 
   async delete(organizationId: string, conversationId: string): Promise<void> {

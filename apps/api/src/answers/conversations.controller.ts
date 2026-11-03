@@ -1,3 +1,8 @@
+import type { Response } from 'express';
+import {
+  renderConversationMarkdown,
+  exportFilename,
+} from './conversation-markdown.js';
 import {
   Controller,
   Delete,
@@ -9,6 +14,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import type {
@@ -64,6 +70,25 @@ export class ConversationsController {
       requireOrganizationContext(request).organizationId,
       conversationId,
     );
+  }
+
+  @Get(':conversationId/export')
+  async exportConversation(
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @Req() request: OrganizationRequest,
+    @Res() response: Response,
+  ): Promise<void> {
+    const data = await this.conversations.getExport(
+      requireOrganizationContext(request).organizationId,
+      conversationId,
+    );
+    const date = new Date().toISOString().slice(0, 10);
+    response.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${exportFilename(data.title, date)}"`,
+    );
+    response.send(renderConversationMarkdown(data, date));
   }
 
   @Delete(':conversationId')
