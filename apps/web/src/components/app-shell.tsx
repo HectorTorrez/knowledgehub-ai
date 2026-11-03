@@ -1,237 +1,68 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { Building2, Check, ChevronsUpDown, LogOut, Moon, Settings, Sun } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { useEffect } from 'react';
-import { Brand } from '~/components/brand';
-import { Skeleton } from '~/components/ui/skeleton';
+import { Link, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
+import { BarChart3, Building2, ChevronsUpDown, FileText, LayoutGrid, LogOut, MessageSquareText, Moon, Search, Settings, Sun } from 'lucide-react';
+import { useEffect, type ReactNode } from 'react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '~/components/ui/dropdown-menu';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar } from '~/components/ui/sidebar';
 import { useToast } from '~/components/ui/toast';
-import { ThemeToggle } from '~/components/theme-toggle';
-import { Button } from '~/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu';
 import { useLogout, useSession } from '~/hooks/use-auth';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { useTheme } from '~/hooks/use-theme';
 import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 
+const sections = [
+  { label: 'Overview', to: '/organizations/$organizationId', icon: LayoutGrid, exact: true },
+  { label: 'Documents', to: '/organizations/$organizationId/documents', icon: FileText },
+  { label: 'Ask', to: '/organizations/$organizationId/ask', icon: MessageSquareText },
+  { label: 'Search', to: '/organizations/$organizationId/search', icon: Search },
+  { label: 'Insights', to: '/organizations/$organizationId/insights', icon: BarChart3, ownerOnly: true },
+  { label: 'Settings', to: '/organizations/$organizationId/settings', icon: Settings },
+] as const;
+
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+  return <SidebarProvider><ShellContent>{children}</ShellContent></SidebarProvider>;
+}
+
+function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
   const session = useSession();
   const signOut = useLogout();
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
-  const params = useParams({ strict: false });
-  const activeOrganizationId = params.organizationId;
+  const { organizationId } = useParams({ strict: false });
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const { setOpenMobile } = useSidebar();
   const reportError = useReportError();
   const { toast } = useToast();
-
-  const organizations = useQuery({
-    queryKey: queryKeys.organizations.list(),
-    queryFn: () => organizationsApi.list(),
-    enabled: activeOrganizationId !== undefined,
-    staleTime: 30_000,
-  });
+  const organizations = useQuery({ queryKey: queryKeys.organizations.list(), queryFn: () => organizationsApi.list(), staleTime: 30_000 });
+  const organization = useQuery({ queryKey: queryKeys.organizations.detail(organizationId ?? ''), queryFn: () => organizationsApi.detail(organizationId!), enabled: !!organizationId });
   useQueryErrorToast(organizations.error, () => void organizations.refetch());
-
   useWebMcpTools();
-
-  const user =
-    session.data?.status === 'authenticated' ? session.data.user : undefined;
-
-  useEffect(() => {
-    if (session.data?.status === 'unauthenticated') {
-      void navigate({ to: '/login' });
-    }
-  }, [session.data, navigate]);
-
+  const user = session.data?.status === 'authenticated' ? session.data.user : undefined;
+  const active = organizations.data?.organizations.find((org) => org.id === organizationId);
+  const currentSection = sections.find((section) => pathname === `/organizations/${organizationId}${section.to.split('$organizationId')[1]}` || (section.to !== '/organizations/$organizationId' && pathname.startsWith(`/organizations/${organizationId}${section.to.split('$organizationId')[1]}/`)));
+  useEffect(() => { if (session.data?.status === 'unauthenticated') void navigate({ to: '/login' }); }, [session.data, navigate]);
   async function handleSignOut() {
-    try {
-      await signOut.mutateAsync();
-    } catch (error) {
-      reportError(error);
-      return;
-    }
-
+    try { await signOut.mutateAsync(); } catch (error) { reportError(error); return; }
     toast({ variant: 'success', title: 'Signed out' });
     await navigate({ to: '/login' });
   }
-
-  return (
-    <div className="min-h-dvh bg-background">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:border focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        Skip to content
-      </a>
-      <header className="sticky top-0 z-40 border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-            <Link
-              to="/organizations"
-              className="shrink-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Brand compact />
-            </Link>
-            {activeOrganizationId !== undefined &&
-            organizations.data !== undefined ? (
-              <OrganizationSwitcher
-                organizationId={activeOrganizationId}
-                organizations={organizations.data.organizations}
-              />
-            ) : activeOrganizationId !== undefined && organizations.isPending ? (
-              <Skeleton className="ml-2 h-9 w-10 sm:w-32" />
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="hidden sm:block">
-              <ThemeToggle />
-            </div>
-            {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-11 gap-2 px-2 sm:h-9">
-                    <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
-                      {initialsFor(user.firstName, user.lastName, user.email)}
-                    </span>
-                    <span className="hidden text-sm sm:inline-block">
-                      {displayNameFor(user.firstName, user.lastName, user.email)}
-                    </span>
-                    <ChevronsUpDown className="size-3.5 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-60">
-                  <DropdownMenuLabel className="flex flex-col gap-0.5">
-                    <span>
-                      {displayNameFor(user.firstName, user.lastName, user.email)}
-                    </span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {user.email}
-                    </span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/settings">
-                      <Settings />
-                      Account settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={toggleTheme}>
-                    {theme === 'dark' ? <Sun /> : <Moon />}
-                    {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => void handleSignOut()}
-                    disabled={signOut.isPending}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <LogOut />
-                    {signOut.isPending ? 'Signing out…' : 'Sign out'}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-          </div>
-        </div>
-      </header>
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="mx-auto max-w-6xl py-6 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] outline-none sm:px-6 sm:py-8"
-      >
-        {children}
-      </main>
-    </div>
-  );
-}
-
-function OrganizationSwitcher({
-  organizationId,
-  organizations,
-}: Readonly<{
-  organizationId: string;
-  organizations: Array<{ id: string; name: string }>;
-}>) {
-  const navigate = useNavigate();
-  const active = organizations.find(
-    (organization) => organization.id === organizationId,
-  );
-
-  if (active === undefined) {
-    return null;
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className="h-11 min-w-0 gap-2 px-2 sm:h-9"
-          aria-label={`Switch organization, currently ${active.name}`}
-        >
-          <Building2 className="size-4 shrink-0 text-muted-foreground" />
-          <span className="max-w-28 truncate text-sm sm:max-w-40">
-            {active.name}
-          </span>
-          <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Organization</DropdownMenuLabel>
-        {organizations.map((organization) => (
-          <DropdownMenuItem
-            key={organization.id}
-            onSelect={() => {
-              if (organization.id !== organizationId) {
-                void navigate({
-                  to: '/organizations/$organizationId',
-                  params: { organizationId: organization.id },
-                });
-              }
-            }}
-          >
-            <span className="min-w-0 flex-1 truncate">{organization.name}</span>
-            {organization.id === organizationId ? (
-              <Check className="size-4" />
-            ) : null}
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/organizations">All organizations</Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function displayNameFor(
-  firstName: string,
-  lastName: string,
-  email: string,
-): string {
-  const name = [firstName, lastName].filter(Boolean).join(' ').trim();
-
-  return name.length > 0 ? name : email;
-}
-
-function initialsFor(
-  firstName: string,
-  lastName: string,
-  email: string,
-): string {
-  const fromName = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.trim();
-
-  return (fromName || (email[0] ?? '')).toUpperCase();
+  return <>
+    <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-4">Skip to content</a>
+    <Sidebar collapsible="icon">
+      <SidebarHeader><SidebarMenu><SidebarMenuItem><DropdownMenu>
+        <DropdownMenuTrigger asChild><SidebarMenuButton size="lg" tooltip={active?.name ?? 'Organizations'}><Building2 /><span className="flex-1 truncate font-semibold">{active?.name ?? 'KnowledgeHub AI'}</span><ChevronsUpDown /></SidebarMenuButton></DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-64"><DropdownMenuLabel>Organizations</DropdownMenuLabel>
+          {organizations.data?.organizations.map((org) => <DropdownMenuItem key={org.id} onSelect={() => { setOpenMobile(false); void navigate({ to: '/organizations/$organizationId', params: { organizationId: org.id } }); }}>{org.name}</DropdownMenuItem>)}
+          <DropdownMenuSeparator /><DropdownMenuItem asChild><Link to="/organizations" onClick={() => setOpenMobile(false)}>All organizations</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to="/organizations" hash="create" onClick={() => setOpenMobile(false)}>Create organization</Link></DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu></SidebarMenuItem></SidebarMenu></SidebarHeader>
+      <SidebarContent><SidebarGroup><SidebarGroupLabel>{organizationId ? 'Workspace' : 'Navigation'}</SidebarGroupLabel><SidebarMenu>
+        {organizationId ? sections.filter((section) => !('ownerOnly' in section) || organization.data?.organization.role === 'OWNER').map(({ icon: Icon, ...section }) => <SidebarMenuItem key={section.to}><SidebarMenuButton className="min-h-11 md:min-h-8" asChild tooltip={section.label} isActive={currentSection?.to === section.to}><Link to={section.to} params={{ organizationId }} activeOptions={{ exact: 'exact' in section }} onClick={() => setOpenMobile(false)}><Icon /><span>{section.label}</span></Link></SidebarMenuButton></SidebarMenuItem>) : <SidebarMenuItem><SidebarMenuButton asChild tooltip="Organizations"><Link to="/organizations" onClick={() => setOpenMobile(false)}><Building2 /><span>Organizations</span></Link></SidebarMenuButton></SidebarMenuItem>}
+      </SidebarMenu></SidebarGroup></SidebarContent>
+      <SidebarFooter>{user && <SidebarMenu><SidebarMenuItem><DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuButton size="lg" tooltip={user.email}><span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted font-semibold">{(user.firstName[0] ?? user.email[0] ?? '').toUpperCase()}</span><span className="min-w-0 flex-1"><span className="block truncate font-medium">{[user.firstName, user.lastName].filter(Boolean).join(' ') || user.email}</span><span className="block truncate text-xs text-muted-foreground">{user.email}</span></span><ChevronsUpDown /></SidebarMenuButton></DropdownMenuTrigger><DropdownMenuContent side="top" align="start" className="w-60"><DropdownMenuLabel>{user.email}</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem asChild><Link to="/settings" onClick={() => setOpenMobile(false)}><Settings />Account settings</Link></DropdownMenuItem><DropdownMenuItem onSelect={toggle}>{theme === 'dark' ? <Sun /> : <Moon />}{theme === 'dark' ? 'Light mode' : 'Dark mode'}</DropdownMenuItem><DropdownMenuItem onSelect={() => void handleSignOut()} disabled={signOut.isPending}><LogOut />Sign out</DropdownMenuItem></DropdownMenuContent></DropdownMenu></SidebarMenuItem></SidebarMenu>}</SidebarFooter>
+    </Sidebar>
+    <div className="min-w-0 flex-1"><header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-6"><SidebarTrigger /><span className="text-sm text-muted-foreground">{active?.name ?? 'KnowledgeHub AI'}</span>{currentSection && <><span className="text-muted-foreground">/</span><span className="truncate text-sm font-medium">{currentSection.label}</span></>}</header><main id="main-content" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-6 outline-none sm:px-6 sm:py-8">{children}</main></div>
+  </>;
 }
