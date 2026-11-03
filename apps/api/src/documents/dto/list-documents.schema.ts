@@ -30,6 +30,7 @@ export const listDocumentsSchema = z
       .min(1, 'q must not be empty')
       .max(DOCUMENT_LIST_MAX_QUERY_CHARS, 'q is too long')
       .optional(),
+    collectionId: z.uuid().optional(),
     status: z.enum(DOCUMENT_STATUSES).optional(),
     order: z.enum(['createdAt_desc', 'createdAt_asc']).default('createdAt_desc'),
   })

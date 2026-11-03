@@ -55,6 +55,7 @@ import {
 } from './verification-policy.js';
 
 const DOCUMENT_PUBLIC_SELECT = {
+  collections: { select: { collection: { select: { id: true, name: true, color: true } } } },
   id: true,
   title: true,
   status: true,
@@ -73,6 +74,7 @@ const DOCUMENT_PUBLIC_SELECT = {
 const VERIFIABLE_STATUSES = ['PENDING', 'FAILED'] as const;
 
 interface DocumentProjection {
+  collections: Array<{ collection: { id: string; name: string; color: string } }>;
   id: string;
   title: string;
   status: DocumentStatus;
@@ -91,6 +93,7 @@ interface DocumentProjection {
 function toDocumentSummary(document: DocumentProjection): DocumentSummary {
   return {
     id: document.id,
+    collections: document.collections.map(({ collection }) => collection),
     title: document.title,
     status: document.status,
     ...deriveProcessingProgress(document),
@@ -148,10 +151,13 @@ export class DocumentsService {
       throw new BadRequestException('cursor is not valid');
     }
 
+    if (input.collectionId && !(await this.prisma.collection.findFirst({ where: { id: input.collectionId, organizationId }, select: { id: true } }))) throw new NotFoundException('Collection not found');
+
     const direction = input.order === 'createdAt_asc' ? 'asc' : 'desc';
     const documents = await this.prisma.document.findMany({
       where: {
         organizationId,
+        ...(input.collectionId ? { collections: { some: { organizationId, collectionId: input.collectionId } } } : {}),
         ...(input.q ? { title: { contains: input.q, mode: 'insensitive' } } : {}),
         ...(input.status ? { status: input.status } : {}),
         ...(cursor ? listCursorFilter(cursor, direction) : {}),

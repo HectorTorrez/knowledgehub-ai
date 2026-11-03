@@ -15,6 +15,8 @@ import {
   type RetrievedChunk,
 } from '../retrieval/retrieval.service.js';
 import { MAX_RETRIEVAL_LIMIT, RetrievalQueryError } from '../retrieval/retrieval-policy.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { resolveCollectionScope } from '../collections/resolve-collection-scope.js';
 import { groupSearchResults } from './search-results.js';
 import type { SearchInput } from './dto/search.schema.js';
 
@@ -25,12 +27,14 @@ function withCause<T extends Error>(exception: T, cause: unknown): T {
 
 @Injectable()
 export class SearchService {
-  constructor(private readonly retrieval: RetrievalService) {}
+  constructor(private readonly retrieval: RetrievalService, private readonly prisma: PrismaService) {}
 
   async search(
     organizationId: string,
     input: SearchInput,
   ): Promise<SearchResponse> {
+    const documentIds = input.collectionIds ? await resolveCollectionScope(this.prisma, organizationId, input.collectionIds, input.documentIds) : input.documentIds;
+    if (documentIds && documentIds.length === 0) return { results: [] };
     let chunks: RetrievedChunk[];
 
     try {
@@ -39,7 +43,7 @@ export class SearchService {
         text: input.q,
         limit: Math.min(input.limit * 5, MAX_RETRIEVAL_LIMIT),
         ...(input.documentId ? { documentId: input.documentId } : {}),
-        ...(input.documentIds ? { documentIds: input.documentIds } : {}),
+        ...(documentIds ? { documentIds } : {}),
         ...(input.createdAfter ? { createdAfter: input.createdAfter } : {}),
         ...(input.createdBefore ? { createdBefore: input.createdBefore } : {}),
       });

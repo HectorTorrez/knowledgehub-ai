@@ -300,7 +300,18 @@ export type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
  */
 export type DocumentProcessingStage = 'UPLOADING' | 'QUEUED' | 'PROCESSING' | 'READY' | 'FAILED';
 
+export interface CollectionSummary {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Collection extends CollectionSummary {
+  documentCount: number;
+}
+
 export interface DocumentSummary {
+  collections: CollectionSummary[];
   id: string;
   title: string;
   status: DocumentStatus;
