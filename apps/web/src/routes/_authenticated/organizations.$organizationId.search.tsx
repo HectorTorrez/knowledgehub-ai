@@ -15,19 +15,11 @@ import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { useSlashFocus } from '~/hooks/use-slash-focus';
 import { queryKeys } from '~/lib/api/query-keys';
 import { searchApi } from '~/lib/api/search';
-import { ALL_DOCUMENTS } from '~/lib/document-scope';
 import {
   clearRecentSearches,
   readRecentSearches,
@@ -45,6 +37,11 @@ export const Route = createFileRoute(
       description:
         "Search across your organization's documents with semantic retrieval.",
     }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    documentIds: Array.isArray(search.documentIds) ? search.documentIds.filter((id): id is string => typeof id === 'string').slice(0, 20) : [],
+    createdAfter: typeof search.createdAfter === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.createdAfter) ? search.createdAfter : '',
+    createdBefore: typeof search.createdBefore === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.createdBefore) ? search.createdBefore : '',
+  }),
   component: SearchPage,
 });
 
@@ -54,25 +51,29 @@ function SearchPage() {
   useSlashFocus(inputRef);
   const [draft, setDraft] = useState('');
   const [submitted, setSubmitted] = useState<string | null>(null);
-  const [selection, setSelection] = useState(ALL_DOCUMENTS);
+  const filters = Route.useSearch();
+  const navigate = Route.useNavigate();
+  function updateFilters(next: Partial<typeof filters>) {
+    void navigate({ search: { ...filters, ...next }, replace: true });
+  }
   const [validationError, setValidationError] = useState<string | null>(null);
   const [recent, setRecent] = useState(() =>
     readRecentSearches(organizationId),
   );
 
   const ready = useReadyDocuments(organizationId);
-  const documentId = selection === ALL_DOCUMENTS ? undefined : selection;
+  const documentId = filters.documentIds.length === 1 ? filters.documentIds[0] : undefined;
 
   const results = useQuery({
     queryKey: queryKeys.organizations.search(
       organizationId,
       submitted,
-      documentId,
+      filters,
     ),
     queryFn: ({ signal }) =>
       searchApi.search(organizationId, submitted ?? '', {
         signal,
-        documentId,
+        ...filters,
       }),
     enabled: submitted !== null,
   });
@@ -106,7 +107,9 @@ function SearchPage() {
   const rows = results.data?.results ?? [];
   const isSearching = submitted !== null && results.isPending;
   const scopeLabel =
-    documentId === undefined
+    filters.documentIds.length > 1
+      ? 'selected documents'
+      : documentId === undefined
       ? 'all ready documents'
       : (ready.documents.find((document) => document.id === documentId)
           ?.title ?? 'the selected document');
@@ -141,22 +144,6 @@ function SearchPage() {
             </button>
           ) : null}
         </div>
-        <Select
-          value={selection}
-          onValueChange={(value) => setSelection(value)}
-        >
-          <SelectTrigger className="sm:w-56" aria-label="Limit to a document">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_DOCUMENTS}>All documents</SelectItem>
-            {ready.documents.map((document) => (
-              <SelectItem key={document.id} value={document.id}>
-                {document.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Button type="submit" disabled={isSearching}>
           {isSearching ? (
             <>
@@ -171,6 +158,24 @@ function SearchPage() {
           )}
         </Button>
       </form>
+
+      <fieldset className="flex flex-wrap items-end gap-3">
+        <legend className="text-sm font-medium">Filters</legend>
+        <div className="space-y-1">
+          <span className="text-sm">Documents</span>
+          <div className="max-h-32 overflow-auto rounded border p-2">
+            {ready.documents.map((document) => (
+              <label key={document.id} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={filters.documentIds.includes(document.id)} onChange={(event) => updateFilters({ documentIds: event.target.checked ? [...filters.documentIds, document.id].slice(0, 20) : filters.documentIds.filter((id) => id !== document.id) })} />
+                {document.title}
+              </label>
+            ))}
+          </div>
+        </div>
+        <label className="space-y-1 text-sm">Created after<Input type="date" value={filters.createdAfter} onChange={(event) => updateFilters({ createdAfter: event.target.value })} /></label>
+        <label className="space-y-1 text-sm">Created before<Input type="date" value={filters.createdBefore} onChange={(event) => updateFilters({ createdBefore: event.target.value })} /></label>
+        <Button type="button" variant="outline" onClick={() => updateFilters({ documentIds: [], createdAfter: '', createdBefore: '' })}>Clear filters</Button>
+      </fieldset>
 
       {validationError ? <ErrorNotice error={new Error(validationError)} /> : null}
       {results.isError ? (

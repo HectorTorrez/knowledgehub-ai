@@ -96,14 +96,14 @@ export const queryKeys = {
     search: (
       organizationId: string,
       query: string | null,
-      documentId?: string,
+      filters?: { documentIds: string[]; createdAfter: string; createdBefore: string },
     ) =>
       [
         'organizations',
         organizationId,
         'search',
         query ?? '',
-        documentId ?? '',
+        filters,
       ] as const,
     aggregates: {
       contractTotals: (organizationId: string, documentId: string) =>

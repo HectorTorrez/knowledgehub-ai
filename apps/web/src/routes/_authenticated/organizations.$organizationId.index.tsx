@@ -337,6 +337,7 @@ function OrganizationOverviewPage() {
           <Link
             to="/organizations/$organizationId/search"
             params={{ organizationId }}
+            search={{ documentIds: [], createdAfter: '', createdBefore: '' }}
           >
             <Search />
             Search documents
