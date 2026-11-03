@@ -1,23 +1,26 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const port = process.env.PLAYWRIGHT_PORT ?? '3100';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:3100',
+    baseURL: `http://localhost:${port}`,
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'pnpm dev --port 3100 --strictPort',
-    url: 'http://localhost:3100',
+    command: `pnpm dev --port ${port} --strictPort`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
       VITE_API_BASE_URL: 'http://localhost:3001',
-      VITE_SITE_URL: 'http://localhost:3100',
+      VITE_SITE_URL: `http://localhost:${port}`,
       VITE_DISABLE_DEVTOOLS: 'true',
+      VITE_DEMO_ENABLED: process.env.VITE_DEMO_ENABLED ?? 'false',
     },
   },
   projects: [

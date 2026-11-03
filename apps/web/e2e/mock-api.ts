@@ -46,6 +46,9 @@ const ANSWER = {
 interface ApiOptions {
   authenticated: boolean;
   role?: 'OWNER' | 'VIEWER';
+  demo?: boolean;
+  empty?: boolean;
+  complete?: boolean;
   onAsk?: () => void;
 }
 
@@ -100,7 +103,7 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     }
 
     if (path === '/organizations') {
-      await route.fulfill(json({ organizations: [organization] }));
+      await route.fulfill(json({ organizations: [options.demo ? { ...organization, name: 'Northwind Labs' } : organization] }));
       return;
     }
 
@@ -118,6 +121,7 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       await route.fulfill(
         json({
           members: [
+            ...(options.complete ? [{ userId: 'user-2', email: 'other@example.test', firstName: 'Other', lastName: 'User', role: 'MEMBER', createdAt: CREATED_AT }] : []),
             {
               userId: USER.id,
               email: USER.email,
@@ -157,7 +161,7 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       const failedOnly = url.searchParams.get('status') === 'FAILED';
       await route.fulfill(
         json({
-          documents: failedOnly ? [] : [DOCUMENT],
+          documents: failedOnly || options.empty ? [] : [DOCUMENT],
           nextCursor: null,
         }),
       );
@@ -195,7 +199,7 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     if (path === '/organizations/org-1/conversations' && method === 'GET') {
       await route.fulfill(
         json({
-          conversations: [
+          conversations: options.empty ? [] : [
             { id: 'conversation-1', title: 'How much leave do I get?', createdAt: CREATED_AT },
           ],
           nextCursor: null,
