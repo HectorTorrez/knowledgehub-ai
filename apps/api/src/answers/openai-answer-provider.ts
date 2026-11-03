@@ -41,7 +41,8 @@ const ANSWER_JSON_SCHEMA = {
   schema: {
     type: 'object',
     properties: {
-      status: { type: 'string', enum: ['answered', 'insufficient_evidence'] },
+      status: { type: 'string', enum: ['answered', 'partial', 'insufficient_evidence'] },
+      missing: { type: 'array', items: { type: 'string' } },
       claims: {
         type: ['array', 'null'],
         items: {
@@ -55,7 +56,7 @@ const ANSWER_JSON_SCHEMA = {
         },
       },
     },
-    required: ['status', 'claims'],
+    required: ['status', 'claims', 'missing'],
     additionalProperties: false,
   },
 } as const;
