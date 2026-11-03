@@ -19,6 +19,7 @@ import {
 import { DatePicker } from '~/components/date-picker';
 import { DocumentMultiSelect } from '~/components/document-multi-select';
 import { EmptyState } from '~/components/empty-state';
+import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
@@ -325,11 +326,20 @@ function SearchPage() {
         </div>
       ) : null}
 
-      {submitted !== null && !isSearching && rows.length === 0 ? (
+      {submitted !== null && results.isError ? (
+        <RouteError title="Unable to search documents" onRetry={() => void results.refetch()} />
+      ) : null}
+
+      {submitted !== null && results.isSuccess && rows.length === 0 ? (
         <EmptyState
           icon={SearchIcon}
           title="No results"
           description={`Nothing matched “${submitted}” in ${scopeLabel}. Try different wording or broaden the scope.`}
+          action={
+            <Button onClick={() => updateFilters({ documentIds: [], collectionIds: [], createdAfter: '', createdBefore: '' })}>
+              Clear filters
+            </Button>
+          }
         />
       ) : null}
 

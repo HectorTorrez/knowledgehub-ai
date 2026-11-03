@@ -52,6 +52,7 @@ import {
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
+import { RouteError } from '~/components/route-states';
 import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { pollingInterval } from '~/lib/document-polling';
@@ -342,6 +343,7 @@ function DocumentDetailPage() {
     return (
       <div className="space-y-6">
         <BackLink organizationId={organizationId} />
+        <RouteError title="Unable to load document" onRetry={() => void document.refetch()} />
       </div>
     );
   }
