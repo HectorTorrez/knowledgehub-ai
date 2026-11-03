@@ -295,10 +295,14 @@ export type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
  * upload-verification failure or a processing failure. Neither carries internal
  * diagnostics.
  */
+export type DocumentProcessingStage = 'UPLOADING' | 'QUEUED' | 'PROCESSING' | 'ENRICHING' | 'READY' | 'FAILED';
+
 export interface DocumentSummary {
   id: string;
   title: string;
   status: DocumentStatus;
+  processingStage: DocumentProcessingStage;
+  retry: { attempt: number; maxAttempts: number; nextRetryAt: string } | null;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;

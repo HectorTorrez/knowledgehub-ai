@@ -42,6 +42,8 @@ function document(id: string): DocumentSummary {
     originalFileName: 'handbook.pdf',
     contentType: 'application/pdf',
     sizeBytes: 1024,
+    processingStage: 'READY',
+    retry: null,
     failureReason: null,
     failureKind: null,
     createdAt: TIMESTAMP,

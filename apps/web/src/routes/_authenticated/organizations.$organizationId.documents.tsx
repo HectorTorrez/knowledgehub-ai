@@ -29,6 +29,8 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
+import { DocumentProgress } from '~/components/document-progress';
+import { documentFailureGuidance } from '~/lib/document-display';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
 import { FileDropzone } from '~/components/file-dropzone';
@@ -77,6 +79,7 @@ import {
   useQueryErrorToast,
   useReportError,
 } from '~/hooks/use-error-toast';
+import { useDocumentNotifications } from '~/hooks/use-document-notifications';
 import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatBytes, formatDate } from '~/lib/format';
@@ -162,7 +165,7 @@ function DocumentsPage() {
     refetchInterval: (query) => {
       const data = query.state.data;
       const active = data?.pages.some((page) =>
-        page.documents.some((entry) => ACTIVE_STATUSES.has(entry.status)),
+        page.documents.some((entry) => (ACTIVE_STATUSES.has(entry.status) || entry.processingStage === 'ENRICHING')),
       );
 
       return active ? 3000 : false;
@@ -445,6 +448,7 @@ function DocumentsPage() {
   }
 
   const rows = documents.data?.pages.flatMap((page) => page.documents) ?? [];
+  useDocumentNotifications(organizationId, rows);
   const hasDocuments = rows.length > 0;
 
   function resetFilters() {
@@ -647,6 +651,7 @@ function DocumentsPage() {
                                 {` · ${formatDate(document.createdAt)}`}
                               </span>
                             </span>
+                            <DocumentProgress document={document} />
                             {document.status === 'FAILED' ? (
                               <span className="mt-1 block text-xs break-words text-destructive">
                                 {document.failureKind === 'VERIFICATION'
