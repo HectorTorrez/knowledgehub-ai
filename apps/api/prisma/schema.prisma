@@ -167,6 +167,7 @@ enum DocumentFailureKind {
 /// outcome where the retrieved sources could not support an answer.
 enum AnswerStatus {
   answered
+  partial
   insufficient_evidence
 }
 
@@ -465,6 +466,7 @@ model Answer {
 
   answer    String?
   citations Json
+  missing   Json?
 
   conversationId String?       @db.Uuid
   conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)

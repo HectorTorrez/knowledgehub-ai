@@ -11,7 +11,8 @@ export type AnswerContractViolationReason =
   | 'INVALID_CLAIM'
   | 'INVALID_CLAIM_TEXT'
   | 'INVALID_CLAIM_SOURCE'
-  | 'UNKNOWN_SOURCE';
+  | 'UNKNOWN_SOURCE'
+  | 'INVALID_MISSING';
 
 export interface AnswerContractViolation {
   reason: AnswerContractViolationReason;
@@ -20,6 +21,7 @@ export interface AnswerContractViolation {
 
 export type AnswerContract =
   | { ok: true; status: 'answered'; answer: string; markers: number[] }
+  | { ok: true; status: 'partial'; answer: string; markers: number[]; missing: string[] }
   | { ok: true; status: 'insufficient_evidence' }
   | { ok: false; violation: AnswerContractViolation };
 
@@ -169,18 +171,26 @@ export function validateAnswerContract(
 
   const keys = Object.keys(value).sort();
 
-  if (keys.length !== 2 || keys[0] !== 'claims' || keys[1] !== 'status') {
+  if (keys.length !== 3 || keys[0] !== 'claims' || keys[1] !== 'missing' || keys[2] !== 'status') {
     return violation(
       'UNEXPECTED_FIELDS',
       `The answer provider returned unexpected fields: ${keys.join(', ') || '(none)'}`,
     );
   }
 
-  if (value.status !== 'answered' && value.status !== 'insufficient_evidence') {
+  if (value.status !== 'answered' && value.status !== 'partial' && value.status !== 'insufficient_evidence') {
     return violation(
       'UNEXPECTED_STATUS',
       `The answer provider returned an unexpected status: ${String(value.status)}`,
     );
+  }
+
+  if (!Array.isArray(value.missing) || !value.missing.every((item: unknown) => typeof item === 'string')) {
+    return violation('INVALID_MISSING', 'Missing items must be strings');
+  }
+  const missing = (value.missing as string[]).map((item) => item.trim()).filter(Boolean);
+  if (missing.some((item) => item.length > 200) || (value.status === 'partial' ? missing.length < 1 || missing.length > 5 : missing.length !== 0)) {
+    return violation('INVALID_MISSING', 'Invalid missing items for answer status');
   }
 
   if (value.status === 'insufficient_evidence') {
@@ -200,12 +210,9 @@ export function validateAnswerContract(
     return { ok: false, violation: parsed.violation };
   }
 
-  return {
-    ok: true,
-    status: 'answered',
-    answer: renderAnswer(parsed.claims),
-    markers: [...new Set(parsed.claims.map((claim) => claim.source))].sort(
-      (a, b) => a - b,
-    ),
-  };
+  const answer = renderAnswer(parsed.claims);
+  const markers = [...new Set(parsed.claims.map((claim) => claim.source))].sort((a, b) => a - b);
+  return value.status === 'partial'
+    ? { ok: true, status: 'partial', answer, markers, missing }
+    : { ok: true, status: 'answered', answer, markers }; 
 }

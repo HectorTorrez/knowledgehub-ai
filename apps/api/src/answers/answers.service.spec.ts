@@ -43,7 +43,7 @@ const USER_ID = 'user-1';
 const NO_USAGE: AnswerUsage = { inputTokens: null, outputTokens: null };
 
 function generation(draft: unknown, usage: AnswerUsage = NO_USAGE) {
-  return { draft, usage };
+  return { draft: typeof draft === 'object' && draft !== null ? { missing: [], ...draft } : draft, usage };
 }
 
 const CHUNK: RetrievedChunk = {
@@ -118,7 +118,9 @@ function answerStream(
   deltas: string[],
 ): AsyncGenerator<AnswerGenerationChunk> {
   async function* generate(): AsyncGenerator<AnswerGenerationChunk> {
-    for (const text of deltas) {
+    const complete = deltas.join('');
+    const amended = complete.endsWith('}') && !complete.includes('"missing"') ? [...deltas.slice(0, -1), deltas[deltas.length - 1]!.replace(/}$/, ',"missing":[]}')] : deltas;
+    for (const text of amended) {
       yield { type: 'delta', text };
     }
 
@@ -467,6 +469,20 @@ describe('AnswersService', () => {
     expect(generate).not.toHaveBeenCalled();
   });
 
+  it('returns and persists a partial answer', async () => {
+    const { service, prisma } = createService({ providerImpl: async () => generation({ status: 'partial', claims: [{ text: 'Known.', source: 1 }], missing: ['Unknown date'] }) });
+    const result = await service.answer('org-1', USER_ID, 'What is alpha?');
+    expect(result).toMatchObject({ status: 'partial', answer: 'Known [1].', missing: ['Unknown date'] });
+    expect(prisma.answer.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'partial', missing: ['Unknown date'] }) }));
+  });
+
+  it('streams partial answers and missing items', async () => {
+    const { service } = createService({ streamImpl: () => answerStream(['{"status":"partial","claims":[{"text":"Known.","source":1}],"missing":["Unknown date"]}']) });
+    const events = await collectStream(service.answerStream('org-1', USER_ID, 'What is alpha?'));
+    expect(events).toContainEqual({ type: 'status', status: 'partial' });
+    expect(events).toContainEqual({ type: 'missing', missing: ['Unknown date'] });
+  });
+
   it('streams validated claims as the provider produces them and then persists', async () => {
     const { service, prisma, generate, stream } = createService({
       streamImpl: () =>
@@ -695,7 +711,7 @@ describe('AnswersService', () => {
       where: {
         conversationId: 'conversation-1',
         organizationId: 'org-1',
-        status: 'answered',
+        status: { in: ['answered', 'partial'] },
         answer: { not: null },
       },
       orderBy: { createdAt: 'desc' },
@@ -1216,6 +1232,7 @@ describe('AnswersService', () => {
         status: true,
         answer: true,
         citations: true,
+        missing: true,
         conversationId: true,
         createdAt: true,
       },

@@ -18,6 +18,7 @@ import {
   AnswerBody,
   AnswerSources,
   InsufficientEvidence,
+  PartialAnswerNotice,
 } from '~/components/answer-content';
 import { ErrorNotice } from '~/components/route-states';
 import { Button } from '~/components/ui/button';
@@ -38,6 +39,7 @@ export interface StreamSnapshot {
   status: 'idle' | 'streaming' | 'done' | 'error';
   answerStatus: AnswerResponse['status'] | null;
   text: string;
+  missing: string[];
   citations: AnswerResponse['citations'];
 }
 
@@ -318,6 +320,7 @@ function PersistedTurn({
           answerId={detail.data.answer.id}
           question={detail.data.answer.question}
           answer={detail.data.answer.answer}
+          missing={detail.data.answer.missing ?? []}
           status={detail.data.answer.status}
           citations={detail.data.answer.citations}
           createdAt={detail.data.answer.createdAt}
@@ -394,6 +397,8 @@ function PendingTurn({
               </p>
             )}
 
+            {stream.answerStatus === 'partial' ? <PartialAnswerNotice missing={stream.missing} /> : null}
+
             {stream.status === 'streaming' && hasText ? (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" />
@@ -423,6 +428,7 @@ function AssistantAnswer({
   answer,
   status,
   citations,
+  missing,
   createdAt,
   feedback,
   sourceIdPrefix,
@@ -432,6 +438,7 @@ function AssistantAnswer({
   question: string;
   answer: string | null;
   status: AnswerResponse['status'];
+  missing: string[];
   citations: AnswerResponse['citations'];
   createdAt: string;
   feedback: AnswerFeedbackSummary | null;
@@ -470,7 +477,7 @@ function AssistantAnswer({
     >
       <Card className="rounded-2xl shadow-none">
         <CardContent className="space-y-3 p-4 sm:p-5">
-          {status === 'answered' ? (
+          {status !== 'insufficient_evidence' ? (
             <AnswerBody
               text={answer ?? ''}
               sourceIdPrefix={sourceIdPrefix}
@@ -482,6 +489,7 @@ function AssistantAnswer({
           ) : (
             <InsufficientEvidence />
           )}
+          {status === 'partial' ? <PartialAnswerNotice missing={missing} /> : null}
         </CardContent>
       </Card>
 
@@ -512,6 +520,7 @@ function AssistantAnswer({
           answer={answer}
           status={status}
           citations={citations}
+          missing={missing}
         />
       </div>
     </AssistantFrame>

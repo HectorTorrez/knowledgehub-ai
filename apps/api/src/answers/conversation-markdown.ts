@@ -3,6 +3,7 @@ interface Turn {
   answer: string | null;
   status: string;
   citations: unknown;
+  missing?: unknown;
 }
 
 interface ExportedSource {
@@ -87,6 +88,10 @@ export function renderConversationMarkdown(
       );
     }
     if (turn.answer) lines.push(neutralizeHtml(turn.answer), '');
+    if (turn.status === 'partial' && Array.isArray(turn.missing)) {
+      const missing = turn.missing.filter((item): item is string => typeof item === 'string');
+      if (missing.length) lines.push('### Missing', '', ...missing.map((item) => `- ${escapePlainText(item)}`), '');
+    }
     const sources = toSources(turn.citations);
     if (sources.length > 0) {
       lines.push('### Sources', '', ...sources.map(formatSource), '');

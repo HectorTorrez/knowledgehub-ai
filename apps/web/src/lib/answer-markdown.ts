@@ -5,6 +5,7 @@ export interface AnswerMarkdownInput {
   answer: string | null;
   status: AnswerResponse['status'];
   citations: AnswerCitation[];
+  missing?: string[];
 }
 
 export function buildAnswerMarkdown({
@@ -12,16 +13,21 @@ export function buildAnswerMarkdown({
   answer,
   status,
   citations,
+  missing = [],
 }: AnswerMarkdownInput): string {
   const parts = [`## ${question}`, ''];
 
-  if (status === 'answered' && answer !== null) {
+  if (status !== 'insufficient_evidence' && answer !== null) {
     parts.push(answer, '');
   } else {
     parts.push(
       'The documents available did not contain enough evidence to answer this question.',
       '',
     );
+  }
+
+  if (status === 'partial') {
+    parts.push('### Missing information', '', ...missing.map((item) => `- ${item}`), '');
   }
 
   if (citations.length > 0) {

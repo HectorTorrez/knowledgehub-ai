@@ -13,7 +13,7 @@ export class FakeAnswerProvider implements AnswerProvider {
   }> = [];
 
   generateImpl: AnswerProvider['generate'] = async () => ({
-    draft: { status: 'answered', claims: [{ text: 'Default.', source: 1 }] },
+    draft: { status: 'answered', missing: [], claims: [{ text: 'Default.', source: 1 }] },
     usage: { inputTokens: null, outputTokens: null },
   });
 

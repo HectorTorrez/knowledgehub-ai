@@ -17,7 +17,7 @@ export interface EvalQuestion {
   supporting: CitationRef[];
 }
 
-export type OutcomeStatus = 'answered' | 'insufficient_evidence' | 'error';
+export type OutcomeStatus = 'answered' | 'partial' | 'insufficient_evidence' | 'error';
 
 export interface QuestionOutcome {
   id: string;

@@ -12,10 +12,14 @@ export function toAnswerStreamEvents(
     { type: 'status', status: answer.status },
   ];
 
-  if (answer.status === 'answered') {
+  if (answer.status !== 'insufficient_evidence') {
     for (const chunk of chunkText(answer.answer, ANSWER_STREAM_CHUNK_CHARS)) {
       events.push({ type: 'delta', text: chunk });
     }
+  }
+
+  if (answer.status === 'partial') {
+    events.push({ type: 'missing', missing: answer.missing });
   }
 
   events.push({ type: 'citations', citations: answer.citations });

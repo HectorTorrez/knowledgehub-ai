@@ -18,6 +18,7 @@ import { AnswerActions, AnswerFeedback } from '~/components/answer-actions';
 import {
   AnswerBody,
   InsufficientEvidence,
+  PartialAnswerNotice,
   SourcesList,
 } from '~/components/answer-content';
 import { AskComposer } from '~/components/ask-composer';
@@ -413,6 +414,7 @@ function AskPage() {
                 status: stream.status,
                 answerStatus: stream.answerStatus,
                 text: stream.text,
+                missing: stream.missing,
                 citations: stream.citations,
               }}
             />
@@ -640,7 +642,7 @@ function PermalinkAnswer({
                 {formatDateTime(detail.data.answer.createdAt)}
               </p>
             </div>
-            {detail.data.answer.status === 'answered' ? (
+            {detail.data.answer.status !== 'insufficient_evidence' ? (
               <AnswerBody
                 text={detail.data.answer.answer ?? ''}
                 sourceIdPrefix={`shared-${answerId}`}
@@ -648,6 +650,7 @@ function PermalinkAnswer({
             ) : (
               <InsufficientEvidence />
             )}
+            {detail.data.answer.status === 'partial' ? <PartialAnswerNotice missing={detail.data.answer.missing ?? []} /> : null}
             {detail.data.answer.citations.length > 0 ? (
               <SourcesList
                 citations={detail.data.answer.citations}
@@ -668,6 +671,7 @@ function PermalinkAnswer({
                 answer={detail.data.answer.answer}
                 status={detail.data.answer.status}
                 citations={detail.data.answer.citations}
+                missing={detail.data.answer.missing ?? []}
               />
             </div>
           </>

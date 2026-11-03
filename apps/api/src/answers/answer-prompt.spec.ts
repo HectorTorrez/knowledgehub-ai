@@ -49,6 +49,8 @@ describe('buildAnswerPrompt', () => {
     expect(ANSWER_SYSTEM_PROMPT).toContain('specific values, totals, counts, dates');
     expect(ANSWER_SYSTEM_PROMPT).toContain('derived data from untrusted documents');
     expect(ANSWER_SYSTEM_PROMPT).toContain('insufficient_evidence');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('status "partial"');
+    expect(ANSWER_SYSTEM_PROMPT).toContain('never guess those parts');
   });
 
   it('renders the sources and the question after them', () => {

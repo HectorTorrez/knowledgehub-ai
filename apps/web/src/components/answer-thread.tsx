@@ -15,6 +15,7 @@ import { cn } from '~/lib/utils';
 import {
   AnswerBody,
   InsufficientEvidence,
+  PartialAnswerNotice,
   SourcesList,
 } from './answer-content';
 import { ErrorNotice } from './route-states';
@@ -279,11 +280,12 @@ function LatestAnswerCard({
                 answerId={answerId}
                 question={latest.question}
                 answer={
-                  latest.response.status === 'answered'
+                  latest.response.status !== 'insufficient_evidence'
                     ? latest.response.answer
                     : null
                 }
                 status={latest.response.status}
+                missing={latest.response.status === 'partial' ? latest.response.missing : []}
                 citations={latest.response.citations}
               />
               {onRequestDelete ? (
@@ -300,7 +302,7 @@ function LatestAnswerCard({
             </div>
           </div>
 
-          {latest.response.status === 'answered' ? (
+          {latest.response.status !== 'insufficient_evidence' ? (
             <AnswerBody
               text={latest.response.answer}
               sourceIdPrefix="latest-answer"
@@ -308,6 +310,7 @@ function LatestAnswerCard({
           ) : (
             <InsufficientEvidence />
           )}
+          {latest.response.status === 'partial' ? <PartialAnswerNotice missing={latest.response.missing} /> : null}
         </CardContent>
       </Card>
 
@@ -356,7 +359,7 @@ function HistoryRow({
             </span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
               {formatDateTime(answer.createdAt)}
-              {answer.status === 'answered' ? '' : ' · Not answered'}
+              {answer.status === 'partial' ? ' · Partial answer' : answer.status === 'answered' ? '' : ' · Not answered'}
             </span>
           </span>
           <ChevronDown
@@ -416,7 +419,7 @@ function ExpandedAnswer({
 
   return (
     <div className="border-t px-4 py-4 sm:px-6">
-      {answer.status === 'answered' ? (
+      {answer.status !== 'insufficient_evidence' ? (
         <AnswerBody
           text={answer.answer ?? ''}
           sourceIdPrefix={`answer-${answer.id}`}
@@ -424,6 +427,8 @@ function ExpandedAnswer({
       ) : (
         <InsufficientEvidence />
       )}
+
+      {answer.status === 'partial' ? <PartialAnswerNotice missing={answer.missing ?? []} /> : null}
 
       {answer.citations.length > 0 ? (
         <div className="mt-4">
@@ -448,6 +453,7 @@ function ExpandedAnswer({
           answer={answer.answer}
           status={answer.status}
           citations={answer.citations}
+          missing={answer.missing ?? []}
         />
       </div>
     </div>
