@@ -32,6 +32,13 @@ describe('buildAnswerMarkdown', () => {
     );
   });
 
+  it('includes missing parts alongside a partial answer and sources', () => {
+    const markdown = buildAnswerMarkdown({ question: 'Leave?', answer: 'Twenty days [1].', status: 'partial', citations: [CITATION], missing: ['Carryover policy'] });
+    expect(markdown).toContain('Twenty days [1].');
+    expect(markdown).toContain('### Missing information\n\n- Carryover policy');
+    expect(markdown).toContain('### Sources');
+  });
+
   it('renders a refusal when there is insufficient evidence', () => {
     const markdown = buildAnswerMarkdown({
       question: 'Unknown?',
