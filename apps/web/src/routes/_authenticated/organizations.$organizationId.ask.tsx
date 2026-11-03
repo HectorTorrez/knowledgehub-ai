@@ -52,10 +52,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { Textarea } from '~/components/ui/textarea';
 import { useToast } from '~/components/ui/toast';
 import { useAnswerStream } from '~/hooks/use-answer-stream';
-import {
-  useQueryErrorToast,
-  useReportError,
-} from '~/hooks/use-error-toast';
+import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { answersApi } from '~/lib/api/answers';
 import { clearAskDraft, readAskDraft, writeAskDraft } from '~/lib/ask-draft';
@@ -136,11 +133,15 @@ function AskPage() {
   );
   const [showConversations, setShowConversations] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [conversationScope, setConversationScope] = useState<'all' | 'mine' | 'shared'>('all');
+  const [conversationScope, setConversationScope] = useState<
+    'all' | 'mine' | 'shared'
+  >('all');
 
   useEffect(() => {
     setActiveConversationId(presetConversationId ?? null);
-    setQuestion(presetQuestion ?? readAskDraft(organizationId, presetConversationId));
+    setQuestion(
+      presetQuestion ?? readAskDraft(organizationId, presetConversationId),
+    );
   }, [organizationId, presetConversationId, presetQuestion]);
 
   const ready = useReadyDocuments(organizationId);
@@ -149,9 +150,16 @@ function AskPage() {
   const reportError = useReportError();
 
   const conversations = useInfiniteQuery({
-    queryKey: queryKeys.organizations.conversations.list(organizationId, conversationScope),
+    queryKey: queryKeys.organizations.conversations.list(
+      organizationId,
+      conversationScope,
+    ),
     queryFn: ({ pageParam }) =>
-      conversationsApi.list(organizationId, { cursor: pageParam, limit: 25, scope: conversationScope }),
+      conversationsApi.list(organizationId, {
+        cursor: pageParam,
+        limit: 25,
+        scope: conversationScope,
+      }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
@@ -167,8 +175,9 @@ function AskPage() {
     staleTime: 30_000,
   });
   useQueryErrorToast(conversations.error, () => void conversations.refetch());
-  useQueryErrorToast(activeConversationDetail.error, () =>
-    void activeConversationDetail.refetch(),
+  useQueryErrorToast(
+    activeConversationDetail.error,
+    () => void activeConversationDetail.refetch(),
   );
   useQueryErrorToast(stream.error);
 
@@ -392,7 +401,10 @@ function AskPage() {
             </div>
 
             {activeConversationDetail.data?.conversation ? (
-              <ConversationShare organizationId={organizationId} conversation={activeConversationDetail.data.conversation} />
+              <ConversationShare
+                organizationId={organizationId}
+                conversation={activeConversationDetail.data.conversation}
+              />
             ) : null}
 
             {activeConversationId !== null && (
@@ -448,29 +460,44 @@ function AskPage() {
 
           {activeConversationDetail.data?.conversation.canEdit === false ? (
             <div className="space-y-2 border-t p-4 text-sm">
-              <Textarea aria-label="Your question" disabled placeholder="This conversation is read-only" />
-              <p>Only {activeConversationDetail.data.conversation.createdBy?.firstName ?? 'the creator'} can continue this conversation.</p>
-              <Button onClick={() => {
-                writeAskDraft(organizationId, undefined, question);
-                startNewConversation();
-                window.requestAnimationFrame(() => document.getElementById('ask-question')?.focus());
-              }}>
+              <Textarea
+                aria-label="Your question"
+                disabled
+                placeholder="This conversation is read-only"
+              />
+              <p>
+                Only{' '}
+                {activeConversationDetail.data.conversation.createdBy
+                  ?.firstName ?? 'the creator'}{' '}
+                can continue this conversation.
+              </p>
+              <Button
+                onClick={() => {
+                  writeAskDraft(organizationId, undefined, question);
+                  startNewConversation();
+                  window.requestAnimationFrame(() =>
+                    document.getElementById('ask-question')?.focus(),
+                  );
+                }}
+              >
                 Ask a follow-up in a new conversation
               </Button>
             </div>
-          ) : <AskComposer
-            organizationId={organizationId}
-            documents={ready.documents}
-            documentId={scope.documentId}
-            question={question}
-            onQuestionChange={changeQuestion}
-            onDocumentChange={setSelection}
-            onSubmit={() => void submit()}
-            onStop={stream.cancel}
-            streaming={streaming}
-            submitting={createConversation.isPending}
-            documentsPending={ready.query.isPending}
-          />}
+          ) : (
+            <AskComposer
+              organizationId={organizationId}
+              documents={ready.documents}
+              documentId={scope.documentId}
+              question={question}
+              onQuestionChange={changeQuestion}
+              onDocumentChange={setSelection}
+              onSubmit={() => void submit()}
+              onStop={stream.cancel}
+              streaming={streaming}
+              submitting={createConversation.isPending}
+              documentsPending={ready.query.isPending}
+            />
+          )}
         </div>
       </div>
 
@@ -485,8 +512,8 @@ function AskPage() {
           <div className="min-h-0 flex-1">
             <ConversationRail
               conversations={conversationRows}
-            scope={conversationScope}
-            onScopeChange={setConversationScope}
+              scope={conversationScope}
+              onScopeChange={setConversationScope}
               activeConversationId={activeConversationId}
               listId="conversation-list-mobile"
               showHeading={false}
@@ -673,7 +700,9 @@ function PermalinkAnswer({
             ) : (
               <InsufficientEvidence />
             )}
-            {detail.data.answer.status === 'partial' ? <PartialAnswerNotice missing={detail.data.answer.missing ?? []} /> : null}
+            {detail.data.answer.status === 'partial' ? (
+              <PartialAnswerNotice missing={detail.data.answer.missing ?? []} />
+            ) : null}
             {detail.data.answer.citations.length > 0 ? (
               <SourcesList
                 citations={detail.data.answer.citations}
