@@ -279,15 +279,6 @@ model Document {
   @@index([organizationId, factsStatus])
 }
 
-/// Durable unit of document processing work, created atomically with the
-/// verification that promotes a document to PROCESSING.
-///
-/// IDENTITY — a job targets exactly one verified generation: `documentGeneration`
-/// plus the `verifiedStorageKey` snapshot. It never switches objects.
-///
-/// CLAIMS — `leaseId` is minted fresh on every claim and is the authority for the
-/// claiming worker's writes; a reclaimed job gets a new `leaseId`, so a stalled
-/// worker cannot publish after losing its lease.
 model Collection {
   id             String       @id @default(uuid()) @db.Uuid
   organizationId String       @db.Uuid
@@ -313,6 +304,15 @@ model DocumentCollection {
   @@index([organizationId, collectionId])
 }
 
+/// Durable unit of document processing work, created atomically with the
+/// verification that promotes a document to PROCESSING.
+///
+/// IDENTITY — a job targets exactly one verified generation: `documentGeneration`
+/// plus the `verifiedStorageKey` snapshot. It never switches objects.
+///
+/// CLAIMS — `leaseId` is minted fresh on every claim and is the authority for the
+/// claiming worker's writes; a reclaimed job gets a new `leaseId`, so a stalled
+/// worker cannot publish after losing its lease.
 model DocumentProcessingJob {
   id String @id @default(uuid()) @db.Uuid
 
@@ -626,7 +626,7 @@ enum OrganizationActivityAction {
   CONVERSATION_SHARED
   CONVERSATION_UNSHARED
   COLLECTION_CREATED
-  COLLECTION_UPDATED
+  COLLECTION_RENAMED
   COLLECTION_DELETED
 }
 

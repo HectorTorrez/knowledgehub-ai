@@ -677,7 +677,7 @@ export type OrganizationActivityAction =
   | 'CONVERSATION_SHARED'
   | 'CONVERSATION_UNSHARED'
   | 'COLLECTION_CREATED'
-  | 'COLLECTION_UPDATED'
+  | 'COLLECTION_RENAMED'
   | 'COLLECTION_DELETED';
 
 export interface OrganizationActivityItem {

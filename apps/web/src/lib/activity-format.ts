@@ -14,6 +14,9 @@ export function formatActivity(item: OrganizationActivityItem): string {
     case 'INVITATION_REVOKED': return `${actor} revoked ${email ? `the invitation for ${email}` : 'an invitation'}`;
     case 'INVITATION_ACCEPTED': return `${actor} accepted ${email ? `the invitation for ${email}` : 'an invitation'}`;
     case 'ORGANIZATION_RENAMED': return `${actor} renamed the organization${from ? ` from “${from}”` : ''}${to ? ` to “${to}”` : ''}`;
+    case 'COLLECTION_CREATED': return `${actor} created collection${to ? ` “${to}”` : ''}`;
+    case 'COLLECTION_RENAMED': return `${actor} renamed collection${from ? ` “${from}”` : ''}${to ? ` to “${to}”` : ''}`;
+    case 'COLLECTION_DELETED': return `${actor} deleted collection${from ? ` “${from}”` : ''}`;
     case 'DOCUMENT_UPLOADED': return `${actor} uploaded ${document}`;
     case 'DOCUMENT_RENAMED': return `${actor} renamed ${from ? `document “${from}”` : 'a document'}${to ? ` to “${to}”` : ''}`;
     case 'DOCUMENT_DELETED': return `${actor} deleted ${document}`;
