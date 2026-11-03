@@ -24,16 +24,20 @@ export function DocumentMultiSelect({
   selectedIds,
   onChange,
   maxSelected = 20,
+  label = 'Documents',
+  emptyLabel = 'All ready documents',
 }: Readonly<{
   documents: ReadonlyArray<DocumentOption>;
   selectedIds: ReadonlyArray<string>;
   onChange: (next: Array<string>) => void;
   maxSelected?: number;
+  label?: string;
+  emptyLabel?: string;
 }>) {
   const labelId = useId();
   const summary =
     selectedIds.length === 0
-      ? 'All ready documents'
+      ? emptyLabel
       : selectedIds.length === 1
         ? (documents.find((document) => document.id === selectedIds[0])?.title ??
           '1 document selected')
@@ -54,7 +58,7 @@ export function DocumentMultiSelect({
 
   return (
     <div className="space-y-1.5">
-      <Label id={labelId}>Documents</Label>
+      <Label id={labelId}>{label}</Label>
       <Popover>
         <PopoverTrigger asChild>
           <Button
@@ -75,11 +79,11 @@ export function DocumentMultiSelect({
         >
           <Command>
             <CommandInput
-              placeholder="Search documents…"
-              aria-label="Search documents"
+              placeholder={`Search ${label.toLowerCase()}…`}
+              aria-label={`Search ${label.toLowerCase()}`}
             />
             <CommandList>
-              <CommandEmpty>No ready documents match.</CommandEmpty>
+              <CommandEmpty>No matches.</CommandEmpty>
               <CommandGroup>
                 {documents.map((document) => {
                   const selected = selectedIds.includes(document.id);

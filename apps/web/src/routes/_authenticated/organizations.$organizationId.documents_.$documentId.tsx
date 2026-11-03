@@ -1,3 +1,7 @@
+import type { DocumentDetailResponse } from '@knowledgehub/shared-types';
+import { CollectionBadges } from '~/components/collections-manager';
+import { DocumentMultiSelect } from '~/components/document-multi-select';
+import { collectionsApi } from '~/lib/api/collections';
 import {
   canPreviewDocument,
   documentContentTypeLabel,
@@ -123,6 +127,33 @@ function DocumentDetailPage() {
         typeof window !== 'undefined' &&
           window.document.visibilityState === 'visible',
       );
+    },
+  });
+  const collections = useQuery({
+    queryKey: queryKeys.organizations.collections(organizationId),
+    queryFn: () => collectionsApi.list(organizationId),
+  });
+  const assignment = useMutation({
+    mutationFn: (ids: string[]) => collectionsApi.setDocumentCollections(organizationId, documentId, ids),
+    onMutate: async (ids) => {
+      const key = queryKeys.organizations.documents.detail(organizationId, documentId);
+      await client.cancelQueries({ queryKey: key });
+      const previous = client.getQueryData<DocumentDetailResponse>(key);
+      client.setQueryData<DocumentDetailResponse>(key, (current) => current ? {
+        ...current,
+        document: { ...current.document, collections: (collections.data ?? []).filter((item) => ids.includes(item.id)) },
+      } : current);
+      return { previous };
+    },
+    onError: (error, _ids, context) => {
+      client.setQueryData(queryKeys.organizations.documents.detail(organizationId, documentId), context?.previous);
+      reportError(error);
+    },
+    onSettled: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: queryKeys.organizations.documents.all(organizationId) }),
+        client.invalidateQueries({ queryKey: queryKeys.organizations.collections(organizationId) }),
+      ]);
     },
   });
   useDocumentNotifications(
@@ -301,6 +332,18 @@ function DocumentDetailPage() {
     <div className="space-y-6">
       <BackLink organizationId={organizationId} />
 
+      <div className="space-y-2">
+        <CollectionBadges collections={entry.collections ?? []} />
+        {canWrite ? (
+          <DocumentMultiSelect
+            label="Collections"
+            emptyLabel="No collections"
+            documents={(collections.data ?? []).map((item) => ({ id: item.id, title: item.name }))}
+            selectedIds={(entry.collections ?? []).map((item) => item.id)}
+            onChange={(ids) => assignment.mutate(ids)}
+          />
+        ) : null}
+      </div>
       <PageHeader
         title={entry.title}
         description="The file, processing state, and metadata behind this document."
