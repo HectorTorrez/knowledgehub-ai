@@ -48,6 +48,14 @@ describe('searchSchema', () => {
     ).toBe(false);
   });
 
+  it('validates document and date filters', () => {
+    const id = '00000000-0000-4000-8000-000000000001';
+    expect(searchSchema.parse({ q: 'hello', documentIds: id, createdAfter: '2026-01-01' }).documentIds).toEqual([id]);
+    expect(searchSchema.safeParse({ q: 'hello', documentIds: Array(21).fill(id) }).success).toBe(false);
+    expect(searchSchema.safeParse({ q: 'hello', documentIds: ['bad'] }).success).toBe(false);
+    expect(searchSchema.safeParse({ q: 'hello', createdBefore: 'invalid' }).success).toBe(false);
+  });
+
   it('rejects unknown properties', () => {
     expect(searchSchema.safeParse({ q: 'hello', extra: 'x' }).success).toBe(
       false,

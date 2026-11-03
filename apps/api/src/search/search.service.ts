@@ -49,6 +49,9 @@ export class SearchService {
         text: input.q,
         limit: input.limit,
         ...(input.documentId ? { documentId: input.documentId } : {}),
+        ...(input.documentIds ? { documentIds: input.documentIds } : {}),
+        ...(input.createdAfter ? { createdAfter: input.createdAfter } : {}),
+        ...(input.createdBefore ? { createdBefore: input.createdBefore } : {}),
       });
     } catch (error) {
       throw mapSearchError(error);

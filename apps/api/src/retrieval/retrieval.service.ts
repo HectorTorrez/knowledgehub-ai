@@ -18,6 +18,9 @@ export interface RetrievalQuery {
   text: string;
   limit?: number;
   documentId?: string;
+  documentIds?: string[];
+  createdAfter?: string;
+  createdBefore?: string;
 }
 
 export interface RetrievedChunk {
@@ -70,6 +73,9 @@ export class RetrievalService {
       AND d.status = 'READY'
       AND d.generation = c."documentGeneration"
       ${documentFilter}
+      ${query.documentIds ? Prisma.sql`AND c."documentId" IN (${Prisma.join(query.documentIds.map((id) => Prisma.sql`${id}::uuid`))})` : Prisma.empty}
+      ${query.createdAfter ? Prisma.sql`AND d."createdAt" >= ${new Date(query.createdAfter)}` : Prisma.empty}
+      ${query.createdBefore ? Prisma.sql`AND d."createdAt" < ${new Date(new Date(query.createdBefore).getTime() + 86400000)}` : Prisma.empty}
     `;
     const fields = Prisma.sql`
       c.id AS "chunkId", c."documentId", d.title, c."pageNumber",

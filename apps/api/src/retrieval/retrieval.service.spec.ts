@@ -95,6 +95,20 @@ describe('RetrievalService', () => {
     expect(calls[0]!.values).toContain('doc-9');
   });
 
+  it('applies document and date filters alongside tenant scope in both legs', async () => {
+    const { service, calls } = createService([]);
+    await service.search({ organizationId: 'org-1', text: 'alpha', documentIds: ['doc-1', 'doc-2'], createdAfter: '2026-01-01', createdBefore: '2026-01-31' });
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(sqlOf(call)).toContain('c."organizationId" = ?::uuid');
+      expect(sqlOf(call)).toContain('d."organizationId" = ?::uuid');
+      expect(sqlOf(call)).toContain('c."documentId" IN (?::uuid,?::uuid)');
+      expect(sqlOf(call)).toContain('d."createdAt" >= ?');
+      expect(sqlOf(call)).toContain('d."createdAt" < ?');
+      expect(call.values).toContainEqual(new Date('2026-02-01T00:00:00Z'));
+    }
+  });
+
   it('omits the document filter when no document is requested', async () => {
     const { service, calls } = createService([]);
 
