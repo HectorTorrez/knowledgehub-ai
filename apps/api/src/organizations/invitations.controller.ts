@@ -43,6 +43,7 @@ export class InvitationsController {
     return this.invitations.create(
       requireOrganizationContext(request),
       body.email,
+      body.role,
     );
   }
 

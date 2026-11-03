@@ -19,6 +19,8 @@ import type {
   DocumentListResponse,
   DocumentUploadUrlResponse,
 } from '@knowledgehub/shared-types';
+import { ForbiddenException } from '@nestjs/common';
+import { can, type Capability } from '../organizations/permissions.js';
 import { SessionGuard } from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
 import { OrganizationMembershipGuard } from '../organizations/organization-membership.guard.js';
@@ -48,6 +50,10 @@ import {
 } from './dto/update-document.schema.js';
 import { DocumentsService } from './documents.service.js';
 
+function requireDocumentCapability(request: OrganizationRequest, capability: Capability): void {
+  if (!can(requireOrganizationContext(request).role, capability)) throw new ForbiddenException();
+}
+
 @Controller('organizations/:organizationId/documents')
 @UseGuards(SessionGuard, OrganizationMembershipGuard)
 export class DocumentsController {
@@ -60,6 +66,7 @@ export class DocumentsController {
     body: CreateDocumentInput,
     @Req() request: OrganizationRequest,
   ): Promise<DocumentDetailResponse> {
+    requireDocumentCapability(request, 'documents.write');
     return this.documents.create(requireOrganizationContext(request), body);
   }
 
@@ -104,6 +111,7 @@ export class DocumentsController {
     body: UpdateDocumentInput,
     @Req() request: OrganizationRequest,
   ): Promise<DocumentDetailResponse> {
+    requireDocumentCapability(request, 'documents.write');
     return this.documents.rename(
       requireOrganizationContext(request).organizationId,
       documentId,
@@ -118,6 +126,7 @@ export class DocumentsController {
     @Param('documentId', ParseUUIDPipe) documentId: string,
     @Req() request: OrganizationRequest,
   ): Promise<void> {
+    requireDocumentCapability(request, 'documents.delete');
     return this.documents.delete(
       requireOrganizationContext(request).organizationId,
       documentId,
@@ -131,6 +140,7 @@ export class DocumentsController {
     @Param('documentId', ParseUUIDPipe) documentId: string,
     @Req() request: OrganizationRequest,
   ): Promise<DocumentDetailResponse> {
+    requireDocumentCapability(request, 'documents.write');
     return this.documents.reprocess(
       requireOrganizationContext(request).organizationId,
       documentId,
@@ -146,6 +156,7 @@ export class DocumentsController {
     body: CreateUploadUrlInput,
     @Req() request: OrganizationRequest,
   ): Promise<DocumentUploadUrlResponse> {
+    requireDocumentCapability(request, 'documents.write');
     return this.documents.createUploadUrl(
       requireOrganizationContext(request),
       documentId,
@@ -161,6 +172,7 @@ export class DocumentsController {
     body: CompleteUploadInput,
     @Req() request: OrganizationRequest,
   ): Promise<DocumentDetailResponse> {
+    requireDocumentCapability(request, 'documents.write');
     return this.documents.completeUpload(
       requireOrganizationContext(request),
       documentId,

@@ -31,7 +31,7 @@ function organization(
   name: string,
   role: OrganizationRole = 'MEMBER',
 ): OrganizationSummary {
-  return { id, name, role, createdAt: TIMESTAMP, updatedAt: TIMESTAMP };
+  return { id, name, role, capabilities: [], createdAt: TIMESTAMP, updatedAt: TIMESTAMP };
 }
 
 function document(id: string): DocumentSummary {

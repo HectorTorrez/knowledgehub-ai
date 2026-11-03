@@ -120,7 +120,8 @@ export interface AuthSessionListResponse {
 }
 
 /** A user's role within an organization. */
-export type OrganizationRole = 'OWNER' | 'MEMBER';
+export type OrganizationRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+export type OrganizationCapability = 'documents.view' | 'documents.write' | 'documents.delete' | 'answers.ask' | 'search' | 'conversations.viewOwn' | 'members.manage' | 'owners.manage' | 'organization.manage' | 'organization.delete' | 'insights.view';
 
 /**
  * Public view of an organization from the perspective of the requesting user,
@@ -131,6 +132,7 @@ export interface OrganizationSummary {
   id: string;
   name: string;
   role: OrganizationRole;
+  capabilities: OrganizationCapability[];
   createdAt: string;
   updatedAt: string;
 }
@@ -246,6 +248,7 @@ export interface OrganizationInvitationSummary {
 
 /** Request body of `POST /organizations/:organizationId/invitations`. */
 export interface CreateInvitationRequest {
+  role?: OrganizationRole;
   email: string;
 }
 

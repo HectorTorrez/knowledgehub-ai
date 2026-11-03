@@ -121,7 +121,10 @@ function OrganizationOverviewPage() {
   useQueryErrorToast(organization.error, () => void organization.refetch());
   useQueryErrorToast(members.error, () => void members.refetch());
 
-  const isOwner = organization.data?.organization.role === 'OWNER';
+  const canManageMembers = organization.data?.organization.capabilities.includes('members.manage') ?? false;
+  const canManageOwners = organization.data?.organization.capabilities.includes('owners.manage') ?? false;
+  const canWrite = organization.data?.organization.capabilities.includes('documents.write') ?? false;
+  const [inviteRole, setInviteRole] = useState<OrganizationRole>('MEMBER');
 
   const usage = useQuery({
     queryKey: queryKeys.organizations.usage(organizationId),
@@ -131,7 +134,7 @@ function OrganizationOverviewPage() {
   const invitations = useQuery({
     queryKey: queryKeys.organizations.invitations.list(organizationId),
     queryFn: () => invitationsApi.list(organizationId),
-    enabled: isOwner,
+    enabled: canManageMembers,
   });
   useQueryErrorToast(usage.error, () => void usage.refetch());
   useQueryErrorToast(invitations.error, () => void invitations.refetch());
@@ -170,9 +173,7 @@ function OrganizationOverviewPage() {
       toast({
         variant: 'success',
         title: 'Role updated',
-        description: `${data.member.email} is now ${
-          data.member.role === 'OWNER' ? 'an owner' : 'a member'
-        }.`,
+        description: `${data.member.email} now has the ${formatRole(data.member.role)} role.`,
       });
 
       return client.invalidateQueries({
@@ -183,8 +184,8 @@ function OrganizationOverviewPage() {
   });
 
   const createInvitation = useMutation({
-    mutationFn: (input: { organizationId: string; email: string }) =>
-      invitationsApi.create(input.organizationId, { email: input.email }),
+    mutationFn: (input: { organizationId: string; email: string; role: OrganizationRole }) =>
+      invitationsApi.create(input.organizationId, { email: input.email, role: input.role }),
     onSuccess: (data, variables) => {
       setInviteResult(data.invitation);
       setEmail('');
@@ -243,6 +244,10 @@ function OrganizationOverviewPage() {
       return;
     }
 
+    if (inviteRole !== 'MEMBER') {
+      try { await createInvitation.mutateAsync({ organizationId, email: result.data.email, role: inviteRole }); } catch { return; }
+      return;
+    }
     try {
       await addMember.mutateAsync({ organizationId, email: result.data.email });
       setEmail('');
@@ -258,6 +263,7 @@ function OrganizationOverviewPage() {
         await createInvitation.mutateAsync({
           organizationId,
           email: result.data.email,
+          role: inviteRole,
         });
       } catch {
         return;
@@ -348,7 +354,7 @@ function OrganizationOverviewPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
+        {canWrite ? <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
           <Link
             to="/organizations/$organizationId/documents"
             params={{ organizationId }}
@@ -356,7 +362,7 @@ function OrganizationOverviewPage() {
             <Upload />
             Upload a document
           </Link>
-        </Button>
+        </Button> : null}
         <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
           <Link
             to="/organizations/$organizationId/ask"
@@ -434,7 +440,7 @@ function OrganizationOverviewPage() {
                 account yet, adding them creates a shareable invitation.
               </p>
             </div>
-            {isOwner ? (
+            {canManageMembers ? (
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <UserPlus />
@@ -487,7 +493,7 @@ function OrganizationOverviewPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                      {isOwner && member.userId !== currentUserId ? (
+                      {canManageMembers && (member.role !== 'OWNER' || canManageOwners) && member.userId !== currentUserId ? (
                         <Select
                           value={member.role}
                           onValueChange={(role) =>
@@ -506,8 +512,10 @@ function OrganizationOverviewPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="OWNER">Owner</SelectItem>
-                            <SelectItem value="MEMBER">Member</SelectItem>
+                            {canManageOwners ? <SelectItem value="OWNER">Owner — full access</SelectItem> : null}
+                            <SelectItem value="ADMIN">Admin — manage organization and members</SelectItem>
+                            <SelectItem value="MEMBER">Member — manage documents</SelectItem>
+                            <SelectItem value="VIEWER">Viewer — read and ask questions</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
@@ -515,7 +523,7 @@ function OrganizationOverviewPage() {
                           {formatRole(member.role)}
                         </Badge>
                       )}
-                      {isOwner && member.userId !== currentUserId ? (
+                      {canManageMembers && (member.role !== 'OWNER' || canManageOwners) && member.userId !== currentUserId ? (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -545,8 +553,7 @@ function OrganizationOverviewPage() {
           <DialogHeader>
             <DialogTitle>Add a member</DialogTitle>
             <DialogDescription>
-              If the person already has an account, they join immediately as a
-              MEMBER. Otherwise we create an invitation you can share.
+              Members with an existing account join immediately. Other selections create an invitation you can share.
             </DialogDescription>
           </DialogHeader>
 
@@ -598,6 +605,7 @@ function OrganizationOverviewPage() {
                   onChange={(event) => setEmail(event.target.value)}
                 />
               </div>
+              <div className="space-y-2"><Label>Role</Label><Select value={inviteRole} onValueChange={(value) => setInviteRole(value as OrganizationRole)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{canManageOwners ? <SelectItem value="OWNER">Owner — full access</SelectItem> : null}<SelectItem value="ADMIN">Admin — manage organization and members</SelectItem><SelectItem value="MEMBER">Member — manage documents</SelectItem><SelectItem value="VIEWER">Viewer — read and ask questions</SelectItem></SelectContent></Select></div>
               <DialogFooter>
                 <Button
                   type="button"
@@ -620,7 +628,7 @@ function OrganizationOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {isOwner ? (
+      {canManageMembers ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -661,7 +669,7 @@ function OrganizationOverviewPage() {
                         Expires {formatDateTime(invitation.expiresAt)}
                       </p>
                     </div>
-                    <Button
+                    {invitation.role !== 'OWNER' || canManageOwners ? <Button
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -678,7 +686,7 @@ function OrganizationOverviewPage() {
                       }
                     >
                       Revoke
-                    </Button>
+                    </Button> : null}
                   </li>
                 ))}
               </ul>

@@ -97,7 +97,9 @@ model RefreshToken {
 /// the finer-grained permissions model is intentionally out of scope.
 enum MembershipRole {
   OWNER
+  ADMIN
   MEMBER
+  VIEWER
 }
 
 /// A tenant. Identity is modeled separately (see `User`): an organization is

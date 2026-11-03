@@ -17,6 +17,7 @@ const ORGANIZATION = {
   id: 'org-1',
   name: 'Acme',
   role: 'OWNER',
+  capabilities: ['documents.view', 'documents.write', 'documents.delete', 'answers.ask', 'search', 'conversations.viewOwn', 'members.manage', 'owners.manage', 'organization.manage', 'organization.delete', 'insights.view'],
   createdAt: CREATED_AT,
   updatedAt: CREATED_AT,
 };
@@ -44,6 +45,7 @@ const ANSWER = {
 
 interface ApiOptions {
   authenticated: boolean;
+  role?: 'OWNER' | 'VIEWER';
   onAsk?: () => void;
 }
 
@@ -57,6 +59,7 @@ function json(body: unknown, status = 200): { status: number; contentType: strin
 
 export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
   let authenticated = options.authenticated;
+  const organization = options.role === 'VIEWER' ? { ...ORGANIZATION, role: 'VIEWER', capabilities: ['documents.view', 'answers.ask', 'search', 'conversations.viewOwn'] } : ORGANIZATION;
   await page.route('https://fake-object-storage.test/**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/pdf', headers: { 'Access-Control-Allow-Origin': '*' }, body: Buffer.from(createMinimalPdf('Employees receive twenty days of leave each year.')) });
   });
@@ -97,12 +100,12 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     }
 
     if (path === '/organizations') {
-      await route.fulfill(json({ organizations: [ORGANIZATION] }));
+      await route.fulfill(json({ organizations: [organization] }));
       return;
     }
 
     if (path === '/organizations/org-1') {
-      await route.fulfill(json({ organization: ORGANIZATION }));
+      await route.fulfill(json({ organization }));
       return;
     }
 

@@ -42,7 +42,7 @@ describe('ActivityService.list', () => {
     await service.list(context, { limit: 50 });
     expect(prisma.organizationActivity.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: 'org' } }));
     prisma.membership.findUnique.mockResolvedValue({ role: 'MEMBER' });
-    await expect(service.list(context, { limit: 50 })).rejects.toThrow('Only an organization owner');
+    await expect(service.list(context, { limit: 50 })).rejects.toThrow('You cannot view activity');
     expect(prisma.organizationActivity.findMany).toHaveBeenCalledTimes(1);
   });
 });

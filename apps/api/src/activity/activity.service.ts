@@ -4,7 +4,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 import { decodeListCursor, encodeListCursor, listCursorFilter } from '../common/list-cursor.js';
-import { requireOwner } from '../organizations/require-owner.js';
+import { requireCapability } from '../organizations/require-owner.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 
 type ActivityRow = Prisma.OrganizationActivityGetPayload<{
@@ -43,7 +43,7 @@ export class ActivityService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(context: OrganizationContext, input: { cursor?: string; limit: number }): Promise<OrganizationActivityListResponse> {
-    await requireOwner(this.prisma, context, 'view activity');
+    await requireCapability(this.prisma, context, 'organization.manage', 'view activity');
     const cursor = input.cursor ? decodeListCursor(input.cursor) : null;
     if (input.cursor && !cursor) throw new BadRequestException('cursor is not valid');
     const rows = await this.prisma.organizationActivity.findMany({

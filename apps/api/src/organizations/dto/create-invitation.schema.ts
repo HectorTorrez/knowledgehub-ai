@@ -4,6 +4,7 @@ const EMAIL_MAX_LENGTH = 254;
 
 export const createInvitationSchema = z
   .object({
+    role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']).default('MEMBER'),
     email: z
       .string()
       .trim()

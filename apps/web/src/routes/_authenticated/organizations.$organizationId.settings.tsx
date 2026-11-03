@@ -65,13 +65,14 @@ function OrganizationSettingsPage() {
   });
   useQueryErrorToast(organization.error, () => void organization.refetch());
 
-  const isOwner = organization.data?.organization.role === 'OWNER';
+  const canDeleteOrganization = organization.data?.organization.capabilities.includes('organization.delete') ?? false;
+  const canManage = organization.data?.organization.capabilities.includes('organization.manage') ?? false;
   const activity = useInfiniteQuery({
     queryKey: ['organizations', organizationId, 'activity'],
     queryFn: ({ pageParam }) => activityApi.list(organizationId, { cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
-    enabled: isOwner,
+    enabled: canManage,
   });
   useQueryErrorToast(activity.error, () => void activity.refetch());
   const currentName = organization.data?.organization.name ?? '';
@@ -163,15 +164,15 @@ function OrganizationSettingsPage() {
             Organization details
           </CardTitle>
           <CardDescription>
-            {isOwner
-              ? 'Owners can rename the organization.'
-              : `Only owners can rename the organization. Your role is ${formatRole(
+            {canManage
+              ? 'Owners and admins can rename the organization.'
+              : `Only owners and admins can rename the organization. Your role is ${formatRole(
                   organization.data.organization.role,
                 )}.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isOwner ? (
+          {canManage ? (
             <form
               onSubmit={handleRename}
               className="flex flex-col gap-3 sm:flex-row sm:items-end"
@@ -198,7 +199,7 @@ function OrganizationSettingsPage() {
         </CardContent>
       </Card>
 
-      {isOwner ? (
+      {canManage ? (
         <Card>
           <CardHeader><CardTitle>Activity</CardTitle><CardDescription>Recent organization activity.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
@@ -227,7 +228,7 @@ function OrganizationSettingsPage() {
           <div className="space-y-1">
             <p className="text-sm font-medium">Leave this organization</p>
             <p className="text-sm text-muted-foreground">
-              {isOwner
+              {canDeleteOrganization
                 ? 'If you are the last owner, transfer ownership or delete the organization instead.'
                 : 'You will lose access to its documents and answers.'}
             </p>
@@ -241,7 +242,7 @@ function OrganizationSettingsPage() {
           </Button>
         </CardContent>
 
-        {isOwner ? (
+        {canDeleteOrganization ? (
           <CardContent className="flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
             <div className="space-y-1">
               <p className="text-sm font-medium">Delete this organization</p>
