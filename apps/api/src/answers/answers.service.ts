@@ -40,6 +40,7 @@ import {
   MAX_CATALOG_DOCUMENTS,
   type CatalogDocumentRow,
 } from './answer-catalog.js';
+import { wholeDocumentContext, type DocumentContextChunk } from './whole-document-context.js';
 import { expandNeighbors, type NeighborChunk } from './neighbor-expansion.js';
 import { AnswerStreamParser } from './answer-claim-stream.js';
 import {
@@ -84,6 +85,7 @@ interface AnswerLogEvent {
   organizationId: string;
   userId: string;
   model: string;
+  contextMode: 'retrieval' | 'whole_document';
   sourceCount: number;
   catalogCount: number;
   promptChars: number;
@@ -296,6 +298,7 @@ export class AnswersService {
       organizationId,
       userId,
       model: this.config.model,
+      contextMode: 'retrieval',
       sourceCount: 0,
       catalogCount: 0,
       promptChars: 0,
@@ -656,8 +659,13 @@ export class AnswersService {
       return { kind: 'direct', response: aggregate };
     }
 
+    const wholeDocument = documentId
+      ? await this.loadWholeDocument(organizationId, documentId)
+      : null;
+    if (wholeDocument) event.contextMode = 'whole_document';
+
     const [sources, catalogRows] = await Promise.all([
-      this.retrieveSources(organizationId, question, documentId),
+      wholeDocument ?? this.retrieveSources(organizationId, question, documentId),
       this.loadDocumentCatalogRows(organizationId, documentId),
     ]);
 
@@ -718,6 +726,20 @@ export class AnswersService {
     }
 
     this.logger.log(event);
+  }
+
+  private async loadWholeDocument(organizationId: string, documentId: string): Promise<AnswerSource[] | null> {
+    const rows = await this.prisma.$queryRaw<DocumentContextChunk[]>(Prisma.sql`
+      SELECT c.id AS "chunkId", c."documentId", d.title AS "documentTitle",
+        c."pageNumber", c."chunkIndex", c.content
+      FROM "DocumentChunk" c
+      JOIN "Document" d ON d.id = c."documentId"
+      WHERE d.id = ${documentId}::uuid AND d."organizationId" = ${organizationId}::uuid
+        AND c."organizationId" = ${organizationId}::uuid AND d.status = 'READY'
+        AND c."documentGeneration" = d.generation
+      ORDER BY c."pageNumber", c."chunkIndex"
+    `);
+    return wholeDocumentContext(rows, this.contextBudget());
   }
 
   private async retrieveSources(

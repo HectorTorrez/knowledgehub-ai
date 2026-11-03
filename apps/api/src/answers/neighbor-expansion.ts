@@ -16,7 +16,7 @@ export interface ExpandedHit {
   chunkIds: string[];
 }
 
-function joinText(left: string, right: string): string {
+export function joinText(left: string, right: string): string {
   for (let length = Math.min(left.length, right.length); length > 0; length--) {
     if (left.endsWith(right.slice(0, length))) return left + right.slice(length);
   }
