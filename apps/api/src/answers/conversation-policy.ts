@@ -1,3 +1,5 @@
+import type { Prisma } from '../generated/prisma/client.js';
+
 export type ConversationVisibility = 'PRIVATE' | 'ORGANIZATION';
 
 export interface ConversationAccess {
@@ -5,46 +7,89 @@ export interface ConversationAccess {
   visibility: ConversationVisibility;
 }
 
+export interface ConversationActor {
+  userId: string;
+  canManageMembers: boolean;
+}
+
+export interface ConversationPermissions {
+  canEdit: boolean;
+  canShare: boolean;
+}
+
+function isLegacy(conversation: ConversationAccess): boolean {
+  return conversation.createdById === null;
+}
+
 export function canReadConversation(
   conversation: ConversationAccess,
-  userId: string,
+  actor: ConversationActor,
 ): boolean {
   return (
-    conversation.createdById === userId ||
+    conversation.createdById === actor.userId ||
     conversation.visibility === 'ORGANIZATION'
   );
 }
 
 export function canContinueConversation(
   conversation: ConversationAccess,
-  userId: string,
+  actor: ConversationActor,
 ): boolean {
-  return conversation.createdById === userId;
+  return conversation.createdById === actor.userId || isLegacy(conversation);
 }
 
 export function canManageConversation(
   conversation: ConversationAccess,
-  userId: string,
-  canManageMembers: boolean,
+  actor: ConversationActor,
 ): boolean {
   return (
-    canContinueConversation(conversation, userId) ||
-    (conversation.createdById === null && canManageMembers)
+    conversation.createdById === actor.userId ||
+    (isLegacy(conversation) && actor.canManageMembers)
   );
 }
 
-export function canSetConversationVisibility(
+export function canShareConversation(
   conversation: ConversationAccess,
-  userId: string,
-  canManageMembers: boolean,
-  visibility: ConversationVisibility,
+  actor: ConversationActor,
 ): boolean {
-  return (
-    canManageConversation(conversation, userId, canManageMembers) &&
-    (conversation.createdById !== null || visibility === 'ORGANIZATION')
-  );
+  return conversation.createdById === actor.userId;
 }
 
-export function readableConversationWhere(userId: string) {
-  return { OR: [{ createdById: userId }, { visibility: 'ORGANIZATION' as const }] };
+export function conversationPermissions(
+  conversation: ConversationAccess,
+  actor: ConversationActor,
+): ConversationPermissions {
+  return {
+    canEdit: canContinueConversation(conversation, actor),
+    canShare: canShareConversation(conversation, actor),
+  };
+}
+
+export function readableConversationWhere(
+  userId: string,
+): Prisma.ConversationWhereInput {
+  return { OR: [{ createdById: userId }, { visibility: 'ORGANIZATION' }] };
+}
+
+export function continuableConversationWhere(
+  userId: string,
+): Prisma.ConversationWhereInput {
+  return { OR: [{ createdById: userId }, { createdById: null }] };
+}
+
+export function manageableConversationWhere(
+  actor: ConversationActor,
+): Prisma.ConversationWhereInput {
+  return actor.canManageMembers
+    ? { OR: [{ createdById: actor.userId }, { createdById: null }] }
+    : { createdById: actor.userId };
+}
+
+export function readableAnswerWhere(userId: string): Prisma.AnswerWhereInput {
+  return {
+    OR: [
+      { conversationId: null },
+      { conversation: readableConversationWhere(userId) },
+    ],
+  };
 }

@@ -15,6 +15,7 @@ export const listConversationsSchema = z
       )
       .default(CONVERSATION_LIST_DEFAULT_LIMIT),
     cursor: z.string().min(1, 'cursor must not be empty').optional(),
+    scope: z.enum(['all', 'mine', 'shared']).default('all'),
   })
   .strict();
 

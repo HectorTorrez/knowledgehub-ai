@@ -704,7 +704,11 @@ describe('AnswersService', () => {
     );
 
     expect(prisma.conversation.findFirst).toHaveBeenCalledWith({
-      where: { id: 'conversation-1', organizationId: 'org-1' },
+      where: {
+        id: 'conversation-1',
+        organizationId: 'org-1',
+        AND: [{ OR: [{ createdById: USER_ID }, { createdById: null }] }],
+      },
       select: { id: true },
     });
     expect(prisma.answer.findMany).toHaveBeenCalledWith({
@@ -799,7 +803,22 @@ describe('AnswersService', () => {
 
     expect(prisma.answer.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { organizationId: 'org-1', conversationId: 'conversation-1' },
+        where: {
+          organizationId: 'org-1',
+          conversationId: 'conversation-1',
+          AND: [
+            {
+              OR: [
+                { conversationId: null },
+                {
+                  conversation: {
+                    OR: [{ createdById: USER_ID }, { visibility: 'ORGANIZATION' }],
+                  },
+                },
+              ],
+            },
+          ],
+        },
       }),
     );
   });
@@ -1225,7 +1244,21 @@ describe('AnswersService', () => {
     const result = await service.list('org-1', USER_ID, { limit: 25, askedBy: 'organization' });
 
     expect(prisma.answer.findMany).toHaveBeenCalledWith({
-      where: { organizationId: 'org-1' },
+      where: {
+        organizationId: 'org-1',
+        AND: [
+          {
+            OR: [
+              { conversationId: null },
+              {
+                conversation: {
+                  OR: [{ createdById: USER_ID }, { visibility: 'ORGANIZATION' }],
+                },
+              },
+            ],
+          },
+        ],
+      },
       select: {
         id: true,
         question: true,
@@ -1286,7 +1319,22 @@ describe('AnswersService', () => {
     const result = await service.getDetail('org-1', 'answer-1', USER_ID);
 
     expect(prisma.answer.findFirst).toHaveBeenCalledWith({
-      where: { id: 'answer-1', organizationId: 'org-1' },
+      where: {
+        id: 'answer-1',
+        organizationId: 'org-1',
+        AND: [
+          {
+            OR: [
+              { conversationId: null },
+              {
+                conversation: {
+                  OR: [{ createdById: USER_ID }, { visibility: 'ORGANIZATION' }],
+                },
+              },
+            ],
+          },
+        ],
+      },
       select: expect.objectContaining({ id: true, citations: true }),
     });
     expect(result.answer.status).toBe('answered');

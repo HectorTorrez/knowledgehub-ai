@@ -262,7 +262,7 @@ describe('answers (e2e)', () => {
       'Other Org',
     );
     const conversation = await prisma.conversation.create({
-      data: { organizationId, title: 'Export title' },
+      data: { organizationId, title: 'Export title', createdById: owner.userId },
     });
     await prisma.answer.create({
       data: {

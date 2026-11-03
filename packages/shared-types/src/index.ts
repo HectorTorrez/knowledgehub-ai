@@ -520,15 +520,35 @@ export interface AnswerDetailResponse {
 }
 
 /**
+ * Who can open a conversation: only its creator (`PRIVATE`) or every member of
+ * the organization (`ORGANIZATION`).
+ */
+export type ConversationVisibility = 'PRIVATE' | 'ORGANIZATION';
+
+/**
  * A conversation groups a sequence of answers so a follow-up can reference
- * prior turns. Carries only identity and timing; the answers themselves are
- * listed through the answers endpoint filtered by `conversationId`.
+ * prior turns. The answers themselves are listed through the answers endpoint
+ * filtered by `conversationId`. `createdBy` is null for conversations started
+ * before ownership was recorded. `canEdit` says whether the caller may keep
+ * asking in it; `canShare` whether the caller may change its visibility.
  */
 export interface ConversationSummary {
   id: string;
   title: string | null;
   createdAt: string;
+  visibility: ConversationVisibility;
+  createdBy: { id: string; firstName: string; lastName: string } | null;
+  canEdit: boolean;
+  canShare: boolean;
 }
+
+/** Body of `PATCH /organizations/:organizationId/conversations/:conversationId`. */
+export interface UpdateConversationRequest {
+  visibility: ConversationVisibility;
+}
+
+/** `scope` query of `GET /organizations/:organizationId/conversations`. */
+export type ConversationListScope = 'all' | 'mine' | 'shared';
 
 /** Response body of `GET /organizations/:organizationId/conversations`. */
 export interface ConversationListResponse {

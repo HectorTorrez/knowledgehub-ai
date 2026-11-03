@@ -1,4 +1,7 @@
-import { readableConversationWhere } from './conversation-policy.js';
+import {
+  continuableConversationWhere,
+  readableAnswerWhere,
+} from './conversation-policy.js';
 import { RERANKER, type Reranker } from './reranker.port.js';
 import { orderReranked } from './rerank-order.js';
 import { QUERY_REWRITER, type QueryRewriter } from './query-rewriter.port.js';
@@ -494,10 +497,12 @@ export class AnswersService {
     const rows = await this.prisma.answer.findMany({
       where: {
         organizationId,
-        OR: [{ conversationId: null }, { conversation: readableConversationWhere(userId) }],
         ...(input.askedBy === 'me' ? { askedById: userId } : {}),
         ...(input.conversationId ? { conversationId: input.conversationId } : {}),
-        ...(cursor ? listCursorFilter(cursor) : {}),
+        AND: [
+          readableAnswerWhere(userId),
+          ...(cursor ? [listCursorFilter(cursor)] : []),
+        ],
       },
       select: ANSWER_SELECT,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -521,7 +526,11 @@ export class AnswersService {
     userId: string,
   ): Promise<AnswerDetailResponse> {
     const row = await this.prisma.answer.findFirst({
-      where: { id: answerId, organizationId, OR: [{ conversationId: null }, { conversation: readableConversationWhere(userId) }] },
+      where: {
+        id: answerId,
+        organizationId,
+        AND: [readableAnswerWhere(userId)],
+      },
       select: {
         ...ANSWER_SELECT,
         feedback: {
@@ -583,7 +592,11 @@ export class AnswersService {
     userId: string,
   ): Promise<void> {
     const answer = await this.prisma.answer.findFirst({
-      where: { id: answerId, organizationId, OR: [{ conversationId: null }, { conversation: readableConversationWhere(userId) }] },
+      where: {
+        id: answerId,
+        organizationId,
+        AND: [readableAnswerWhere(userId)],
+      },
       select: { id: true },
     });
 
@@ -913,7 +926,11 @@ export class AnswersService {
     userId: string,
   ): Promise<void> {
     const conversation = await this.prisma.conversation.findFirst({
-      where: { id: conversationId, organizationId, createdById: userId },
+      where: {
+        id: conversationId,
+        organizationId,
+        AND: [continuableConversationWhere(userId)],
+      },
       select: { id: true },
     });
 

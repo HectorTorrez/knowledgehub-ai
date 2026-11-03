@@ -23,8 +23,26 @@ describe('InsightsService', () => {
       await service.get(context, 7);
       const since = new Date('2026-01-25T00:00:00Z');
       expect(prisma.answer.count).toHaveBeenCalledWith({ where: { organizationId: 'org', createdAt: { gte: since } } });
-      expect(prisma.answer.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: 'org', createdAt: { gte: since }, status: 'insufficient_evidence' }, take: 20, orderBy: { createdAt: 'desc' } }));
-      expect(prisma.answerFeedback.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { answer: { organizationId: 'org' }, createdAt: { gte: since }, value: 'DOWN' }, take: 20, orderBy: { createdAt: 'desc' } }));
+      const readable = {
+        OR: [
+          { conversationId: null },
+          { conversation: { OR: [{ createdById: 'user' }, { visibility: 'ORGANIZATION' }] } },
+        ],
+      };
+      expect(prisma.answer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { organizationId: 'org', createdAt: { gte: since }, status: 'insufficient_evidence', AND: [readable] },
+          take: 20,
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+      expect(prisma.answerFeedback.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { createdAt: { gte: since }, value: 'DOWN', answer: { organizationId: 'org', AND: [readable] } },
+          take: 20,
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
     } finally { vi.useRealTimers(); }
   });
 });
