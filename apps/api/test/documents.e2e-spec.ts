@@ -258,6 +258,7 @@ describe('documents (e2e)', () => {
 
       expect(response.body).toEqual({
         document: {
+          collections: [],
           id: expect.any(String),
           title: 'Quarterly report',
           status: 'PENDING',
@@ -412,6 +413,7 @@ describe('documents (e2e)', () => {
 
       expect(Object.keys(response.body.document).sort()).toEqual(
         [
+          'collections',
           'contentType',
           'createdAt',
           'failureKind',
@@ -521,6 +523,7 @@ describe('documents (e2e)', () => {
 
       expect(Object.keys(first).sort()).toEqual(
         [
+          'collections',
           'contentType',
           'createdAt',
           'failureKind',
@@ -686,6 +689,7 @@ describe('documents (e2e)', () => {
 
       expect(response.body).toEqual({
         document: {
+          collections: [],
           id: documentId,
           title: 'Quarterly report',
           status: 'PENDING',
@@ -1310,6 +1314,7 @@ describe('documents (e2e)', () => {
       }).expect(200);
 
       expect(response.body.document).toEqual({
+        collections: [],
         id: documentId,
         title: 'Report',
         status: 'PROCESSING',
