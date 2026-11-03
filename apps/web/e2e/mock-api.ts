@@ -67,7 +67,6 @@ interface ApiOptions {
   empty?: boolean;
   emptyResources?: Array<'documents' | 'conversations' | 'activity' | 'search'>;
   failingResources?: string[];
-  emptyResponses?: Record<string, unknown>;
   complete?: boolean;
   progress?: 'ready-after-poll' | 'failed';
   onAsk?: () => void;
@@ -171,14 +170,6 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       options.failingResources?.some((item) => item === resource)
     ) {
       await route.fulfill(json({ message: 'Service unavailable' }, 503));
-      return;
-    }
-    if (
-      method === 'GET' &&
-      options.emptyResponses &&
-      path in options.emptyResponses
-    ) {
-      await route.fulfill(json(options.emptyResponses[path]));
       return;
     }
     if (

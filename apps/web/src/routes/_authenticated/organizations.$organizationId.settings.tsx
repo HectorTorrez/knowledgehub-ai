@@ -153,11 +153,22 @@ function OrganizationSettingsPage() {
   }
 
   if (organization.isPending) {
-    return <Skeleton className="h-64 w-full rounded-xl" />;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
   }
 
   if (organization.isError) {
-    return <RouteError title="Unable to load settings" onRetry={() => void organization.refetch()} />;
+    return (
+      <RouteError
+        title="Unable to load settings"
+        onRetry={() => void organization.refetch()}
+      />
+    );
   }
 
   return (
@@ -241,7 +252,14 @@ function OrganizationSettingsPage() {
                 })}
                 <p className="text-sm text-muted-foreground">Daily answers reset {formatDateTime(usage.data.usage.answers.resetsAt)}</p>
               </div>
-            ) : usage.isPending ? <Skeleton className="h-16 w-full" /> : usage.isError ? <RouteError title="Unable to load usage" onRetry={() => void usage.refetch()} /> : null}
+            ) : usage.isPending ? (
+              <Skeleton className="h-16 w-full" />
+            ) : usage.isError ? (
+              <RouteError
+                title="Unable to load usage"
+                onRetry={() => void usage.refetch()}
+              />
+            ) : null}
             <Button asChild variant="outline">
               <a href="/#pricing">Upgrade</a>
             </Button>
@@ -253,7 +271,16 @@ function OrganizationSettingsPage() {
         <Card>
           <CardHeader><CardTitle>Activity</CardTitle><CardDescription>Recent organization activity.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            {activity.isPending ? <Skeleton className="h-24 w-full" /> : activity.isError ? <RouteError title="Unable to load activity" onRetry={() => void activity.refetch()} /> : activity.data?.pages.every((page) => page.activities.length === 0) ? (
+            {activity.isPending ? (
+              <Skeleton className="h-24 w-full" />
+            ) : activity.isError ? (
+              <RouteError
+                title="Unable to load activity"
+                onRetry={() => void activity.refetch()}
+              />
+            ) : activity.data?.pages.every(
+                (page) => page.activities.length === 0,
+              ) ? (
               <EmptyState icon={History} title="No activity yet" />
             ) : (
               <ul className="space-y-4">

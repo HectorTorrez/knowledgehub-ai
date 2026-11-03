@@ -441,7 +441,12 @@ function OrganizationOverviewPage() {
           {usage.isPending ? (
             <Skeleton className="h-12 w-full" />
           ) : null}
-          {usage.isError ? <RouteError title="Unable to load usage" onRetry={() => void usage.refetch()} /> : null}
+          {usage.isError ? (
+            <RouteError
+              title="Unable to load usage"
+              onRetry={() => void usage.refetch()}
+            />
+          ) : null}
           {usage.data ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -505,7 +510,12 @@ function OrganizationOverviewPage() {
               </div>
             ) : null}
 
-            {members.isError ? <RouteError title="Unable to load members" onRetry={() => void members.refetch()} /> : null}
+            {members.isError ? (
+              <RouteError
+                title="Unable to load members"
+                onRetry={() => void members.refetch()}
+              />
+            ) : null}
             {members.data && members.data.members.length === 0 ? (
               <EmptyState
                 icon={UserPlus}
@@ -695,11 +705,18 @@ function OrganizationOverviewPage() {
               </div>
             ) : null}
 
-            {invitations.isError ? <RouteError title="Unable to load invitations" onRetry={() => void invitations.refetch()} /> : null}
+            {invitations.isError ? (
+              <RouteError
+                title="Unable to load invitations"
+                onRetry={() => void invitations.refetch()}
+              />
+            ) : null}
             {invitations.data && invitations.data.invitations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No pending invitations. Add an email above to create one.
-              </p>
+              <EmptyState
+                icon={Mail}
+                title="No pending invitations"
+                description="Add an email above to create one."
+              />
             ) : null}
 
             {invitations.data && invitations.data.invitations.length > 0 ? (
