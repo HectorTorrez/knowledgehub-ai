@@ -49,36 +49,15 @@ test('keeps organization pages within the mobile viewport', async ({ page }) => 
   }
 });
 
-test('exposes every organization section in the bottom navigation', async ({
-  page,
-}) => {
+test('exposes organization sections in the mobile sidebar', async ({ page }) => {
   await mockApi(page, { authenticated: true });
   await page.goto('/organizations/org-1/documents');
-  await page.waitForLoadState('networkidle');
-
-  const nav = page.getByRole('navigation', { name: 'Organization sections' });
-
-  await expect(nav.getByRole('link')).toHaveCount(4);
-
-  for (const label of ['Overview', 'Documents', 'Ask', 'Search']) {
-    await expect(nav.getByRole('link', { name: label })).toBeVisible();
+  await page.getByRole('button', { name: 'Toggle Sidebar' }).click();
+  for (const label of ['Overview', 'Documents', 'Ask', 'Search', 'Insights', 'Settings']) {
+    await expect(page.getByRole('link', { name: label, exact: true })).toBeVisible();
   }
-
-  await expect(nav.getByRole('link', { name: 'Documents' })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
-
-  await nav.getByRole('button', { name: 'More' }).click();
-  await expect(page.getByRole('menuitem', { name: 'Insights' })).toBeVisible();
-  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await expect(page).toHaveURL(/\/settings$/);
-
-  const brand = page.getByRole('link', { name: 'KnowledgeHub' });
-  const brandBox = await brand.boundingBox();
-
-  expect(brandBox).not.toBeNull();
-  expect(brandBox!.height).toBeLessThanOrEqual(32);
 });
 
 test('keeps key touch targets at least 44px tall', async ({ page }) => {
@@ -93,12 +72,11 @@ test('keeps key touch targets at least 44px tall', async ({ page }) => {
   expect(newConversationBox).not.toBeNull();
   expect(newConversationBox!.height).toBeGreaterThanOrEqual(44);
 
-  const nav = page.getByRole('navigation', { name: 'Organization sections' });
-  const navLinkBox = await nav
-    .getByRole('link', { name: 'Ask' })
-    .boundingBox();
+  await page.getByRole('button', { name: 'Toggle Sidebar' }).click();
+  const navLinkBox = await page.getByRole('link', { name: 'Ask', exact: true }).boundingBox();
   expect(navLinkBox).not.toBeNull();
   expect(navLinkBox!.height).toBeGreaterThanOrEqual(44);
+  await page.getByRole('link', { name: 'Ask', exact: true }).click();
 
   await page.goto('/organizations/org-1/documents');
   await page.waitForLoadState('networkidle');

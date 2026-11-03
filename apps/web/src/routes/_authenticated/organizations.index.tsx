@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouterState } from '@tanstack/react-router';
 import { ArrowRight, Building2, Plus } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
 import { Badge } from '~/components/ui/badge';
@@ -53,6 +53,8 @@ function OrganizationsPage() {
   const reportError = useReportError();
   const [name, setName] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const hash = useRouterState({ select: (state) => state.location.hash });
+  useEffect(() => { if (hash === 'create') setCreateOpen(true); }, [hash]);
 
   const organizations = useQuery({
     queryKey: queryKeys.organizations.list(),
