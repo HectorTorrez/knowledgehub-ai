@@ -64,14 +64,11 @@ export const conversationsApi = {
         .get('Content-Disposition')
         ?.match(/filename="([a-zA-Z0-9.-]+)"/)?.[1] ?? 'conversation.md';
     const url = URL.createObjectURL(blob);
-    try {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.click();
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   },
 
   remove(organizationId: string, conversationId: string): Promise<void> {
