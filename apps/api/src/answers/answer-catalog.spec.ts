@@ -13,6 +13,7 @@ function row(
     title: 'Envios locales',
     originalFileName: 'envios.xlsx',
     generation: 1,
+    summaries: [],
     extractions: [{ documentGeneration: 1, pageCount: 2 }],
     chunks: [
       {
@@ -46,6 +47,14 @@ describe('buildDocumentCatalog', () => {
         originalFileName: 'envios.xlsx',
       },
     ]);
+  });
+
+  it('uses a current summary and ignores stale summaries', () => {
+    const current = { documentGeneration: 1, summary: 'Overview', keyTopics: ['Shipping'] };
+    expect(buildDocumentCatalog([row({ summaries: [current] })], 1, 0).sources[0]?.content)
+      .toBe('Summary: Overview\nKey topics: Shipping');
+    expect(buildDocumentCatalog([row({ summaries: [{ ...current, documentGeneration: 0 }] })], 1, 0).sources[0]?.content)
+      .toBe('Guía Fecha Cliente Monto');
   });
 
   it('numbers catalog markers after the retrieved passages', () => {

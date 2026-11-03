@@ -62,6 +62,7 @@ const CATALOG_DOCUMENT: CatalogDocumentRow = {
   title: 'Envios locales',
   originalFileName: 'envios.xlsx',
   generation: 1,
+  summaries: [],
   extractions: [{ documentGeneration: 1, pageCount: 2 }],
   chunks: [
     {

@@ -812,6 +812,10 @@ export class AnswersService {
           title: true,
           originalFileName: true,
           generation: true,
+          summaries: {
+            where: { organizationId, document: { summaryStatus: 'READY' } },
+            select: { documentGeneration: true, summary: true, keyTopics: true },
+          },
           extractions: {
             orderBy: { documentGeneration: 'desc' },
             take: 1,
