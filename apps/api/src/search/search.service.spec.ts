@@ -14,6 +14,7 @@ import type {
   RetrievedChunk,
   RetrievalService,
 } from '../retrieval/retrieval.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
 import { SearchService } from './search.service.js';
 
 const CHUNK: RetrievedChunk = {
@@ -32,7 +33,7 @@ function createService(
   impl: RetrievalService['search'] = async () => [CHUNK],
 ) {
   const search = vi.fn(impl);
-  const service = new SearchService({ search } as unknown as RetrievalService);
+  const service = new SearchService({ search } as unknown as RetrievalService, {} as PrismaService);
   return { service, search };
 }
 

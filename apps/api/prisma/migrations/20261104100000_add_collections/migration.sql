@@ -1,5 +1,5 @@
 ALTER TYPE "OrganizationActivityAction" ADD VALUE 'COLLECTION_CREATED';
-ALTER TYPE "OrganizationActivityAction" ADD VALUE 'COLLECTION_RENAMED';
+ALTER TYPE "OrganizationActivityAction" ADD VALUE 'COLLECTION_UPDATED';
 ALTER TYPE "OrganizationActivityAction" ADD VALUE 'COLLECTION_DELETED';
 
 CREATE TABLE "Collection" (
