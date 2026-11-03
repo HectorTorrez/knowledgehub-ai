@@ -3,6 +3,7 @@ import { createFileRoute, Link, useRouter, useRouterState } from '@tanstack/reac
 import { ArrowRight, Building2, Plus } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
+import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -129,7 +130,11 @@ function OrganizationsPage() {
           </div>
         ) : null}
 
-        {!organizations.isPending && !hasOrganizations ? (
+        {organizations.isError ? (
+          <RouteError title="Unable to load organizations" onRetry={() => void organizations.refetch()} />
+        ) : null}
+
+        {organizations.isSuccess && !hasOrganizations ? (
           <EmptyState
             icon={Building2}
             title="No organizations yet"

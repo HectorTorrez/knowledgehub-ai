@@ -1,6 +1,10 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
+import { History } from 'lucide-react';
+import { EmptyState } from '~/components/empty-state';
+import { RouteError } from '~/components/route-states';
+import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { DatePicker } from '~/components/date-picker';
 import { PageHeader } from '~/components/page-header';
 import { Button } from '~/components/ui/button';
@@ -74,6 +78,9 @@ function AuditLogPage() {
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     enabled: allowed,
   });
+  useQueryErrorToast(organization.error, () => void organization.refetch());
+  useQueryErrorToast(members.error, () => void members.refetch());
+  useQueryErrorToast(activity.error, () => void activity.refetch());
   const rows = activity.data?.pages.flatMap((page) => page.activities) ?? [];
   function download() {
     const url = URL.createObjectURL(
@@ -87,7 +94,7 @@ function AuditLogPage() {
   }
   if (organization.isPending) return <Skeleton className="h-32 w-full" />;
   if (organization.isError)
-    return <p>Unable to load the workspace. Please try again.</p>;
+    return <RouteError title="Unable to load the workspace" onRetry={() => void organization.refetch()} />;
   if (!allowed)
     return (
       <PageHeader
@@ -153,9 +160,18 @@ function AuditLogPage() {
       {activity.isPending ? (
         <Skeleton className="h-32 w-full" />
       ) : activity.isError ? (
-        <p>Unable to load activity. Please try again.</p>
+        <RouteError title="Unable to load activity" onRetry={() => void activity.refetch()} />
       ) : rows.length === 0 ? (
-        <p>No activity found.</p>
+        <EmptyState
+          icon={History}
+          title="No activity found"
+          description="No activity matches the selected filters."
+          action={
+            <Button onClick={() => { setAction(''); setActorId(''); setFrom(''); setTo(''); }}>
+              Clear filters
+            </Button>
+          }
+        />
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-left text-sm">
