@@ -8,7 +8,7 @@ test('owner filters, loads more and exports activity', async ({ page }) => {
     await page.getByRole('button', { name: 'Toggle Sidebar' }).click();
   await expect(page.getByRole('link', { name: 'Audit log' })).toBeVisible();
   if (test.info().project.name === 'mobile')
-    await page.keyboard.press('Escape');
+    await page.getByRole('link', { name: 'Audit log' }).click();
   await page
     .getByLabel('Action', { exact: true })
     .selectOption('DOCUMENT_UPLOADED');
