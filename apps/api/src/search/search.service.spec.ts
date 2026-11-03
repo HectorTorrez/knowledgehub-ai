@@ -42,7 +42,7 @@ describe('SearchService', () => {
 
     await service.search('org-1', {
       q: 'retries',
-      limit: 10,
+      limit: 50,
       documentId: '00000000-0000-4000-8000-000000000001',
     });
 
@@ -62,17 +62,16 @@ describe('SearchService', () => {
     expect(search).toHaveBeenCalledWith({
       organizationId: 'org-1',
       text: 'retries',
-      limit: 10,
+      limit: 50,
     });
     expect(result).toEqual({
       results: [
         {
           documentId: 'doc-1',
           documentTitle: 'Architecture Notes',
-          pageNumber: 2,
-          chunkIndex: 4,
-          excerpt: 'Retries are bounded by maxAttempts.',
           score: 0.9,
+          matchCount: 1,
+          matches: [{ pageNumber: 2, chunkIndex: 4, excerpt: 'Retries are bounded by maxAttempts.', highlights: [{ start: 0, end: 7 }] }],
         },
       ],
     });

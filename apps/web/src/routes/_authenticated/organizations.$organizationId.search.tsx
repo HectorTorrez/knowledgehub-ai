@@ -263,7 +263,7 @@ function SearchPage() {
           </div>
           {rows.map((result) => (
             <SearchResultCard
-              key={`${result.documentId}-${result.chunkIndex}`}
+              key={result.documentId}
               organizationId={organizationId}
               result={result}
             />
@@ -294,11 +294,11 @@ function SearchResultCard({
           </Link>
           <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
             <span>{match}% match</span>
-            <span>Page {result.pageNumber}</span>
+            <span>Page {result.matches[0]?.pageNumber}</span>
           </div>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {result.excerpt}
+          {result.matches[0]?.excerpt}
         </p>
       </CardContent>
     </Card>

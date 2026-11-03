@@ -177,9 +177,8 @@ describe('search (e2e)', () => {
     expect(response.body.results).toHaveLength(1);
     expect(response.body.results[0]).toMatchObject({
       documentTitle: 'Employee Handbook',
-      pageNumber: 2,
-      chunkIndex: 4,
-      excerpt: 'The parental leave policy is generous.',
+      matchCount: 1,
+      matches: [{ pageNumber: 2, chunkIndex: 4, excerpt: 'The parental leave policy is generous.', highlights: [{ start: 4, end: 12 }, { start: 13, end: 18 }] }],
     });
     expect(response.body.results[0].score).toBeGreaterThan(0);
   });
