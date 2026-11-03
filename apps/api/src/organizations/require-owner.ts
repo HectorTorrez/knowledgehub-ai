@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
-import { MembershipRole, type Prisma } from '../generated/prisma/client.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { can } from './permissions.js';
 import type { OrganizationContext } from './organization-context.js';
 
 export async function requireOwner(
@@ -17,7 +18,7 @@ export async function requireOwner(
     select: { role: true },
   });
 
-  if (!actor || actor.role !== MembershipRole.OWNER) {
+  if (!actor || !can(actor.role, 'owners.manage')) {
     throw new ForbiddenException(`Only an organization owner can ${action}`);
   }
 }
