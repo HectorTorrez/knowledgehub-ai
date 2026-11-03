@@ -28,6 +28,7 @@ import {
 } from '~/components/ask-messages';
 import { AnswerThread } from '~/components/answer-thread';
 import { ConversationRail } from '~/components/conversation-rail';
+import { ConversationShare } from '~/components/conversation-share';
 import { Button, buttonVariants } from '~/components/ui/button';
 import {
   AlertDialog,
@@ -388,6 +389,10 @@ function AskPage() {
                 {subtitle}
               </p>
             </div>
+
+            {activeConversationDetail.data?.conversation ? (
+              <ConversationShare organizationId={organizationId} conversation={activeConversationDetail.data.conversation} />
+            ) : null}
 
             {activeConversationId !== null && (
               <Button
