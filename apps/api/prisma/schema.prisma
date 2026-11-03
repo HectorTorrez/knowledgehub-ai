@@ -123,6 +123,8 @@ model Organization {
 
   memberships   Membership[]
   documents     Document[]
+  collections   Collection[]
+  documentCollections DocumentCollection[]
   answers       Answer[]
   tenantUsage   TenantUsage[]
   conversations Conversation[]
@@ -265,6 +267,7 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  collections    DocumentCollection[]
   processingJobs DocumentProcessingJob[]
   extractions    DocumentExtraction[]
   chunks         DocumentChunk[]
@@ -285,6 +288,31 @@ model Document {
 /// CLAIMS — `leaseId` is minted fresh on every claim and is the authority for the
 /// claiming worker's writes; a reclaimed job gets a new `leaseId`, so a stalled
 /// worker cannot publish after losing its lease.
+model Collection {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  color          String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  documents      DocumentCollection[]
+
+  @@index([organizationId])
+}
+
+model DocumentCollection {
+  documentId     String       @db.Uuid
+  collectionId   String       @db.Uuid
+  organizationId String       @db.Uuid
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  collection     Collection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, collectionId])
+  @@index([organizationId, collectionId])
+}
+
 model DocumentProcessingJob {
   id String @id @default(uuid()) @db.Uuid
 
@@ -597,6 +625,9 @@ enum OrganizationActivityAction {
   DOCUMENT_REPROCESSED
   CONVERSATION_SHARED
   CONVERSATION_UNSHARED
+  COLLECTION_CREATED
+  COLLECTION_UPDATED
+  COLLECTION_DELETED
 }
 
 model OrganizationActivity {
