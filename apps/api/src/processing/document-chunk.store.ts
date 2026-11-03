@@ -7,7 +7,7 @@ import {
   type EmbeddingProvider,
 } from '../embeddings/embedding-provider.port.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { DocumentChunkDraft } from './chunking.policy.js';
+import { CHUNKING_VERSION, type DocumentChunkDraft } from './chunking.policy.js';
 import type { ProcessingOwnership } from './processing-job.service.js';
 
 interface OwnedGeneration {
@@ -155,6 +155,13 @@ export class DocumentChunkStore {
       WHERE "documentId" = ${owned.documentId}::uuid
         AND "organizationId" = ${owned.organizationId}::uuid
         AND "documentGeneration" <= ${owned.documentGeneration}
+    `;
+
+    await client.$executeRaw`
+      UPDATE "DocumentExtraction" SET "chunkingVersion" = ${CHUNKING_VERSION}
+      WHERE "documentId" = ${owned.documentId}::uuid
+        AND "organizationId" = ${owned.organizationId}::uuid
+        AND "documentGeneration" = ${owned.documentGeneration}
     `;
 
     for (const [index, chunk] of chunks.entries()) {

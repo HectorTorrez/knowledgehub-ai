@@ -119,8 +119,10 @@ describe('DocumentChunkStore', () => {
 
     expect(sqlOf(lockedCalls[0]!)).toContain('FOR UPDATE OF j, d');
 
-    expect(executeCalls).toHaveLength(3);
-    const [remove, first, second] = executeCalls;
+    expect(executeCalls).toHaveLength(4);
+    const [remove, version, first, second] = executeCalls;
+    expect(sqlOf(version!)).toContain('UPDATE "DocumentExtraction"');
+    expect(version!.values).toContain(2);
     expect(sqlOf(remove!)).toContain('DELETE FROM "DocumentChunk"');
     expect(sqlOf(remove!)).toContain('"documentGeneration" <= ');
     expect(remove!.values).toEqual([
@@ -145,7 +147,7 @@ describe('DocumentChunkStore', () => {
     await expect(store.replaceForGeneration(OWNERSHIP, [])).resolves.toBe(true);
 
     expect(embeddings.embed).toHaveBeenCalledWith([]);
-    expect(executeCalls).toHaveLength(1);
+    expect(executeCalls).toHaveLength(2);
     expect(sqlOf(executeCalls[0]!)).toContain('DELETE FROM "DocumentChunk"');
   });
 

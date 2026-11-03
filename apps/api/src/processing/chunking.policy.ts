@@ -1,3 +1,5 @@
+export const CHUNKING_VERSION = 2;
+
 export const CHUNK_TARGET_CHARACTERS = 1600;
 
 export const CHUNK_OVERLAP_CHARACTERS = 320;
