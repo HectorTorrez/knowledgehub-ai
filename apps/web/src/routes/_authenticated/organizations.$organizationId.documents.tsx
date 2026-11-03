@@ -11,7 +11,6 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import {
   CircleCheck,
   FileText,
-  LoaderCircle,
   MoreHorizontal,
   Pencil,
   RefreshCw,
@@ -33,8 +32,18 @@ import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
 import { FileDropzone } from '~/components/file-dropzone';
 import { PageHeader } from '~/components/page-header';
-import { Button } from '~/components/ui/button';
+import { Button, buttonVariants } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -52,6 +61,7 @@ import {
 } from '~/components/ui/dropdown-menu';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { Progress } from '~/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -60,6 +70,7 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
+import { Spinner } from '~/components/ui/spinner';
 import { useToast } from '~/components/ui/toast';
 import {
   useQueryErrorToast,
@@ -485,17 +496,19 @@ function DocumentsPage() {
                   className="pr-12 pl-9 sm:pr-9"
                 />
                 {queryDraft.length > 0 ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => {
                       setQueryDraft('');
                       setQuery('');
                     }}
                     aria-label="Clear search"
-                    className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-sm p-3 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
+                    className="absolute top-1/2 right-1.5 size-9 -translate-y-1/2 sm:size-8 text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-4" />
-                  </button>
+                  </Button>
                 ) : null}
               </div>
               <Select
@@ -691,9 +704,7 @@ function DocumentsPage() {
                     onClick={() => documents.fetchNextPage()}
                     disabled={documents.isFetchingNextPage}
                   >
-                    {documents.isFetchingNextPage ? (
-                      <LoaderCircle className="animate-spin" />
-                    ) : null}
+                    {documents.isFetchingNextPage ? <Spinner /> : null}
                     Load more
                   </Button>
                 </div>
@@ -762,14 +773,11 @@ function DocumentsPage() {
 
                     {item.status === 'uploading' ? (
                       <div className="mt-2 space-y-1">
-                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full bg-primary transition-[width]"
-                            style={{
-                              width: `${Math.round(item.progress * 100)}%`,
-                            }}
-                          />
-                        </div>
+                        <Progress
+                          value={Math.round(item.progress * 100)}
+                          className="h-1.5"
+                          aria-label={`Uploading ${item.file.name}`}
+                        />
                         <p className="text-xs text-muted-foreground">
                           Uploading… {Math.round(item.progress * 100)}%
                         </p>
@@ -822,7 +830,7 @@ function DocumentsPage() {
               >
                 {uploading ? (
                   <>
-                    <LoaderCircle className="animate-spin" />
+                    <Spinner />
                     Uploading…
                   </>
                 ) : uploadItems.some((item) => item.status === 'failed') ? (
@@ -877,7 +885,7 @@ function DocumentsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -885,33 +893,29 @@ function DocumentsPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete document</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete document</AlertDialogTitle>
+            <AlertDialogDescription>
               This permanently removes “{deleteTarget?.title}” and everything
               derived from it. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDelete}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive' })}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
               disabled={remove.isPending}
             >
               {remove.isPending ? 'Deleting…' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

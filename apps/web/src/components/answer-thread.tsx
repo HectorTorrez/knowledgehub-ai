@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { ChevronDown, LoaderCircle, Trash2 } from 'lucide-react';
+import { ChevronDown, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AnswerActions, AnswerFeedback } from '~/components/answer-actions';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
@@ -19,17 +19,26 @@ import {
   PartialAnswerNotice,
   SourcesList,
 } from './answer-content';
-import { Button } from './ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
+import { Button, buttonVariants } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from './ui/collapsible';
 import { Skeleton } from './ui/skeleton';
+import { Spinner } from './ui/spinner';
+import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 import { useToast } from './ui/toast';
 
 export interface LatestAnswer {
@@ -133,28 +142,21 @@ export function AnswerThread({
             ? 'Questions you asked in this organization.'
             : 'Questions asked by everyone in this organization.'}
         </p>
-        <div
-          role="group"
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
           aria-label="History scope"
-          className="flex items-center gap-1 rounded-lg border p-1"
+          value={scope}
+          onValueChange={(value) => {
+            if (value === 'me' || value === 'organization') {
+              setScope(value);
+            }
+          }}
         >
-          <Button
-            variant={scope === 'me' ? 'secondary' : 'ghost'}
-            size="sm"
-            aria-pressed={scope === 'me'}
-            onClick={() => setScope('me')}
-          >
-            Your questions
-          </Button>
-          <Button
-            variant={scope === 'organization' ? 'secondary' : 'ghost'}
-            size="sm"
-            aria-pressed={scope === 'organization'}
-            onClick={() => setScope('organization')}
-          >
-            Everyone
-          </Button>
-        </div>
+          <ToggleGroupItem value="me">Your questions</ToggleGroupItem>
+          <ToggleGroupItem value="organization">Everyone</ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {earlier.length > 0 ? (
@@ -194,14 +196,14 @@ export function AnswerThread({
             disabled={history.isFetchingNextPage}
           >
             {history.isFetchingNextPage ? (
-              <LoaderCircle className="animate-spin" />
+              <Spinner />
             ) : null}
             Load more
           </Button>
         </div>
       ) : null}
 
-      <Dialog
+      <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -209,28 +211,29 @@ export function AnswerThread({
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Remove from history</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from history</AlertDialogTitle>
+            <AlertDialogDescription>
               This permanently removes this question and its answer from your
               history. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive' })}
               disabled={remove.isPending}
-              onClick={() => void handleDelete()}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
             >
               {remove.isPending ? 'Removing…' : 'Remove'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -331,51 +334,60 @@ function HistoryRow({
   onRequestDelete: () => void;
 }>) {
   return (
-    <li>
-      <div className="flex items-center gap-2 px-4 py-4 sm:px-6">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <span
-            className={cn(
-              'size-2 shrink-0 rounded-full',
-              answer.status === 'answered' ? 'bg-success' : 'bg-muted-foreground/40',
-            )}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">
-              {answer.question}
-            </span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {formatDateTime(answer.createdAt)}
-              {answer.status === 'partial' ? ' · Partial answer' : answer.status === 'answered' ? '' : ' · Not answered'}
-            </span>
-          </span>
-          <ChevronDown
-            className={cn(
-              'size-4 shrink-0 text-muted-foreground transition-transform',
-              expanded && 'rotate-180',
-            )}
-          />
-        </button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onRequestDelete}
-          aria-label={`Remove “${answer.question}” from history`}
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      </div>
+    <Collapsible asChild open={expanded} onOpenChange={() => onToggle()}>
+      <li>
+        <div className="flex items-center gap-2 px-4 py-4 sm:px-6">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-auto min-w-0 flex-1 justify-start gap-3 p-0 text-left font-normal whitespace-normal hover:bg-transparent"
+            >
+              <span
+                className={cn(
+                  'size-2 shrink-0 rounded-full',
+                  answer.status === 'answered'
+                    ? 'bg-success'
+                    : 'bg-muted-foreground/40',
+                )}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">
+                  {answer.question}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {formatDateTime(answer.createdAt)}
+                  {answer.status === 'partial'
+                    ? ' · Partial answer'
+                    : answer.status === 'answered'
+                      ? ''
+                      : ' · Not answered'}
+                </span>
+              </span>
+              <ChevronDown
+                className={cn(
+                  'size-4 shrink-0 text-muted-foreground transition-transform',
+                  expanded && 'rotate-180',
+                )}
+              />
+            </Button>
+          </CollapsibleTrigger>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onRequestDelete}
+            aria-label={`Remove “${answer.question}” from history`}
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
 
-      {expanded ? (
-        <ExpandedAnswer organizationId={organizationId} answerId={answer.id} />
-      ) : null}
-    </li>
+        <CollapsibleContent>
+          <ExpandedAnswer organizationId={organizationId} answerId={answer.id} />
+        </CollapsibleContent>
+      </li>
+    </Collapsible>
   );
 }
 

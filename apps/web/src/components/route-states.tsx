@@ -1,5 +1,5 @@
-import { LoaderCircle } from 'lucide-react';
 import { Brand } from '~/components/brand';
+import { Spinner } from '~/components/ui/spinner';
 
 export function RoutePending() {
   return (
@@ -9,7 +9,7 @@ export function RoutePending() {
     >
       <Brand />
       <span className="flex items-center gap-2 text-sm text-muted-foreground">
-        <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />
+        <Spinner />
         Loading…
       </span>
     </div>

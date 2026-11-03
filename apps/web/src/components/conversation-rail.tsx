@@ -1,8 +1,9 @@
 import type { ConversationSummary } from '@knowledgehub/shared-types';
-import { History, LoaderCircle, MessageSquarePlus, Trash2 } from 'lucide-react';
+import { History, MessageSquarePlus, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
+import { Spinner } from '~/components/ui/spinner';
 import { formatDate } from '~/lib/format';
 import { cn } from '~/lib/utils';
 
@@ -112,7 +113,7 @@ export function ConversationRail({
             onClick={onFetchNextPage}
             disabled={isFetchingNextPage}
           >
-            {isFetchingNextPage ? <LoaderCircle className="animate-spin" /> : null}
+            {isFetchingNextPage ? <Spinner /> : null}
             Load older
           </Button>
         ) : null}
@@ -154,11 +155,12 @@ function ConversationRailItem({
         active ? 'bg-brand/10' : 'hover:bg-muted/60',
       )}
     >
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={onSelect}
         aria-current={active ? 'true' : undefined}
-        className="min-w-0 flex-1 rounded-lg px-2.5 py-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="h-auto min-w-0 flex-1 flex-col items-start justify-start gap-0 rounded-lg px-2.5 py-2 text-left font-normal whitespace-normal hover:bg-transparent"
       >
         <span
           className={cn(
@@ -171,7 +173,7 @@ function ConversationRailItem({
         <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
           {formatDate(conversation.createdAt)}
         </span>
-      </button>
+      </Button>
       <Button
         variant="ghost"
         size="icon"

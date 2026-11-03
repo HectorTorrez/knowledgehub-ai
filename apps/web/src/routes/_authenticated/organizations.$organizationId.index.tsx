@@ -22,7 +22,17 @@ import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
 import { PageHeader } from '~/components/page-header';
 import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
+import { Button, buttonVariants } from '~/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog';
 import {
   Card,
   CardContent,
@@ -41,6 +51,7 @@ import {
 } from '~/components/ui/dialog';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { Progress } from '~/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -390,34 +401,24 @@ function OrganizationOverviewPage() {
                   Resets {formatDateTime(usage.data.usage.answers.resetsAt)}
                 </span>
               </div>
-              <div
-                className="h-2 overflow-hidden rounded-full bg-muted"
-                role="progressbar"
+              <Progress
+                value={Math.min(
+                  100,
+                  Math.round(
+                    (usage.data.usage.answers.used /
+                      usage.data.usage.answers.limit) *
+                      100,
+                  ),
+                )}
                 aria-valuemin={0}
                 aria-valuemax={usage.data.usage.answers.limit}
                 aria-valuenow={usage.data.usage.answers.used}
                 aria-label="Daily answer usage"
-              >
-                <div
-                  className={cn(
-                    'h-full transition-[width]',
-                    usage.data.usage.answers.used >=
-                      usage.data.usage.answers.limit
-                      ? 'bg-destructive'
-                      : 'bg-primary',
-                  )}
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      Math.round(
-                        (usage.data.usage.answers.used /
-                          usage.data.usage.answers.limit) *
-                          100,
-                      ),
-                    )}%`,
-                  }}
-                />
-              </div>
+                indicatorClassName={cn(
+                  usage.data.usage.answers.used >=
+                    usage.data.usage.answers.limit && 'bg-destructive',
+                )}
+              />
             </div>
           ) : null}
         </CardContent>
@@ -687,39 +688,38 @@ function OrganizationOverviewPage() {
         </Card>
       ) : null}
 
-      <Dialog
+      <AlertDialog
         open={memberToRemove !== null}
         onOpenChange={(open) => {
           if (!open) setMemberToRemove(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Remove member</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove member</AlertDialogTitle>
+            <AlertDialogDescription>
               {memberToRemove
                 ? `${memberToRemove.name} will lose access to this organization.`
                 : 'This member will lose access to this organization.'}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMemberToRemove(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive' })}
               disabled={removeMember.isPending}
-              onClick={() => {
+              onClick={(event) => {
+                event.preventDefault();
                 if (memberToRemove) {
                   void handleRemoveMember(memberToRemove);
                 }
               }}
             >
               {removeMember.isPending ? 'Removing…' : 'Remove'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

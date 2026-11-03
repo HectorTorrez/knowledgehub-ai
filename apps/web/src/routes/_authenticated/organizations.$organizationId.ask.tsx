@@ -28,13 +28,22 @@ import {
 } from '~/components/ask-messages';
 import { AnswerThread } from '~/components/answer-thread';
 import { ConversationRail } from '~/components/conversation-rail';
-import { Button } from '~/components/ui/button';
+import { Button, buttonVariants } from '~/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog';
 import { Card, CardContent } from '~/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
@@ -486,7 +495,7 @@ function AskPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -494,33 +503,29 @@ function AskPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete conversation</DialogTitle>
-            <DialogDescription>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation</AlertDialogTitle>
+            <AlertDialogDescription>
               This permanently removes the conversation and every answer in it.
               This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive' })}
               disabled={removeConversation.isPending}
-              onClick={() => void handleDelete()}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
             >
               {removeConversation.isPending ? 'Deleting…' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -561,15 +566,16 @@ function EmptyConversation({
               </p>
               <div className="grid gap-2">
                 {SUGGESTED_QUESTIONS.map((suggestion) => (
-                  <button
+                  <Button
                     key={suggestion}
                     type="button"
+                    variant="outline"
                     onClick={() => onSuggestion(suggestion)}
-                    className="group flex items-center justify-between gap-3 rounded-lg border bg-background px-3.5 py-3 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="group h-auto justify-between gap-3 rounded-lg px-3.5 py-3 text-left text-sm font-normal whitespace-normal"
                   >
                     <span>{suggestion}</span>
                     <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
