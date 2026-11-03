@@ -7,6 +7,14 @@ import type {
 import { apiFetch } from './client';
 
 export const accountApi = {
+  exportData(): Promise<unknown> {
+    return apiFetch('/auth/me/export', { authRecovery: true });
+  },
+
+  deleteAccount(password: string): Promise<void> {
+    return apiFetch('/auth/me', { method: 'DELETE', body: { password, confirmation: 'DELETE' } });
+  },
+
   updateProfile(input: UpdateProfileRequest): Promise<UpdateProfileResponse> {
     return apiFetch<UpdateProfileResponse>('/auth/profile', {
       method: 'PATCH',

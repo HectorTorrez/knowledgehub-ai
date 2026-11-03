@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { KeyRound, Laptop, UserRound } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { PageHeader } from '~/components/page-header';
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '~/components/ui/alert-dialog';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -21,6 +22,7 @@ import {
   useQueryErrorToast,
   useReportError,
 } from '~/hooks/use-error-toast';
+import { isApiError } from '~/lib/api/errors';
 import { accountApi } from '~/lib/api/account';
 import { SESSION_QUERY_KEY } from '~/lib/auth/session';
 import { formatDateTime } from '~/lib/format';
@@ -42,12 +44,16 @@ export const Route = createFileRoute('/_authenticated/settings')({
 
 function AccountSettingsPage() {
   const client = useQueryClient();
+  const router = useRouter();
   const { toast } = useToast();
   const reportError = useReportError();
   const session = useSession();
   const user =
     session.data?.status === 'authenticated' ? session.data.user : undefined;
 
+  const [deletePassword, setDeletePassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [blocking, setBlocking] = useState<{ id: string; name: string }[]>([]);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
@@ -107,6 +113,37 @@ function AccountSettingsPage() {
       return sessions.refetch();
     },
     onError: (error) => reportError(error),
+  });
+
+  const downloadData = useMutation({
+    mutationFn: () => accountApi.exportData(),
+    onSuccess: (data) => {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `knowledgehub-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({ variant: 'success', title: 'Your data was downloaded' });
+    },
+    onError: (error) => reportError(error),
+  });
+
+  const deleteAccount = useMutation({
+    mutationFn: () => accountApi.deleteAccount(deletePassword),
+    onSuccess: async () => {
+      client.clear();
+      client.setQueryData(SESSION_QUERY_KEY, { status: 'unauthenticated' });
+      toast({ variant: 'success', title: 'Account deleted' });
+      await router.navigate({ to: '/' });
+    },
+    onError: (error) => {
+      if (isApiError(error) && error.status === 409 && typeof error.cause === 'object' && error.cause !== null && 'organizations' in error.cause && Array.isArray(error.cause.organizations)) {
+        setBlocking(error.cause.organizations.filter((item): item is { id: string; name: string } => typeof item?.id === 'string' && typeof item?.name === 'string'));
+        return;
+      }
+      reportError(error);
+    },
   });
 
   async function handleProfile(event: FormEvent<HTMLFormElement>) {
@@ -311,6 +348,62 @@ function AccountSettingsPage() {
               ))}
             </ul>
           ) : null}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Your data</CardTitle>
+          <CardDescription>Download a copy of your personal data.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" disabled={downloadData.isPending} onClick={() => downloadData.mutate()}>
+            Download my data
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Danger zone</CardTitle>
+          <CardDescription>Permanently delete your account.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">Delete account</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete account</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Your account and solo organizations will be permanently deleted. You will be signed out on all devices.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="delete-password">Password</Label>
+                  <Input id="delete-password" type="password" autoComplete="current-password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="delete-confirmation">Type DELETE to confirm</Label>
+                  <Input id="delete-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
+                </div>
+                {blocking.length > 0 ? (
+                  <div>
+                    <p>Transfer ownership before deleting your account:</p>
+                    <ul>{blocking.map((org) => (
+                      <li key={org.id}><Link className="underline" to="/organizations/$organizationId/settings" params={{ organizationId: org.id }}>{org.name}</Link></li>
+                    ))}</ul>
+                  </div>
+                ) : null}
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <Button variant="destructive" disabled={!deletePassword || confirmation !== 'DELETE' || deleteAccount.isPending} onClick={() => deleteAccount.mutate()}>
+                  Delete account
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>
