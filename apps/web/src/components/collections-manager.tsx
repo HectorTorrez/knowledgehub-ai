@@ -4,6 +4,7 @@ import type { Collection } from '@knowledgehub/shared-types';
 import { collectionsApi } from '~/lib/api/collections';
 import { queryKeys } from '~/lib/api/query-keys';
 import { useReportError } from '~/hooks/use-error-toast';
+import { useT } from '~/lib/i18n/hooks';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
@@ -53,6 +54,7 @@ export function CollectionsManager({
   organizationId,
   collections,
 }: Readonly<{ organizationId: string; collections: Collection[] }>) {
+  const t = useT();
   const client = useQueryClient();
   const reportError = useReportError();
   const [name, setName] = useState('');
@@ -93,25 +95,25 @@ export function CollectionsManager({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline">Manage collections</Button>
+        <Button variant="outline">{t('collections.manage')}</Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Manage collections</DialogTitle>
+          <DialogTitle>{t('collections.manage')}</DialogTitle>
           <DialogDescription>
-            Create and organize collections for your documents.
+            {t('collections.manageDescription')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <Input
-            aria-label="Collection name"
-            placeholder="Collection name"
+            aria-label={t('collections.name')}
+            placeholder={t('collections.name')}
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={255}
           />
           <label className="block text-sm">
-            Color
+            {t('collections.color')}
             <select
               className="ml-2 rounded border p-2"
               value={color}
@@ -126,7 +128,7 @@ export function CollectionsManager({
           </label>
           <div className="flex gap-2">
             <Button type="submit" disabled={mutation.isPending || !name.trim()}>
-              {editing ? 'Save collection' : 'Create collection'}
+              {editing ? t('collections.save') : t('collections.create')}
             </Button>
             {editing ? (
               <Button
@@ -137,7 +139,7 @@ export function CollectionsManager({
                   setName('');
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
             ) : null}
           </div>
@@ -160,19 +162,23 @@ export function CollectionsManager({
                   setColor(collection.color);
                 }}
               >
-                Edit
+                {t('collections.edit')}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  if (window.confirm(`Delete “${collection.name}”?`))
+                  if (
+                    window.confirm(
+                      t('collections.confirmDelete', { name: collection.name }),
+                    )
+                  )
                     mutation.mutate(() =>
                       collectionsApi.remove(organizationId, collection.id),
                     );
                 }}
               >
-                Delete
+                {t('collections.delete')}
               </Button>
             </li>
           ))}

@@ -21,10 +21,13 @@ import { aggregationApi } from '~/lib/api/aggregation';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatMinorAmount } from '~/lib/format';
 
+import { useLocale, useT } from '~/lib/i18n/hooks';
+
 export function ContractTotalsCard({
   organizationId,
   documentId,
 }: Readonly<{ organizationId: string; documentId: string }>) {
+  const t = useT();
   const [requested, setRequested] = useState(false);
 
   const totals = useQuery({
@@ -47,18 +50,17 @@ export function ContractTotalsCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calculator className="size-4 text-muted-foreground" />
-          Contract totals
+          {t('contract.title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {!requested ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              Sum the contract totals extracted from this document. Each amount
-              comes from the document row, not from the model.
+              {t('contract.intro')}
             </p>
             <Button variant="outline" onClick={() => setRequested(true)}>
-              Calculate total
+              {t('contract.calculate')}
             </Button>
           </div>
         ) : null}
@@ -91,20 +93,28 @@ function TotalsResult({
   onRecalculate: () => void;
   recalculating: boolean;
 }>) {
+  const t = useT();
+  const locale = useLocale();
   const incomplete = data.status === 'partial';
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={incomplete ? 'outline' : 'secondary'}>
-          {incomplete ? 'Partial coverage' : 'Complete coverage'}
+          {incomplete
+            ? t('contract.partialBadge')
+            : t('contract.completeBadge')}
         </Badge>
         <p className="text-xs text-muted-foreground">
-          {data.coverage.extracted} of {data.coverage.documents} documents
-          extracted
-          {data.coverage.failed > 0 ? ` · ${data.coverage.failed} failed` : ''}
+          {t('contract.coverage', {
+            extracted: data.coverage.extracted,
+            documents: data.coverage.documents,
+          })}
+          {data.coverage.failed > 0
+            ? t('contract.coverageFailed', { count: data.coverage.failed })
+            : ''}
           {data.coverage.pending > 0
-            ? ` · ${data.coverage.pending} pending`
+            ? t('contract.coveragePending', { count: data.coverage.pending })
             : ''}
         </p>
       </div>
@@ -112,30 +122,31 @@ function TotalsResult({
       {incomplete ? (
         <Alert variant="warning">
           <TriangleAlert />
-          <AlertTitle>Partial coverage</AlertTitle>
+          <AlertTitle>{t('contract.partialTitle')}</AlertTitle>
           <AlertDescription className="text-current">
-            The total omits at least one document whose facts could not be
-            extracted. Treat it as a minimum, not as the organization total.
+            {t('contract.partialDescription')}
           </AlertDescription>
         </Alert>
       ) : null}
 
       {data.totals.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No contract totals were found in this document.
-        </p>
+        <p className="text-sm text-muted-foreground">{t('contract.none')}</p>
       ) : (
         <dl className="flex flex-wrap gap-x-10 gap-y-4">
           {data.totals.map((total) => (
             <div key={total.currency} className="space-y-1">
               <dt className="text-xs text-muted-foreground">
-                {total.contractCount} contracts in {total.currency}
+                {t('contract.contractsIn', {
+                  count: total.contractCount,
+                  currency: total.currency,
+                })}
               </dt>
               <dd className="text-2xl font-semibold tabular-nums">
                 {formatMinorAmount(
                   total.totalMinor,
                   total.currency,
                   total.scale,
+                  locale,
                 )}
               </dd>
             </div>
@@ -145,9 +156,7 @@ function TotalsResult({
 
       {data.collapsedDuplicates > 0 ? (
         <p className="text-xs text-muted-foreground">
-          {data.collapsedDuplicates} duplicate{' '}
-          {data.collapsedDuplicates === 1 ? 'fact was' : 'facts were'} collapsed
-          by contract id.
+          {t('contract.duplicates', { count: data.collapsedDuplicates })}
         </p>
       ) : null}
 
@@ -155,14 +164,18 @@ function TotalsResult({
         <div className="rounded-md border">
           <Table>
             <TableCaption className="sr-only">
-              Contract totals with their source page
+              {t('contract.tableCaption')}
             </TableCaption>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Contract</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Page</TableHead>
+                <TableHead>{t('contract.contract')}</TableHead>
+                <TableHead>{t('contract.client')}</TableHead>
+                <TableHead className="text-right">
+                  {t('contract.total')}
+                </TableHead>
+                <TableHead className="text-right">
+                  {t('contract.page')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -179,6 +192,7 @@ function TotalsResult({
                       fact.amountMinor,
                       fact.currency,
                       fact.scale,
+                      locale,
                     )}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
@@ -193,14 +207,16 @@ function TotalsResult({
 
       {data.totalFacts > data.breakdown.length ? (
         <p className="text-xs text-muted-foreground">
-          Showing {data.breakdown.length} of {data.totalFacts} contracts. The
-          totals above cover all of them.
+          {t('contract.showing', {
+            shown: data.breakdown.length,
+            total: data.totalFacts,
+          })}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Totals are per currency. Amounts are never converted.
+          {t('contract.perCurrency')}
         </p>
         <Button
           variant="outline"
@@ -208,7 +224,9 @@ function TotalsResult({
           disabled={recalculating}
           onClick={onRecalculate}
         >
-          {recalculating ? 'Recalculating…' : 'Recalculate'}
+          {recalculating
+            ? t('contract.recalculating')
+            : t('contract.recalculate')}
         </Button>
       </div>
     </div>

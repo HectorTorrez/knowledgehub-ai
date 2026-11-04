@@ -1,27 +1,16 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '~/components/ui/toast';
-import { isApiError, isRateLimited } from '~/lib/api/errors';
+import { describeError } from '~/lib/api/error-messages';
+import { useT } from '~/lib/i18n/hooks';
 
-export function errorToastContent(error: unknown): {
+export function errorToastContent(
+  error: unknown,
+  t: ReturnType<typeof useT>,
+): {
   title: string;
   description?: string;
 } {
-  const title = isApiError(error)
-    ? error.message
-    : error instanceof Error
-      ? error.message
-      : 'Something went wrong.';
-  const details: string[] = [];
-
-  if (isRateLimited(error)) {
-    details.push(retryMessage(error.retryAfterSeconds ?? 0));
-  }
-
-  const validationErrors = isApiError(error) ? error.validationErrors : [];
-
-  if (validationErrors.length > 1) {
-    details.push(...validationErrors);
-  }
+  const { title, details } = describeError(error, t);
 
   return details.length === 0
     ? { title }
@@ -33,24 +22,26 @@ export function useReportError(): (
   onRetry?: () => void,
 ) => void {
   const { toast } = useToast();
+  const t = useT();
 
   return useCallback(
     (error: unknown, onRetry?: () => void) => {
       toast({
         variant: 'error',
-        ...errorToastContent(error),
+        ...errorToastContent(error, t),
         action:
           onRetry === undefined
             ? undefined
-            : { label: 'Try again', onClick: onRetry },
+            : { label: t('common.tryAgain'), onClick: onRetry },
       });
     },
-    [toast],
+    [toast, t],
   );
 }
 
 export function useQueryErrorToast(error: unknown, onRetry?: () => void): void {
   const { toast } = useToast();
+  const t = useT();
   const reported = useRef<unknown>(null);
   const retry = useRef(onRetry);
   retry.current = onRetry;
@@ -69,24 +60,11 @@ export function useQueryErrorToast(error: unknown, onRetry?: () => void): void {
     toast({
       variant: 'error',
       duration: 0,
-      ...errorToastContent(error),
+      ...errorToastContent(error, t),
       action:
         retry.current === undefined
           ? undefined
-          : { label: 'Try again', onClick: () => retry.current?.() },
+          : { label: t('common.tryAgain'), onClick: () => retry.current?.() },
     });
-  }, [error, toast]);
-}
-function retryMessage(seconds: number): string {
-  if (seconds <= 0) {
-    return 'You can try again now.';
-  }
-
-  if (seconds < 60) {
-    return `Try again in ${seconds} second${seconds === 1 ? '' : 's'}.`;
-  }
-
-  const minutes = Math.ceil(seconds / 60);
-
-  return `Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
+  }, [error, toast, t]);
 }

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { PdfDocumentViewer } from '~/components/pdf-document-viewer';
 import { TextDocumentViewer } from '~/components/text-document-viewer';
 import { Button } from '~/components/ui/button';
+import { useT } from '~/lib/i18n/hooks';
 
 export function DocumentViewer({
   url,
@@ -17,6 +18,7 @@ export function DocumentViewer({
   quote?: string;
   onRetry: () => void;
 }>) {
+  const t = useT();
   const [failed, setFailed] = useState(false);
   const fail = useCallback(() => setFailed(true), []);
 
@@ -26,9 +28,7 @@ export function DocumentViewer({
         role="alert"
         className="flex flex-col items-center gap-3 rounded-lg border p-8 text-center text-sm"
       >
-        <p className="text-muted-foreground">
-          The document preview could not be loaded.
-        </p>
+        <p className="text-muted-foreground">{t('viewer.loadError')}</p>
         <Button
           variant="outline"
           onClick={() => {
@@ -37,7 +37,7 @@ export function DocumentViewer({
           }}
         >
           <RotateCcw />
-          Retry
+          {t('states.retry')}
         </Button>
       </div>
     );

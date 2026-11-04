@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { createTranslator } from '~/lib/i18n/translate';
 import { documentFailureGuidance } from './document-display';
+
+const t = createTranslator('en');
 
 describe('documentFailureGuidance', () => {
   it.each([
@@ -15,15 +18,15 @@ describe('documentFailureGuidance', () => {
     'VERIFIED_OBJECT_MISSING',
     'STORAGE_INTEGRITY_VIOLATION',
   ])('recommends replacing %s', (reason) => {
-    expect(documentFailureGuidance(reason).action).toBe('Replace file');
+    expect(documentFailureGuidance(reason, t).action).toBe('replace');
   });
   it('recommends retrying processing failures and handles unknown reasons', () => {
-    expect(documentFailureGuidance('PROCESSING_FAILED').action).toBe(
-      'Reprocess',
+    expect(documentFailureGuidance('PROCESSING_FAILED', t).action).toBe(
+      'reprocess',
     );
-    expect(documentFailureGuidance(null).action).toBe('Delete');
+    expect(documentFailureGuidance(null, t).action).toBe('delete');
     expect(
-      documentFailureGuidance('NO_EXTRACTABLE_TEXT').description,
+      documentFailureGuidance('NO_EXTRACTABLE_TEXT', t).description,
     ).toContain('scanned');
   });
 });

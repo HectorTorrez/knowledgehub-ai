@@ -37,20 +37,25 @@ import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDate, formatRole } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { organizationNameSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/_authenticated/organizations/')({
-  head: () =>
-    pageHead({
-      title: 'Organizations · KnowledgeHub AI',
-      description:
-        'Manage the organizations you belong to and open their documents.',
-    }),
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('orgs.pageTitle'),
+      description: t('orgs.pageDescription'),
+    });
+  },
   component: OrganizationsPage,
 });
 
 function OrganizationsPage() {
+  const t = useT();
+  const locale = useLocale();
   const client = useQueryClient();
   const router = useRouter();
   const { toast } = useToast();
@@ -74,8 +79,10 @@ function OrganizationsPage() {
     onSuccess: (data) => {
       toast({
         variant: 'success',
-        title: 'Organization created',
-        description: `“${data.organization.name}” is ready for documents.`,
+        title: t('orgs.created'),
+        description: t('orgs.createdDescription', {
+          name: data.organization.name,
+        }),
       });
 
       return client.invalidateQueries({
@@ -88,11 +95,13 @@ function OrganizationsPage() {
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const result = organizationNameSchema.safeParse({ name });
+    const result = organizationNameSchema(t).safeParse({ name });
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'Invalid name.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.invalidInput'),
+        ),
       );
       return;
     }
@@ -118,13 +127,13 @@ function OrganizationsPage() {
     <Dialog open={createOpen} onOpenChange={setCreateOpen}>
       <div className="space-y-8">
         <PageHeader
-          title="Organizations"
-          description="Documents and answers are kept separate for each organization."
+          title={t('orgs.title')}
+          description={t('orgs.description')}
           action={
             <DialogTrigger asChild>
               <Button>
                 <Plus />
-                New organization
+                {t('orgs.newOrganization')}
               </Button>
             </DialogTrigger>
           }
@@ -140,7 +149,7 @@ function OrganizationsPage() {
 
         {organizations.isError ? (
           <RouteError
-            title="Unable to load organizations"
+            title={t('orgs.loadError')}
             onRetry={() => void organizations.refetch()}
           />
         ) : null}
@@ -148,13 +157,13 @@ function OrganizationsPage() {
         {organizations.isSuccess && !hasOrganizations ? (
           <EmptyState
             icon={Building2}
-            title="No organizations yet"
-            description="Create your first organization to start uploading documents and asking questions."
+            title={t('orgs.emptyTitle')}
+            description={t('orgs.emptyDescription')}
             action={
               <DialogTrigger asChild>
                 <Button>
                   <Plus />
-                  Create organization
+                  {t('orgs.createOrganization')}
                 </Button>
               </DialogTrigger>
             }
@@ -179,7 +188,9 @@ function OrganizationsPage() {
                       <span className="truncate">{organization.name}</span>
                     </CardTitle>
                     <CardDescription>
-                      Created {formatDate(organization.createdAt)}
+                      {t('orgs.createdOn', {
+                        date: formatDate(organization.createdAt, locale),
+                      })}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex items-center justify-between">
@@ -188,7 +199,7 @@ function OrganizationsPage() {
                         organization.role === 'OWNER' ? 'default' : 'secondary'
                       }
                     >
-                      {formatRole(organization.role)}
+                      {formatRole(organization.role, t)}
                     </Badge>
                     <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </CardContent>
@@ -201,30 +212,30 @@ function OrganizationsPage() {
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create an organization</DialogTitle>
-          <DialogDescription>
-            Organizations keep documents and answers isolated per team.
-          </DialogDescription>
+          <DialogTitle>{t('orgs.createTitle')}</DialogTitle>
+          <DialogDescription>{t('orgs.createDescription')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleCreate} className="space-y-4" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="organization-name">Name</Label>
+            <Label htmlFor="organization-name">{t('orgs.nameLabel')}</Label>
             <Input
               id="organization-name"
               autoFocus
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Acme Inc."
+              placeholder={t('orgs.namePlaceholder')}
             />
           </div>
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Cancel
+                {t('common.cancel')}
               </Button>
             </DialogClose>
             <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Creating…' : 'Create organization'}
+              {create.isPending
+                ? t('orgs.creating')
+                : t('orgs.createOrganization')}
             </Button>
           </DialogFooter>
         </form>

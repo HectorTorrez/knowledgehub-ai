@@ -15,6 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '~/components/ui/popover';
+import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 export type DocumentOption = Readonly<{ id: string; title: string }>;
@@ -24,8 +25,8 @@ export function DocumentMultiSelect({
   selectedIds,
   onChange,
   maxSelected = 20,
-  label = 'Documents',
-  emptyLabel = 'All ready documents',
+  label,
+  emptyLabel,
   disabled = false,
 }: Readonly<{
   documents: ReadonlyArray<DocumentOption>;
@@ -36,14 +37,16 @@ export function DocumentMultiSelect({
   emptyLabel?: string;
   disabled?: boolean;
 }>) {
+  const t = useT();
   const labelId = useId();
+  const resolvedLabel = label ?? t('multiSelect.documents');
   const summary =
     selectedIds.length === 0
-      ? emptyLabel
+      ? (emptyLabel ?? t('multiSelect.allReady'))
       : selectedIds.length === 1
         ? (documents.find((document) => document.id === selectedIds[0])
-            ?.title ?? '1 document selected')
-        : `${selectedIds.length} documents selected`;
+            ?.title ?? t('multiSelect.selected', { count: 1 }))
+        : t('multiSelect.selected', { count: selectedIds.length });
 
   const atLimit = selectedIds.length >= maxSelected;
 
@@ -60,7 +63,7 @@ export function DocumentMultiSelect({
 
   return (
     <div className="space-y-1.5">
-      <Label id={labelId}>{label}</Label>
+      <Label id={labelId}>{resolvedLabel}</Label>
       <Popover>
         <PopoverTrigger asChild>
           <Button
@@ -81,11 +84,13 @@ export function DocumentMultiSelect({
         >
           <Command>
             <CommandInput
-              placeholder={`Search ${label.toLowerCase()}…`}
-              aria-label={`Search ${label.toLowerCase()}`}
+              placeholder={`${t('multiSelect.search', { label: resolvedLabel.toLowerCase() })}…`}
+              aria-label={t('multiSelect.search', {
+                label: resolvedLabel.toLowerCase(),
+              })}
             />
             <CommandList>
-              <CommandEmpty>No matches.</CommandEmpty>
+              <CommandEmpty>{t('multiSelect.noMatches')}</CommandEmpty>
               <CommandGroup>
                 {documents.map((document) => {
                   const selected = selectedIds.includes(document.id);

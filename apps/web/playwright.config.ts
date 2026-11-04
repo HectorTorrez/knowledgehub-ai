@@ -9,6 +9,7 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: `http://localhost:${port}`,
+    locale: 'en-US',
     trace: 'on-first-retry',
   },
   webServer: {

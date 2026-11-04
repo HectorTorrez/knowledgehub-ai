@@ -4,22 +4,35 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useRouter,
 } from '@tanstack/react-router';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import type { QueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { ToastProvider } from '~/components/ui/toast';
 import { useTheme } from '~/hooks/use-theme';
-import { DEFAULT_TITLE, SITE_NAME, pageHead } from '~/lib/seo';
+import { type Locale } from '~/lib/i18n/locale';
+import { getRequestLocale, writeLocaleCookie } from '~/lib/i18n/request-locale';
+import { I18nProvider } from '~/lib/i18n/provider';
+import { useLocale } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
+import { SITE_NAME, pageHead } from '~/lib/seo';
 import appCss from '~/styles/app.css?url';
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
 }>()({
-  head: ({ matches }) => {
+  beforeLoad: () => ({ locale: getRequestLocale() }),
+  head: ({ matches, match }) => {
     const pathname = matches[matches.length - 1]?.pathname;
-    const page = pageHead({ title: DEFAULT_TITLE, path: pathname });
+    const t = createTranslator(match.context.locale);
+    const page = pageHead({
+      title: t('seo.defaultTitle'),
+      description: t('seo.description'),
+      path: pathname,
+      imageAlt: t('seo.ogImageAlt'),
+    });
 
     return {
       meta: [
@@ -52,13 +65,25 @@ export const Route = createRootRouteWithContext<{
 });
 
 function RootComponent() {
+  const { locale } = Route.useRouteContext();
+  const router = useRouter();
+  const handleLocaleChange = useCallback(
+    (next: Locale) => {
+      writeLocaleCookie(next);
+      void router.invalidate();
+    },
+    [router],
+  );
+
   return (
-    <RootDocument>
-      <ThemeInitializer />
-      <ToastProvider>
-        <Outlet />
-      </ToastProvider>
-    </RootDocument>
+    <I18nProvider initialLocale={locale} onLocaleChange={handleLocaleChange}>
+      <RootDocument>
+        <ThemeInitializer />
+        <ToastProvider>
+          <Outlet />
+        </ToastProvider>
+      </RootDocument>
+    </I18nProvider>
   );
 }
 
@@ -69,8 +94,10 @@ function ThemeInitializer() {
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+  const locale = useLocale();
+
   return (
-    <html lang="en">
+    <html lang={locale}>
       <head>
         <HeadContent />
       </head>

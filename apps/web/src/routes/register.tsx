@@ -24,19 +24,22 @@ import { useToast } from '~/components/ui/toast';
 import { useRegister } from '~/hooks/use-auth';
 import { useReportError } from '~/hooks/use-error-toast';
 import { sessionQuery } from '~/lib/auth/session';
+import { useT } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
 import { PASSWORD_MIN_LENGTH, registerFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/register')({
   ssr: false,
-  head: () =>
-    pageHead({
-      title: 'Create account · KnowledgeHub AI',
-      description:
-        'Create a KnowledgeHub AI account to upload documents and get grounded answers with citations.',
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('auth.register.pageTitle'),
+      description: t('auth.register.pageDescription'),
       path: '/register',
-    }),
+    });
+  },
   beforeLoad: async ({ context }) => {
     const state = await context.queryClient
       .fetchQuery(sessionQuery)
@@ -54,6 +57,7 @@ function RegisterPage() {
   const register = useRegister();
   const { toast } = useToast();
   const reportError = useReportError();
+  const t = useT();
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -69,11 +73,13 @@ function RegisterPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const result = registerFormSchema.safeParse(form);
+    const result = registerFormSchema(t).safeParse(form);
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'Invalid input.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.invalidInput'),
+        ),
       );
       return;
     }
@@ -85,7 +91,7 @@ function RegisterPage() {
       return;
     }
 
-    toast({ variant: 'success', title: 'Account created' });
+    toast({ variant: 'success', title: t('auth.register.created') });
     router.history.push('/organizations');
   }
 
@@ -96,16 +102,14 @@ function RegisterPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Create your account</CardTitle>
-          <CardDescription>
-            Start asking questions across your organization&apos;s documents.
-          </CardDescription>
+          <CardTitle className="text-xl">{t('auth.register.title')}</CardTitle>
+          <CardDescription>{t('auth.register.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First name</Label>
+                <Label htmlFor="firstName">{t('fields.firstName')}</Label>
                 <Input
                   id="firstName"
                   autoComplete="given-name"
@@ -115,7 +119,7 @@ function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last name</Label>
+                <Label htmlFor="lastName">{t('fields.lastName')}</Label>
                 <Input
                   id="lastName"
                   autoComplete="family-name"
@@ -125,7 +129,7 @@ function RegisterPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('fields.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -136,7 +140,7 @@ function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('fields.password')}</Label>
               <PasswordInput
                 id="password"
                 name="password"
@@ -156,8 +160,10 @@ function RegisterPage() {
                   <CircleCheck className="size-3.5" />
                 ) : null}
                 {meetsMinimumLength
-                  ? 'Meets the minimum password length.'
-                  : `At least ${PASSWORD_MIN_LENGTH} characters.`}
+                  ? t('auth.register.passwordMet')
+                  : t('auth.register.passwordHint', {
+                      min: PASSWORD_MIN_LENGTH,
+                    })}
               </p>
             </div>
             <Button
@@ -165,18 +171,20 @@ function RegisterPage() {
               className="w-full"
               disabled={register.isPending}
             >
-              {register.isPending ? 'Creating account…' : 'Create account'}
+              {register.isPending
+                ? t('auth.register.submitting')
+                : t('auth.register.submit')}
             </Button>
           </form>
         </CardContent>
         <CardFooter>
           <p className="text-sm text-muted-foreground">
-            Already have an account?{' '}
+            {t('auth.register.haveAccount')}{' '}
             <Link
               to="/login"
               className="font-medium text-foreground underline underline-offset-4"
             >
-              Sign in
+              {t('auth.login.submit')}
             </Link>
           </p>
         </CardFooter>

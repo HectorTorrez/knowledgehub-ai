@@ -33,20 +33,26 @@ import { isApiError } from '~/lib/api/errors';
 import { accountApi } from '~/lib/api/account';
 import { SESSION_QUERY_KEY } from '~/lib/auth/session';
 import { formatDateTime } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { changePasswordFormSchema, profileFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/_authenticated/settings')({
-  head: () =>
-    pageHead({
-      title: 'Account settings · KnowledgeHub AI',
-      description: 'Update your profile, password, and active sessions.',
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('account.pageTitle'),
+      description: t('account.pageDescription'),
       path: '/settings',
-    }),
+    });
+  },
   component: AccountSettingsPage,
 });
 
 function AccountSettingsPage() {
+  const t = useT();
+  const locale = useLocale();
   const client = useQueryClient();
   const router = useRouter();
   const { toast } = useToast();
@@ -86,7 +92,7 @@ function AccountSettingsPage() {
         status: 'authenticated',
         user: data.user,
       });
-      toast({ variant: 'success', title: 'Profile updated' });
+      toast({ variant: 'success', title: t('account.profileUpdated') });
     },
     onError: (error) => reportError(error),
   });
@@ -100,8 +106,8 @@ function AccountSettingsPage() {
       setConfirmPassword('');
       toast({
         variant: 'success',
-        title: 'Password changed',
-        description: 'Your other sessions were signed out.',
+        title: t('account.passwordChanged'),
+        description: t('account.passwordChangedDescription'),
       });
     },
     onError: (error) => reportError(error),
@@ -110,7 +116,7 @@ function AccountSettingsPage() {
   const revokeSession = useMutation({
     mutationFn: (sessionId: string) => accountApi.revokeSession(sessionId),
     onSuccess: () => {
-      toast({ variant: 'success', title: 'Session signed out' });
+      toast({ variant: 'success', title: t('account.sessionSignedOut') });
 
       return sessions.refetch();
     },
@@ -128,7 +134,7 @@ function AccountSettingsPage() {
       link.download = `knowledgehub-export-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       URL.revokeObjectURL(url);
-      toast({ variant: 'success', title: 'Your data was downloaded' });
+      toast({ variant: 'success', title: t('account.dataDownloaded') });
     },
     onError: (error) => reportError(error),
   });
@@ -143,7 +149,7 @@ function AccountSettingsPage() {
         redirectTo: '/',
       });
       await navigation;
-      toast({ variant: 'success', title: 'Account deleted' });
+      toast({ variant: 'success', title: t('account.accountDeleted') });
     },
     onError: (error) => {
       if (
@@ -169,11 +175,13 @@ function AccountSettingsPage() {
   async function handleProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const result = profileFormSchema.safeParse({ firstName, lastName });
+    const result = profileFormSchema(t).safeParse({ firstName, lastName });
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'Invalid profile.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.invalidInput'),
+        ),
       );
       return;
     }
@@ -188,7 +196,7 @@ function AccountSettingsPage() {
   async function handlePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const result = changePasswordFormSchema.safeParse({
+    const result = changePasswordFormSchema(t).safeParse({
       currentPassword,
       newPassword,
       confirmPassword,
@@ -196,7 +204,9 @@ function AccountSettingsPage() {
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'Invalid password.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.invalidInput'),
+        ),
       );
       return;
     }
@@ -214,25 +224,25 @@ function AccountSettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
-        title="Account settings"
-        description="Manage your profile, password, and signed-in devices."
+        title={t('account.title')}
+        description={t('account.description')}
       />
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserRound className="size-4 text-muted-foreground" />
-            Profile
+            {t('account.profile')}
           </CardTitle>
-          <CardDescription>
-            This is how your name appears to your organizations.
-          </CardDescription>
+          <CardDescription>{t('account.profileDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleProfile} className="space-y-4" noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="profile-first-name">First name</Label>
+                <Label htmlFor="profile-first-name">
+                  {t('fields.firstName')}
+                </Label>
                 <Input
                   id="profile-first-name"
                   value={firstName}
@@ -240,7 +250,9 @@ function AccountSettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="profile-last-name">Last name</Label>
+                <Label htmlFor="profile-last-name">
+                  {t('fields.lastName')}
+                </Label>
                 <Input
                   id="profile-last-name"
                   value={lastName}
@@ -249,14 +261,16 @@ function AccountSettingsPage() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Email</Label>
+              <Label>{t('fields.email')}</Label>
               <p className="text-sm text-muted-foreground">
                 {user?.email ?? '—'}
               </p>
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={updateProfile.isPending}>
-                {updateProfile.isPending ? 'Saving…' : 'Save profile'}
+                {updateProfile.isPending
+                  ? t('common.saving')
+                  : t('account.saveProfile')}
               </Button>
             </div>
           </form>
@@ -267,16 +281,16 @@ function AccountSettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <KeyRound className="size-4 text-muted-foreground" />
-            Password
+            {t('account.passwordTitle')}
           </CardTitle>
-          <CardDescription>
-            Changing your password signs out your other sessions.
-          </CardDescription>
+          <CardDescription>{t('account.passwordDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handlePassword} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="current-password">Current password</Label>
+              <Label htmlFor="current-password">
+                {t('account.currentPassword')}
+              </Label>
               <Input
                 id="current-password"
                 type="password"
@@ -287,7 +301,7 @@ function AccountSettingsPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="new-password">New password</Label>
+                <Label htmlFor="new-password">{t('account.newPassword')}</Label>
                 <Input
                   id="new-password"
                   type="password"
@@ -297,7 +311,9 @@ function AccountSettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm password</Label>
+                <Label htmlFor="confirm-password">
+                  {t('account.confirmPassword')}
+                </Label>
                 <Input
                   id="confirm-password"
                   type="password"
@@ -309,7 +325,9 @@ function AccountSettingsPage() {
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={changePassword.isPending}>
-                {changePassword.isPending ? 'Changing…' : 'Change password'}
+                {changePassword.isPending
+                  ? t('common.changing')
+                  : t('account.changePassword')}
               </Button>
             </div>
           </form>
@@ -320,17 +338,15 @@ function AccountSettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Laptop className="size-4 text-muted-foreground" />
-            Signed-in devices
+            {t('account.devices')}
           </CardTitle>
-          <CardDescription>
-            Revoke any session you no longer recognize.
-          </CardDescription>
+          <CardDescription>{t('account.devicesDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {sessions.isPending ? <Skeleton className="h-24 w-full" /> : null}
           {sessions.isError ? (
             <RouteError
-              title="Unable to load devices"
+              title={t('account.devicesLoadError')}
               onRetry={() => void sessions.refetch()}
             />
           ) : null}
@@ -344,16 +360,22 @@ function AccountSettingsPage() {
                   <div className="min-w-0 space-y-0.5">
                     <p className="flex items-center gap-2 truncate text-sm font-medium">
                       <span className="truncate">
-                        {entry.userAgent ?? 'Unknown device'}
+                        {entry.userAgent ?? t('account.unknownDevice')}
                       </span>
                       {entry.current ? (
-                        <Badge variant="secondary">This device</Badge>
+                        <Badge variant="secondary">
+                          {t('account.thisDevice')}
+                        </Badge>
                       ) : null}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Started {formatDateTime(entry.createdAt)}
+                      {t('account.started', {
+                        date: formatDateTime(entry.createdAt, locale),
+                      })}
                       {entry.lastUsedAt
-                        ? ` · Last used ${formatDateTime(entry.lastUsedAt)}`
+                        ? ` · ${t('account.lastUsed', {
+                            date: formatDateTime(entry.lastUsedAt, locale),
+                          })}`
                         : ''}
                       {entry.ipAddress ? ` · ${entry.ipAddress}` : ''}
                     </p>
@@ -365,7 +387,7 @@ function AccountSettingsPage() {
                       disabled={revokeSession.isPending}
                       onClick={() => revokeSession.mutate(entry.id)}
                     >
-                      Revoke
+                      {t('account.revoke')}
                     </Button>
                   ) : null}
                 </li>
@@ -376,10 +398,8 @@ function AccountSettingsPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Your data</CardTitle>
-          <CardDescription>
-            Download a copy of your personal data.
-          </CardDescription>
+          <CardTitle>{t('account.yourData')}</CardTitle>
+          <CardDescription>{t('account.yourDataDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button
@@ -387,31 +407,36 @@ function AccountSettingsPage() {
             disabled={downloadData.isPending}
             onClick={() => downloadData.mutate()}
           >
-            Download my data
+            {t('account.downloadData')}
           </Button>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Danger zone</CardTitle>
-          <CardDescription>Permanently delete your account.</CardDescription>
+          <CardTitle>{t('account.dangerZone')}</CardTitle>
+          <CardDescription>{t('account.dangerDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive">Delete account</Button>
+              <Button variant="destructive">
+                {t('account.deleteAccount')}
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete account</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {t('account.deleteAccount')}
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  Your account and solo organizations will be permanently
-                  deleted. You will be signed out on all devices.
+                  {t('account.deleteDescription')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="delete-password">Password</Label>
+                  <Label htmlFor="delete-password">
+                    {t('fields.password')}
+                  </Label>
                   <Input
                     id="delete-password"
                     type="password"
@@ -422,7 +447,7 @@ function AccountSettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="delete-confirmation">
-                    Type DELETE to confirm
+                    {t('account.typeDelete')}
                   </Label>
                   <Input
                     id="delete-confirmation"
@@ -432,7 +457,7 @@ function AccountSettingsPage() {
                 </div>
                 {blocking.length > 0 ? (
                   <div>
-                    <p>Transfer ownership before deleting your account:</p>
+                    <p>{t('account.transferFirst')}</p>
                     <ul>
                       {blocking.map((org) => (
                         <li key={org.id}>
@@ -450,7 +475,7 @@ function AccountSettingsPage() {
                 ) : null}
               </div>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                 <Button
                   variant="destructive"
                   disabled={
@@ -460,7 +485,7 @@ function AccountSettingsPage() {
                   }
                   onClick={() => deleteAccount.mutate()}
                 >
-                  Delete account
+                  {t('account.deleteAccount')}
                 </Button>
               </AlertDialogFooter>
             </AlertDialogContent>

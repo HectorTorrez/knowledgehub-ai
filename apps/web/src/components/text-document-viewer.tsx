@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '~/components/ui/skeleton';
+import { useT } from '~/lib/i18n/hooks';
 import { findPassage } from '~/lib/passage';
 
 export function TextDocumentViewer({
@@ -7,6 +8,7 @@ export function TextDocumentViewer({
   quote,
   onError,
 }: Readonly<{ url: string; quote?: string; onError: () => void }>) {
+  const t = useT();
   const [text, setText] = useState<string>();
   const highlight = useRef<HTMLElement>(null);
 
@@ -45,7 +47,7 @@ export function TextDocumentViewer({
     <div
       tabIndex={0}
       role="region"
-      aria-label="Document preview"
+      aria-label={t('viewer.preview')}
       className="focus-visible:ring-2 focus-visible:ring-ring max-h-[75vh] overflow-auto rounded-lg border bg-card p-4"
     >
       <pre className="font-sans text-sm leading-relaxed break-words whitespace-pre-wrap">

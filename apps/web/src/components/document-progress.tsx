@@ -1,7 +1,8 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { Progress } from '~/components/ui/progress';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 
-const steps = ['Uploading', 'Queued', 'Processing', 'Ready'];
+const steps = ['uploading', 'queued', 'processing', 'ready'] as const;
 
 function stageIndex(document: DocumentSummary): number {
   switch (document.processingStage) {
@@ -24,12 +25,14 @@ export function DocumentProgress({
   document,
   detailed = false,
 }: Readonly<{ document: DocumentSummary; detailed?: boolean }>) {
+  const t = useT();
+  const locale = useLocale();
   const index = stageIndex(document);
   const failed = document.status === 'FAILED';
   const label =
     document.processingStage === 'PROCESSING'
-      ? 'Extracting and indexing'
-      : steps[index];
+      ? t('progress.extracting')
+      : t(`progress.${steps[index]}`);
   const retry = document.retry;
 
   return (
@@ -37,7 +40,7 @@ export function DocumentProgress({
       {detailed ? (
         <ol
           className="flex flex-wrap gap-x-4 gap-y-2"
-          aria-label="Processing stages"
+          aria-label={t('progress.stages')}
         >
           {steps.map((step, stepIndex) => (
             <li
@@ -53,27 +56,30 @@ export function DocumentProgress({
               <span className="mr-1">
                 {stepIndex < index ? '✓' : `${stepIndex + 1}.`}
               </span>
-              {step}
+              {t(`progress.${step}`)}
             </li>
           ))}
         </ol>
       ) : (
         <span className={failed ? 'text-destructive' : 'text-muted-foreground'}>
-          {failed ? `Failed: ${label}` : label}
+          {failed ? t('progress.failed', { label }) : label}
         </span>
       )}
       <Progress
         value={((index + 1) / steps.length) * 100}
         className="h-1"
         indicatorClassName={failed ? 'bg-destructive' : undefined}
-        aria-label="Document processing progress"
+        aria-label={t('progress.progressLabel')}
       />
       {retry ? (
         <p className="text-muted-foreground">
-          Retrying (attempt {retry.attempt + 1} of {retry.maxAttempts}) at{' '}
-          {new Date(retry.nextRetryAt).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
+          {t('progress.retrying', {
+            attempt: retry.attempt + 1,
+            max: retry.maxAttempts,
+            time: new Date(retry.nextRetryAt).toLocaleTimeString(locale, {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
           })}
         </p>
       ) : null}

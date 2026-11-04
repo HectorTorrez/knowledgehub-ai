@@ -1,4 +1,3 @@
-import { FREE_PLAN } from '~/lib/plans';
 import { usageProgress } from '~/lib/usage';
 import {
   useInfiniteQuery,
@@ -41,21 +40,27 @@ import { formatActivity } from '~/lib/activity-format';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime, formatRole } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { organizationNameSchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/settings',
 )({
-  head: () =>
-    pageHead({
-      title: 'Settings · KnowledgeHub AI',
-      description: 'Rename, leave, or delete this organization.',
-    }),
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('orgSettings.pageTitle'),
+      description: t('orgSettings.pageDescription'),
+    });
+  },
   component: OrganizationSettingsPage,
 });
 
 function OrganizationSettingsPage() {
+  const t = useT();
+  const locale = useLocale();
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -104,8 +109,10 @@ function OrganizationSettingsPage() {
     onSuccess: async (data) => {
       toast({
         variant: 'success',
-        title: 'Organization renamed',
-        description: `It is now “${data.organization.name}”.`,
+        title: t('orgSettings.renamed'),
+        description: t('orgSettings.renamedDescription', {
+          name: data.organization.name,
+        }),
       });
       setName(null);
       await Promise.all([
@@ -121,7 +128,7 @@ function OrganizationSettingsPage() {
   const leave = useMutation({
     mutationFn: () => organizationsApi.leave(organizationId),
     onSuccess: async () => {
-      toast({ variant: 'success', title: 'You left the organization' });
+      toast({ variant: 'success', title: t('orgSettings.left') });
       await client.invalidateQueries({ queryKey: queryKeys.organizations.all });
       await navigate({ to: '/organizations' });
     },
@@ -133,8 +140,8 @@ function OrganizationSettingsPage() {
     onSuccess: async () => {
       toast({
         variant: 'success',
-        title: 'Organization deleted',
-        description: 'Its documents, answers, and memberships were removed.',
+        title: t('orgSettings.deleted'),
+        description: t('orgSettings.deletedDescription'),
       });
       await client.invalidateQueries({ queryKey: queryKeys.organizations.all });
       await navigate({ to: '/organizations' });
@@ -145,11 +152,13 @@ function OrganizationSettingsPage() {
   async function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const result = organizationNameSchema.safeParse({ name: nameDraft });
+    const result = organizationNameSchema(t).safeParse({ name: nameDraft });
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'Invalid name.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.invalidInput'),
+        ),
       );
       return;
     }
@@ -174,7 +183,7 @@ function OrganizationSettingsPage() {
   if (organization.isError) {
     return (
       <RouteError
-        title="Unable to load settings"
+        title={t('orgSettings.loadError')}
         onRetry={() => void organization.refetch()}
       />
     );
@@ -183,22 +192,22 @@ function OrganizationSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Settings"
-        description="Manage this organization’s name and your membership."
+        title={t('orgSettings.title')}
+        description={t('orgSettings.description')}
       />
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="size-4 text-muted-foreground" />
-            Organization details
+            {t('orgSettings.details')}
           </CardTitle>
           <CardDescription>
             {canManage
-              ? 'Owners and admins can rename the organization.'
-              : `Only owners and admins can rename the organization. Your role is ${formatRole(
-                  organization.data.organization.role,
-                )}.`}
+              ? t('orgSettings.renameHintManage')
+              : t('orgSettings.renameHintMember', {
+                  role: formatRole(organization.data.organization.role, t),
+                })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -209,7 +218,9 @@ function OrganizationSettingsPage() {
               noValidate
             >
               <div className="flex-1 space-y-2">
-                <Label htmlFor="organization-name-setting">Name</Label>
+                <Label htmlFor="organization-name-setting">
+                  {t('orgs.nameLabel')}
+                </Label>
                 <Input
                   id="organization-name-setting"
                   value={nameDraft}
@@ -222,7 +233,7 @@ function OrganizationSettingsPage() {
                   !dirty || rename.isPending || nameDraft.trim().length === 0
                 }
               >
-                {rename.isPending ? 'Saving…' : 'Save'}
+                {rename.isPending ? t('orgSettings.saving') : t('common.save')}
               </Button>
             </form>
           ) : (
@@ -234,18 +245,22 @@ function OrganizationSettingsPage() {
       {canManage ? (
         <Card>
           <CardHeader>
-            <CardTitle>Usage &amp; plan</CardTitle>
-            <CardDescription>Current plan: {FREE_PLAN.name}</CardDescription>
+            <CardTitle>{t('orgSettings.usagePlan')}</CardTitle>
+            <CardDescription>
+              {t('orgSettings.currentPlan', {
+                plan: t('orgSettings.planFree'),
+              })}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {usage.data ? (
               <div className="space-y-4">
                 {(
                   [
-                    ['Daily answers', usage.data.usage.answers],
-                    ['Documents', usage.data.usage.documents],
-                    ['Storage (bytes)', usage.data.usage.storageBytes],
-                    ['Members', usage.data.usage.members],
+                    [t('orgSettings.dailyAnswers'), usage.data.usage.answers],
+                    [t('nav.documents'), usage.data.usage.documents],
+                    [t('orgSettings.storage'), usage.data.usage.storageBytes],
+                    [t('orgSettings.members'), usage.data.usage.members],
                   ] as const
                 ).map(([label, counter]) => {
                   const progress = usageProgress(counter.used, counter.limit);
@@ -254,8 +269,9 @@ function OrganizationSettingsPage() {
                       <div className="flex justify-between text-sm">
                         <span>{label}</span>
                         <span>
-                          {counter.used.toLocaleString()} /{' '}
-                          {counter.limit?.toLocaleString() ?? 'Unlimited'}
+                          {counter.used.toLocaleString(locale)} /{' '}
+                          {counter.limit?.toLocaleString(locale) ??
+                            t('orgSettings.unlimited')}
                         </span>
                       </div>
                       <Progress
@@ -273,20 +289,24 @@ function OrganizationSettingsPage() {
                   );
                 })}
                 <p className="text-sm text-muted-foreground">
-                  Daily answers reset{' '}
-                  {formatDateTime(usage.data.usage.answers.resetsAt)}
+                  {t('orgSettings.resetsAt', {
+                    date: formatDateTime(
+                      usage.data.usage.answers.resetsAt,
+                      locale,
+                    ),
+                  })}
                 </p>
               </div>
             ) : usage.isPending ? (
               <Skeleton className="h-16 w-full" />
             ) : usage.isError ? (
               <RouteError
-                title="Unable to load usage"
+                title={t('orgSettings.usageLoadError')}
                 onRetry={() => void usage.refetch()}
               />
             ) : null}
             <Button asChild variant="outline">
-              <a href="/#pricing">Upgrade</a>
+              <a href="/#pricing">{t('orgSettings.upgrade')}</a>
             </Button>
           </CardContent>
         </Card>
@@ -295,30 +315,32 @@ function OrganizationSettingsPage() {
       {canManage ? (
         <Card>
           <CardHeader>
-            <CardTitle>Activity</CardTitle>
-            <CardDescription>Recent organization activity.</CardDescription>
+            <CardTitle>{t('orgSettings.activity')}</CardTitle>
+            <CardDescription>
+              {t('orgSettings.activityDescription')}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {activity.isPending ? (
               <Skeleton className="h-24 w-full" />
             ) : activity.isError ? (
               <RouteError
-                title="Unable to load activity"
+                title={t('orgSettings.activityLoadError')}
                 onRetry={() => void activity.refetch()}
               />
             ) : activity.data?.pages.every(
                 (page) => page.activities.length === 0,
               ) ? (
-              <EmptyState icon={History} title="No activity yet" />
+              <EmptyState icon={History} title={t('orgSettings.noActivity')} />
             ) : (
               <ul className="space-y-4">
                 {activity.data?.pages
                   .flatMap((page) => page.activities)
                   .map((item) => (
                     <li key={item.id} className="text-sm">
-                      <p>{formatActivity(item)}</p>
+                      <p>{formatActivity(item, t)}</p>
                       <p className="text-muted-foreground">
-                        {formatDateTime(item.createdAt)}
+                        {formatDateTime(item.createdAt, locale)}
                       </p>
                     </li>
                   ))}
@@ -330,7 +352,9 @@ function OrganizationSettingsPage() {
                 disabled={activity.isFetchingNextPage}
                 onClick={() => void activity.fetchNextPage()}
               >
-                {activity.isFetchingNextPage ? 'Loading…' : 'Load more'}
+                {activity.isFetchingNextPage
+                  ? t('orgSettings.loading')
+                  : t('orgSettings.loadMore')}
               </Button>
             ) : null}
           </CardContent>
@@ -339,37 +363,39 @@ function OrganizationSettingsPage() {
 
       <Card className="border-destructive/40">
         <CardHeader>
-          <CardTitle>Danger zone</CardTitle>
+          <CardTitle>{t('orgSettings.dangerZone')}</CardTitle>
           <CardDescription>
-            These actions affect your access immediately.
+            {t('orgSettings.dangerDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Leave this organization</p>
+            <p className="text-sm font-medium">{t('orgSettings.leaveTitle')}</p>
             <p className="text-sm text-muted-foreground">
               {canDeleteOrganization
-                ? 'If you are the last owner, transfer ownership or delete the organization instead.'
-                : 'You will lose access to its documents and answers.'}
+                ? t('orgSettings.leaveLastOwner')
+                : t('orgSettings.leaveLoseAccess')}
             </p>
           </div>
           <Button variant="outline" onClick={() => setLeaveOpen(true)}>
             <LogOut />
-            Leave
+            {t('orgSettings.leave')}
           </Button>
         </CardContent>
 
         {canDeleteOrganization ? (
           <CardContent className="flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Delete this organization</p>
+              <p className="text-sm font-medium">
+                {t('orgSettings.deleteTitle')}
+              </p>
               <p className="text-sm text-muted-foreground">
-                Permanently removes its documents, answers, and memberships.
+                {t('orgSettings.deleteDescription')}
               </p>
             </div>
             <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 />
-              Delete
+              {t('orgSettings.delete')}
             </Button>
           </CardContent>
         ) : null}
@@ -378,14 +404,17 @@ function OrganizationSettingsPage() {
       <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Leave organization</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('orgSettings.leaveDialogTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              You will lose access to “{organization.data.organization.name}”
-              and everything in it. You can rejoin only with a new invitation.
+              {t('orgSettings.leaveDialogDescription', {
+                name: organization.data.organization.name,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               disabled={leave.isPending}
               onClick={(event) => {
@@ -393,7 +422,9 @@ function OrganizationSettingsPage() {
                 void leave.mutateAsync();
               }}
             >
-              {leave.isPending ? 'Leaving…' : 'Leave'}
+              {leave.isPending
+                ? t('orgSettings.leaving')
+                : t('orgSettings.leave')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -402,15 +433,17 @@ function OrganizationSettingsPage() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete organization</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('orgSettings.deleteDialogTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes “{organization.data.organization.name}”,
-              including every document, answer, and membership. This cannot be
-              undone.
+              {t('orgSettings.deleteDialogDescription', {
+                name: organization.data.organization.name,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: 'destructive' })}
               disabled={remove.isPending}
@@ -419,7 +452,9 @@ function OrganizationSettingsPage() {
                 void remove.mutateAsync();
               }}
             >
-              {remove.isPending ? 'Deleting…' : 'Delete organization'}
+              {remove.isPending
+                ? t('orgSettings.deleting')
+                : t('orgSettings.deleteOrganization')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -6,6 +6,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { terminalTransition } from '~/lib/document-polling';
 import { useToast } from '~/components/ui/toast';
+import { useT } from '~/lib/i18n/hooks';
 
 export function useDocumentNotifications(
   organizationId: string,
@@ -14,6 +15,7 @@ export function useDocumentNotifications(
   const previous = useRef(new Map<string, DocumentStatus>());
   const navigate = useNavigate();
   const { toast } = useToast();
+  const t = useT();
   useEffect(() => {
     for (const document of documents) {
       const before = previous.current.get(document.id);
@@ -21,9 +23,9 @@ export function useDocumentNotifications(
         if (document.status === 'READY') {
           toast({
             variant: 'success',
-            title: `${document.title} is ready`,
+            title: t('notifications.ready', { title: document.title }),
             secondaryAction: {
-              label: 'View',
+              label: t('notifications.view'),
               onClick: () =>
                 void navigate({
                   to: '/organizations/$organizationId/documents/$documentId',
@@ -31,7 +33,7 @@ export function useDocumentNotifications(
                 }),
             },
             action: {
-              label: 'Ask about it',
+              label: t('notifications.askAbout'),
               onClick: () =>
                 void navigate({
                   to: '/organizations/$organizationId/ask',
@@ -43,9 +45,9 @@ export function useDocumentNotifications(
         } else if (document.status === 'FAILED') {
           toast({
             variant: 'error',
-            title: `${document.title} failed`,
+            title: t('notifications.failed', { title: document.title }),
             action: {
-              label: 'View',
+              label: t('notifications.view'),
               onClick: () =>
                 void navigate({
                   to: '/organizations/$organizationId/documents/$documentId',
@@ -57,5 +59,5 @@ export function useDocumentNotifications(
       }
       previous.current.set(document.id, document.status);
     }
-  }, [documents, navigate, organizationId, toast]);
+  }, [documents, navigate, organizationId, toast, t]);
 }

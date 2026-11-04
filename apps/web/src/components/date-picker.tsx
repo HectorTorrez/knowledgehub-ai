@@ -8,6 +8,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '~/components/ui/popover';
+import { dateFnsLocale } from '~/lib/i18n/date-locale';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 export function DatePicker({
@@ -15,7 +17,7 @@ export function DatePicker({
   ariaLabel,
   value,
   onChange,
-  placeholder = 'Any date',
+  placeholder,
   min,
   max,
   className,
@@ -29,8 +31,13 @@ export function DatePicker({
   max?: Date;
   className?: string;
 }>) {
+  const t = useT();
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const selected = value === '' ? undefined : parseISO(value);
+  const formatDisplay = (date: Date) =>
+    format(date, 'PP', { locale: dateFnsLocale(locale) });
+  const displayPlaceholder = placeholder ?? t('common.anyDate');
   const disabled = [
     ...(min === undefined ? [] : [{ before: min }]),
     ...(max === undefined ? [] : [{ after: max }]),
@@ -43,7 +50,7 @@ export function DatePicker({
           id={id}
           type="button"
           variant="outline"
-          aria-label={`${ariaLabel}: ${selected === undefined ? placeholder : format(selected, 'MMM d, yyyy')}`}
+          aria-label={`${ariaLabel}: ${selected === undefined ? displayPlaceholder : formatDisplay(selected)}`}
           className={cn(
             'w-full justify-start font-normal sm:w-44',
             selected === undefined && 'text-muted-foreground',
@@ -53,8 +60,8 @@ export function DatePicker({
           <CalendarIcon className="size-4 text-muted-foreground" />
           <span className="truncate">
             {selected === undefined
-              ? placeholder
-              : format(selected, 'MMM d, yyyy')}
+              ? displayPlaceholder
+              : formatDisplay(selected)}
           </span>
         </Button>
       </PopoverTrigger>
@@ -62,6 +69,7 @@ export function DatePicker({
         <Calendar
           mode="single"
           captionLayout="dropdown"
+          locale={dateFnsLocale(locale)}
           selected={selected}
           defaultMonth={selected}
           startMonth={new Date(1970, 0, 1)}
@@ -84,7 +92,7 @@ export function DatePicker({
                 setOpen(false);
               }}
             >
-              Clear date
+              {t('common.clearDate')}
             </Button>
           </div>
         )}

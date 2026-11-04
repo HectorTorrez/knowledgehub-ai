@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { OrganizationActivityItem } from '@knowledgehub/shared-types';
 import { formatActivity } from './activity-format';
+import { createTranslator } from '~/lib/i18n/translate';
+
+const t = createTranslator('en');
 
 const item: OrganizationActivityItem = {
   id: '1',
@@ -19,27 +22,33 @@ const item: OrganizationActivityItem = {
 
 describe('formatActivity', () => {
   it('formats document renames', () => {
-    expect(formatActivity(item)).toBe(
+    expect(formatActivity(item, t)).toBe(
       'Ana Lopez renamed document “Q3 budget” to “Q3 budget final”',
     );
   });
   it('formats role changes', () => {
     expect(
-      formatActivity({
-        ...item,
-        action: 'MEMBER_ROLE_CHANGED',
-        metadata: { email: 'bob@x.com', from: 'MEMBER', to: 'OWNER' },
-      }),
-    ).toBe("Ana Lopez changed bob@x.com's role from MEMBER to OWNER");
+      formatActivity(
+        {
+          ...item,
+          action: 'MEMBER_ROLE_CHANGED',
+          metadata: { email: 'bob@x.com', from: 'MEMBER', to: 'OWNER' },
+        },
+        t,
+      ),
+    ).toBe('Ana Lopez changed the role of bob@x.com from MEMBER to OWNER');
   });
   it('handles missing actors and metadata', () => {
     expect(
-      formatActivity({
-        ...item,
-        actor: null,
-        action: 'INVITATION_CREATED',
-        metadata: {},
-      }),
+      formatActivity(
+        {
+          ...item,
+          actor: null,
+          action: 'INVITATION_CREATED',
+          metadata: {},
+        },
+        t,
+      ),
     ).toBe('Someone invited someone');
   });
 });

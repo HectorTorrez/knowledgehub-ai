@@ -1,3 +1,5 @@
+import type { Locale } from '~/lib/i18n/locale';
+import type { Translator } from '~/lib/i18n/translate';
 import { formatBytes } from './format';
 import { DOCUMENT_TITLE_MAX_LENGTH } from './validation';
 import { DOCX_CONTENT_TYPE, isAllowedUploadContentType } from './validation';
@@ -32,21 +34,20 @@ export interface UploadValidationSuccess {
 export interface UploadValidationFailure {
   ok: false;
   reason: UploadRejectionReason;
-  message: string;
 }
 
 export type UploadValidationResult =
   UploadValidationSuccess | UploadValidationFailure;
 
-const REJECTION_MESSAGES: Record<UploadRejectionReason, string> = {
-  EMPTY_FILE: 'This file is empty.',
-  SIZE_LIMIT_EXCEEDED: `Files must be ${formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} or smaller.`,
-  CONTENT_TYPE_NOT_ALLOWED:
-    'Unsupported file type. Upload a PDF, Word, plain text, or Markdown file.',
-  SIGNATURE_MISMATCH:
-    'The file contents do not match its type. Choose a valid PDF, Word, plain text, or Markdown file.',
-  UNREADABLE_FILE: 'The file could not be read. Try choosing it again.',
-};
+export function uploadRejectionMessage(
+  reason: UploadRejectionReason,
+  t: Translator,
+  locale: Locale,
+): string {
+  return t(`upload.rejection.${reason}`, {
+    size: formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES, locale),
+  });
+}
 
 export function resolveUploadContentType(file: File): string {
   if (isAllowedUploadContentType(file.type)) {
@@ -128,7 +129,7 @@ export async function validateUploadFile(
 }
 
 function rejection(reason: UploadRejectionReason): UploadValidationFailure {
-  return { ok: false, reason, message: REJECTION_MESSAGES[reason] };
+  return { ok: false, reason };
 }
 
 function containsPdfMagic(bytes: Uint8Array): boolean {
@@ -167,9 +168,9 @@ function isStrictUtf8Text(bytes: Uint8Array): boolean {
   }
 }
 
-export function titleFromFileName(fileName: string): string {
+export function titleFromFileName(fileName: string, untitled: string): string {
   const stem = fileName.replace(/\.[^.]+$/, '').trim();
   const title = stem.length > 0 ? stem : fileName.trim();
 
-  return title.slice(0, DOCUMENT_TITLE_MAX_LENGTH) || 'Untitled document';
+  return title.slice(0, DOCUMENT_TITLE_MAX_LENGTH) || untitled;
 }

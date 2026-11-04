@@ -1,41 +1,50 @@
 import type { OrganizationRole } from '@knowledgehub/shared-types';
+import type { Locale } from '~/lib/i18n/locale';
+import type { Translator } from '~/lib/i18n/translate';
 
-export function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number, locale: Locale): string {
+  const number = (value: number, digits: number) =>
+    new Intl.NumberFormat(locale, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(value);
+
   if (bytes < 1024) {
-    return `${bytes} B`;
+    return `${number(bytes, 0)} B`;
   }
 
   if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${number(bytes / 1024, 1)} KB`;
   }
 
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${number(bytes / (1024 * 1024), 1)} MB`;
 }
 
-export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+export function formatDateTime(iso: string, locale: Locale): string {
+  return new Date(iso).toLocaleString(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+export function formatDate(iso: string, locale: Locale): string {
+  return new Date(iso).toLocaleDateString(locale, { dateStyle: 'medium' });
 }
 
-export function formatRole(role: OrganizationRole): string {
-  return role.charAt(0) + role.slice(1).toLowerCase();
+export function formatRole(role: OrganizationRole, t: Translator): string {
+  return t(`roles.${role}`);
 }
 
 export function formatMinorAmount(
   amountMinor: string,
   currency: string,
   scale: number,
+  locale: Locale,
 ): string {
   const value = Number(amountMinor) / 10 ** scale;
 
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
       minimumFractionDigits: scale,

@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Button } from '~/components/ui/button';
+import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 export type ToastVariant = 'success' | 'error' | 'info';
@@ -70,6 +71,8 @@ const VARIANT_STYLES: Record<
 };
 
 export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
+  const t = useT();
+
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const nextId = useRef(0);
 
@@ -115,7 +118,7 @@ export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
     <ToastContext.Provider value={value}>
       {children}
       <ol
-        aria-label="Notifications"
+        aria-label={t('toast.region')}
         aria-live="polite"
         aria-atomic="false"
         className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-2 p-4 sm:bottom-0 sm:items-end"
@@ -132,6 +135,7 @@ function ToastItem({
   record,
   onDismiss,
 }: Readonly<{ record: ToastRecord; onDismiss: (id: number) => void }>) {
+  const t = useT();
   const config = VARIANT_STYLES[record.variant];
   const Icon = config.icon;
 
@@ -188,7 +192,7 @@ function ToastItem({
       <button
         type="button"
         onClick={() => onDismiss(record.id)}
-        aria-label="Dismiss notification"
+        aria-label={t('toast.dismiss')}
         className="-m-2 rounded-sm p-2.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:-m-1 sm:p-1"
       >
         <XIcon className="size-4" />

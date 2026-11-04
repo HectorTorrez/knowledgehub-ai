@@ -15,15 +15,19 @@ import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { invitationsApi } from '~/lib/api/invitations';
 import { queryKeys } from '~/lib/api/query-keys';
+import { useT } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 
 export const Route = createFileRoute('/_authenticated/invitations/accept')({
-  head: () =>
-    pageHead({
-      title: 'Accept invitation · KnowledgeHub AI',
-      description: 'Join an organization on KnowledgeHub AI.',
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('invitations.pageTitle'),
+      description: t('invitations.pageDescription'),
       path: '/invitations/accept',
-    }),
+    });
+  },
   validateSearch: (search: Record<string, unknown>): { token?: string } => ({
     token:
       typeof search.token === 'string' && search.token.trim().length > 0
@@ -34,6 +38,7 @@ export const Route = createFileRoute('/_authenticated/invitations/accept')({
 });
 
 function AcceptInvitationPage() {
+  const t = useT();
   const { token } = Route.useSearch();
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -42,12 +47,8 @@ function AcceptInvitationPage() {
   const [accepted, setAccepted] = useState(false);
   const tokenError = useMemo(
     () =>
-      token === undefined
-        ? new Error(
-            'This invitation link is missing its token. Ask an organization owner for a new link.',
-          )
-        : null,
-    [token],
+      token === undefined ? new Error(t('invitations.missingToken')) : null,
+    [token, t],
   );
   useQueryErrorToast(tokenError);
 
@@ -58,8 +59,8 @@ function AcceptInvitationPage() {
       setAccepted(true);
       toast({
         variant: 'success',
-        title: 'Invitation accepted',
-        description: 'You now have access to this organization.',
+        title: t('invitations.accepted'),
+        description: t('invitations.acceptedDescription'),
       });
       await client.invalidateQueries({
         queryKey: queryKeys.organizations.all,
@@ -94,12 +95,10 @@ function AcceptInvitationPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="size-5 text-muted-foreground" />
-            Organization invitation
+            {t('invitations.title')}
           </CardTitle>
           <CardDescription>
-            {accepted
-              ? 'Opening the organization…'
-              : 'Accept this invitation to join the organization and access its documents.'}
+            {accepted ? t('invitations.opening') : t('invitations.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -109,14 +108,16 @@ function AcceptInvitationPage() {
               disabled={token === undefined || accept.isPending}
               onClick={() => void handleAccept()}
             >
-              {accept.isPending ? 'Accepting…' : 'Accept invitation'}
+              {accept.isPending
+                ? t('invitations.accepting')
+                : t('invitations.accept')}
             </Button>
           )}
         </CardContent>
       </Card>
 
       <p className="text-center text-xs text-muted-foreground">
-        Invitations expire and can only be used once.
+        {t('invitations.expiry')}
       </p>
     </div>
   );

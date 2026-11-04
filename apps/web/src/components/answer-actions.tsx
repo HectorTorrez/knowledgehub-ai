@@ -9,6 +9,7 @@ import { Check, Copy, Link2, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { useToast } from '~/components/ui/toast';
+import { useT } from '~/lib/i18n/hooks';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { cn } from '~/lib/utils';
@@ -31,6 +32,7 @@ export function AnswerActions({
   citations: AnswerCitation[];
   missing?: string[];
 }>) {
+  const t = useT();
   const { toast } = useToast();
   const [copied, setCopied] = useState<'answer' | 'link' | null>(null);
 
@@ -41,17 +43,20 @@ export function AnswerActions({
       window.setTimeout(() => setCopied(null), 2000);
       toast({
         variant: 'success',
-        title: kind === 'answer' ? 'Answer copied' : 'Link copied',
+        title:
+          kind === 'answer'
+            ? t('answerActions.answerCopied')
+            : t('answerActions.linkCopied'),
         description:
           kind === 'answer'
-            ? 'The answer and its sources are on your clipboard.'
-            : 'Share it with anyone who can access this organization.',
+            ? t('answerActions.answerCopiedDescription')
+            : t('answerActions.linkCopiedDescription'),
       });
     } catch {
       toast({
         variant: 'error',
-        title: 'Could not copy',
-        description: 'Your browser blocked clipboard access.',
+        title: t('answerActions.couldNotCopy'),
+        description: t('answerActions.clipboardBlocked'),
       });
     }
   }
@@ -61,17 +66,20 @@ export function AnswerActions({
       <Button
         variant="ghost"
         size="icon"
-        aria-label={`Copy answer to “${question}”`}
-        title="Copy answer"
+        aria-label={t('answerActions.copyAnswerFor', { question })}
+        title={t('answerActions.copyAnswer')}
         onClick={() =>
           void copy(
-            buildAnswerMarkdown({
-              question,
-              answer,
-              status,
-              citations,
-              missing,
-            }),
+            buildAnswerMarkdown(
+              {
+                question,
+                answer,
+                status,
+                citations,
+                missing,
+              },
+              t,
+            ),
             'answer',
           )
         }
@@ -86,8 +94,8 @@ export function AnswerActions({
         <Button
           variant="ghost"
           size="icon"
-          aria-label={`Copy link to “${question}”`}
-          title="Copy link"
+          aria-label={t('answerActions.copyLinkFor', { question })}
+          title={t('answerActions.copyLink')}
           onClick={() =>
             void copy(
               answerPermalink(window.location.origin, organizationId, answerId),
@@ -115,6 +123,7 @@ export function AnswerFeedback({
   answerId: string;
   initial?: AnswerFeedbackSummary | null;
 }>) {
+  const t = useT();
   const client = useQueryClient();
   const { toast } = useToast();
   const [feedback, setFeedback] = useState<AnswerFeedbackSummary | null>(
@@ -130,8 +139,8 @@ export function AnswerFeedback({
     onError: () => {
       toast({
         variant: 'error',
-        title: 'Could not save your feedback',
-        description: 'Try again in a moment.',
+        title: t('answerActions.saveFeedbackError'),
+        description: t('answerActions.tryAgainLater'),
       });
     },
     onSettled: () =>
@@ -149,8 +158,8 @@ export function AnswerFeedback({
     onError: () => {
       toast({
         variant: 'error',
-        title: 'Could not remove your feedback',
-        description: 'Try again in a moment.',
+        title: t('answerActions.removeFeedbackError'),
+        description: t('answerActions.tryAgainLater'),
       });
     },
     onSettled: () =>
@@ -180,14 +189,14 @@ export function AnswerFeedback({
   return (
     <div
       role="group"
-      aria-label="Rate this answer"
+      aria-label={t('answerActions.rate')}
       className="flex items-center gap-1"
     >
       <Button
         variant="ghost"
         size="icon"
-        aria-label="Helpful"
-        title="Helpful"
+        aria-label={t('answerActions.helpful')}
+        title={t('answerActions.helpful')}
         aria-pressed={feedback?.value === 'UP'}
         disabled={pending}
         onClick={() => toggle('UP')}
@@ -202,8 +211,8 @@ export function AnswerFeedback({
       <Button
         variant="ghost"
         size="icon"
-        aria-label="Not helpful"
-        title="Not helpful"
+        aria-label={t('answerActions.notHelpful')}
+        title={t('answerActions.notHelpful')}
         aria-pressed={feedback?.value === 'DOWN'}
         disabled={pending}
         onClick={() => toggle('DOWN')}

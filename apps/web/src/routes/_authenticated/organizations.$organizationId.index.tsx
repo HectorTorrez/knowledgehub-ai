@@ -74,18 +74,21 @@ import { queryKeys } from '~/lib/api/query-keys';
 import { isNotFound } from '~/lib/api/errors';
 import { cn } from '~/lib/utils';
 import { formatDate, formatDateTime, formatRole } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { memberEmailSchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/',
 )({
-  head: () =>
-    pageHead({
-      title: 'Overview · KnowledgeHub AI',
-      description:
-        'Manage the members and roles with access to this organization.',
-    }),
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('overview.pageTitle'),
+      description: t('overview.pageDescription'),
+    });
+  },
   component: OrganizationOverviewPage,
 });
 
@@ -95,6 +98,8 @@ interface MemberToRemove {
 }
 
 function OrganizationOverviewPage() {
+  const t = useT();
+  const locale = useLocale();
   const { organizationId } = Route.useParams();
   const client = useQueryClient();
   const { toast } = useToast();
@@ -168,8 +173,10 @@ function OrganizationOverviewPage() {
     onSuccess: (data, variables) => {
       toast({
         variant: 'success',
-        title: 'Member added',
-        description: `${data.member.email} can now access this organization.`,
+        title: t('overview.memberAdded'),
+        description: t('overview.memberAddedDescription', {
+          email: data.member.email,
+        }),
       });
 
       return client.invalidateQueries({
@@ -195,8 +202,11 @@ function OrganizationOverviewPage() {
     onSuccess: (data, variables) => {
       toast({
         variant: 'success',
-        title: 'Role updated',
-        description: `${data.member.email} now has the ${formatRole(data.member.role)} role.`,
+        title: t('overview.roleUpdated'),
+        description: t('overview.roleUpdatedDescription', {
+          email: data.member.email,
+          role: formatRole(data.member.role, t),
+        }),
       });
 
       return client.invalidateQueries({
@@ -221,8 +231,10 @@ function OrganizationOverviewPage() {
       setEmail('');
       toast({
         variant: 'success',
-        title: 'Invitation created',
-        description: `Share the link with ${data.invitation.email}.`,
+        title: t('overview.invitationCreated'),
+        description: t('overview.invitationCreatedDescription', {
+          email: data.invitation.email,
+        }),
       });
 
       return client.invalidateQueries({
@@ -238,7 +250,7 @@ function OrganizationOverviewPage() {
     mutationFn: (input: { organizationId: string; invitationId: string }) =>
       invitationsApi.revoke(input.organizationId, input.invitationId),
     onSuccess: (_data, variables) => {
-      toast({ variant: 'success', title: 'Invitation revoked' });
+      toast({ variant: 'success', title: t('overview.invitationRevoked') });
 
       return client.invalidateQueries({
         queryKey: queryKeys.organizations.invitations.list(
@@ -253,7 +265,7 @@ function OrganizationOverviewPage() {
     mutationFn: (input: { organizationId: string; userId: string }) =>
       organizationsApi.removeMember(input.organizationId, input.userId),
     onSuccess: (_data, variables) => {
-      toast({ variant: 'success', title: 'Member removed' });
+      toast({ variant: 'success', title: t('overview.memberRemoved') });
 
       return client.invalidateQueries({
         queryKey: queryKeys.organizations.members(variables.organizationId),
@@ -265,11 +277,13 @@ function OrganizationOverviewPage() {
   async function handleAddMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const result = memberEmailSchema.safeParse({ email });
+    const result = memberEmailSchema(t).safeParse({ email });
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'Invalid email.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.invalidInput'),
+        ),
       );
       return;
     }
@@ -327,12 +341,12 @@ function OrganizationOverviewPage() {
 
     try {
       await navigator.clipboard.writeText(inviteLink(inviteResult.token));
-      toast({ variant: 'success', title: 'Invitation link copied' });
+      toast({ variant: 'success', title: t('overview.linkCopied') });
     } catch {
       toast({
         variant: 'error',
-        title: 'Could not copy the link',
-        description: 'Select the link and copy it manually.',
+        title: t('overview.copyFailed'),
+        description: t('overview.copyFailedDescription'),
       });
     }
   }
@@ -373,8 +387,10 @@ function OrganizationOverviewPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={organization.data?.organization.name ?? 'Organization'}
-        description="Your organization at a glance: documents, members, and today's answer usage."
+        title={
+          organization.data?.organization.name ?? t('overview.defaultTitle')
+        }
+        description={t('overview.description')}
       />
 
       {checklistLoaded &&
@@ -384,9 +400,9 @@ function OrganizationOverviewPage() {
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle>Get started</CardTitle>
+              <CardTitle>{t('overview.getStarted')}</CardTitle>
               <CardDescription>
-                Set up your workspace in a few steps.
+                {t('overview.getStartedDescription')}
               </CardDescription>
             </div>
             <Button
@@ -401,7 +417,7 @@ function OrganizationOverviewPage() {
                 setDismissedKey(storageKey);
               }}
             >
-              Dismiss
+              {t('overview.dismiss')}
             </Button>
           </CardHeader>
           <CardContent>
@@ -409,7 +425,11 @@ function OrganizationOverviewPage() {
               {steps.map((step) => (
                 <li key={step.id} className="flex items-center gap-3 text-sm">
                   <span
-                    aria-label={step.complete ? 'Complete' : 'Not complete'}
+                    aria-label={
+                      step.complete
+                        ? t('overview.complete')
+                        : t('overview.notComplete')
+                    }
                     className={
                       step.complete ? 'text-brand' : 'text-muted-foreground'
                     }
@@ -422,7 +442,7 @@ function OrganizationOverviewPage() {
                       className="underline underline-offset-4"
                       onClick={() => setAddMemberOpen(true)}
                     >
-                      {step.label}
+                      {t(step.labelKey)}
                     </button>
                   ) : (
                     <Link
@@ -434,7 +454,7 @@ function OrganizationOverviewPage() {
                       }
                       params={{ organizationId }}
                     >
-                      {step.label}
+                      {t(step.labelKey)}
                     </Link>
                   )}
                 </li>
@@ -447,7 +467,7 @@ function OrganizationOverviewPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={FileText}
-          label="Ready documents"
+          label={t('overview.statReadyDocuments')}
           value={readyDocumentsLabel(
             readyDocuments.documents.length,
             readyDocuments.query.data?.nextCursor != null,
@@ -456,26 +476,26 @@ function OrganizationOverviewPage() {
         />
         <StatTile
           icon={Users}
-          label="Members"
+          label={t('overview.statMembers')}
           value={members.data?.members.length ?? '—'}
           pending={members.isPending}
         />
         <StatTile
           icon={Shield}
-          label="Your role"
+          label={t('overview.statYourRole')}
           value={
             organization.data
-              ? formatRole(organization.data.organization.role)
+              ? formatRole(organization.data.organization.role, t)
               : '—'
           }
           pending={organization.isPending}
         />
         <StatTile
           icon={CalendarDays}
-          label="Created"
+          label={t('overview.statCreated')}
           value={
             organization.data
-              ? formatDate(organization.data.organization.createdAt)
+              ? formatDate(organization.data.organization.createdAt, locale)
               : '—'
           }
           pending={organization.isPending}
@@ -490,7 +510,7 @@ function OrganizationOverviewPage() {
               params={{ organizationId }}
             >
               <Upload />
-              Upload a document
+              {t('overview.uploadDocument')}
             </Link>
           </Button>
         ) : null}
@@ -500,7 +520,7 @@ function OrganizationOverviewPage() {
             params={{ organizationId }}
           >
             <MessageSquareText />
-            Ask a question
+            {t('overview.askQuestion')}
           </Link>
         </Button>
         <Button asChild variant="outline" className="min-h-11 sm:min-h-0">
@@ -516,24 +536,23 @@ function OrganizationOverviewPage() {
             }}
           >
             <Search />
-            Search documents
+            {t('overview.searchDocuments')}
           </Link>
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Daily answer usage</CardTitle>
+          <CardTitle>{t('overview.dailyUsage')}</CardTitle>
           <CardDescription>
-            Answers reset at midnight UTC. The limit is shared by everyone in
-            this organization.
+            {t('overview.dailyUsageDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {usage.isPending ? <Skeleton className="h-12 w-full" /> : null}
           {usage.isError ? (
             <RouteError
-              title="Unable to load usage"
+              title={t('orgSettings.usageLoadError')}
               onRetry={() => void usage.refetch()}
             />
           ) : null}
@@ -541,11 +560,18 @@ function OrganizationOverviewPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">
-                  {usage.data.usage.answers.used} of{' '}
-                  {usage.data.usage.answers.limit} answers
+                  {t('overview.answersOf', {
+                    used: usage.data.usage.answers.used,
+                    limit: usage.data.usage.answers.limit,
+                  })}
                 </span>
                 <span className="text-muted-foreground">
-                  Resets {formatDateTime(usage.data.usage.answers.resetsAt)}
+                  {t('overview.resetsOn', {
+                    date: formatDateTime(
+                      usage.data.usage.answers.resetsAt,
+                      locale,
+                    ),
+                  })}
                 </span>
               </div>
               <Progress
@@ -560,7 +586,7 @@ function OrganizationOverviewPage() {
                 aria-valuemin={0}
                 aria-valuemax={usage.data.usage.answers.limit}
                 aria-valuenow={usage.data.usage.answers.used}
-                aria-label="Daily answer usage"
+                aria-label={t('overview.dailyUsage')}
                 indicatorClassName={cn(
                   usage.data.usage.answers.used >=
                     usage.data.usage.answers.limit && 'bg-destructive',
@@ -576,18 +602,17 @@ function OrganizationOverviewPage() {
           <div className="flex flex-col items-start gap-3 p-4 pb-0 sm:flex-row sm:p-6 sm:pb-0 sm:items-start sm:justify-between sm:gap-4">
             <div className="space-y-1.5">
               <h2 className="font-semibold leading-none tracking-tight">
-                Members
+                {t('overview.membersTitle')}
               </h2>
               <p className="text-sm text-muted-foreground">
-                People who can access this organization. If someone has no
-                account yet, adding them creates a shareable invitation.
+                {t('overview.membersDescription')}
               </p>
             </div>
             {canManageMembers ? (
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <UserPlus />
-                  Add member
+                  {t('overview.addMember')}
                 </Button>
               </DialogTrigger>
             ) : null}
@@ -604,15 +629,15 @@ function OrganizationOverviewPage() {
 
             {members.isError ? (
               <RouteError
-                title="Unable to load members"
+                title={t('overview.membersLoadError')}
                 onRetry={() => void members.refetch()}
               />
             ) : null}
             {members.data && members.data.members.length === 0 ? (
               <EmptyState
                 icon={UserPlus}
-                title="No members yet"
-                description="Members can upload documents and ask questions."
+                title={t('overview.noMembers')}
+                description={t('overview.noMembersDescription')}
               />
             ) : null}
 
@@ -632,7 +657,7 @@ function OrganizationOverviewPage() {
                           {member.firstName} {member.lastName}
                           {member.userId === currentUserId ? (
                             <span className="ml-1 text-xs font-normal text-muted-foreground">
-                              (you)
+                              {t('overview.you')}
                             </span>
                           ) : null}
                         </p>
@@ -657,7 +682,9 @@ function OrganizationOverviewPage() {
                         >
                           <SelectTrigger
                             className="w-28"
-                            aria-label={`Role for ${member.email}`}
+                            aria-label={t('overview.roleFor', {
+                              email: member.email,
+                            })}
                             disabled={updateRole.isPending}
                           >
                             <SelectValue />
@@ -665,23 +692,23 @@ function OrganizationOverviewPage() {
                           <SelectContent>
                             {canManageOwners ? (
                               <SelectItem value="OWNER">
-                                Owner — full access
+                                {t('overview.roleOptions.OWNER')}
                               </SelectItem>
                             ) : null}
                             <SelectItem value="ADMIN">
-                              Admin — manage organization and members
+                              {t('overview.roleOptions.ADMIN')}
                             </SelectItem>
                             <SelectItem value="MEMBER">
-                              Member — manage documents
+                              {t('overview.roleOptions.MEMBER')}
                             </SelectItem>
                             <SelectItem value="VIEWER">
-                              Viewer — read and ask questions
+                              {t('overview.roleOptions.VIEWER')}
                             </SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
                         <Badge variant="secondary">
-                          {formatRole(member.role)}
+                          {formatRole(member.role, t)}
                         </Badge>
                       )}
                       {canManageMembers &&
@@ -690,7 +717,9 @@ function OrganizationOverviewPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label={`Remove ${member.email}`}
+                          aria-label={t('overview.removeMemberLabel', {
+                            email: member.email,
+                          })}
                           className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           onClick={() =>
                             setMemberToRemove({
@@ -714,10 +743,9 @@ function OrganizationOverviewPage() {
 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add a member</DialogTitle>
+            <DialogTitle>{t('overview.addMemberTitle')}</DialogTitle>
             <DialogDescription>
-              Members with an existing account join immediately. Other
-              selections create an invitation you can share.
+              {t('overview.addMemberDescription')}
             </DialogDescription>
           </DialogHeader>
 
@@ -725,15 +753,18 @@ function OrganizationOverviewPage() {
             <div className="space-y-4">
               <div className="rounded-md border border-success/40 bg-success/5 p-3 text-sm">
                 <p className="font-medium">
-                  Invitation ready for {inviteResult.email}
+                  {t('overview.inviteReady', { email: inviteResult.email })}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  Share this one-time link. It expires on{' '}
-                  {formatDateTime(inviteResult.expiresAt)}.
+                  {t('overview.inviteExpires', {
+                    date: formatDateTime(inviteResult.expiresAt, locale),
+                  })}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="invite-link">Invitation link</Label>
+                <Label htmlFor="invite-link">
+                  {t('overview.invitationLink')}
+                </Label>
                 <div className="flex gap-2">
                   <Input
                     id="invite-link"
@@ -747,7 +778,7 @@ function OrganizationOverviewPage() {
                     onClick={() => void copyInviteLink()}
                   >
                     <Copy />
-                    Copy
+                    {t('overview.copy')}
                   </Button>
                 </div>
               </div>
@@ -756,14 +787,14 @@ function OrganizationOverviewPage() {
                   type="button"
                   onClick={() => handleAddMemberOpenChange(false)}
                 >
-                  Done
+                  {t('overview.done')}
                 </Button>
               </DialogFooter>
             </div>
           ) : (
             <form onSubmit={handleAddMember} className="space-y-4" noValidate>
               <div className="space-y-2">
-                <Label htmlFor="member-email">Email</Label>
+                <Label htmlFor="member-email">{t('fields.email')}</Label>
                 <Input
                   id="member-email"
                   type="email"
@@ -774,7 +805,7 @@ function OrganizationOverviewPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label>{t('overview.role')}</Label>
                 <Select
                   value={inviteRole}
                   onValueChange={(value) =>
@@ -786,16 +817,18 @@ function OrganizationOverviewPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {canManageOwners ? (
-                      <SelectItem value="OWNER">Owner — full access</SelectItem>
+                      <SelectItem value="OWNER">
+                        {t('overview.roleOptions.OWNER')}
+                      </SelectItem>
                     ) : null}
                     <SelectItem value="ADMIN">
-                      Admin — manage organization and members
+                      {t('overview.roleOptions.ADMIN')}
                     </SelectItem>
                     <SelectItem value="MEMBER">
-                      Member — manage documents
+                      {t('overview.roleOptions.MEMBER')}
                     </SelectItem>
                     <SelectItem value="VIEWER">
-                      Viewer — read and ask questions
+                      {t('overview.roleOptions.VIEWER')}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -806,15 +839,15 @@ function OrganizationOverviewPage() {
                   variant="outline"
                   onClick={() => handleAddMemberOpenChange(false)}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
                   disabled={addMember.isPending || createInvitation.isPending}
                 >
                   {addMember.isPending || createInvitation.isPending
-                    ? 'Adding…'
-                    : 'Add or invite'}
+                    ? t('overview.adding')
+                    : t('overview.addOrInvite')}
                 </Button>
               </DialogFooter>
             </form>
@@ -827,10 +860,10 @@ function OrganizationOverviewPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Mail className="size-4 text-muted-foreground" />
-              Pending invitations
+              {t('overview.pendingInvitations')}
             </CardTitle>
             <CardDescription>
-              Invitations that have not been accepted yet.
+              {t('overview.pendingDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -844,15 +877,15 @@ function OrganizationOverviewPage() {
 
             {invitations.isError ? (
               <RouteError
-                title="Unable to load invitations"
+                title={t('overview.invitationsLoadError')}
                 onRetry={() => void invitations.refetch()}
               />
             ) : null}
             {invitations.data && invitations.data.invitations.length === 0 ? (
               <EmptyState
                 icon={Mail}
-                title="No pending invitations"
-                description="Add an email above to create one."
+                title={t('overview.noInvitations')}
+                description={t('overview.noInvitationsDescription')}
               />
             ) : null}
 
@@ -868,7 +901,9 @@ function OrganizationOverviewPage() {
                         {invitation.email}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Expires {formatDateTime(invitation.expiresAt)}
+                        {t('overview.expires', {
+                          date: formatDateTime(invitation.expiresAt, locale),
+                        })}
                       </p>
                     </div>
                     {invitation.role !== 'OWNER' || canManageOwners ? (
@@ -888,7 +923,7 @@ function OrganizationOverviewPage() {
                           })
                         }
                       >
-                        Revoke
+                        {t('overview.revoke')}
                       </Button>
                     ) : null}
                   </li>
@@ -907,15 +942,17 @@ function OrganizationOverviewPage() {
       >
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove member</AlertDialogTitle>
+            <AlertDialogTitle>{t('overview.removeTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
               {memberToRemove
-                ? `${memberToRemove.name} will lose access to this organization.`
-                : 'This member will lose access to this organization.'}
+                ? t('overview.removeDescriptionNamed', {
+                    name: memberToRemove.name,
+                  })
+                : t('overview.removeDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: 'destructive' })}
               disabled={removeMember.isPending}
@@ -926,7 +963,9 @@ function OrganizationOverviewPage() {
                 }
               }}
             >
-              {removeMember.isPending ? 'Removing…' : 'Remove'}
+              {removeMember.isPending
+                ? t('overview.removing')
+                : t('overview.remove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createTranslator } from '~/lib/i18n/translate';
 import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
   documentTitleSchema,
@@ -10,6 +11,8 @@ import {
   registerFormSchema,
 } from './validation';
 
+const t = createTranslator('en');
+
 describe('registerFormSchema', () => {
   const valid = {
     email: 'hector@example.com',
@@ -19,11 +22,11 @@ describe('registerFormSchema', () => {
   };
 
   it('accepts a valid registration', () => {
-    expect(registerFormSchema.safeParse(valid).success).toBe(true);
+    expect(registerFormSchema(t).safeParse(valid).success).toBe(true);
   });
 
   it('trims the name fields', () => {
-    const result = registerFormSchema.parse({
+    const result = registerFormSchema(t).parse({
       ...valid,
       firstName: '  Hector  ',
     });
@@ -33,26 +36,27 @@ describe('registerFormSchema', () => {
 
   it('rejects a password shorter than 12 characters', () => {
     expect(
-      registerFormSchema.safeParse({ ...valid, password: 'short' }).success,
+      registerFormSchema(t).safeParse({ ...valid, password: 'short' }).success,
     ).toBe(false);
   });
 
   it('rejects an invalid email', () => {
     expect(
-      registerFormSchema.safeParse({ ...valid, email: 'not-an-email' }).success,
+      registerFormSchema(t).safeParse({ ...valid, email: 'not-an-email' })
+        .success,
     ).toBe(false);
   });
 
   it('rejects an empty first name', () => {
     expect(
-      registerFormSchema.safeParse({ ...valid, firstName: '   ' }).success,
+      registerFormSchema(t).safeParse({ ...valid, firstName: '   ' }).success,
     ).toBe(false);
   });
 });
 
 describe('loginFormSchema', () => {
   it('requires a password', () => {
-    const result = loginFormSchema.safeParse({
+    const result = loginFormSchema(t).safeParse({
       email: 'hector@example.com',
       password: '',
     });
@@ -61,7 +65,7 @@ describe('loginFormSchema', () => {
   });
 
   it('accepts any non-empty password, matching the API contract', () => {
-    const result = loginFormSchema.safeParse({
+    const result = loginFormSchema(t).safeParse({
       email: 'hector@example.com',
       password: 'x',
     });
@@ -72,7 +76,7 @@ describe('loginFormSchema', () => {
 
 describe('organizationNameSchema', () => {
   it('rejects a blank name', () => {
-    expect(organizationNameSchema.safeParse({ name: '  ' }).success).toBe(
+    expect(organizationNameSchema(t).safeParse({ name: '  ' }).success).toBe(
       false,
     );
   });
@@ -80,17 +84,21 @@ describe('organizationNameSchema', () => {
 
 describe('memberEmailSchema', () => {
   it('requires a valid email', () => {
-    expect(memberEmailSchema.safeParse({ email: 'nope' }).success).toBe(false);
+    expect(memberEmailSchema(t).safeParse({ email: 'nope' }).success).toBe(
+      false,
+    );
   });
 });
 
 describe('questionSchema', () => {
   it('rejects a blank question', () => {
-    expect(questionSchema.safeParse({ question: '   ' }).success).toBe(false);
+    expect(questionSchema(t).safeParse({ question: '   ' }).success).toBe(
+      false,
+    );
   });
 
   it('trims the question', () => {
-    expect(questionSchema.parse({ question: '  Why?  ' }).question).toBe(
+    expect(questionSchema(t).parse({ question: '  Why?  ' }).question).toBe(
       'Why?',
     );
   });
@@ -99,20 +107,20 @@ describe('questionSchema', () => {
 describe('documentTitleSchema', () => {
   it('accepts a 200 character title, matching the API limit', () => {
     expect(
-      documentTitleSchema.safeParse({ title: 'a'.repeat(200) }).success,
+      documentTitleSchema(t).safeParse({ title: 'a'.repeat(200) }).success,
     ).toBe(true);
   });
 
   it('rejects a 201 character title', () => {
     expect(
-      documentTitleSchema.safeParse({ title: 'a'.repeat(201) }).success,
+      documentTitleSchema(t).safeParse({ title: 'a'.repeat(201) }).success,
     ).toBe(false);
   });
 });
 
 describe('loginFormSchema password bounds', () => {
   it('rejects a password longer than 128 characters', () => {
-    const result = loginFormSchema.safeParse({
+    const result = loginFormSchema(t).safeParse({
       email: 'hector@example.com',
       password: 'a'.repeat(129),
     });

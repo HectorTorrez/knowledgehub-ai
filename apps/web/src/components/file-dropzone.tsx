@@ -1,6 +1,7 @@
 import { FileText, UploadCloud } from 'lucide-react';
 import { useRef, useState, type DragEvent } from 'react';
 import { formatBytes } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { MAX_PROCESSABLE_UPLOAD_BYTES } from '~/lib/upload-validation';
 import { cn } from '~/lib/utils';
 
@@ -15,6 +16,8 @@ export function FileDropzone({
   disabled?: boolean;
   onFilesAdd: (files: File[]) => void;
 }>) {
+  const t = useT();
+  const locale = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -46,7 +49,7 @@ export function FileDropzone({
       role="button"
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
-      aria-label="Choose files to upload"
+      aria-label={t('dropzone.choose')}
       onClick={openPicker}
       onKeyDown={(event) => {
         if (event.key === ' ') event.preventDefault();
@@ -91,12 +94,15 @@ export function FileDropzone({
           />
           <p className="text-sm font-medium">
             {dragging
-              ? 'Drop files to upload'
-              : `${files.length} ${files.length === 1 ? 'file' : 'files'} ready`}
+              ? t('dropzone.drop')
+              : t('dropzone.filesReady', { count: files.length })}
           </p>
           <p className="text-xs text-muted-foreground">
-            {formatBytes(files.reduce((total, file) => total + file.size, 0))} ·
-            choose more
+            {formatBytes(
+              files.reduce((total, file) => total + file.size, 0),
+              locale,
+            )}{' '}
+            · {t('dropzone.chooseMore')}
           </p>
         </>
       ) : (
@@ -108,11 +114,12 @@ export function FileDropzone({
             )}
           />
           <p className="text-sm font-medium">
-            {dragging ? 'Drop files to upload' : 'Choose files to upload'}
+            {dragging ? t('dropzone.drop') : t('dropzone.choose')}
           </p>
           <p className="text-xs text-muted-foreground">
-            PDF, Word, plain text, or Markdown · up to{' '}
-            {formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} each
+            {t('dropzone.accepted', {
+              size: formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES, locale),
+            })}
           </p>
         </>
       )}

@@ -24,18 +24,21 @@ import { useLogin } from '~/hooks/use-auth';
 import { useReportError } from '~/hooks/use-error-toast';
 import { sessionQuery } from '~/lib/auth/session';
 import { DEMO_ACCOUNT } from '~/lib/demo-account';
+import { useT } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { loginFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/login')({
   ssr: false,
-  head: () =>
-    pageHead({
-      title: 'Sign in · KnowledgeHub AI',
-      description:
-        "Sign in to KnowledgeHub AI to search and ask questions across your organization's documents.",
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('auth.login.pageTitle'),
+      description: t('auth.login.pageDescription'),
       path: '/login',
-    }),
+    });
+  },
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: toSameOriginPath(search.redirect),
   }),
@@ -75,6 +78,7 @@ function LoginPage() {
   const login = useLogin();
   const { toast } = useToast();
   const reportError = useReportError();
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -86,11 +90,13 @@ function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const result = loginFormSchema.safeParse({ email, password });
+    const result = loginFormSchema(t).safeParse({ email, password });
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'Invalid input.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.invalidInput'),
+        ),
       );
       return;
     }
@@ -102,7 +108,7 @@ function LoginPage() {
       return;
     }
 
-    toast({ variant: 'success', title: 'Signed in' });
+    toast({ variant: 'success', title: t('auth.login.signedIn') });
     router.history.push(redirectTo ?? '/organizations');
   }
 
@@ -113,24 +119,26 @@ function LoginPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Sign in</CardTitle>
-          <CardDescription>
-            Use your KnowledgeHub AI account to continue.
-          </CardDescription>
+          <CardTitle className="text-xl">{t('auth.login.title')}</CardTitle>
+          <CardDescription>{t('auth.login.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4 rounded-lg border border-dashed bg-muted/40 p-3">
-            <p className="text-sm font-medium">Just exploring?</p>
+            <p className="text-sm font-medium">
+              {t('auth.login.exploringTitle')}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Use the shared demo account to look around.
+              {t('auth.login.exploringDescription')}
             </p>
             <dl className="mt-2 space-y-1 font-mono text-xs">
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Email</dt>
+                <dt className="text-muted-foreground">{t('fields.email')}</dt>
                 <dd className="truncate">{DEMO_ACCOUNT.email}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Password</dt>
+                <dt className="text-muted-foreground">
+                  {t('fields.password')}
+                </dt>
                 <dd className="truncate">{DEMO_ACCOUNT.password}</dd>
               </div>
             </dl>
@@ -141,12 +149,12 @@ function LoginPage() {
               className="mt-3 w-full"
               onClick={fillDemoCredentials}
             >
-              Use demo credentials
+              {t('auth.login.useDemoCredentials')}
             </Button>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('fields.email')}</Label>
               <Input
                 id="email"
                 name="email"
@@ -159,7 +167,7 @@ function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('fields.password')}</Label>
               <PasswordInput
                 id="password"
                 name="password"
@@ -169,18 +177,20 @@ function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={login.isPending}>
-              {login.isPending ? 'Signing in…' : 'Sign in'}
+              {login.isPending
+                ? t('auth.login.submitting')
+                : t('auth.login.submit')}
             </Button>
           </form>
         </CardContent>
         <CardFooter>
           <p className="text-sm text-muted-foreground">
-            No account?{' '}
+            {t('auth.login.noAccount')}{' '}
             <Link
               to="/register"
               className="font-medium text-foreground underline underline-offset-4"
             >
-              Create one
+              {t('auth.login.createOne')}
             </Link>
           </p>
         </CardFooter>

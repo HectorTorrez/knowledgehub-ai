@@ -26,6 +26,7 @@ export function readyDocuments(
 export function resolveDocumentScope(
   selection: string,
   documents: DocumentSummary[],
+  allDocumentsLabel: string,
 ): DocumentScope {
   const document = readyDocuments(documents).find(
     (entry) => entry.id === selection,
@@ -33,5 +34,5 @@ export function resolveDocumentScope(
 
   return document
     ? { documentId: document.id, label: `“${document.title}”` }
-    : { documentId: undefined, label: 'all documents' };
+    : { documentId: undefined, label: allDocumentsLabel };
 }

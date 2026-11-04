@@ -82,11 +82,14 @@ import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { organizationsApi } from '~/lib/api/organizations';
 import { formatBytes, formatDate } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/hooks';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
 import {
   MAX_PROCESSABLE_UPLOAD_BYTES,
   titleFromFileName,
+  uploadRejectionMessage,
   validateUploadFile,
 } from '~/lib/upload-validation';
 import {
@@ -97,12 +100,13 @@ import {
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/documents',
 )({
-  head: () =>
-    pageHead({
-      title: 'Documents · KnowledgeHub AI',
-      description:
-        "Upload and manage the documents used to ground your organization's answers.",
-    }),
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('documents.pageTitle'),
+      description: t('documents.pageDescription'),
+    });
+  },
   component: DocumentsPage,
 });
 
@@ -122,6 +126,8 @@ interface UploadItem {
 }
 
 function DocumentsPage() {
+  const t = useT();
+  const locale = useLocale();
   const { organizationId } = Route.useParams();
   const organization = useQuery({
     queryKey: queryKeys.organizations.detail(organizationId),
@@ -237,7 +243,9 @@ function DocumentsPage() {
             .map(
               (entry) =>
                 `${entry.file.name}: ${
-                  entry.result.ok ? '' : entry.result.message
+                  entry.result.ok
+                    ? ''
+                    : uploadRejectionMessage(entry.result.reason, t, locale)
                 }`,
             )
             .join('\n'),
@@ -285,7 +293,7 @@ function DocumentsPage() {
         failures += 1;
         updateUploadItem(item.id, {
           status: 'failed',
-          error: 'Upload cancelled.',
+          error: t('documents.uploadCancelled'),
         });
         break;
       }
@@ -302,7 +310,7 @@ function DocumentsPage() {
         failures += 1;
         updateUploadItem(item.id, {
           status: 'failed',
-          error: validation.message,
+          error: uploadRejectionMessage(validation.reason, t, locale),
         });
         continue;
       }
@@ -310,7 +318,7 @@ function DocumentsPage() {
       try {
         await uploadFileToDocument(
           organizationId,
-          titleFromFileName(item.file.name),
+          titleFromFileName(item.file.name, t('upload.untitled')),
           item.file,
           {
             contentType: validation.contentType,
@@ -324,7 +332,9 @@ function DocumentsPage() {
         failures += 1;
         updateUploadItem(item.id, {
           status: 'failed',
-          error: isAbortError(error) ? 'Upload cancelled.' : messageOf(error),
+          error: isAbortError(error)
+            ? t('documents.uploadCancelled')
+            : messageOf(error, t),
         });
 
         if (isAbortError(error)) {
@@ -342,11 +352,8 @@ function DocumentsPage() {
     if (failures === 0) {
       toast({
         variant: 'success',
-        title:
-          queue.length === 1
-            ? 'Document uploaded'
-            : `${queue.length} documents uploaded`,
-        description: 'They are queued for processing.',
+        title: t('documents.uploaded', { count: queue.length }),
+        description: t('documents.queuedForProcessing'),
       });
       setUploadItems([]);
       setUploadOpen(false);
@@ -358,8 +365,11 @@ function DocumentsPage() {
     );
     toast({
       variant: 'error',
-      title: `${queue.length - failures} uploaded, ${failures} failed`,
-      description: 'Fix or retry the failed files before closing.',
+      title: t('documents.partialTitle', {
+        uploaded: queue.length - failures,
+        failed: failures,
+      }),
+      description: t('documents.partialDescription'),
     });
   }
 
@@ -367,7 +377,7 @@ function DocumentsPage() {
     event.preventDefault();
 
     if (uploadItems.length === 0) {
-      reportError(new Error('Choose at least one file to upload.'));
+      reportError(new Error(t('documents.chooseFile')));
       return;
     }
 
@@ -404,8 +414,8 @@ function DocumentsPage() {
     onSuccess: () => {
       toast({
         variant: 'success',
-        title: 'Reprocessing started',
-        description: 'The document was queued again for processing.',
+        title: t('documents.reprocessing'),
+        description: t('documents.reprocessingDescription'),
       });
 
       return client.invalidateQueries({
@@ -436,10 +446,12 @@ function DocumentsPage() {
       return;
     }
 
-    const result = documentTitleSchema.safeParse({ title: renameTitle });
+    const result = documentTitleSchema(t).safeParse({ title: renameTitle });
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'A title is required.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.invalidInput'),
+        ),
       );
       return;
     }
@@ -449,7 +461,7 @@ function DocumentsPage() {
         documentId: renameTarget.id,
         title: result.data.title,
       });
-      toast({ variant: 'success', title: 'Document renamed' });
+      toast({ variant: 'success', title: t('documents.renamed') });
       setRenameTarget(null);
     } catch {
       return;
@@ -465,8 +477,10 @@ function DocumentsPage() {
       await remove.mutateAsync(deleteTarget.id);
       toast({
         variant: 'success',
-        title: 'Document deleted',
-        description: `“${deleteTarget.title}” was removed.`,
+        title: t('documents.deleted'),
+        description: t('documents.deletedDescription', {
+          title: deleteTarget.title,
+        }),
       });
       setDeleteTarget(null);
     } catch {
@@ -491,8 +505,8 @@ function DocumentsPage() {
       <Dialog open={uploadOpen} onOpenChange={handleUploadOpenChange}>
         <div className="space-y-8">
           <PageHeader
-            title="Documents"
-            description="Upload documents and ask questions grounded in their contents."
+            title={t('nav.documents')}
+            description={t('documents.description')}
             action={
               <div className="flex flex-wrap items-center gap-2">
                 {canWrite ? (
@@ -504,7 +518,7 @@ function DocumentsPage() {
                 <Button
                   variant="outline"
                   size="icon"
-                  aria-label="Refresh documents"
+                  aria-label={t('documents.refresh')}
                   onClick={() => void documents.refetch()}
                   disabled={documents.isFetching}
                 >
@@ -516,7 +530,7 @@ function DocumentsPage() {
                   <DialogTrigger asChild>
                     <Button>
                       <Upload />
-                      Upload document
+                      {t('documents.uploadDocument')}
                     </Button>
                   </DialogTrigger>
                 ) : null}
@@ -531,8 +545,8 @@ function DocumentsPage() {
                 <Input
                   value={queryDraft}
                   onChange={(event) => setQueryDraft(event.target.value)}
-                  placeholder="Search documents…"
-                  aria-label="Search documents"
+                  placeholder={t('documents.searchPlaceholder')}
+                  aria-label={t('documents.searchLabel')}
                   maxLength={200}
                   className="pr-12 pl-9 sm:pr-9"
                 />
@@ -545,7 +559,7 @@ function DocumentsPage() {
                       setQueryDraft('');
                       setQuery('');
                     }}
-                    aria-label="Clear search"
+                    aria-label={t('documents.clearSearch')}
                     className="absolute top-1/2 right-1.5 size-9 -translate-y-1/2 sm:size-8 text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-4" />
@@ -555,12 +569,14 @@ function DocumentsPage() {
               <Select value={collectionId} onValueChange={setCollectionId}>
                 <SelectTrigger
                   className="w-full sm:w-44"
-                  aria-label="Filter by collection"
+                  aria-label={t('documents.filterCollection')}
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All collections</SelectItem>
+                  <SelectItem value="all">
+                    {t('documents.allCollections')}
+                  </SelectItem>
                   {(collections.data ?? []).map((collection) => (
                     <SelectItem key={collection.id} value={collection.id}>
                       {collection.name}
@@ -576,16 +592,26 @@ function DocumentsPage() {
               >
                 <SelectTrigger
                   className="w-full sm:w-44"
-                  aria-label="Filter by status"
+                  aria-label={t('documents.filterStatus')}
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
-                  <SelectItem value="READY">Ready</SelectItem>
-                  <SelectItem value="PROCESSING">Processing</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="FAILED">Failed</SelectItem>
+                  <SelectItem value={ALL_STATUSES}>
+                    {t('documents.allStatuses')}
+                  </SelectItem>
+                  <SelectItem value="READY">
+                    {t('documentStatus.READY')}
+                  </SelectItem>
+                  <SelectItem value="PROCESSING">
+                    {t('documentStatus.PROCESSING')}
+                  </SelectItem>
+                  <SelectItem value="PENDING">
+                    {t('documentStatus.PENDING')}
+                  </SelectItem>
+                  <SelectItem value="FAILED">
+                    {t('documentStatus.FAILED')}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -594,18 +620,22 @@ function DocumentsPage() {
               >
                 <SelectTrigger
                   className="w-full sm:w-40"
-                  aria-label="Sort documents"
+                  aria-label={t('documents.sort')}
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="createdAt_desc">Newest first</SelectItem>
-                  <SelectItem value="createdAt_asc">Oldest first</SelectItem>
+                  <SelectItem value="createdAt_desc">
+                    {t('documents.newestFirst')}
+                  </SelectItem>
+                  <SelectItem value="createdAt_asc">
+                    {t('documents.oldestFirst')}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               {hasFilters ? (
                 <Button type="button" variant="ghost" onClick={resetFilters}>
-                  Reset
+                  {t('documents.reset')}
                 </Button>
               ) : null}
             </CardContent>
@@ -613,7 +643,7 @@ function DocumentsPage() {
 
           {collections.isError ? (
             <RouteError
-              title="Unable to load collections"
+              title={t('documents.collectionsLoadError')}
               onRetry={() => void collections.refetch()}
             />
           ) : null}
@@ -628,7 +658,7 @@ function DocumentsPage() {
 
           {documents.isError ? (
             <RouteError
-              title="Unable to load documents"
+              title={t('documents.loadError')}
               onRetry={() => void documents.refetch()}
             />
           ) : null}
@@ -637,29 +667,29 @@ function DocumentsPage() {
             hasFilters ? (
               <EmptyState
                 icon={Search}
-                title="No matching documents"
-                description="Try a different search, status, or sort order."
+                title={t('documents.noMatchingTitle')}
+                description={t('documents.noMatchingDescription')}
                 action={
                   <Button variant="outline" onClick={resetFilters}>
-                    Reset filters
+                    {t('documents.resetFilters')}
                   </Button>
                 }
               />
             ) : (
               <EmptyState
                 icon={FileText}
-                title="No documents yet"
+                title={t('documents.noDocumentsTitle')}
                 description={
                   canWrite
-                    ? 'Upload a document to start asking questions.'
-                    : 'Ask an admin to upload documents.'
+                    ? t('documents.noDocumentsWrite')
+                    : t('documents.noDocumentsRead')
                 }
                 action={
                   canWrite ? (
                     <DialogTrigger asChild>
                       <Button>
                         <Upload />
-                        Upload your first document
+                        {t('documents.uploadFirst')}
                       </Button>
                     </DialogTrigger>
                   ) : undefined
@@ -706,11 +736,12 @@ function DocumentsPage() {
                                 className="min-w-0 truncate text-xs text-muted-foreground"
                                 title={document.originalFileName ?? undefined}
                               >
-                                {document.originalFileName ?? 'Upload pending'}
+                                {document.originalFileName ??
+                                  t('documents.uploadPending')}
                                 {document.sizeBytes !== null
-                                  ? ` · ${formatBytes(document.sizeBytes)}`
+                                  ? ` · ${formatBytes(document.sizeBytes, locale)}`
                                   : ''}
-                                {` · ${formatDate(document.createdAt)}`}
+                                {` · ${formatDate(document.createdAt, locale)}`}
                               </span>
                             </span>
                             <CollectionBadges
@@ -720,10 +751,10 @@ function DocumentsPage() {
                             {document.status === 'FAILED' ? (
                               <span className="mt-1 block text-xs break-words text-destructive">
                                 {document.failureKind === 'VERIFICATION'
-                                  ? 'Upload verification failed'
-                                  : 'Processing failed'}
+                                  ? t('documents.verificationFailed')
+                                  : t('documents.processingFailed')}
                                 {document.failureReason
-                                  ? `: ${documentFailureMessage(document.failureReason)}`
+                                  ? `: ${documentFailureMessage(document.failureReason, t)}`
                                   : ''}
                               </span>
                             ) : null}
@@ -735,7 +766,9 @@ function DocumentsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                aria-label={`Actions for ${document.title}`}
+                                aria-label={t('documents.actionsFor', {
+                                  title: document.title,
+                                })}
                               >
                                 <MoreHorizontal />
                               </Button>
@@ -747,21 +780,21 @@ function DocumentsPage() {
                                   disabled={reprocess.isPending}
                                 >
                                   <RotateCcw />
-                                  Retry processing
+                                  {t('documents.retryProcessing')}
                                 </DropdownMenuItem>
                               ) : null}
                               <DropdownMenuItem
                                 onSelect={() => openRename(document)}
                               >
                                 <Pencil />
-                                Rename
+                                {t('documents.rename')}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onSelect={() => setDeleteTarget(document)}
                                 className="text-destructive focus:text-destructive"
                               >
                                 <Trash2 />
-                                Delete
+                                {t('documents.delete')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -780,7 +813,7 @@ function DocumentsPage() {
                     disabled={documents.isFetchingNextPage}
                   >
                     {documents.isFetchingNextPage ? <Spinner /> : null}
-                    Load more
+                    {t('orgSettings.loadMore')}
                   </Button>
                 </div>
               ) : null}
@@ -790,11 +823,11 @@ function DocumentsPage() {
 
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Upload documents</DialogTitle>
+            <DialogTitle>{t('documents.uploadTitle')}</DialogTitle>
             <DialogDescription>
-              Add PDF, Word, plain text, or Markdown files up to{' '}
-              {formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES)} each. Titles are taken
-              from file names and can be changed later.
+              {t('documents.uploadDescription', {
+                size: formatBytes(MAX_PROCESSABLE_UPLOAD_BYTES, locale),
+              })}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpload} className="space-y-4" noValidate>
@@ -820,7 +853,7 @@ function DocumentsPage() {
                         {item.file.name}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatBytes(item.file.size)}
+                        {formatBytes(item.file.size, locale)}
                       </span>
                       {item.status === 'completed' ? (
                         <CircleCheck className="size-4 shrink-0 text-success" />
@@ -834,7 +867,9 @@ function DocumentsPage() {
                           variant="ghost"
                           size="icon"
                           className="size-10 sm:size-7"
-                          aria-label={`Remove ${item.file.name}`}
+                          aria-label={t('documents.removeFile', {
+                            name: item.file.name,
+                          })}
                           onClick={() =>
                             setUploadItems((items) =>
                               items.filter((entry) => entry.id !== item.id),
@@ -851,17 +886,21 @@ function DocumentsPage() {
                         <Progress
                           value={Math.round(item.progress * 100)}
                           className="h-1.5"
-                          aria-label={`Uploading ${item.file.name}`}
+                          aria-label={t('documents.uploadingFile', {
+                            name: item.file.name,
+                          })}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Uploading… {Math.round(item.progress * 100)}%
+                          {t('documents.uploadingPercent', {
+                            percent: Math.round(item.progress * 100),
+                          })}
                         </p>
                       </div>
                     ) : null}
 
                     {item.status === 'queued' ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Queued
+                        {t('documents.queued')}
                       </p>
                     ) : null}
 
@@ -882,7 +921,7 @@ function DocumentsPage() {
                   variant="outline"
                   onClick={() => uploadAbortRef.current?.abort()}
                 >
-                  Cancel upload
+                  {t('documents.cancelUpload')}
                 </Button>
               ) : (
                 <Button
@@ -890,7 +929,7 @@ function DocumentsPage() {
                   variant="outline"
                   onClick={() => handleUploadOpenChange(false)}
                 >
-                  Close
+                  {t('documents.close')}
                 </Button>
               )}
               <Button
@@ -906,12 +945,12 @@ function DocumentsPage() {
                 {uploading ? (
                   <>
                     <Spinner />
-                    Uploading…
+                    {t('documents.uploading')}
                   </>
                 ) : uploadItems.some((item) => item.status === 'failed') ? (
-                  'Retry failed'
+                  t('documents.retryFailed')
                 ) : (
-                  `Upload ${uploadItems.length || ''}`.trim()
+                  t('documents.uploadCount', { count: uploadItems.length })
                 )}
               </Button>
             </DialogFooter>
@@ -929,14 +968,14 @@ function DocumentsPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rename document</DialogTitle>
+            <DialogTitle>{t('documents.renameTitle')}</DialogTitle>
             <DialogDescription>
-              Change the display name of this document.
+              {t('documents.renameDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRename} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="rename-title">Title</Label>
+              <Label htmlFor="rename-title">{t('documents.titleLabel')}</Label>
               <Input
                 id="rename-title"
                 autoFocus
@@ -950,10 +989,10 @@ function DocumentsPage() {
                 variant="outline"
                 onClick={() => setRenameTarget(null)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={rename.isPending}>
-                {rename.isPending ? 'Saving…' : 'Save'}
+                {rename.isPending ? t('common.saving') : t('common.save')}
               </Button>
             </DialogFooter>
           </form>
@@ -970,14 +1009,15 @@ function DocumentsPage() {
       >
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete document</AlertDialogTitle>
+            <AlertDialogTitle>{t('documents.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes “{deleteTarget?.title}” and everything
-              derived from it. This cannot be undone.
+              {t('documents.deleteDescription', {
+                title: deleteTarget?.title ?? '',
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: 'destructive' })}
               onClick={(event) => {
@@ -986,7 +1026,9 @@ function DocumentsPage() {
               }}
               disabled={remove.isPending}
             >
-              {remove.isPending ? 'Deleting…' : 'Delete'}
+              {remove.isPending
+                ? t('documents.deleting')
+                : t('documents.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1008,6 +1050,6 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : 'The upload failed.';
+function messageOf(error: unknown, t: ReturnType<typeof useT>): string {
+  return error instanceof Error ? error.message : t('documents.uploadFailed');
 }

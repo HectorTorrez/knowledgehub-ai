@@ -12,6 +12,8 @@ import {
 import { sourceId } from '~/lib/answer-source';
 import { cn } from '~/lib/utils';
 
+import { useT } from '~/lib/i18n/hooks';
+
 export function AnswerBody({
   text,
   sourceIdPrefix,
@@ -54,12 +56,13 @@ export function CitationMarker({
   sourceIdPrefix?: string;
   onSelect?: (marker: number) => void;
 }>) {
+  const t = useT();
   const href = `#${sourceId(sourceIdPrefix, marker)}`;
 
   return (
     <a
       href={href}
-      aria-label={`Go to source ${marker}`}
+      aria-label={t('answer.goToSource', { marker })}
       onClick={(event) => {
         if (onSelect === undefined) {
           return;
@@ -76,6 +79,7 @@ export function CitationMarker({
 }
 
 export function CopyButton({ text }: Readonly<{ text: string }>) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -94,23 +98,22 @@ export function CopyButton({ text }: Readonly<{ text: string }>) {
       variant="ghost"
       size="sm"
       onClick={copy}
-      aria-label={copied ? 'Copied' : 'Copy answer'}
+      aria-label={copied ? t('answer.copied') : t('answer.copyAnswer')}
     >
       {copied ? <Check /> : <Copy />}
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? t('answer.copied') : t('answer.copy')}
     </Button>
   );
 }
 
 export function InsufficientEvidence() {
+  const t = useT();
+
   return (
     <Alert>
       <SearchX />
-      <AlertTitle>Not enough evidence</AlertTitle>
-      <AlertDescription>
-        The uploaded documents don&apos;t contain enough information to answer
-        this question.
-      </AlertDescription>
+      <AlertTitle>{t('answer.notEnough')}</AlertTitle>
+      <AlertDescription>{t('answer.notEnoughDescription')}</AlertDescription>
     </Alert>
   );
 }
@@ -124,9 +127,11 @@ export function SourcesList({
   organizationId?: string;
   sourceIdPrefix?: string;
 }>) {
+  const t = useT();
+
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold">Sources</h3>
+      <h3 className="text-sm font-semibold">{t('answer.sources')}</h3>
       <ol className="space-y-3">
         {citations.map((citation) => (
           <li
@@ -154,13 +159,16 @@ export function SourcesList({
                     quote: citation.excerpt,
                   }}
                   className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
-                  title={`Open ${citation.documentTitle} at page ${citation.pageNumber}`}
+                  title={t('answer.openAt', {
+                    title: citation.documentTitle,
+                    page: citation.pageNumber,
+                  })}
                 >
                   {citation.documentTitle}
                 </Link>
               )}
               <span className="shrink-0 text-xs text-muted-foreground">
-                Page {citation.pageNumber}
+                {t('search.page', { page: citation.pageNumber })}
               </span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -186,6 +194,7 @@ export function AnswerSources({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }>) {
+  const t = useT();
   return (
     <Collapsible
       open={open}
@@ -201,7 +210,7 @@ export function AnswerSources({
         >
           <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
             <Layers className="size-3.5 shrink-0" />
-            <span>Sources</span>
+            <span>{t('answer.sources')}</span>
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
               {citations.length}
             </span>
@@ -249,13 +258,16 @@ export function AnswerSources({
                       quote: citation.excerpt,
                     }}
                     className="min-w-0 flex-1 truncate text-xs font-medium hover:underline"
-                    title={`Open ${citation.documentTitle} at page ${citation.pageNumber}`}
+                    title={t('answer.openAt', {
+                      title: citation.documentTitle,
+                      page: citation.pageNumber,
+                    })}
                   >
                     {citation.documentTitle}
                   </Link>
                 )}
                 <span className="shrink-0 text-[11px] text-muted-foreground">
-                  Page {citation.pageNumber}
+                  {t('search.page', { page: citation.pageNumber })}
                 </span>
               </div>
               <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
@@ -272,9 +284,11 @@ export function AnswerSources({
 export function PartialAnswerNotice({
   missing,
 }: Readonly<{ missing: string[] }>) {
+  const t = useT();
+
   return (
-    <Alert aria-label="Missing information">
-      <AlertTitle>Partial answer — missing information</AlertTitle>
+    <Alert aria-label={t('answer.missingInfo')}>
+      <AlertTitle>{t('answer.partialTitle')}</AlertTitle>
       <AlertDescription>
         <ul className="list-disc pl-5">
           {missing.map((item, index) => (

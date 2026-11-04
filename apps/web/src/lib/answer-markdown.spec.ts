@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { answerPermalink, buildAnswerMarkdown } from './answer-markdown';
+import { createTranslator } from '~/lib/i18n/translate';
+
+const t = createTranslator('en');
 
 const CITATION = {
   marker: 1,
@@ -12,12 +15,15 @@ const CITATION = {
 
 describe('buildAnswerMarkdown', () => {
   it('renders the question, answer, and sources', () => {
-    const markdown = buildAnswerMarkdown({
-      question: 'How much leave?',
-      answer: 'You get 20 days [1].',
-      status: 'answered',
-      citations: [CITATION],
-    });
+    const markdown = buildAnswerMarkdown(
+      {
+        question: 'How much leave?',
+        answer: 'You get 20 days [1].',
+        status: 'answered',
+        citations: [CITATION],
+      },
+      t,
+    );
 
     expect(markdown).toBe(
       [
@@ -33,25 +39,31 @@ describe('buildAnswerMarkdown', () => {
   });
 
   it('includes missing parts alongside a partial answer and sources', () => {
-    const markdown = buildAnswerMarkdown({
-      question: 'Leave?',
-      answer: 'Twenty days [1].',
-      status: 'partial',
-      citations: [CITATION],
-      missing: ['Carryover policy'],
-    });
+    const markdown = buildAnswerMarkdown(
+      {
+        question: 'Leave?',
+        answer: 'Twenty days [1].',
+        status: 'partial',
+        citations: [CITATION],
+        missing: ['Carryover policy'],
+      },
+      t,
+    );
     expect(markdown).toContain('Twenty days [1].');
     expect(markdown).toContain('### Missing information\n\n- Carryover policy');
     expect(markdown).toContain('### Sources');
   });
 
   it('renders a refusal when there is insufficient evidence', () => {
-    const markdown = buildAnswerMarkdown({
-      question: 'Unknown?',
-      answer: null,
-      status: 'insufficient_evidence',
-      citations: [],
-    });
+    const markdown = buildAnswerMarkdown(
+      {
+        question: 'Unknown?',
+        answer: null,
+        status: 'insufficient_evidence',
+        citations: [],
+      },
+      t,
+    );
 
     expect(markdown).toContain('## Unknown?');
     expect(markdown).toContain('did not contain enough evidence');
