@@ -1,6 +1,7 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { FileText } from 'lucide-react';
 import { ALL_DOCUMENTS, collectionSelection } from '~/lib/document-scope';
+import { useT } from '~/lib/i18n/provider';
 import { cn } from '~/lib/utils';
 import {
   Select,
@@ -25,13 +26,14 @@ export function DocumentScopeSelect({
   disabled?: boolean;
   variant?: 'default' | 'compact';
 }>) {
+  const t = useT();
   const compact = variant === 'compact';
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger
         id="document-scope"
-        aria-label="Answer from"
+        aria-label={t('scope.answerFrom')}
         className={cn(
           compact
             ? 'h-11 max-w-[68%] gap-1.5 rounded-lg border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none hover:bg-accent focus-visible:ring-2 sm:h-8'
@@ -42,7 +44,7 @@ export function DocumentScopeSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={ALL_DOCUMENTS}>All documents</SelectItem>
+        <SelectItem value={ALL_DOCUMENTS}>{t('scope.allDocuments')}</SelectItem>
         {collections.map((collection) => (
           <SelectItem
             key={collection.id}

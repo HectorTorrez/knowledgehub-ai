@@ -19,18 +19,21 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { getInsights } from '~/lib/api/insights';
 import { formatDateTime } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/provider';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/insights',
 )({ component: InsightsPage });
 
 const WINDOWS = [
-  { value: '7', label: 'Last 7 days' },
-  { value: '30', label: 'Last 30 days' },
-  { value: '90', label: 'Last 90 days' },
+  { value: '7', labelKey: 'insights.last7' },
+  { value: '30', labelKey: 'insights.last30' },
+  { value: '90', labelKey: 'insights.last90' },
 ] as const;
 
 function InsightsPage() {
+  const t = useT();
+  const locale = useLocale();
   const { organizationId } = Route.useParams();
   const [days, setDays] = useState(30);
   const insights = useQuery({
@@ -43,12 +46,12 @@ function InsightsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Knowledge insights"
-        description="Explore questions and feedback across your organization."
+        title={t('insights.title')}
+        description={t('insights.description')}
       />
 
       <div className="flex items-center gap-2">
-        <Label htmlFor="insights-window">Time window</Label>
+        <Label htmlFor="insights-window">{t('insights.timeWindow')}</Label>
         <Select
           value={String(days)}
           onValueChange={(value) => setDays(Number(value))}
@@ -59,7 +62,7 @@ function InsightsPage() {
           <SelectContent>
             {WINDOWS.map((window) => (
               <SelectItem key={window.value} value={window.value}>
-                {window.label}
+                {t(window.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -77,7 +80,7 @@ function InsightsPage() {
       ) : null}
       {insights.isError ? (
         <RouteError
-          title="Unable to load insights"
+          title={t('insights.loadError')}
           onRetry={() => void insights.refetch()}
         />
       ) : null}
@@ -85,16 +88,21 @@ function InsightsPage() {
       {totals && insights.data ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {Object.entries({
-              'Questions asked': totals.questionsAsked,
-              Answered: totals.answered,
-              'Insufficient evidence': totals.insufficientEvidence,
-              Helpful: totals.helpfulFeedback,
-              Unhelpful: totals.unhelpfulFeedback,
-            }).map(([label, value]) => (
-              <Card key={label}>
+            {[
+              { key: 'questionsAsked' as const, value: totals.questionsAsked },
+              { key: 'answered' as const, value: totals.answered },
+              {
+                key: 'insufficientEvidence',
+                value: totals.insufficientEvidence,
+              },
+              { key: 'helpful' as const, value: totals.helpfulFeedback },
+              { key: 'unhelpful' as const, value: totals.unhelpfulFeedback },
+            ].map(({ key, value }) => (
+              <Card key={key}>
                 <CardContent className="p-4 pt-4 sm:p-6 sm:pt-6">
-                  <p className="text-xs text-muted-foreground">{label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t(`insights.totals.${key}`)}
+                  </p>
                   <p className="text-2xl font-semibold tracking-tight">
                     {value}
                   </p>
@@ -105,21 +113,21 @@ function InsightsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Unanswered questions</CardTitle>
+              <CardTitle>{t('insights.unanswered')}</CardTitle>
             </CardHeader>
             <CardContent>
               {insights.data.unansweredQuestions.length === 0 ? (
                 <EmptyState
                   icon={MessageSquareText}
-                  title="No unanswered questions"
-                  description="There are no unanswered questions in this window."
+                  title={t('insights.noUnanswered')}
+                  description={t('insights.noUnansweredDescription')}
                   action={
                     <Button asChild>
                       <Link
                         to="/organizations/$organizationId/ask"
                         params={{ organizationId }}
                       >
-                        Ask a question
+                        {t('overview.askQuestion')}
                       </Link>
                     </Button>
                   }
@@ -135,10 +143,10 @@ function InsightsPage() {
                         params={{ organizationId }}
                         search={{ q: item.question }}
                       >
-                        Ask again
+                        {t('insights.askAgain')}
                       </Link>
                       <p className="text-xs text-muted-foreground">
-                        {formatDateTime(item.askedAt)}
+                        {formatDateTime(item.askedAt, locale)}
                       </p>
                     </li>
                   ))}
@@ -149,21 +157,21 @@ function InsightsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Negative feedback</CardTitle>
+              <CardTitle>{t('insights.negative')}</CardTitle>
             </CardHeader>
             <CardContent>
               {insights.data.negativeFeedback.length === 0 ? (
                 <EmptyState
                   icon={ThumbsDown}
-                  title="No negative feedback"
-                  description="There is no negative feedback in this window."
+                  title={t('insights.noNegative')}
+                  description={t('insights.noNegativeDescription')}
                   action={
                     <Button asChild>
                       <Link
                         to="/organizations/$organizationId/ask"
                         params={{ organizationId }}
                       >
-                        Ask a question
+                        {t('overview.askQuestion')}
                       </Link>
                     </Button>
                   }
@@ -177,7 +185,7 @@ function InsightsPage() {
                         <p className="text-sm">{item.comment}</p>
                       ) : null}
                       <p className="text-xs text-muted-foreground">
-                        {formatDateTime(item.createdAt)}
+                        {formatDateTime(item.createdAt, locale)}
                       </p>
                     </li>
                   ))}

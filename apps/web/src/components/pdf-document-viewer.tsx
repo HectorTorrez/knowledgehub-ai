@@ -10,6 +10,7 @@ import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
+import { useT } from '~/lib/i18n/provider';
 import { findPassage, overlapsPassage } from '~/lib/passage';
 import 'pdfjs-dist/web/pdf_viewer.css';
 
@@ -101,6 +102,7 @@ export function PdfDocumentViewer({
   quote?: string;
   onError: () => void;
 }>) {
+  const t = useT();
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [pageNumber, setPageNumber] = useState(initialPage);
   const [zoom, setZoom] = useState<number | null>(null);
@@ -198,19 +200,21 @@ export function PdfDocumentViewer({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Previous page"
+            aria-label={t('viewer.previousPage')}
             disabled={!pdf || pageNumber <= 1}
             onClick={() => setPageNumber((current) => current - 1)}
           >
             <ChevronLeft />
           </Button>
           <span className="min-w-24 text-center text-sm tabular-nums text-muted-foreground">
-            {pdf ? `Page ${pageNumber} of ${pdf.numPages}` : 'Loading…'}
+            {pdf
+              ? t('viewer.pageOf', { page: pageNumber, total: pdf.numPages })
+              : t('viewer.loading')}
           </span>
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Next page"
+            aria-label={t('viewer.nextPage')}
             disabled={!pdf || pageNumber >= pdf.numPages}
             onClick={() => setPageNumber((current) => current + 1)}
           >
@@ -221,7 +225,7 @@ export function PdfDocumentViewer({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Zoom out"
+            aria-label={t('viewer.zoomOut')}
             disabled={!pdf || scale <= MIN_SCALE}
             onClick={() => setZoom(clampScale(scale - SCALE_STEP))}
           >
@@ -233,7 +237,7 @@ export function PdfDocumentViewer({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Zoom in"
+            aria-label={t('viewer.zoomIn')}
             disabled={!pdf || scale >= MAX_SCALE}
             onClick={() => setZoom(clampScale(scale + SCALE_STEP))}
           >
@@ -242,7 +246,7 @@ export function PdfDocumentViewer({
           <Button
             variant={zoom === null ? 'secondary' : 'ghost'}
             size="icon"
-            aria-label="Fit to width"
+            aria-label={t('viewer.fitWidth')}
             aria-pressed={zoom === null}
             disabled={!pdf}
             onClick={() => setZoom(null)}
@@ -255,7 +259,7 @@ export function PdfDocumentViewer({
         ref={viewport}
         tabIndex={0}
         role="region"
-        aria-label="Document preview"
+        aria-label={t('viewer.preview')}
         className="focus-visible:ring-2 focus-visible:ring-ring max-h-[75vh] overflow-auto bg-muted/40 p-4"
       >
         {pdf ? null : (

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { createTranslator } from '~/lib/i18n/translate';
 import {
   evaluateUploadMetadata,
   evaluateUploadSignature,
   MAX_PROCESSABLE_UPLOAD_BYTES,
   resolveUploadContentType,
   titleFromFileName,
+  uploadRejectionMessage,
   validateUploadFile,
 } from './upload-validation';
 
@@ -193,23 +195,31 @@ describe('validateUploadFile', () => {
 
     const result = await validateUploadFile(file);
 
-    expect(result.ok ? '' : result.message).toContain('25.0 MB');
+    expect(
+      result.ok
+        ? ''
+        : uploadRejectionMessage(result.reason, createTranslator('en'), 'en'),
+    ).toContain('25.0 MB');
   });
 });
 
 describe('titleFromFileName', () => {
   it('drops the extension and trims the name', () => {
-    expect(titleFromFileName('Employee Handbook.pdf')).toBe(
-      'Employee Handbook',
+    expect(
+      titleFromFileName('Employee Handbook.pdf', 'Untitled document'),
+    ).toBe('Employee Handbook');
+    expect(titleFromFileName('  notes.md  ', 'Untitled document')).toBe(
+      'notes',
     );
-    expect(titleFromFileName('  notes.md  ')).toBe('notes');
   });
 
   it('falls back to the raw name when there is no stem', () => {
-    expect(titleFromFileName('.env')).toBe('.env');
+    expect(titleFromFileName('.env', 'Untitled document')).toBe('.env');
   });
 
   it('caps the title at the document title limit', () => {
-    expect(titleFromFileName(`${'a'.repeat(300)}.txt`)).toHaveLength(200);
+    expect(
+      titleFromFileName(`${'a'.repeat(300)}.txt`, 'Untitled document'),
+    ).toHaveLength(200);
   });
 });
