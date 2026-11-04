@@ -92,7 +92,7 @@ function InsightsPage() {
               { key: 'questionsAsked' as const, value: totals.questionsAsked },
               { key: 'answered' as const, value: totals.answered },
               {
-                key: 'insufficientEvidence',
+                key: 'insufficientEvidence' as const,
                 value: totals.insufficientEvidence,
               },
               { key: 'helpful' as const, value: totals.helpfulFeedback },
