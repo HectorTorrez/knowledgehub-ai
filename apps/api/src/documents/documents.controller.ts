@@ -23,6 +23,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { can, type Capability } from '../organizations/permissions.js';
 import { SessionGuard } from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import { OrganizationMembershipGuard } from '../organizations/organization-membership.guard.js';
 import {
   requireOrganizationContext,
@@ -65,6 +66,8 @@ export class DocumentsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('documentWriteUser')
   create(
     @Body(new ZodValidationPipe(createDocumentSchema))
     body: CreateDocumentInput,
@@ -140,6 +143,8 @@ export class DocumentsController {
 
   @Post(':documentId/reprocess')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('documentWriteUser')
   reprocess(
     @Param('documentId', ParseUUIDPipe) documentId: string,
     @Req() request: OrganizationRequest,

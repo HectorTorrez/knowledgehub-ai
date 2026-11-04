@@ -38,7 +38,10 @@ export class UsageService {
 
     return {
       usage: {
-        documents: { used: documents._count._all, limit: null },
+        documents: {
+          used: documents._count._all,
+          limit: this.config.documentQuotaPerOrganization,
+        },
         storageBytes: { used: documents._sum.sizeBytes ?? 0, limit: null },
         members: { used: members, limit: null },
         answers: {
@@ -49,6 +52,22 @@ export class UsageService {
         },
       },
     };
+  }
+
+  async assertDocumentCapacity(organizationId: string): Promise<void> {
+    const documents = await this.prisma.document.count({
+      where: { organizationId },
+    });
+    if (documents >= this.config.documentQuotaPerOrganization) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message: 'The organization has reached its document limit',
+          error: 'Too Many Requests',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
   }
 
   async recordAnswer(organizationId: string): Promise<void> {

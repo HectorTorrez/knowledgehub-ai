@@ -53,7 +53,7 @@ export class AnswersController {
   @Post()
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimitGuard)
-  @RateLimit('answerUser', 'answerTenant')
+  @RateLimit('answerUser', 'answerTenant', 'answerUserDaily')
   async answer(
     @Body(new ZodValidationPipe(answerQuestionSchema))
     body: AnswerQuestionInput,

@@ -143,7 +143,10 @@ describe('organizations (e2e)', () => {
       .set(bearer(owner.token))
       .expect(200);
     expect(response.body.usage).toMatchObject({
-      documents: { used: 2, limit: null },
+      documents: {
+        used: 2,
+        limit: Number(process.env.QUOTA_DOCUMENTS_PER_ORGANIZATION),
+      },
       storageBytes: { used: 120, limit: null },
       members: { used: 1, limit: null },
       answers: { used: 0, limit: expect.any(Number) },

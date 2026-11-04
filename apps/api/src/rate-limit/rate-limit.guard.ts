@@ -53,12 +53,15 @@ export class RateLimitGuard implements CanActivate {
 
     for (const name of budgets) {
       const budget = this.config.budget(name);
-      const key = this.resolveKey(budget.scope, request);
-      if (!key) {
+      const scopeKey = this.resolveKey(budget.scope, request);
+      if (!scopeKey) {
         continue;
       }
 
-      const { count, resetAtMs } = await this.store.hit(key, budget.windowMs);
+      const { count, resetAtMs } = await this.store.hit(
+        `${name}:${scopeKey}`,
+        budget.windowMs,
+      );
       if (count > budget.limit) {
         this.audit.record('rate_limit.exceeded', {
           budget: name,

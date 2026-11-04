@@ -17,6 +17,7 @@ import {
   type AuthenticatedRequest,
 } from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import {
   createOrganizationSchema,
   type CreateOrganizationInput,
@@ -30,6 +31,8 @@ export class OrganizationsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('organizationCreateUser')
   create(
     @Body(new ZodValidationPipe(createOrganizationSchema))
     body: CreateOrganizationInput,
