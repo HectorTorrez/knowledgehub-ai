@@ -341,7 +341,7 @@ model DocumentProcessingJob {
   updatedAt  DateTime  @updatedAt
   finishedAt DateTime?
 
-  @@unique([documentId], where: raw("state IN ('QUEUED', 'CLAIMED')"))
+  @@unique([documentId], where: raw("(state = ANY (ARRAY['QUEUED'::\"ProcessingJobState\", 'CLAIMED'::\"ProcessingJobState\"]))"))
   @@index([nextAttemptAt, id], where: raw("state = 'QUEUED'"))
   @@index([documentId, documentGeneration])
   @@index([organizationId, state])
@@ -411,7 +411,7 @@ model DocumentChunk {
   /// vector type: it is excluded from the generated client and read or written
   /// only through raw SQL. The database enforces NOT NULL and the dimension.
   embedding    Unsupported("vector(1536)")
-  searchVector Unsupported("tsvector")?
+  searchVector Unsupported("tsvector")?    @default(dbgenerated("to_tsvector('simple'::regconfig, content)"))
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -419,6 +419,8 @@ model DocumentChunk {
   @@unique([documentId, documentGeneration, chunkIndex])
   @@index([organizationId])
   @@index([documentId, documentGeneration])
+  @@index([searchVector], type: Gin)
+  @@index([embedding], map: "DocumentChunk_embedding_hnsw_idx")
 }
 
 /// One structured money fact extracted from one document generation.
@@ -442,7 +444,7 @@ model DocumentSummary {
   createdAt          DateTime @default(now())
 
   @@unique([documentId, documentGeneration])
-  @@index([organizationId, documentId, documentGeneration])
+  @@index([organizationId, documentId, documentGeneration], map: "DocumentSummary_organizationId_documentId_documentGeneration_id")
 }
 
 model DocumentFact {
@@ -470,7 +472,7 @@ model DocumentFact {
 
   createdAt DateTime @default(now())
 
-  @@unique([documentId, documentGeneration, factType, naturalKey])
+  @@unique([documentId, documentGeneration, factType, naturalKey], map: "DocumentFact_documentId_documentGeneration_factType_naturalKey_")
   @@index([organizationId, factType, currency])
   @@index([organizationId, documentId, documentGeneration])
 }
