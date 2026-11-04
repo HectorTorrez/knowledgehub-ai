@@ -1,5 +1,10 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mockApi } from './mock-api';
+
+async function chooseOption(page: Page, label: string, option: string) {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
 
 test('owner filters, loads more and exports activity', async ({ page }) => {
   await mockApi(page, { authenticated: true, auditPages: true });
