@@ -7,29 +7,26 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
+import { useT } from '~/lib/i18n/provider';
 import { cn } from '~/lib/utils';
 
 const STATUS_CONFIG: Record<
   DocumentStatus,
-  { label: string; className: string; icon: LucideIcon }
+  { className: string; icon: LucideIcon }
 > = {
   PENDING: {
-    label: 'Pending',
     className: 'border-transparent bg-muted text-muted-foreground',
     icon: CircleDashed,
   },
   PROCESSING: {
-    label: 'Processing',
     className: 'border-transparent bg-info/15 text-info',
     icon: LoaderCircle,
   },
   READY: {
-    label: 'Ready',
     className: 'border-transparent bg-success/15 text-success',
     icon: CircleCheck,
   },
   FAILED: {
-    label: 'Failed',
     className: 'border-transparent bg-destructive/10 text-destructive',
     icon: TriangleAlert,
   },
@@ -38,6 +35,7 @@ const STATUS_CONFIG: Record<
 export function DocumentStatusBadge({
   status,
 }: Readonly<{ status: DocumentStatus }>) {
+  const t = useT();
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
 
@@ -49,7 +47,7 @@ export function DocumentStatusBadge({
           status === 'PROCESSING' && 'animate-spin motion-reduce:animate-none',
         )}
       />
-      {config.label}
+      {t(`documentStatus.${status}`)}
     </Badge>
   );
 }

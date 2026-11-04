@@ -1,8 +1,10 @@
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { useTheme } from '~/hooks/use-theme';
+import { useT } from '~/lib/i18n/provider';
 
 export function ThemeToggle() {
+  const t = useT();
   const { theme, toggle } = useTheme();
 
   return (
@@ -10,7 +12,9 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       aria-label={
-        theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
+        theme === 'dark'
+          ? t('nav.switchToLightTheme')
+          : t('nav.switchToDarkTheme')
       }
       onClick={toggle}
     >

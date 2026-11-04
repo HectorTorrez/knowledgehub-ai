@@ -1,0 +1,72 @@
+import type { Messages } from './schema';
+
+export const es: Messages = {
+  common: {
+    save: 'Guardar',
+    cancel: 'Cancelar',
+    language: 'Idioma',
+  },
+  roles: {
+    OWNER: 'Propietario',
+    ADMIN: 'Administrador',
+    MEMBER: 'Miembro',
+    VIEWER: 'Lector',
+  },
+  nav: {
+    overview: 'Resumen',
+    documents: 'Documentos',
+    ask: 'Pregunta',
+    search: 'Buscar',
+    insights: 'Análisis',
+    auditLog: 'Registro de auditoría',
+    settings: 'Configuración',
+    organizations: 'Organizaciones',
+    workspace: 'Espacio de trabajo',
+    navigation: 'Navegación',
+    allOrganizations: 'Todas las organizaciones',
+    createOrganization: 'Crear organización',
+    skipToContent: 'Ir al contenido',
+    accountSettings: 'Configuración de la cuenta',
+    lightMode: 'Modo claro',
+    darkMode: 'Modo oscuro',
+    signOut: 'Cerrar sesión',
+    switchToLightTheme: 'Cambiar al tema claro',
+    switchToDarkTheme: 'Cambiar al tema oscuro',
+  },
+  auth: {
+    signedOut: 'Sesión cerrada',
+  },
+  commandPalette: {
+    openButton: 'Buscar…',
+    title: 'Paleta de comandos',
+    description: 'Busca navegación, organizaciones, documentos y acciones.',
+    placeholder: 'Busca o escribe un comando…',
+    empty: 'No se encontraron resultados.',
+    searchingDocuments: 'Buscando documentos…',
+    documentsError: 'No se pudieron cargar los documentos.',
+    noMatchingDocuments: 'No hay documentos que coincidan.',
+    conversations: 'Conversaciones',
+    loadingConversations: 'Cargando conversaciones…',
+    conversationsError: 'No se pudieron cargar las conversaciones.',
+    untitledConversation: 'Conversación sin título',
+    actions: 'Acciones',
+    askQuestion: 'Haz una pregunta… {text}',
+    searchDocumentsFor: 'Buscar documentos de {text}',
+    uploadDocuments: 'Subir documentos',
+    toggleTheme: 'Cambiar tema',
+    logOut: 'Cerrar sesión',
+  },
+  documentStatus: {
+    PENDING: 'Pendiente',
+    PROCESSING: 'Procesando',
+    READY: 'Lista',
+    FAILED: 'Fallido',
+  },
+  seo: {
+    defaultTitle:
+      'KnowledgeHub AI — Pregunta lo que necesites sobre los documentos de tu organización',
+    description:
+      'KnowledgeHub AI es una plataforma multiinquilino de recuperación aumentada: sube documentos, busca en todas las organizaciones y obtén respuestas fundamentadas con citas a sus fuentes.',
+    ogImageAlt: 'KnowledgeHub AI — respuestas fundamentadas en tus documentos',
+  },
+};

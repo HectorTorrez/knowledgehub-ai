@@ -22,6 +22,7 @@ import { conversationsApi } from '~/lib/api/conversations';
 import { documentsApi } from '~/lib/api/documents';
 import { shortcutLabel } from '~/lib/shortcut-label';
 import { writeAskDraft } from '~/lib/ask-draft';
+import { useT } from '~/lib/i18n/provider';
 
 export function CommandPalette({
   organizationId,
@@ -36,6 +37,7 @@ export function CommandPalette({
   toggleTheme: () => void;
   logout: () => void;
 }>) {
+  const t = useT();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -91,7 +93,7 @@ export function CommandPalette({
         onClick={() => setOpen(true)}
       >
         <Search className="size-4" />
-        <span>Search…</span>
+        <span>{t('commandPalette.openButton')}</span>
         <span className="text-xs text-muted-foreground">{shortcut}</span>
       </Button>
       <Dialog
@@ -102,47 +104,44 @@ export function CommandPalette({
         }}
       >
         <DialogContent className="h-dvh max-h-dvh max-w-none rounded-none p-0 sm:h-auto sm:max-h-[80dvh] sm:max-w-lg sm:rounded-lg">
-          <DialogTitle className="sr-only">Command palette</DialogTitle>
+          <DialogTitle className="sr-only">
+            {t('commandPalette.title')}
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            Search navigation, organizations, documents, and actions.
+            {t('commandPalette.description')}
           </DialogDescription>
           <Command>
             <CommandInput
-              placeholder="Search or type a command…"
+              placeholder={t('commandPalette.placeholder')}
               value={query}
               onValueChange={setQuery}
             />
             <CommandList className="max-h-none flex-1 sm:max-h-[60dvh]">
-              <CommandEmpty>No results found.</CommandEmpty>
-              <CommandGroup heading="Navigation">
+              <CommandEmpty>{t('commandPalette.empty')}</CommandEmpty>
+              <CommandGroup heading={t('nav.navigation')}>
                 {organizationId &&
                   [
-                    'Overview',
-                    'Documents',
-                    'Ask',
-                    'Search',
-                    ...(canViewInsights ? ['Insights'] : []),
-                    'Settings',
-                  ].map((name) => (
+                    { label: t('nav.overview'), path: '' },
+                    { label: t('nav.documents'), path: '/documents' },
+                    { label: t('nav.ask'), path: '/ask' },
+                    { label: t('nav.search'), path: '/search' },
+                    ...(canViewInsights
+                      ? [{ label: t('nav.insights'), path: '/insights' }]
+                      : []),
+                    { label: t('nav.settings'), path: '/settings' },
+                  ].map((item) => (
                     <CommandItem
-                      key={name}
-                      onSelect={() =>
-                        go(
-                          base +
-                            (name === 'Overview'
-                              ? ''
-                              : `/${name.toLowerCase()}`),
-                        )
-                      }
+                      key={item.path}
+                      onSelect={() => go(base + item.path)}
                     >
-                      {name}
+                      {item.label}
                     </CommandItem>
                   ))}
                 <CommandItem onSelect={() => go('/settings')}>
-                  Account settings
+                  {t('nav.accountSettings')}
                 </CommandItem>
               </CommandGroup>
-              <CommandGroup heading="Organizations">
+              <CommandGroup heading={t('nav.organizations')}>
                 {organizations.map((org) => (
                   <CommandItem
                     key={org.id}
@@ -153,19 +152,19 @@ export function CommandPalette({
                   </CommandItem>
                 ))}
                 <CommandItem onSelect={() => go('/organizations#create')}>
-                  Create organization
+                  {t('nav.createOrganization')}
                 </CommandItem>
               </CommandGroup>
               {organizationId && debounced.length >= 2 && (
-                <CommandGroup heading="Documents">
+                <CommandGroup heading={t('nav.documents')}>
                   {documents.isFetching && (
                     <p className="px-2 py-2 text-sm text-muted-foreground">
-                      Searching documents…
+                      {t('commandPalette.searchingDocuments')}
                     </p>
                   )}
                   {documents.isError && (
                     <p className="px-2 py-2 text-sm text-destructive">
-                      Could not load documents.
+                      {t('commandPalette.documentsError')}
                     </p>
                   )}
                   {documents.data?.documents.map((doc) => (
@@ -176,69 +175,69 @@ export function CommandPalette({
                     >
                       {doc.title}
                       <Badge variant="secondary" className="ml-auto">
-                        {doc.status}
+                        {t(`documentStatus.${doc.status}`)}
                       </Badge>
                     </CommandItem>
                   ))}
                   {documents.data?.documents.length === 0 && (
                     <p className="px-2 py-2 text-sm text-muted-foreground">
-                      No matching documents.
+                      {t('commandPalette.noMatchingDocuments')}
                     </p>
                   )}
                 </CommandGroup>
               )}
               {organizationId && (
-                <CommandGroup heading="Conversations">
+                <CommandGroup heading={t('commandPalette.conversations')}>
                   {conversations.isLoading && (
                     <p className="px-2 py-2 text-sm text-muted-foreground">
-                      Loading conversations…
+                      {t('commandPalette.loadingConversations')}
                     </p>
                   )}
                   {conversations.isError && (
                     <p className="px-2 py-2 text-sm text-destructive">
-                      Could not load conversations.
+                      {t('commandPalette.conversationsError')}
                     </p>
                   )}
                   {conversations.data?.conversations.map((conversation) => (
                     <CommandItem
                       key={conversation.id}
-                      value={`conversation ${conversation.title ?? 'Untitled'} ${conversation.id}`}
+                      value={`conversation ${conversation.title ?? t('commandPalette.untitledConversation')} ${conversation.id}`}
                       onSelect={() =>
                         go(
                           `${base}/ask?conversation=${encodeURIComponent(conversation.id)}`,
                         )
                       }
                     >
-                      {conversation.title ?? 'Untitled conversation'}
+                      {conversation.title ?? t('commandPalette.untitledConversation')}
                     </CommandItem>
                   ))}
                 </CommandGroup>
               )}
-              <CommandGroup heading="Actions">
+              <CommandGroup heading={t('commandPalette.actions')}>
                 {organizationId && text && (
                   <>
                     <CommandItem
-                      value={`ask a question ${text}`}
+                      value={t('commandPalette.askQuestion', { text })}
                       onSelect={() => {
                         writeAskDraft(organizationId, undefined, text);
                         go(`${base}/ask?q=${encodeURIComponent(text)}`);
                       }}
                     >
-                      Ask a question… {text}
+                      {t('commandPalette.askQuestion', { text })}
                     </CommandItem>
                     <CommandItem
-                      value={`search documents for ${text}`}
+                      value={t('commandPalette.searchDocumentsFor', { text })}
                       onSelect={() =>
                         go(`${base}/search?q=${encodeURIComponent(text)}`)
                       }
                     >
-                      Search documents for {text}
+                      {t('commandPalette.searchDocumentsFor', { text })}
                     </CommandItem>
                   </>
                 )}
                 {organizationId && (
                   <CommandItem onSelect={() => go(`${base}/documents#upload`)}>
-                    Upload documents
+                    {t('commandPalette.uploadDocuments')}
                   </CommandItem>
                 )}
                 <CommandItem
@@ -247,7 +246,7 @@ export function CommandPalette({
                     toggleTheme();
                   }}
                 >
-                  Toggle theme
+                  {t('commandPalette.toggleTheme')}
                 </CommandItem>
                 <CommandItem
                   onSelect={() => {
@@ -255,7 +254,7 @@ export function CommandPalette({
                     logout();
                   }}
                 >
-                  Log out
+                  {t('commandPalette.logOut')}
                 </CommandItem>
               </CommandGroup>
             </CommandList>

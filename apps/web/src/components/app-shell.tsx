@@ -1,4 +1,5 @@
 import { CommandPalette } from '~/components/command-palette';
+import { LanguageMenuItems } from '~/components/language-switcher';
 import { useQuery } from '@tanstack/react-query';
 import {
   Link,
@@ -50,43 +51,44 @@ import { useTheme } from '~/hooks/use-theme';
 import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
+import { useT } from '~/lib/i18n/provider';
 
 const sections = [
   {
-    label: 'Overview',
+    labelKey: 'nav.overview',
     to: '/organizations/$organizationId',
     icon: LayoutGrid,
     exact: true,
   },
   {
-    label: 'Documents',
+    labelKey: 'nav.documents',
     to: '/organizations/$organizationId/documents',
     icon: FileText,
   },
   {
-    label: 'Ask',
+    labelKey: 'nav.ask',
     to: '/organizations/$organizationId/ask',
     icon: MessageSquareText,
   },
   {
-    label: 'Search',
+    labelKey: 'nav.search',
     to: '/organizations/$organizationId/search',
     icon: Search,
   },
   {
-    label: 'Insights',
+    labelKey: 'nav.insights',
     to: '/organizations/$organizationId/insights',
     icon: BarChart3,
     capability: 'insights.view',
   },
   {
-    label: 'Audit log',
+    labelKey: 'nav.auditLog',
     to: '/organizations/$organizationId/audit-log',
     icon: History,
     capability: 'members.manage',
   },
   {
-    label: 'Settings',
+    labelKey: 'nav.settings',
     to: '/organizations/$organizationId/settings',
     icon: Settings,
   },
@@ -101,6 +103,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
+  const t = useT();
   const session = useSession();
   const signOut = useLogout();
   const { theme, toggle } = useTheme();
@@ -149,7 +152,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
       reportError(error);
       return;
     }
-    toast({ variant: 'success', title: 'Signed out' });
+    toast({ variant: 'success', title: t('auth.signedOut') });
     await navigate({ to: '/login' });
   }
   return (
@@ -158,7 +161,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-4"
       >
-        Skip to content
+        {t('nav.skipToContent')}
       </a>
       <Sidebar collapsible="icon">
         <SidebarHeader>
@@ -168,7 +171,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
                     size="lg"
-                    tooltip={active?.name ?? 'Organizations'}
+                    tooltip={active?.name ?? t('nav.organizations')}
                   >
                     <Building2 />
                     <span className="flex-1 truncate font-semibold">
@@ -178,7 +181,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
-                  <DropdownMenuLabel>Organizations</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t('nav.organizations')}</DropdownMenuLabel>
                   {organizations.data?.organizations.map((org) => (
                     <DropdownMenuItem
                       key={org.id}
@@ -199,7 +202,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                       to="/organizations"
                       onClick={() => setOpenMobile(false)}
                     >
-                      All organizations
+                      {t('nav.allOrganizations')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -208,7 +211,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                       hash="create"
                       onClick={() => setOpenMobile(false)}
                     >
-                      Create organization
+                      {t('nav.createOrganization')}
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -219,7 +222,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
         <SidebarContent>
           <SidebarGroup>
             <SidebarGroupLabel>
-              {organizationId ? 'Workspace' : 'Navigation'}
+              {organizationId ? t('nav.workspace') : t('nav.navigation')}
             </SidebarGroupLabel>
             <SidebarMenu>
               {organizationId ? (
@@ -237,7 +240,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                       <SidebarMenuButton
                         className="min-h-11 md:min-h-8"
                         asChild
-                        tooltip={section.label}
+                        tooltip={t(section.labelKey)}
                         isActive={currentSection?.to === section.to}
                       >
                         <Link
@@ -247,20 +250,20 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                           onClick={() => setOpenMobile(false)}
                         >
                           <Icon />
-                          <span>{section.label}</span>
+                          <span>{t(section.labelKey)}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))
               ) : (
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="Organizations">
+                  <SidebarMenuButton asChild tooltip={t('nav.organizations')}>
                     <Link
                       to="/organizations"
                       onClick={() => setOpenMobile(false)}
                     >
                       <Building2 />
-                      <span>Organizations</span>
+                      <span>{t('nav.organizations')}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -305,19 +308,20 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                     <DropdownMenuItem asChild>
                       <Link to="/settings" onClick={() => setOpenMobile(false)}>
                         <Settings />
-                        Account settings
+                        {t('nav.accountSettings')}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={toggle}>
                       {theme === 'dark' ? <Sun /> : <Moon />}
-                      {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                      {theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}
                     </DropdownMenuItem>
+                    <LanguageMenuItems />
                     <DropdownMenuItem
                       onSelect={() => void handleSignOut()}
                       disabled={signOut.isPending}
                     >
                       <LogOut />
-                      Sign out
+                      {t('nav.signOut')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -336,7 +340,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
             <>
               <span className="text-muted-foreground">/</span>
               <span className="truncate text-sm font-medium">
-                {currentSection.label}
+                {t(currentSection.labelKey)}
               </span>
             </>
           )}

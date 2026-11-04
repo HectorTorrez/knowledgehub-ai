@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   absoluteUrl,
-  DEFAULT_DESCRIPTION,
   pageHead,
   resolveSiteUrl,
   SITE_NAME,
@@ -100,10 +99,22 @@ describe('pageHead', () => {
     ]);
   });
 
-  it('uses the default description when none is provided', () => {
+  it('omits description meta when none is provided, so the root description applies', () => {
     const { meta } = pageHead({ title: 'KnowledgeHub AI' });
 
-    expect(findMeta(meta, 'description')?.content).toBe(DEFAULT_DESCRIPTION);
+    expect(findMeta(meta, 'description')).toBeUndefined();
+  });
+
+  it('emits the provided description', () => {
+    const { meta } = pageHead({
+      title: 'Documentos',
+      description: 'Sube documentos',
+    });
+
+    expect(findMeta(meta, 'description')?.content).toBe('Sube documentos');
+    expect(findMeta(meta, 'twitter:description')?.content).toBe(
+      'Sube documentos',
+    );
   });
 
   it('omits absolute URLs when no site URL is configured', () => {
