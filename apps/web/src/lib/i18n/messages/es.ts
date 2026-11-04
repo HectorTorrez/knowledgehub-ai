@@ -316,27 +316,140 @@ export const es: Messages = {
   },
   security: {
     pageTitle: 'Seguridad',
-    eyebrow: 'Seguridad',
-    title: 'Cómo protegemos tu espacio de trabajo',
-    logIn: 'Iniciar sesión',
-    home: 'Inicio',
-    items: {
-      access: {
-        title: 'Acceso al espacio de trabajo',
-        text: 'La API verifica la pertenencia a la organización y limita las consultas de datos al espacio de trabajo. Los roles Propietario, Administrador, Miembro y Lector controlan el acceso. Las conversaciones son privadas por defecto.',
+    title: 'Seguridad que se aplica en cada solicitud',
+    description:
+      'KnowledgeHub AI verifica quién eres, a qué organización perteneces y qué permite tu rol antes de leer un solo registro. Así es exactamente como se protege tu espacio de trabajo.',
+    primaryAction: 'Crear cuenta gratis',
+    reportAction: 'Reportar un problema de seguridad',
+    checkpoints: {
+      label: 'Cómo se verifica una solicitud a tu espacio de trabajo',
+      request: 'Solicitud para listar documentos',
+      session: {
+        title: 'Sesión iniciada',
+        detail: 'Cookie de sesión HttpOnly y token CSRF en los cambios',
       },
-      files: {
-        title: 'Protección de archivos',
-        text: 'El acceso a los archivos usa URL firmadas de corta duración. Las cargas se verifican con comprobaciones de firma y límites de tamaño, incluidos los límites para archivos DOCX.',
+      membership: {
+        title: 'Membresía de la organización',
+        detail: 'Quien no es miembro se rechaza antes de leer datos',
       },
-      sessions: {
-        title: 'Sesiones y actividad',
-        text: 'Las sesiones con cookies y la protección CSRF ayudan a proteger el acceso. Un registro de auditoría guarda los cambios de miembros y documentos.',
+      role: {
+        title: 'Permiso del rol',
+        detail: 'Propietario, Administrador, Miembro o Lector',
       },
-      ai: {
-        title: 'Respuestas de IA',
-        text: 'OpenAI genera las respuestas a partir de los documentos de tu espacio de trabajo.',
+      scope: {
+        title: 'Consulta limitada al espacio',
+        detail: 'Solo lee los registros de esta organización',
       },
+      result: 'Solo se devuelven los documentos de tu organización',
+      blocked: 'Bloqueado',
+      passed: 'Verificado',
+    },
+    isolation: {
+      title: 'Cada organización es su propia bóveda',
+      text: 'Un ID de organización en la URL nunca se acepta por sí solo. La API confirma tu membresía y luego limita cada consulta de documentos, búsqueda, respuestas y conversaciones a esa organización.',
+      ownWorkspace: 'Tu espacio de trabajo',
+      otherWorkspace: 'Otra organización',
+      ownDocuments: '128 documentos',
+      denied: 'Acceso denegado: no eres miembro',
+    },
+    roles: {
+      title: 'Los roles deciden qué puede hacer cada persona',
+      text: 'Da a cada persona el acceso mínimo que necesita. Los Lectores pueden leer y preguntar, los Miembros gestionan documentos, los Administradores gestionan personas y los Propietarios controlan la organización.',
+      caption: 'Permisos por rol',
+      capability: 'Capacidad',
+      allowed: 'Permitido',
+      notAllowed: 'No permitido',
+      rows: {
+        view: 'Ver, buscar y hacer preguntas',
+        conversations: 'Mantener tus conversaciones privadas',
+        write: 'Subir, renombrar y eliminar documentos',
+        members: 'Invitar personas y cambiar sus roles',
+        organization: 'Renombrar la organización y ver estadísticas',
+        owners: 'Gestionar propietarios y eliminar la organización',
+      },
+    },
+    files: {
+      title: 'Los archivos nunca quedan detrás de un enlace público',
+      text: 'Los documentos se guardan en almacenamiento privado. Tu navegador recibe un enlace firmado que sirve para un solo archivo y caduca poco después, y cada carga se verifica antes de procesarse.',
+      steps: {
+        request: {
+          title: 'Enlace de carga firmado',
+          text: 'Se emite para un archivo y caduca a los 15 minutos por defecto.',
+        },
+        verify: {
+          title: 'Verificación del contenido',
+          text: 'Se comprueban la firma del archivo, el tipo de contenido y un límite de 25 MB. Lo que no coincide se rechaza.',
+        },
+        process: {
+          title: 'Extracción segura',
+          text: 'El texto se extrae con límites de tamaño, incluidos límites para archivos DOCX.',
+        },
+        download: {
+          title: 'Descargas de corta duración',
+          text: 'Abrir una fuente crea un nuevo enlace firmado solo para miembros.',
+        },
+      },
+    },
+    accounts: {
+      title: 'Cuentas y sesiones',
+      text: 'El inicio de sesión está diseñado para resistir cookies robadas, intentos de adivinar contraseñas y solicitudes entre sitios.',
+      points: {
+        passwords: {
+          title: 'Contraseñas con Argon2id',
+          text: 'Las contraseñas nunca se guardan, solo hashes resistentes.',
+        },
+        cookies: {
+          title: 'Cookies HttpOnly',
+          text: 'Los scripts de la página no pueden leer los tokens de sesión.',
+        },
+        csrf: {
+          title: 'Protección CSRF',
+          text: 'Las solicitudes que cambian datos requieren un token válido.',
+        },
+        tokens: {
+          title: 'Acceso de corta duración',
+          text: 'Los tokens de acceso duran 15 minutos. Las sesiones se revocan al cerrar sesión.',
+        },
+        rateLimits: {
+          title: 'Límites de solicitudes',
+          text: 'El inicio de sesión, el registro y la búsqueda tienen límites.',
+        },
+        headers: {
+          title: 'Cabeceras reforzadas',
+          text: 'Cabeceras de seguridad y una lista estricta de orígenes CORS en la API.',
+        },
+      },
+    },
+    audit: {
+      title: 'Un registro de quién cambió qué',
+      text: 'Administradores y Propietarios pueden revisar un registro de auditoría de los cambios de miembros y documentos, para que nada importante pase desapercibido.',
+      label: 'Ejemplo de registro de auditoría',
+      events: {
+        roleChanged: 'Cambió a Dana Ortiz a Administrador',
+        uploaded: 'Subió Política de seguridad.pdf',
+        invited: 'Invitó a sam@northwind.dev como Lector',
+        deleted: 'Eliminó Precios antiguos.docx',
+      },
+      times: {
+        roleChanged: 'Hace 2 min',
+        uploaded: 'Hace 18 min',
+        invited: 'Hace 1 h',
+        deleted: 'Ayer',
+      },
+    },
+    ai: {
+      title: 'Las respuestas de IA se basan en tu espacio de trabajo',
+      text: 'Cuando haces una pregunta, KnowledgeHub AI recupera fragmentos solo de tu organización y envía esos fragmentos a OpenAI para generar la respuesta.',
+      points: {
+        scoped:
+          'La recuperación se limita a la organización en la que trabajas',
+        cited: 'Cada respuesta enlaza a los fragmentos que utilizó',
+        private: 'Las conversaciones son privadas para quien las inició',
+      },
+    },
+    report: {
+      title: '¿Encontraste un problema de seguridad?',
+      text: 'Avísanos en privado y lo revisaremos de inmediato. Incluye los pasos para reproducirlo.',
     },
   },
   errors: {
