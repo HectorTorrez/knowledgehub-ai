@@ -1,12 +1,29 @@
 import type {
   AuthSessionListResponse,
   ChangePasswordRequest,
+  EmailLocale,
+  ResendVerificationRequest,
   UpdateProfileRequest,
   UpdateProfileResponse,
+  VerifyEmailRequest,
 } from '@knowledgehub/shared-types';
 import { apiFetch } from './client';
 
 export const accountApi = {
+  verifyEmail(token: string): Promise<void> {
+    const body: VerifyEmailRequest = { token };
+    return apiFetch<void>('/auth/verify-email', { method: 'POST', body });
+  },
+
+  resendVerification(locale: EmailLocale): Promise<void> {
+    const body: ResendVerificationRequest = { locale };
+    return apiFetch<void>('/auth/verify-email/resend', {
+      method: 'POST',
+      body,
+      authRecovery: true,
+    });
+  },
+
   exportData(): Promise<unknown> {
     return apiFetch('/auth/me/export', { authRecovery: true });
   },

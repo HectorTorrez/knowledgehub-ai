@@ -74,7 +74,9 @@ describe('organizations (e2e)', () => {
   const trackedEmails = new Set<string>();
   const trackedOrganizationIds = new Set<string>();
 
-  const registerUser = async (): Promise<{
+  const registerUser = async ({
+    verified = true,
+  }: { verified?: boolean } = {}): Promise<{
     email: string;
     userId: string;
     token: string;
@@ -85,6 +87,13 @@ describe('organizations (e2e)', () => {
       .post('/auth/register')
       .send(body)
       .expect(201);
+
+    if (verified) {
+      await prisma.user.update({
+        where: { id: response.body.user.id as string },
+        data: { emailVerifiedAt: new Date() },
+      });
+    }
 
     return {
       email: body.email,
@@ -784,6 +793,22 @@ describe('organizations (e2e)', () => {
       await addMember(member.token, organizationId, {
         email: owner.email,
       }).expect(403);
+    });
+
+    it('answers 404 for an account whose email is not verified', async () => {
+      const owner = await registerUser();
+      const target = await registerUser({ verified: false });
+      const organizationId = await createOwnedOrganization(owner.token);
+
+      await addMember(owner.token, organizationId, {
+        email: target.email,
+      }).expect(404);
+
+      expect(
+        await prisma.membership.count({
+          where: { userId: target.userId, organizationId },
+        }),
+      ).toBe(0);
     });
 
     it('lets an OWNER add an existing user, who becomes a MEMBER', async () => {

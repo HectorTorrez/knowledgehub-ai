@@ -17,6 +17,7 @@ import type {
 } from '@knowledgehub/shared-types';
 import { SessionGuard } from '../auth/session.guard.js';
 import { ZodValidationPipe } from '../auth/zod-validation.pipe.js';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import {
   createInvitationSchema,
   type CreateInvitationInput,
@@ -35,6 +36,8 @@ export class InvitationsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('invitationUser')
   create(
     @Body(new ZodValidationPipe(createInvitationSchema))
     body: CreateInvitationInput,
@@ -44,6 +47,7 @@ export class InvitationsController {
       requireOrganizationContext(request),
       body.email,
       body.role,
+      body.locale,
     );
   }
 

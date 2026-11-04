@@ -4,6 +4,7 @@ import type { SecurityAuditService } from '../audit/security-audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { AuthConfig } from './auth.config.js';
 import { AuthService } from './auth.service.js';
+import type { EmailVerificationService } from './email-verification.service.js';
 import { PasswordService } from './password.service.js';
 import { TokenService } from './token.service.js';
 
@@ -17,6 +18,7 @@ const storedUser = {
   passwordHash: 'stored-password-hash',
   firstName: 'Ada',
   lastName: 'Lovelace',
+  emailVerifiedAt: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-02T00:00:00.000Z'),
 };
@@ -105,6 +107,7 @@ function createHarness(options: HarnessOptions = {}) {
     tokens as unknown as TokenService,
     authConfig,
     { record: vi.fn() } as unknown as SecurityAuditService,
+    { sendWelcome: vi.fn() } as unknown as EmailVerificationService,
   );
 
   return { service, prisma, passwords, tokens, tx };
@@ -124,6 +127,7 @@ describe('AuthService.login', () => {
       email: 'user@example.com',
       firstName: 'Ada',
       lastName: 'Lovelace',
+      emailVerified: false,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-02T00:00:00.000Z',
     });
@@ -406,6 +410,7 @@ function createRotationHarness(overrides: RotationOverrides = {}) {
     tokens as unknown as TokenService,
     authConfig,
     { record: vi.fn() } as unknown as SecurityAuditService,
+    { sendWelcome: vi.fn() } as unknown as EmailVerificationService,
   );
 
   return { service, prisma, tokens, tx };

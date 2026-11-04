@@ -59,6 +59,16 @@ const BUDGETS = {
     envKey: 'RATE_LIMIT_DOCUMENT_WRITE_USER_PER_HOUR',
     windowMs: ONE_HOUR_MS,
   },
+  verificationEmailUser: {
+    scope: 'user',
+    envKey: 'RATE_LIMIT_VERIFICATION_EMAIL_USER_PER_HOUR',
+    windowMs: ONE_HOUR_MS,
+  },
+  invitationUser: {
+    scope: 'user',
+    envKey: 'RATE_LIMIT_INVITATION_USER_PER_HOUR',
+    windowMs: ONE_HOUR_MS,
+  },
   organizationCreateUser: {
     scope: 'user',
     envKey: 'RATE_LIMIT_ORGANIZATION_CREATE_USER_PER_DAY',

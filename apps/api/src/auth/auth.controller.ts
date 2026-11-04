@@ -24,6 +24,7 @@ import type { Request, Response } from 'express';
 import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import { AuthConfig } from './auth.config.js';
 import { AuthService, type AuthResult } from './auth.service.js';
+import { EmailVerificationService } from './email-verification.service.js';
 import { PersonalDataService } from './personal-data.service.js';
 import {
   ACCESS_TOKEN_COOKIE,
@@ -46,6 +47,12 @@ import {
 } from './dto/delete-account.schema.js';
 import { loginSchema, type LoginInput } from './dto/login.schema.js';
 import { registerSchema, type RegisterInput } from './dto/register.schema.js';
+import {
+  resendVerificationSchema,
+  verifyEmailSchema,
+  type ResendVerificationInput,
+  type VerifyEmailInput,
+} from './dto/verify-email.schema.js';
 import { SessionGuard, type AuthenticatedRequest } from './session.guard.js';
 import {
   changePasswordSchema,
@@ -62,6 +69,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly personalData: PersonalDataService,
+    private readonly verification: EmailVerificationService,
     private readonly authConfig: AuthConfig,
   ) {}
 
@@ -103,6 +111,33 @@ export class AuthController {
     this.issueAuthCookies(response, result);
 
     return { user: result.user };
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipCsrf()
+  @UseGuards(RateLimitGuard)
+  @RateLimit('login')
+  async verifyEmail(
+    @Body(new ZodValidationPipe(verifyEmailSchema)) body: VerifyEmailInput,
+  ): Promise<void> {
+    await this.verification.verify(body.token);
+  }
+
+  @Post('verify-email/resend')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SessionGuard, RateLimitGuard)
+  @RateLimit('verificationEmailUser')
+  async resendVerification(
+    @Body(new ZodValidationPipe(resendVerificationSchema))
+    body: ResendVerificationInput,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    if (!request.auth) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    await this.verification.resend(request.auth.userId, body.locale);
   }
 
   @Get('me/export')

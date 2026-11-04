@@ -50,6 +50,7 @@ function publicUser(id = 'user-1'): PublicUser {
     email: 'hector@example.com',
     firstName: 'Hector',
     lastName: 'Torrez',
+    emailVerified: true,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };

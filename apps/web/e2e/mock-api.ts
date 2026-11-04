@@ -9,6 +9,7 @@ export const USER = {
   email: 'ada@example.test',
   firstName: 'Ada',
   lastName: 'Lovelace',
+  emailVerified: true,
   createdAt: CREATED_AT,
   updatedAt: CREATED_AT,
 };
@@ -70,6 +71,7 @@ interface ApiOptions {
   complete?: boolean;
   progress?: 'ready-after-poll' | 'failed';
   onAsk?: () => void;
+  unverified?: boolean;
 }
 
 function json(
@@ -222,6 +224,24 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === '/auth/verify-email') {
+      const { token } = route.request().postDataJSON() as { token: string };
+      await route.fulfill(
+        token === 'valid-token'
+          ? { status: 204 }
+          : json(
+              { statusCode: 404, message: 'Verification link is not valid' },
+              404,
+            ),
+      );
+      return;
+    }
+
+    if (path === '/auth/verify-email/resend') {
+      await route.fulfill({ status: 204 });
+      return;
+    }
+
     if (path === '/auth/session') {
       if (!authenticated) {
         await route.fulfill(
@@ -230,7 +250,9 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
         return;
       }
 
-      await route.fulfill(json({ user: USER }));
+      await route.fulfill(
+        json({ user: { ...USER, emailVerified: !options.unverified } }),
+      );
       return;
     }
 

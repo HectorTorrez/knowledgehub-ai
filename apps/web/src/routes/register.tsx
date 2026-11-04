@@ -24,7 +24,7 @@ import { useToast } from '~/components/ui/toast';
 import { useRegister } from '~/hooks/use-auth';
 import { useReportError } from '~/hooks/use-error-toast';
 import { useRedirectSignedInVisitor } from '~/hooks/use-redirect-signed-in-visitor';
-import { useT } from '~/lib/i18n/hooks';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { cn } from '~/lib/utils';
@@ -50,6 +50,7 @@ function RegisterPage() {
   const { toast } = useToast();
   const reportError = useReportError();
   const t = useT();
+  const locale = useLocale();
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -77,13 +78,19 @@ function RegisterPage() {
     }
 
     try {
-      await register.mutateAsync(result.data);
+      await register.mutateAsync({ ...result.data, locale });
     } catch (error) {
       reportError(error);
       return;
     }
 
-    toast({ variant: 'success', title: t('auth.register.created') });
+    toast({
+      variant: 'success',
+      title: t('auth.register.created'),
+      description: t('auth.register.createdDescription', {
+        email: result.data.email,
+      }),
+    });
     router.history.push('/organizations');
   }
 

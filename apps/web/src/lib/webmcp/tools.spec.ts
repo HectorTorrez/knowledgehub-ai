@@ -21,6 +21,7 @@ function publicUser(): PublicUser {
     email: 'hector@example.com',
     firstName: 'Hector',
     lastName: 'Torrez',
+    emailVerified: true,
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
   };

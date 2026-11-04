@@ -283,11 +283,14 @@ export class OrganizationsService {
             email: true,
             firstName: true,
             lastName: true,
+            emailVerifiedAt: true,
           },
         });
 
-        if (!user) {
-          throw new NotFoundException('No user found with this email address');
+        if (!user || user.emailVerifiedAt === null) {
+          throw new NotFoundException(
+            'No verified user found with this email address',
+          );
         }
 
         const membership = await tx.membership.create({

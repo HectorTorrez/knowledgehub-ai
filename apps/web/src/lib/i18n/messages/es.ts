@@ -72,6 +72,7 @@ export const es: Messages = {
       submitting: 'Creando cuenta…',
       haveAccount: '¿Ya tienes una cuenta?',
       created: 'Cuenta creada',
+      createdDescription: 'Te enviamos un enlace de confirmación a {email}.',
     },
     layout: {
       title: 'Respuestas fundamentadas en los documentos de tu equipo',
@@ -589,6 +590,31 @@ export const es: Messages = {
     accepting: 'Aceptando…',
     accept: 'Aceptar invitación',
     expiry: 'Las invitaciones caducan y solo se pueden usar una vez.',
+    verifyFirst: 'Primero confirma tu email',
+    verifyFirstDescription:
+      'Para unirte a una organización, confirma {email} con el enlace que te enviamos. Después vuelve a esta página.',
+  },
+  verifyEmail: {
+    pageTitle: 'Confirmar email · KnowledgeHub AI',
+    pageDescription:
+      'Confirma la dirección de email de tu cuenta de KnowledgeHub AI.',
+    title: 'Confirma tu email',
+    verifying: 'Confirmando tu email…',
+    verified: 'Email confirmado',
+    verifiedDescription: 'Tu dirección de email está confirmada.',
+    invalid: 'Este enlace ya no funciona',
+    invalidDescription:
+      'Los enlaces de confirmación caducan y solo se pueden usar una vez. Inicia sesión y pide uno nuevo.',
+    missingToken: 'A este enlace de confirmación le falta su token.',
+    continue: 'Continuar',
+  },
+  emailBanner: {
+    message:
+      'Confirma {email} para unirte a las organizaciones que te inviten.',
+    resend: 'Reenviar email',
+    sending: 'Enviando…',
+    sent: 'Email de confirmación enviado',
+    sentDescription: 'Revisa la bandeja de entrada de {email}.',
   },
   activity: {
     someone: 'Alguien',
@@ -839,7 +865,11 @@ export const es: Messages = {
     addMemberDescription:
       'Los miembros con una cuenta existente se unen de inmediato. Para los demás se crea una invitación que puedes compartir.',
     inviteReady: 'Invitación lista para {email}',
-    inviteExpires: 'Comparte este enlace de un solo uso. Vence el {date}.',
+    inviteEmailed: 'Invitación enviada por email a {email}',
+    inviteEmailedExpires:
+      'También puedes compartir este enlace de un solo uso. Vence el {date}.',
+    inviteNotEmailed:
+      'No pudimos enviar el email a {email}. Comparte este enlace de un solo uso. Vence el {date}.',
     invitationLink: 'Enlace de invitación',
     copy: 'Copiar',
     done: 'Listo',
@@ -863,6 +893,8 @@ export const es: Messages = {
     roleUpdatedDescription: '{email} ahora tiene el rol {role}.',
     invitationCreated: 'Invitación creada',
     invitationCreatedDescription: 'Comparte el enlace con {email}.',
+    invitationEmailed: 'Invitación enviada',
+    invitationEmailedDescription: 'Enviamos la invitación por email a {email}.',
     invitationRevoked: 'Invitación revocada',
     memberRemoved: 'Miembro quitado',
     linkCopied: 'Enlace de invitación copiado',

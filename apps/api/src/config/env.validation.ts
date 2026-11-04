@@ -39,6 +39,7 @@ const envObjectSchema = z.object({
   SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0),
   PORT: z.coerce.number().int().positive().default(3001),
   CORS_ORIGIN: z.string().min(1).default('http://localhost:3000'),
+  APP_URL: z.string().url().default('http://localhost:3000'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
   JWT_ACCESS_SECRET: z
@@ -56,6 +57,12 @@ const envObjectSchema = z.object({
     .default(7),
 
   INVITATION_TTL_DAYS: z.coerce.number().int().positive().max(365).default(7),
+  EMAIL_VERIFICATION_TTL_HOURS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(720)
+    .default(48),
 
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
@@ -285,6 +292,16 @@ const envObjectSchema = z.object({
     .int()
     .positive()
     .default(20),
+  RATE_LIMIT_VERIFICATION_EMAIL_USER_PER_HOUR: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3),
+  RATE_LIMIT_INVITATION_USER_PER_HOUR: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(20),
   RATE_LIMIT_ORGANIZATION_CREATE_USER_PER_DAY: z.coerce
     .number()
     .int()
@@ -419,6 +436,14 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
         code: 'custom',
         path: ['CORS_ORIGIN'],
         message: 'CORS_ORIGIN must not target a local host in production',
+      });
+    }
+
+    if (hasLocalOrigin(env.APP_URL)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['APP_URL'],
+        message: 'APP_URL must not target a local host in production',
       });
     }
 
