@@ -23,6 +23,8 @@ const howItWorksSteps = [
 
 const securityPoints = ['membership', 'roles', 'files', 'audit'] as const;
 
+const CONTACT_EMAIL_HREF = 'mailto:hector.buruca80@gmail.com';
+
 const pricingPlans = [
   {
     id: 'free',
@@ -33,13 +35,13 @@ const pricingPlans = [
   {
     id: 'team',
     available: false,
-    href: '/register?plan=team',
+    href: CONTACT_EMAIL_HREF,
     features: ['teamCollaboration', 'sharedKnowledge'],
   },
   {
     id: 'enterprise',
     available: false,
-    href: '/register',
+    href: CONTACT_EMAIL_HREF,
     features: ['organizationWorkspaces', 'knowledgeDiscovery'],
   },
 ] as const;
