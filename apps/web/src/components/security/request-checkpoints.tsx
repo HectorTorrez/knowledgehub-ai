@@ -19,7 +19,12 @@ const checkpoints = [
 export function RequestCheckpoints({
   animated = false,
   className,
-}: Readonly<{ animated?: boolean; className?: string }>) {
+  showEndpoint = true,
+}: Readonly<{
+  animated?: boolean;
+  className?: string;
+  showEndpoint?: boolean;
+}>) {
   const t = useT();
   return (
     <figure
@@ -33,9 +38,11 @@ export function RequestCheckpoints({
         <span className="text-xs text-muted-foreground">
           {t('security.checkpoints.request')}
         </span>
-        <code className="rounded-md border bg-background px-2 py-0.5 font-mono text-[0.7rem] text-foreground">
-          GET /organizations/:id/documents
-        </code>
+        {showEndpoint && (
+          <code className="rounded-md border bg-background px-2 py-0.5 font-mono text-[0.7rem] text-foreground">
+            GET /organizations/:id/documents
+          </code>
+        )}
       </figcaption>
       <ol className="relative px-5 py-5">
         <span
