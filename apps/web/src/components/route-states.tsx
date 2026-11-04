@@ -4,7 +4,15 @@ import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useT } from '~/lib/i18n/hooks';
 
-const SIDEBAR_ITEM_WIDTHS = ['w-24', 'w-28', 'w-16', 'w-20', 'w-24', 'w-20', 'w-16'];
+const SIDEBAR_ITEM_WIDTHS = [
+  'w-24',
+  'w-28',
+  'w-16',
+  'w-20',
+  'w-24',
+  'w-20',
+  'w-16',
+];
 
 export function RoutePending() {
   const t = useT();
