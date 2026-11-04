@@ -65,6 +65,8 @@ const auditEvents = [
   { key: 'deleted', actor: 'JL' },
 ] as const;
 
+const SAMPLE_FILES = ['onboarding', 'contract', 'handbook'] as const;
+
 const aiPoints = [
   { key: 'scoped', icon: Lock },
   { key: 'cited', icon: BadgeCheck },
@@ -158,17 +160,16 @@ export function SecurityIsolation() {
           <p className="mt-1 text-xs text-muted-foreground">
             {t('security.isolation.ownDocuments')}
           </p>
-          <ul aria-hidden="true" className="mt-4 space-y-2">
-            {[0.92, 0.78, 0.66].map((width) => (
+          <ul className="mt-4 space-y-2">
+            {SAMPLE_FILES.map((file) => (
               <li
-                key={width}
-                className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2"
+                key={file}
+                className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-xs"
               >
                 <FileText className="size-3.5 shrink-0 text-brand" />
-                <span
-                  className="h-2 rounded-full bg-foreground/10"
-                  style={{ width: `${width * 100}%` }}
-                />
+                <span className="truncate">
+                  {t(`landing.sample.files.${file}`)}
+                </span>
               </li>
             ))}
           </ul>

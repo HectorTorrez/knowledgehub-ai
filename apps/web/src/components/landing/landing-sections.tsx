@@ -13,6 +13,7 @@ import { SectionHeading } from '~/components/landing/section-heading';
 import { RequestCheckpoints } from '~/components/security/request-checkpoints';
 import { Button } from '~/components/ui/button';
 import { CONTACT_EMAIL_HREF } from '~/lib/contact';
+import { useInView } from '~/hooks/use-in-view';
 import { useT } from '~/lib/i18n/hooks';
 
 const howItWorksSteps = [
@@ -29,12 +30,12 @@ const freePlanFeatures = [
   'organizationWorkspace',
 ] as const;
 
-const faqItems = ['formats', 'citations', 'access', 'price'] as const;
+const faqItems = ['formats', 'citations', 'access', 'model', 'price'] as const;
 
 export function LandingHowItWorks() {
   const t = useT();
   return (
-    <section id="how-it-works" className="scroll-mt-20 border-y bg-muted/30">
+    <section id="how-it-works" className="scroll-mt-20">
       <div className="mx-auto max-w-7xl px-5 py-24">
         <SectionHeading title={t('landing.howItWorks.title')} />
         <div className="relative mt-14">
@@ -66,10 +67,19 @@ export function LandingHowItWorks() {
   );
 }
 
+function AnimatedCheckpoints() {
+  const [ref, inView] = useInView<HTMLDivElement>(0.4);
+  return (
+    <div ref={ref}>
+      <RequestCheckpoints key={String(inView)} animated={inView} />
+    </div>
+  );
+}
+
 export function LandingSecurity() {
   const t = useT();
   return (
-    <section id="security" className="scroll-mt-20">
+    <section id="security" className="marketing-inverted scroll-mt-20">
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-24 lg:grid-cols-2 lg:gap-16">
         <div>
           <SectionHeading
@@ -91,7 +101,7 @@ export function LandingSecurity() {
             </Link>
           </Button>
         </div>
-        <RequestCheckpoints />
+        <AnimatedCheckpoints />
       </div>
     </section>
   );
@@ -100,43 +110,59 @@ export function LandingSecurity() {
 export function LandingPricing() {
   const t = useT();
   return (
-    <section id="pricing" className="scroll-mt-20 border-y bg-muted/30">
-      <div className="mx-auto max-w-7xl px-5 py-24">
+    <section id="pricing" className="scroll-mt-20 border-y bg-muted/40">
+      <div className="mx-auto max-w-7xl px-5 py-24 lg:py-28">
         <SectionHeading
           title={t('landing.pricing.title')}
           description={t('landing.pricing.description')}
         />
-        <article className="mx-auto mt-14 flex max-w-md flex-col rounded-2xl border border-brand/50 bg-card p-8 shadow-xl shadow-brand/10 ring-1 ring-brand/30">
-          <h3 className="text-lg font-semibold">
-            {t('landing.pricing.plans.free')}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('landing.pricing.summaries.free')}
-          </p>
-          <p className="mt-6 text-3xl font-semibold tracking-tight">
-            {t('landing.pricing.freePrice')}
-          </p>
-          <ul className="mt-6 space-y-3 text-sm">
-            {freePlanFeatures.map((feature) => (
-              <li key={feature} className="flex items-center gap-2">
-                <Check className="size-4 shrink-0 text-brand" />
-                {t(`landing.pricing.features.${feature}`)}
-              </li>
-            ))}
-          </ul>
-          <Button asChild className="mt-8">
-            <Link to="/register">{t('landing.pricing.getStarted')}</Link>
-          </Button>
-        </article>
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          {t('landing.pricing.waitlistText')}{' '}
-          <a
-            href={CONTACT_EMAIL_HREF}
-            className="font-medium text-foreground underline underline-offset-4 hover:text-brand"
-          >
-            {t('landing.pricing.waitlistAction')}
-          </a>
-        </p>
+        <div className="mx-auto mt-14 grid max-w-4xl gap-4 md:grid-cols-2">
+          <article className="flex flex-col rounded-xl border bg-card p-8 shadow-[0_1px_2px_oklch(0_0_0/0.04),0_16px_40px_-24px_oklch(0_0_0/0.25)]">
+            <h3 className="text-lg font-semibold">
+              {t('landing.pricing.plans.free')}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t('landing.pricing.summaries.free')}
+            </p>
+            <p className="mt-6 flex items-baseline gap-2">
+              <span className="text-5xl font-semibold tracking-tight">
+                {t('landing.pricing.freePrice')}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {t('landing.pricing.period')}
+              </span>
+            </p>
+            <ul className="mt-6 space-y-3 text-sm">
+              {freePlanFeatures.map((feature) => (
+                <li key={feature} className="flex items-center gap-2.5">
+                  <Check className="size-4 shrink-0 text-brand" />
+                  {t(`landing.pricing.features.${feature}`)}
+                </li>
+              ))}
+            </ul>
+            <Button asChild size="lg" className="mt-8">
+              <Link to="/register">{t('landing.pricing.getStarted')}</Link>
+            </Button>
+          </article>
+          <article className="flex flex-col rounded-xl border border-dashed bg-background/60 p-8">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold">
+                {t('landing.pricing.plans.team')}
+              </h3>
+              <span className="rounded-full border px-2.5 py-0.5 text-xs font-medium">
+                {t('landing.pricing.soon')}
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              {t('landing.pricing.waitlistText')}
+            </p>
+            <Button asChild size="lg" variant="outline" className="mt-auto">
+              <a href={CONTACT_EMAIL_HREF}>
+                {t('landing.pricing.waitlistAction')}
+              </a>
+            </Button>
+          </article>
+        </div>
       </div>
     </section>
   );

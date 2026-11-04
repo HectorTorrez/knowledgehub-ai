@@ -28,7 +28,7 @@ export const Route = createFileRoute('/security')({
 
 function SecurityPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="marketing min-h-screen">
       <LandingHeader />
       <main>
         <SecurityHero />

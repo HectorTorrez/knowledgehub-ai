@@ -34,7 +34,7 @@ function LandingPage() {
   useRedirectSignedInVisitor(hash === 'pricing' ? null : '/organizations');
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="marketing min-h-screen">
       <LandingHeader />
       <main>
         <LandingHero />

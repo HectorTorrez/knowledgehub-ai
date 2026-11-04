@@ -151,93 +151,167 @@ export const en = {
       pricing: 'Pricing',
       faq: 'FAQ',
       logIn: 'Log in',
-      getStarted: 'Create free account',
+      getStarted: 'Start free',
       openMenu: 'Open menu',
       menu: 'Menu',
     },
     hero: {
-      titleLead: 'Your documents have answers.',
-      titleAccent: 'Find them faster.',
+      titleLead: 'Ask your documents anything.',
+      titleTail: 'Every answer shows where it came from.',
       description:
-        "Turn your team's documents into a searchable workspace. Ask questions, discover insights, and follow every answer back to its source.",
+        'Upload PDFs, Word files, and notes. KnowledgeHub AI answers in plain language and links each sentence to the exact page and passage in your files.',
       openingDemo: 'Opening demo…',
       tryDemo: 'Try the live demo',
       createFreeAccount: 'Create free account',
-      points: {
-        cited: 'Every answer cites its sources',
-        formats: 'PDF, Word, and Markdown',
-        private: 'Private to your organization',
-      },
+      seeHow: 'See how it works',
+      sampleNote: 'Sample workspace with synthetic documents',
     },
     sample: {
-      label: 'Example of a cited answer',
+      label:
+        'KnowledgeHub AI workspace showing documents, a cited answer, and its source',
       workspace: 'Northwind Labs',
-      page: 'Ask',
+      navDocuments: 'Documents',
+      navAsk: 'Ask',
+      navSearch: 'Search',
+      navCollections: 'Collections',
       documents: 'Documents',
-      documentOnboarding: 'Customer onboarding guide.pdf',
-      documentHandbook: 'Success team handbook.docx',
-      documentNotes: 'Kickoff checklist.md',
-      question: 'What is our approach to customer onboarding?',
+      ready: 'Ready',
+      processing: 'Indexing',
+      pageOf: 'Page {page}',
+      ask: 'Ask',
       answer: 'Answer',
-      textLead:
-        'New customers start with a guided setup and a kickoff session in their first week',
-      textTail:
-        'Each account is then paired with a dedicated success contact who tracks the first milestone',
       sources: 'Sources',
-      sourceOnboarding: 'Customer onboarding guide',
-      sourceHandbook: 'Success team handbook',
-      quote: '“Each customer begins with a guided setup and kickoff…”',
+      showSource: 'Show source {number}',
+      tryQuestion: 'Try another question',
+      searching: 'Searching 5 documents…',
       grounded: 'Grounded in 2 sources',
-      searched: 'Searched 3 documents',
       placeholder: 'Ask a question about your documents…',
+      questions: {
+        onboarding: {
+          question: 'What is our approach to customer onboarding?',
+          sentence1:
+            'New customers start with a guided setup and a kickoff session in their first week.',
+          sentence2:
+            'Each account is then paired with a success contact who tracks the first milestone.',
+          note1Document: 'Customer onboarding guide.pdf',
+          note1Page: '4',
+          note1Context:
+            'Onboarding is the first promise we keep to a new customer.',
+          note1Quote:
+            'Each customer begins with a guided setup and a kickoff session in their first week.',
+          note2Document: 'Success team handbook.docx',
+          note2Page: '12',
+          note2Context: 'Ownership is assigned before the kickoff call.',
+          note2Quote:
+            'Every new account is assigned a success contact, who owns the first milestone review.',
+        },
+        renewals: {
+          question: 'When do we review contract renewals?',
+          sentence1:
+            'Renewals are reviewed 60 days before the contract end date.',
+          sentence2:
+            'The account owner prepares a usage summary for that review.',
+          note1Document: 'Contract policy.pdf',
+          note1Page: '4',
+          note1Context:
+            'Standard contracts run for twelve months unless stated otherwise.',
+          note1Quote:
+            'Renewals are reviewed 60 days before the contract end date.',
+          note2Document: 'Success team handbook.docx',
+          note2Page: '18',
+          note2Context: 'Renewal conversations should start from evidence.',
+          note2Quote:
+            'Before a renewal review, the account owner prepares a summary of usage since signing.',
+        },
+        kickoff: {
+          question: 'What do we cover in the kickoff call?',
+          sentence1:
+            'The kickoff confirms success criteria and sets the date of the first milestone.',
+          sentence2: 'Notes from the call are shared with the customer.',
+          note1Document: 'Customer onboarding guide.pdf',
+          note1Page: '6',
+          note1Context: 'The kickoff call lasts about an hour.',
+          note1Quote:
+            'Agree on success criteria and set a date for the first milestone.',
+          note2Document: 'Success team handbook.docx',
+          note2Page: '9',
+          note2Context: 'Write notes during the call, not after it.',
+          note2Quote: 'Send the call notes to the customer within one day.',
+        },
+      },
+      files: {
+        onboarding: 'Customer onboarding guide.pdf',
+        handbook: 'Success team handbook.docx',
+        contract: 'Contract policy.pdf',
+        kickoff: 'Kickoff checklist.md',
+        pricing: 'Pricing notes.txt',
+      },
     },
     formats: {
       title: 'Works with the files your team already has',
+      limit: 'Up to 25 MB per file',
     },
     features: {
-      title: 'Knowledge that works for your team',
+      title: 'Built around your documents',
       description:
-        'Everything you need to find and use the information you already have.',
-      answers: {
-        title: 'Answers you can trace',
-        text: 'Get grounded answers with citations that point back to the exact passage in your sources.',
-        quote: '“Renewals are reviewed 60 days before the contract end date.”',
-        source: 'Contract policy · page 4',
+        'From the first upload to a shared answer, every step keeps the source in view.',
+      upload: {
+        title: 'Upload and it is ready to ask',
+        text: 'Text is extracted, split into passages, and indexed. You can watch each file move through the steps.',
+        steps: {
+          uploaded: 'Uploaded',
+          extracting: 'Extracting text',
+          indexing: 'Indexing passages',
+          ready: 'Ready to ask',
+        },
       },
       search: {
-        title: 'Search beyond keywords',
-        text: 'Hybrid search brings semantic understanding and keyword precision together.',
-        query: 'renewal terms',
-        semantic: 'Meaning',
-        keyword: 'Keyword',
-        resultPolicy: 'Contract policy',
-        resultFaq: 'Customer FAQ',
+        title: 'Search by meaning and by keyword',
+        text: 'Hybrid search ranks passages by what they mean and by the exact words they use.',
+        query: 'renewal notice period',
+        result1: 'Renewals are reviewed 60 days before the contract end date.',
+        result2:
+          'Before a renewal review, the account owner prepares a usage summary.',
+      },
+      collections: {
+        title: 'Collections',
+        text: 'Group related documents and ask within one collection.',
+        sales: 'Sales',
+        support: 'Support',
+        legal: 'Legal',
+        documents: '{count} documents',
       },
       insights: {
-        title: 'See the bigger picture',
-        text: 'Explore insights and facts extracted from your documents.',
-        factDate: 'Renewal date',
-        factOwner: 'Account owner',
-        factValue: 'Contract value',
+        title: 'Insights',
+        text: 'See what your team asks and which questions went unanswered.',
+        asked: 'Questions asked',
+        unanswered: 'Unanswered',
+        helpful: 'Marked helpful',
       },
-      workspaces: {
-        title: 'A workspace for every team',
-        text: 'Keep organizations separate and manage access with member roles.',
+      roles: {
+        title: 'Roles and sharing',
+        text: 'Owner, Admin, Member, and Viewer. Conversations stay private until you share them.',
+      },
+      audit: {
+        title: 'Audit log',
+        text: 'Admins and Owners see who changed members and documents, and when.',
       },
     },
     howItWorks: {
-      title: 'From files to answers in three steps',
+      title: 'From a folder to an answer',
       createTitle: 'Create a workspace',
-      createText: 'Give your team a dedicated place for its knowledge.',
+      createText:
+        'Name your organization and invite the people who should have access.',
       uploadTitle: 'Upload documents',
       uploadText:
-        'Add your files and let KnowledgeHub prepare them for search.',
-      askTitle: 'Ask and discover',
-      askText: 'Get cited answers and explore insights from your sources.',
+        'Add PDF, Word, Markdown, or text files. They are indexed in the background.',
+      askTitle: 'Ask, then check',
+      askText:
+        'Ask in plain language and open any citation to read the original passage.',
     },
     isolation: {
       title: 'Your workspace, your data',
-      text: 'Organizations are isolated from one another. Your documents and answers stay in your workspace, accessible to its members.',
+      text: 'Organizations are isolated from one another. Before a single document is read, the API checks who you are, that you belong to the organization, and what your role allows.',
       points: {
         membership: 'Every request is checked against organization membership',
         roles: 'Owner, Admin, Member, and Viewer roles control access',
@@ -248,39 +322,48 @@ export const en = {
     },
     pricing: {
       title: 'Pricing',
-      description: 'Start free today. Team plans are on the way.',
+      description: 'Start on the Free plan. Team plans are on the way.',
       freePrice: '$0',
+      period: 'No card required',
       getStarted: 'Create free account',
-      waitlistText: 'Need Team or Enterprise plans?',
+      waitlistText:
+        'Team and Enterprise plans are not available yet. Want to hear when they are?',
       waitlistAction: 'Join the waitlist',
+      soon: 'Coming soon',
       plans: {
         free: 'Free',
+        team: 'Team and Enterprise',
       },
       summaries: {
         free: 'For individuals and small teams getting started.',
       },
       features: {
         citedAnswers: 'Cited answers',
-        documentSearch: 'Document search',
-        organizationWorkspace: 'Organization workspace',
+        documentSearch: 'Hybrid document search',
+        organizationWorkspace: 'An organization workspace with roles',
       },
     },
     faq: {
-      title: 'Questions, answered',
+      title: 'Questions and answers',
       formats: {
         question: 'Which files can I upload?',
         answer:
-          'PDF, Word (.docx), and Markdown files. KnowledgeHub prepares them for search as soon as they are uploaded.',
+          'PDF, Word (.docx), Markdown, and plain text files up to 25 MB. KnowledgeHub prepares them for search as soon as they are uploaded.',
       },
       citations: {
         question: 'How do I know an answer is correct?',
         answer:
-          'Every answer cites the passages it was built from. Open a citation to read the original text in its document.',
+          'Every answer cites the passages it was built from. Open a citation to read the original text in its document. When the documents do not contain the answer, it says so.',
       },
       access: {
         question: 'Who can see my documents?',
         answer:
           'Only members of your organization. Each organization is isolated, and roles decide who can upload, manage, or only read.',
+      },
+      model: {
+        question: 'Which AI writes the answers?',
+        answer:
+          'KnowledgeHub retrieves passages from your organization only and sends those passages to OpenAI to write the answer.',
       },
       price: {
         question: 'Is it free?',
@@ -289,8 +372,9 @@ export const en = {
       },
     },
     cta: {
-      title: 'Put your knowledge to work',
-      description: 'Create a workspace and start asking better questions.',
+      title: 'Put your documents to work',
+      description:
+        'Create a workspace, upload a file, and ask your first question.',
       getStarted: 'Create free account',
       logIn: 'Log in',
     },
