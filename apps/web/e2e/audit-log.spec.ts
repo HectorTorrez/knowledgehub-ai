@@ -9,10 +9,12 @@ test('owner filters, loads more and exports activity', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Audit log' })).toBeVisible();
   if (test.info().project.name === 'mobile')
     await page.getByRole('link', { name: 'Audit log' }).click();
+  await page.getByLabel('Action', { exact: true }).click();
+  await page.getByRole('option', { name: 'Document uploaded' }).click();
+  await page.getByLabel('Actor', { exact: true }).click();
   await page
-    .getByLabel('Action', { exact: true })
-    .selectOption('DOCUMENT_UPLOADED');
-  await page.getByLabel('Actor', { exact: true }).selectOption('user-1');
+    .getByRole('option', { name: 'Ada Lovelace (ada@example.test)' })
+    .click();
   await expect(page.getByText('Handbook')).toHaveCount(1);
   await page.getByRole('button', { name: 'Load more' }).click();
   await expect(page.getByText('Handbook')).toHaveCount(2);
@@ -21,9 +23,8 @@ test('owner filters, loads more and exports activity', async ({ page }) => {
   expect((await download).suggestedFilename()).toMatch(
     /^audit-log-Acme-\d{4}-\d{2}-\d{2}\.csv$/,
   );
-  await page
-    .getByLabel('Action', { exact: true })
-    .selectOption('DOCUMENT_DELETED');
+  await page.getByLabel('Action', { exact: true }).click();
+  await page.getByRole('option', { name: 'Document deleted' }).click();
   await expect(page.getByText('No activity found.')).toBeVisible();
 });
 
