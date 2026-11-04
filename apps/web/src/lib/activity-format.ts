@@ -1,54 +1,83 @@
 import type { OrganizationActivityItem } from '@knowledgehub/shared-types';
+import type { Translator } from '~/lib/i18n/translate';
 
 export function activityActionLabel(
   action: OrganizationActivityItem['action'],
+  t: Translator,
 ): string {
-  const words = action.toLowerCase().replaceAll('_', ' ');
-  return words[0]!.toUpperCase() + words.slice(1);
+  return t(`activity.actions.${action}`);
 }
 
-export function formatActivity(item: OrganizationActivityItem): string {
+export function formatActivity(
+  item: OrganizationActivityItem,
+  t: Translator,
+): string {
   const actor = item.actor
     ? `${item.actor.firstName} ${item.actor.lastName}`.trim() ||
       item.actor.email
-    : 'Someone';
+    : t('activity.someone');
   const { email, from, to, title } = item.metadata;
-  const person = email || 'a member';
-  const document = title ? `document “${title}”` : 'a document';
+  const person = email || t('activity.aMember');
+  const document = title
+    ? t('activity.documentNamed', { title })
+    : t('activity.aDocument');
+  const renamedDocument = from
+    ? t('activity.documentNamed', { title: from })
+    : t('activity.aDocument');
+  const roleFrom = from ? t('activity.roleFrom', { value: from }) : '';
+  const roleTo = to ? t('activity.roleTo', { value: to }) : '';
+  const quotedFrom = from ? t('activity.quotedFrom', { value: from }) : '';
+  const quotedTo = to ? t('activity.quotedTo', { value: to }) : '';
+  const quotedName = to ? t('activity.quotedName', { value: to }) : '';
   switch (item.action) {
     case 'MEMBER_ADDED':
-      return `${actor} added ${person}`;
+      return t('activity.memberAdded', { actor, person });
     case 'MEMBER_REMOVED':
-      return `${actor} removed ${person}`;
+      return t('activity.memberRemoved', { actor, person });
     case 'MEMBER_ROLE_CHANGED':
-      return `${actor} changed ${email ? `${email}'s` : 'a member’s'} role${from ? ` from ${from}` : ''}${to ? ` to ${to}` : ''}`;
+      return `${t('activity.roleChanged', { actor, person })}${roleFrom}${roleTo}`;
     case 'MEMBER_LEFT':
-      return `${actor} left the organization`;
+      return t('activity.memberLeft', { actor });
     case 'INVITATION_CREATED':
-      return `${actor} invited ${email || 'someone'}`;
+      return t('activity.invitationCreated', {
+        actor,
+        person: email || t('activity.someoneLower'),
+      });
     case 'INVITATION_REVOKED':
-      return `${actor} revoked ${email ? `the invitation for ${email}` : 'an invitation'}`;
+      return t('activity.invitationRevoked', {
+        actor,
+        invitation: invitationTarget(email, t),
+      });
     case 'INVITATION_ACCEPTED':
-      return `${actor} accepted ${email ? `the invitation for ${email}` : 'an invitation'}`;
+      return t('activity.invitationAccepted', {
+        actor,
+        invitation: invitationTarget(email, t),
+      });
     case 'ORGANIZATION_RENAMED':
-      return `${actor} renamed the organization${from ? ` from “${from}”` : ''}${to ? ` to “${to}”` : ''}`;
+      return `${t('activity.orgRenamed', { actor })}${quotedFrom}${quotedTo}`;
     case 'COLLECTION_CREATED':
-      return `${actor} created collection${to ? ` “${to}”` : ''}`;
+      return `${t('activity.collectionCreated', { actor })}${quotedName}`;
     case 'COLLECTION_RENAMED':
-      return `${actor} renamed collection${from ? ` “${from}”` : ''}${to ? ` to “${to}”` : ''}`;
+      return `${t('activity.collectionRenamed', { actor })}${quotedFrom}${quotedTo}`;
     case 'COLLECTION_DELETED':
-      return `${actor} deleted collection${from ? ` “${from}”` : ''}`;
+      return `${t('activity.collectionDeleted', { actor })}${quotedFrom}`;
     case 'DOCUMENT_UPLOADED':
-      return `${actor} uploaded ${document}`;
+      return t('activity.documentUploaded', { actor, document });
     case 'DOCUMENT_RENAMED':
-      return `${actor} renamed ${from ? `document “${from}”` : 'a document'}${to ? ` to “${to}”` : ''}`;
+      return `${t('activity.documentRenamed', { actor, document: renamedDocument })}${quotedTo}`;
     case 'DOCUMENT_DELETED':
-      return `${actor} deleted ${document}`;
+      return t('activity.documentDeleted', { actor, document });
     case 'CONVERSATION_SHARED':
-      return `${actor} shared a conversation`;
+      return t('activity.conversationShared', { actor });
     case 'CONVERSATION_UNSHARED':
-      return `${actor} unshared a conversation`;
+      return t('activity.conversationUnshared', { actor });
     case 'DOCUMENT_REPROCESSED':
-      return `${actor} reprocessed ${document}`;
+      return t('activity.documentReprocessed', { actor, document });
   }
+}
+
+function invitationTarget(email: string | undefined, t: Translator): string {
+  return email
+    ? t('activity.invitationFor', { email })
+    : t('activity.anInvitation');
 }

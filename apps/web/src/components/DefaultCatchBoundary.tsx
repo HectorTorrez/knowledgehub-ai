@@ -4,13 +4,17 @@ import type { ErrorComponentProps } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
 import { Brand } from '~/components/brand';
 import { Button } from '~/components/ui/button';
+import { useT } from '~/lib/i18n/provider';
 
 export function DefaultCatchBoundary({ error, reset }: ErrorComponentProps) {
+  const t = useT();
+
   useEffect(() => {
     captureException(error);
   }, [error]);
 
-  const message = error instanceof Error ? error.message : 'Unexpected error';
+  const message =
+    error instanceof Error ? error.message : t('boundary.unexpected');
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 py-16 text-center">
@@ -20,11 +24,11 @@ export function DefaultCatchBoundary({ error, reset }: ErrorComponentProps) {
       </span>
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Something went wrong
+          {t('boundary.title')}
         </h1>
         <p className="max-w-md text-sm text-muted-foreground">{message}</p>
       </div>
-      <Button onClick={() => reset()}>Try again</Button>
+      <Button onClick={() => reset()}>{t('common.tryAgain')}</Button>
     </main>
   );
 }

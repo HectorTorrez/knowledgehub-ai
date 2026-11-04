@@ -1,3 +1,4 @@
+import type { OrganizationActivityItem } from '@knowledgehub/shared-types';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -14,6 +15,7 @@ import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { activityActionLabel, formatActivity } from '~/lib/activity-format';
 import { auditCsv } from '~/lib/audit-csv';
+import { useLocale, useT } from '~/lib/i18n/provider';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/audit-log',
@@ -21,7 +23,7 @@ export const Route = createFileRoute(
   component: AuditLogPage,
 });
 
-const actions = [
+const actions: OrganizationActivityItem['action'][] = [
   'MEMBER_ADDED',
   'MEMBER_REMOVED',
   'MEMBER_ROLE_CHANGED',
@@ -39,6 +41,8 @@ const actions = [
 ];
 
 function AuditLogPage() {
+  const t = useT();
+  const locale = useLocale();
   const { organizationId } = Route.useParams();
   const [action, setAction] = useState('');
   const [actorId, setActorId] = useState('');
@@ -84,7 +88,9 @@ function AuditLogPage() {
   const rows = activity.data?.pages.flatMap((page) => page.activities) ?? [];
   function download() {
     const url = URL.createObjectURL(
-      new Blob([auditCsv(rows)], { type: 'text/csv;charset=utf-8' }),
+      new Blob([auditCsv(rows, t, locale)], {
+        type: 'text/csv;charset=utf-8',
+      }),
     );
     const link = document.createElement('a');
     link.href = url;
@@ -96,49 +102,49 @@ function AuditLogPage() {
   if (organization.isError)
     return (
       <RouteError
-        title="Unable to load the workspace"
+        title={t('auditLog.workspaceError')}
         onRetry={() => void organization.refetch()}
       />
     );
   if (!allowed)
     return (
       <PageHeader
-        title="Not allowed"
-        description="You do not have permission to view the audit log."
+        title={t('auditLog.notAllowedTitle')}
+        description={t('auditLog.notAllowedDescription')}
       />
     );
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Audit log"
-        description="Review activity in your workspace."
+        title={t('nav.auditLog')}
+        description={t('auditLog.description')}
       />
       <div className="flex flex-wrap gap-3">
         <label>
-          Action{' '}
+          {t('auditLog.action')}{' '}
           <select
-            aria-label="Action"
+            aria-label={t('auditLog.action')}
             value={action}
             onChange={(event) => setAction(event.target.value)}
             className="rounded-md border p-2"
           >
-            <option value="">All actions</option>
+            <option value="">{t('auditLog.allActions')}</option>
             {actions.map((value) => (
               <option key={value} value={value}>
-                {value.replaceAll('_', ' ')}
+                {activityActionLabel(value, t)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Actor{' '}
+          {t('auditLog.actor')}{' '}
           <select
-            aria-label="Actor"
+            aria-label={t('auditLog.actor')}
             value={actorId}
             onChange={(event) => setActorId(event.target.value)}
             className="rounded-md border p-2"
           >
-            <option value="">All actors</option>
+            <option value="">{t('auditLog.allActors')}</option>
             {members.data?.members.map((member) => (
               <option key={member.userId} value={member.userId}>
                 {member.firstName} {member.lastName} ({member.email})
@@ -147,33 +153,33 @@ function AuditLogPage() {
           </select>
         </label>
         <DatePicker
-          ariaLabel="From date"
+          ariaLabel={t('auditLog.fromDate')}
           value={from}
           onChange={setFrom}
-          placeholder="From date"
+          placeholder={t('auditLog.fromDate')}
         />
         <DatePicker
-          ariaLabel="To date"
+          ariaLabel={t('auditLog.toDate')}
           value={to}
           onChange={setTo}
-          placeholder="To date"
+          placeholder={t('auditLog.toDate')}
         />
         <Button variant="outline" onClick={download} disabled={!rows.length}>
-          Export CSV
+          {t('auditLog.exportCsv')}
         </Button>
       </div>
       {activity.isPending ? (
         <Skeleton className="h-32 w-full" />
       ) : activity.isError ? (
         <RouteError
-          title="Unable to load activity"
+          title={t('auditLog.activityError')}
           onRetry={() => void activity.refetch()}
         />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={History}
-          title="No activity found."
-          description="No activity matches the selected filters."
+          title={t('auditLog.noActivityTitle')}
+          description={t('auditLog.noActivityDescription')}
           action={
             <Button
               onClick={() => {
@@ -183,7 +189,7 @@ function AuditLogPage() {
                 setTo('');
               }}
             >
-              Clear filters
+              {t('auditLog.clearFilters')}
             </Button>
           }
         />
@@ -192,33 +198,37 @@ function AuditLogPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr>
-                {['Time', 'Actor', 'Action', 'Target', 'Details'].map(
-                  (heading) => (
-                    <th className="p-3" key={heading}>
-                      {heading}
-                    </th>
-                  ),
-                )}
+                {[
+                  t('auditLog.time'),
+                  t('auditLog.actor'),
+                  t('auditLog.action'),
+                  t('auditLog.target'),
+                  t('auditLog.details'),
+                ].map((heading) => (
+                  <th className="p-3" key={heading}>
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr className="border-t" key={row.id}>
                   <td className="p-3">
-                    {new Date(row.createdAt).toLocaleString()}
+                    {new Date(row.createdAt).toLocaleString(locale)}
                   </td>
                   <td className="p-3">
                     {row.actor
                       ? `${row.actor.firstName} ${row.actor.lastName}`.trim() ||
                         row.actor.email
-                      : 'Someone'}
+                      : t('activity.someone')}
                   </td>
-                  <td className="p-3">{activityActionLabel(row.action)}</td>
+                  <td className="p-3">{activityActionLabel(row.action, t)}</td>
                   <td className="p-3">
                     {row.targetType}
                     {row.targetId ? `: ${row.targetId}` : ''}
                   </td>
-                  <td className="p-3">{formatActivity(row)}</td>
+                  <td className="p-3">{formatActivity(row, t)}</td>
                 </tr>
               ))}
             </tbody>
@@ -231,7 +241,7 @@ function AuditLogPage() {
           disabled={activity.isFetchingNextPage}
           onClick={() => void activity.fetchNextPage()}
         >
-          Load more
+          {t('orgSettings.loadMore')}
         </Button>
       ) : null}
     </div>

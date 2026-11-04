@@ -11,6 +11,8 @@ import {
   type DayButton,
 } from 'react-day-picker';
 import { Button, buttonVariants } from '~/components/ui/button';
+import { dateFnsLocale } from '~/lib/i18n/date-locale';
+import { useLocale } from '~/lib/i18n/provider';
 import { cn } from '~/lib/utils';
 
 function Calendar({
@@ -26,9 +28,11 @@ function Calendar({
   buttonVariant?: React.ComponentProps<typeof Button>['variant'];
 }) {
   const defaultClassNames = getDefaultClassNames();
+  const locale = useLocale();
 
   return (
     <DayPicker
+      locale={dateFnsLocale(locale)}
       showOutsideDays={showOutsideDays}
       className={cn(
         'group/calendar bg-background p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
@@ -39,7 +43,7 @@ function Calendar({
       captionLayout={captionLayout}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString('default', { month: 'short' }),
+          date.toLocaleString(locale, { month: 'short' }),
         ...formatters,
       }}
       classNames={{
@@ -180,6 +184,7 @@ function CalendarDayButton({
   ...props
 }: React.ComponentProps<typeof DayButton>) {
   const defaultClassNames = getDefaultClassNames();
+  const locale = useLocale();
   const ref = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -193,7 +198,7 @@ function CalendarDayButton({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString()}
+      data-day={day.date.toLocaleDateString(locale)}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

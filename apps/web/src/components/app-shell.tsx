@@ -181,7 +181,9 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
-                  <DropdownMenuLabel>{t('nav.organizations')}</DropdownMenuLabel>
+                  <DropdownMenuLabel>
+                    {t('nav.organizations')}
+                  </DropdownMenuLabel>
                   {organizations.data?.organizations.map((org) => (
                     <DropdownMenuItem
                       key={org.id}
@@ -313,7 +315,9 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={toggle}>
                       {theme === 'dark' ? <Sun /> : <Moon />}
-                      {theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}
+                      {theme === 'dark'
+                        ? t('nav.lightMode')
+                        : t('nav.darkMode')}
                     </DropdownMenuItem>
                     <LanguageMenuItems />
                     <DropdownMenuItem

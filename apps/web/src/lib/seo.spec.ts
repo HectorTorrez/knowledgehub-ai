@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  absoluteUrl,
-  pageHead,
-  resolveSiteUrl,
-  SITE_NAME,
-} from './seo';
+import { absoluteUrl, pageHead, resolveSiteUrl, SITE_NAME } from './seo';
 
 describe('resolveSiteUrl', () => {
   it('returns the origin for an absolute http(s) URL', () => {

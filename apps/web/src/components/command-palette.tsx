@@ -208,7 +208,8 @@ export function CommandPalette({
                         )
                       }
                     >
-                      {conversation.title ?? t('commandPalette.untitledConversation')}
+                      {conversation.title ??
+                        t('commandPalette.untitledConversation')}
                     </CommandItem>
                   ))}
                 </CommandGroup>
