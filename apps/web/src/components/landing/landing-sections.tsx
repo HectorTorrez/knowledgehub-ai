@@ -13,7 +13,6 @@ import { Brand } from '~/components/brand';
 import { SectionHeading } from '~/components/landing/section-heading';
 import { Button } from '~/components/ui/button';
 import { useT } from '~/lib/i18n/hooks';
-import { cn } from '~/lib/utils';
 
 const howItWorksSteps = [
   { key: 'create', icon: Building2 },
@@ -25,25 +24,10 @@ const securityPoints = ['membership', 'roles', 'files', 'audit'] as const;
 
 const CONTACT_EMAIL_HREF = 'mailto:hector.buruca80@gmail.com';
 
-const pricingPlans = [
-  {
-    id: 'free',
-    available: true,
-    href: '/register',
-    features: ['citedAnswers', 'documentSearch', 'organizationWorkspace'],
-  },
-  {
-    id: 'team',
-    available: false,
-    href: CONTACT_EMAIL_HREF,
-    features: ['teamCollaboration', 'sharedKnowledge'],
-  },
-  {
-    id: 'enterprise',
-    available: false,
-    href: CONTACT_EMAIL_HREF,
-    features: ['organizationWorkspaces', 'knowledgeDiscovery'],
-  },
+const freePlanFeatures = [
+  'citedAnswers',
+  'documentSearch',
+  'organizationWorkspace',
 ] as const;
 
 const faqItems = ['formats', 'citations', 'access', 'price'] as const;
@@ -53,10 +37,7 @@ export function LandingHowItWorks() {
   return (
     <section id="how-it-works" className="scroll-mt-20 border-y bg-muted/30">
       <div className="mx-auto max-w-7xl px-5 py-24">
-        <SectionHeading
-          eyebrow={t('landing.howItWorks.eyebrow')}
-          title={t('landing.howItWorks.title')}
-        />
+        <SectionHeading title={t('landing.howItWorks.title')} />
         <div className="relative mt-14">
           <div
             aria-hidden="true"
@@ -94,7 +75,6 @@ export function LandingSecurity() {
         <div>
           <SectionHeading
             align="start"
-            eyebrow={t('landing.isolation.eyebrow')}
             title={t('landing.isolation.title')}
             description={t('landing.isolation.text')}
           />
@@ -127,62 +107,41 @@ export function LandingPricing() {
   return (
     <section id="pricing" className="scroll-mt-20 border-y bg-muted/30">
       <div className="mx-auto max-w-7xl px-5 py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            {t('landing.pricing.title')}
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            {t('landing.pricing.description')}
+        <SectionHeading
+          title={t('landing.pricing.title')}
+          description={t('landing.pricing.description')}
+        />
+        <article className="mx-auto mt-14 flex max-w-md flex-col rounded-2xl border border-brand/50 bg-card p-8 shadow-xl shadow-brand/10 ring-1 ring-brand/30">
+          <h3 className="text-lg font-semibold">
+            {t('landing.pricing.plans.free')}
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t('landing.pricing.summaries.free')}
           </p>
-        </div>
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {pricingPlans.map((plan) => (
-            <article
-              key={plan.id}
-              className={cn(
-                'relative flex flex-col rounded-2xl border bg-card p-8',
-                plan.available &&
-                  'border-brand/50 shadow-xl shadow-brand/10 ring-1 ring-brand/30',
-              )}
-            >
-              {plan.available && (
-                <p className="absolute -top-3 left-8 rounded-full bg-brand px-3 py-0.5 text-xs font-semibold text-brand-foreground">
-                  {t('landing.pricing.available')}
-                </p>
-              )}
-              <h3 className="text-lg font-semibold">
-                {t(`landing.pricing.plans.${plan.id}`)}
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t(`landing.pricing.summaries.${plan.id}`)}
-              </p>
-              <p className="mt-6 text-3xl font-semibold tracking-tight">
-                {plan.available
-                  ? t('landing.pricing.freePrice')
-                  : t('landing.pricing.comingSoon')}
-              </p>
-              <ul className="mt-6 flex-1 space-y-3 text-sm">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2">
-                    <Check className="size-4 shrink-0 text-brand" />
-                    {t(`landing.pricing.features.${feature}`)}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                asChild
-                className="mt-8"
-                variant={plan.available ? 'default' : 'outline'}
-              >
-                <a href={plan.href}>
-                  {plan.available
-                    ? t('landing.pricing.getStarted')
-                    : t('landing.pricing.talkToUs')}
-                </a>
-              </Button>
-            </article>
-          ))}
-        </div>
+          <p className="mt-6 text-3xl font-semibold tracking-tight">
+            {t('landing.pricing.freePrice')}
+          </p>
+          <ul className="mt-6 space-y-3 text-sm">
+            {freePlanFeatures.map((feature) => (
+              <li key={feature} className="flex items-center gap-2">
+                <Check className="size-4 shrink-0 text-brand" />
+                {t(`landing.pricing.features.${feature}`)}
+              </li>
+            ))}
+          </ul>
+          <Button asChild className="mt-8">
+            <Link to="/register">{t('landing.pricing.getStarted')}</Link>
+          </Button>
+        </article>
+        <p className="mt-8 text-center text-sm text-muted-foreground">
+          {t('landing.pricing.waitlistText')}{' '}
+          <a
+            href={CONTACT_EMAIL_HREF}
+            className="font-medium text-foreground underline underline-offset-4 hover:text-brand"
+          >
+            {t('landing.pricing.waitlistAction')}
+          </a>
+        </p>
       </div>
     </section>
   );
@@ -193,10 +152,7 @@ export function LandingFaq() {
   return (
     <section id="faq" className="scroll-mt-20">
       <div className="mx-auto max-w-3xl px-5 py-24">
-        <SectionHeading
-          eyebrow={t('landing.faq.eyebrow')}
-          title={t('landing.faq.title')}
-        />
+        <SectionHeading title={t('landing.faq.title')} />
         <div className="mt-12 divide-y rounded-2xl border bg-card">
           {faqItems.map((item) => (
             <details key={item} className="group px-6">
@@ -219,11 +175,7 @@ export function LandingCta() {
   const t = useT();
   return (
     <section className="mx-auto max-w-7xl px-5 pb-24">
-      <div className="relative isolate overflow-hidden rounded-3xl bg-primary px-6 py-16 text-center text-primary-foreground sm:px-12">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_0%,rgb(255_255_255/0.18),transparent_45%),radial-gradient(circle_at_80%_100%,rgb(255_255_255/0.12),transparent_40%)]"
-        />
+      <div className="rounded-3xl bg-primary px-6 py-16 text-center text-primary-foreground sm:px-12">
         <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
           {t('landing.cta.title')}
         </h2>
@@ -269,6 +221,16 @@ export function LandingFooter() {
             <li>
               <a className={linkClass} href="#features">
                 {t('landing.nav.features')}
+              </a>
+            </li>
+            <li>
+              <a className={linkClass} href="#how-it-works">
+                {t('landing.nav.howItWorks')}
+              </a>
+            </li>
+            <li>
+              <a className={linkClass} href="#pricing">
+                {t('landing.nav.pricing')}
               </a>
             </li>
             <li>

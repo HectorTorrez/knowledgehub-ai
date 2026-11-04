@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "KnowledgeHub AI — system architecture",
+    "output": ".archify/architecture-knowledgehub-20261026-102049/knowledgehub-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/HectorTorrez/knowledgehub-ai",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "83ba237839e0080cc3ae79e2c6f3d834601db47d"
+    }
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Organization members",
+      "sublabel": "browser session",
+      "icon": "person",
+      "pos": [20, 360],
+      "size": [140, 64]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web app",
+      "sublabel": "TanStack Start · :3000",
+      "tag": "React 19",
+      "pos": [220, 348],
+      "size": [165, 84],
+      "sources": [
+        { "path": "apps/web/vite.config.ts", "line": 6, "end_line": 18, "label": "Vite + TanStack Start" },
+        { "path": "apps/web/src/router.tsx", "line": 15, "end_line": 38, "label": "Router + Query" },
+        { "path": "apps/web/src/lib/api/client.ts", "line": 124, "end_line": 131, "label": "cookie API client" }
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "Session + tenant gates",
+      "sublabel": "cookie · CSRF · membership",
+      "tag": "on every tenant route",
+      "pos": [455, 350],
+      "size": [175, 68],
+      "sources": [
+        { "path": "apps/api/src/auth/session.guard.ts", "line": 34, "end_line": 68, "label": "session validation" },
+        { "path": "apps/api/src/organizations/organization-membership.guard.ts", "line": 27, "end_line": 60, "label": "membership lookup" },
+        { "path": "apps/api/src/auth/csrf.guard.ts", "line": 45, "end_line": 80, "label": "CSRF guard" }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "NestJS API",
+      "sublabel": "REST + NDJSON · in-process worker",
+      "tag": "16 feature folders",
+      "pos": [730, 330],
+      "size": [205, 110],
+      "sources": [
+        { "path": "apps/api/src/main.ts", "line": 15, "end_line": 36, "label": "bootstrap + middleware" },
+        { "path": "apps/api/src/app.module.ts", "line": 20, "end_line": 36, "label": "feature modules" },
+        { "path": "apps/api/src/processing/processing-worker.service.ts", "line": 67, "end_line": 74, "label": "in-process worker" }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL 17",
+      "sublabel": "pgvector · Prisma",
+      "tag": "15 models",
+      "pos": [1035, 330],
+      "size": [165, 110],
+      "sources": [
+        { "path": "compose.yaml", "line": 4, "end_line": 15, "label": "pgvector image" },
+        { "path": "apps/api/prisma/schema.prisma", "line": 351, "end_line": 382, "label": "chunk + 1536-d vector" },
+        { "path": "apps/api/src/retrieval/retrieval.service.ts", "line": 60, "end_line": 97, "label": "tenant-scoped cosine SQL" }
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis 7",
+      "sublabel": "rate-limit windows",
+      "tag": "optional",
+      "pos": [455, 170],
+      "size": [170, 70],
+      "sources": [
+        { "path": "compose.yaml", "line": 84, "end_line": 96, "label": "redis service" },
+        { "path": "apps/api/src/rate-limit/rate-limit.store.ts", "line": 66, "end_line": 104, "label": "shared windows + fallback" }
+      ]
+    },
+    {
+      "id": "openai",
+      "type": "external",
+      "label": "OpenAI API",
+      "sublabel": "embeddings + answers",
+      "tag": "single provider",
+      "pos": [730, 120],
+      "size": [210, 80],
+      "sources": [
+        { "path": "apps/api/src/answers/openai-answer-provider.ts", "line": 363, "end_line": 390, "label": "chat completions" },
+        { "path": "apps/api/src/embeddings/openai-embedding-provider.ts", "line": 160, "end_line": 180, "label": "embeddings" },
+        { "path": "apps/api/src/answers/answer-policy.ts", "line": 1, "end_line": 19, "label": "model + budgets" }
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "cloud",
+      "label": "Object storage",
+      "sublabel": "S3-compatible · MinIO",
+      "tag": "presigned uploads",
+      "pos": [730, 520],
+      "size": [190, 80],
+      "sources": [
+        { "path": "compose.yaml", "line": 32, "end_line": 50, "label": "MinIO-compatible service" },
+        { "path": "apps/api/src/storage/s3-object-storage.ts", "line": 105, "end_line": 127, "label": "presigned PUT" },
+        { "path": "apps/api/src/documents/documents.service.ts", "line": 324, "end_line": 355, "label": "upload URL + staging key" }
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Document worker",
+      "sublabel": "leases · chunk · embed",
+      "tag": "in-process · opt-in",
+      "pos": [730, 710],
+      "size": [190, 90],
+      "sources": [
+        { "path": "apps/api/src/processing/processing-worker.service.ts", "line": 90, "end_line": 145, "label": "claim + process + publish" },
+        { "path": "apps/api/src/processing/processing-job.service.ts", "line": 79, "end_line": 99, "label": "lease claim with SKIP LOCKED" },
+        { "path": "apps/api/src/processing/chunking.policy.ts", "line": 1, "end_line": 5, "label": "1600/320 chunk policy" }
+      ]
+    }
+  ],
+  "connections": [
+    { "id": "members-to-web", "from": "users", "to": "web", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "web-to-gate", "from": "web", "to": "gate", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "gate-to-api", "from": "gate", "to": "api", "label": "authorized", "variant": "emphasis" },
+    { "id": "api-to-postgres", "from": "api", "to": "postgres", "label": "org-scoped", "variant": "emphasis" },
+    { "id": "api-to-redis", "from": "api", "to": "redis", "label": "rate windows", "fromSide": "left", "toSide": "right", "via": [[690, 385], [690, 205], [625, 205]] },
+    { "id": "api-to-openai", "from": "api", "to": "openai", "label": "chat + embeddings", "fromSide": "top", "toSide": "bottom" },
+    { "id": "api-to-storage", "from": "api", "to": "storage", "label": "presign", "fromSide": "bottom", "toSide": "top" },
+    { "id": "web-to-storage", "from": "web", "to": "storage", "label": "presigned PUT", "variant": "dashed", "fromSide": "bottom", "toSide": "left", "via": [[302.5, 560], [730, 560]] },
+    { "id": "worker-to-storage", "from": "worker", "to": "storage", "label": "read verified", "fromSide": "top", "toSide": "bottom" },
+    { "id": "worker-to-postgres", "from": "worker", "to": "postgres", "label": "chunks", "fromSide": "right", "toSide": "bottom", "via": [[980, 755], [980, 470], [1117.5, 470], [1117.5, 440]] }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Request path",
+      "items": [
+        "Tenant comes from the route; the body cannot select an organization",
+        "SessionGuard verifies the JWT and the live session row",
+        "Membership is re-read on every tenant request; foreign ids return 404",
+        "CSRF double-submit protects unsafe cookie requests"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Ingestion",
+      "items": [
+        "API signs a presigned PUT; bytes travel browser → object storage",
+        "Verification checks ≤25 MiB, declared vs real type, and PDF/UTF-8 signature",
+        "Generation increments; a leased job extracts, chunks 1600/320, embeds 1536-d",
+        "Publish is fenced by lease + generation; retries back off to 60 s, max 5"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Answering",
+      "items": [
+        "Query embedded once; pgvector top-k filtered by org, READY, generation",
+        "8 sources / 24k chars; minimum similarity 0.20; recent-document catalog",
+        "Model returns a JSON claim contract; server validates every citation marker",
+        "Persist only on success; NDJSON streams status → delta → citations"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "State & providers",
+      "items": [
+        "Postgres holds tenant data, extracted pages, chunks, jobs, facts, usage",
+        "Redis shares rate windows; without it the fallback is per-process",
+        "Prompts carry the question, prior turns, passages, and document titles",
+        "No OCR: image-only PDFs fail as NO_EXTRACTABLE_TEXT"
+      ]
+    }
+  ]
+}

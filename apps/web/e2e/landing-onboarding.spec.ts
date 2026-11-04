@@ -26,7 +26,7 @@ test('checklist shows progress and remembers dismissal', async ({ page }) => {
   await mockApi(page, { authenticated: true, empty: true });
   await page.goto('/organizations/org-1');
   await expect(page.getByText('Upload your first document')).toBeVisible();
-  await expect(page.getByLabel('Not complete')).toHaveCount(4);
+  await expect(page.getByText('Not complete')).toHaveCount(4);
   await page.getByRole('button', { name: 'Dismiss' }).click();
   await page.reload();
   await expect(page.getByText('Upload your first document')).toHaveCount(0);

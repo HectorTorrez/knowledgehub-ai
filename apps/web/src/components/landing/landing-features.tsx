@@ -3,7 +3,6 @@ import {
   BookOpen,
   FileSearch,
   FileText,
-  Files,
   Search,
   Sparkles,
   Users,
@@ -11,7 +10,6 @@ import {
 import type { ReactNode } from 'react';
 import { SectionHeading } from '~/components/landing/section-heading';
 import { useT } from '~/lib/i18n/hooks';
-import { cn } from '~/lib/utils';
 
 const FILE_FORMATS = ['PDF', 'DOCX', 'Markdown'] as const;
 const ROLES = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'] as const;
@@ -20,22 +18,15 @@ function FeatureCard({
   icon: Icon,
   title,
   text,
-  className,
   children,
 }: Readonly<{
   icon: LucideIcon;
   title: string;
   text: string;
-  className?: string;
   children: ReactNode;
 }>) {
   return (
-    <article
-      className={cn(
-        'group flex flex-col overflow-hidden rounded-2xl border bg-card transition-shadow hover:shadow-lg hover:shadow-brand/5',
-        className,
-      )}
-    >
+    <article className="flex flex-col overflow-hidden rounded-2xl border bg-card">
       <div className="flex-1 border-b bg-muted/30 p-5">{children}</div>
       <div className="p-6">
         <div className="flex items-center gap-3">
@@ -66,7 +57,7 @@ function AnswersVisual() {
           </span>
         </div>
       </div>
-      <div className="rounded-lg border bg-card p-3 shadow-sm transition-transform group-hover:-translate-y-0.5">
+      <div className="rounded-lg border bg-card p-3 shadow-sm">
         <p className="text-xs font-semibold text-brand">
           {t('landing.features.answers.source')}
         </p>
@@ -174,32 +165,6 @@ function WorkspacesVisual() {
   );
 }
 
-function DocumentsVisual() {
-  return (
-    <div
-      aria-hidden="true"
-      className="flex h-full items-center justify-center gap-3"
-    >
-      {FILE_FORMATS.map((format, index) => (
-        <div
-          key={format}
-          className="flex h-24 w-20 flex-col justify-between rounded-lg border bg-card p-2 shadow-sm transition-transform group-hover:-translate-y-1"
-          style={{ transitionDelay: `${index * 60}ms` }}
-        >
-          <div className="space-y-1">
-            <div className="h-1.5 w-full rounded-full bg-foreground/10" />
-            <div className="h-1.5 w-3/4 rounded-full bg-foreground/10" />
-            <div className="h-1.5 w-5/6 rounded-full bg-foreground/10" />
-          </div>
-          <span className="w-fit rounded bg-brand/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-brand">
-            {format}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function LandingFormats() {
   const t = useT();
   return (
@@ -214,7 +179,7 @@ export function LandingFormats() {
               key={format}
               className="flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-sm font-medium"
             >
-              <Files className="size-4 text-brand" />
+              <FileText className="size-4 text-brand" />
               {format}
             </li>
           ))}
@@ -230,16 +195,14 @@ export function LandingFeatures() {
     <section id="features" className="scroll-mt-20">
       <div className="mx-auto max-w-7xl px-5 py-24">
         <SectionHeading
-          eyebrow={t('landing.features.eyebrow')}
           title={t('landing.features.title')}
           description={t('landing.features.description')}
         />
-        <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+        <div className="mt-14 grid gap-4 md:grid-cols-2">
           <FeatureCard
             icon={Sparkles}
             title={t('landing.features.answers.title')}
             text={t('landing.features.answers.text')}
-            className="lg:col-span-3"
           >
             <AnswersVisual />
           </FeatureCard>
@@ -247,7 +210,6 @@ export function LandingFeatures() {
             icon={FileSearch}
             title={t('landing.features.search.title')}
             text={t('landing.features.search.text')}
-            className="lg:col-span-3"
           >
             <SearchVisual />
           </FeatureCard>
@@ -255,7 +217,6 @@ export function LandingFeatures() {
             icon={BookOpen}
             title={t('landing.features.insights.title')}
             text={t('landing.features.insights.text')}
-            className="lg:col-span-2"
           >
             <InsightsVisual />
           </FeatureCard>
@@ -263,17 +224,8 @@ export function LandingFeatures() {
             icon={Users}
             title={t('landing.features.workspaces.title')}
             text={t('landing.features.workspaces.text')}
-            className="lg:col-span-2"
           >
             <WorkspacesVisual />
-          </FeatureCard>
-          <FeatureCard
-            icon={Files}
-            title={t('landing.features.documents.title')}
-            text={t('landing.features.documents.text')}
-            className="md:col-span-2 lg:col-span-2"
-          >
-            <DocumentsVisual />
           </FeatureCard>
         </div>
       </div>

@@ -33,3 +33,5 @@ export function applyTheme(theme: Theme): void {
     new CustomEvent<Theme>(THEME_CHANGE_EVENT, { detail: theme }),
   );
 }
+
+export const themeBootstrapScript = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;

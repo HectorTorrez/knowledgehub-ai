@@ -64,7 +64,10 @@ test('signs in and browses an organization', async ({ page }) => {
   await expect(page.getByText('Your role').locator('..')).toContainText(
     'Owner',
   );
-  await expect(page.getByText('Created', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Recent documents' }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Handbook' })).toBeVisible();
 
   if (test.info().project.name === 'mobile') {
     await page.getByRole('button', { name: 'Toggle Sidebar' }).click();

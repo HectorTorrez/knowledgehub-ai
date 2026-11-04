@@ -151,12 +151,11 @@ export const en = {
       pricing: 'Pricing',
       faq: 'FAQ',
       logIn: 'Log in',
-      getStarted: 'Get started',
+      getStarted: 'Create free account',
       openMenu: 'Open menu',
       menu: 'Menu',
     },
     hero: {
-      badge: 'Cited answers from your own documents',
       titleLead: 'Your documents have answers.',
       titleAccent: 'Find them faster.',
       description:
@@ -196,7 +195,6 @@ export const en = {
       title: 'Works with the files your team already has',
     },
     features: {
-      eyebrow: 'Features',
       title: 'Knowledge that works for your team',
       description:
         'Everything you need to find and use the information you already have.',
@@ -226,13 +224,8 @@ export const en = {
         title: 'A workspace for every team',
         text: 'Keep organizations separate and manage access with member roles.',
       },
-      documents: {
-        title: 'Bring your documents',
-        text: 'Work with PDF, Word, and Markdown files in one place.',
-      },
     },
     howItWorks: {
-      eyebrow: 'How it works',
       title: 'From files to answers in three steps',
       createTitle: 'Create a workspace',
       createText: 'Give your team a dedicated place for its knowledge.',
@@ -243,7 +236,6 @@ export const en = {
       askText: 'Get cited answers and explore insights from your sources.',
     },
     isolation: {
-      eyebrow: 'Security',
       title: 'Your workspace, your data',
       text: 'Organizations are isolated from one another. Your documents and answers stay in your workspace, accessible to its members.',
       points: {
@@ -258,32 +250,22 @@ export const en = {
       title: 'Pricing',
       description: 'Start free today. Team plans are on the way.',
       freePrice: '$0',
-      comingSoon: 'Coming soon',
-      available: 'Available now',
-      talkToUs: 'Talk to us',
-      getStarted: 'Get started',
+      getStarted: 'Create free account',
+      waitlistText: 'Need Team or Enterprise plans?',
+      waitlistAction: 'Join the waitlist',
       plans: {
         free: 'Free',
-        team: 'Team',
-        enterprise: 'Enterprise',
       },
       summaries: {
         free: 'For individuals and small teams getting started.',
-        team: 'For teams that share knowledge every day.',
-        enterprise: 'For organizations with many workspaces.',
       },
       features: {
         citedAnswers: 'Cited answers',
         documentSearch: 'Document search',
         organizationWorkspace: 'Organization workspace',
-        teamCollaboration: 'Team collaboration',
-        sharedKnowledge: 'Shared knowledge',
-        organizationWorkspaces: 'Organization workspaces',
-        knowledgeDiscovery: 'Knowledge discovery',
       },
     },
     faq: {
-      eyebrow: 'FAQ',
       title: 'Questions, answered',
       formats: {
         question: 'Which files can I upload?',
@@ -309,8 +291,8 @@ export const en = {
     cta: {
       title: 'Put your knowledge to work',
       description: 'Create a workspace and start asking better questions.',
-      getStarted: 'Get started',
-      logIn: 'I already have an account',
+      getStarted: 'Create free account',
+      logIn: 'Log in',
     },
     footer: {
       tagline: "Your team's knowledge, in one place.",
@@ -452,9 +434,10 @@ export const en = {
   },
   orgSettings: {
     pageTitle: 'Settings · KnowledgeHub AI',
-    pageDescription: 'Rename, leave, or delete this organization.',
+    pageDescription: 'Manage this organization’s members, name, and usage.',
     title: 'Settings',
-    description: 'Manage this organization’s name and your membership.',
+    description:
+      'Manage this organization’s members, name, and your membership.',
     loadError: 'Unable to load settings',
     renamed: 'Organization renamed',
     renamedDescription: 'It is now “{name}”.',
@@ -582,7 +565,7 @@ export const en = {
   overview: {
     pageTitle: 'Overview · KnowledgeHub AI',
     pageDescription:
-      'Manage the members and roles with access to this organization.',
+      'See recent documents, members, and answer usage for this organization.',
     defaultTitle: 'Organization',
     description:
       "Your organization at a glance: documents, members, and today's answer usage.",
@@ -600,7 +583,6 @@ export const en = {
     statReadyDocuments: 'Ready documents',
     statMembers: 'Members',
     statYourRole: 'Your role',
-    statCreated: 'Created',
     uploadDocument: 'Upload a document',
     askQuestion: 'Ask a question',
     searchDocuments: 'Search documents',
@@ -609,6 +591,16 @@ export const en = {
       'Answers reset at midnight UTC. The limit is shared by everyone in this organization.',
     answersOf: '{used} of {limit} answers',
     resetsOn: 'Resets {date}',
+    recentDocuments: 'Recent documents',
+    recentDocumentsDescription:
+      'The latest uploads and where they are in processing.',
+    recentDocumentsLoadError: 'Unable to load documents',
+    noRecentDocuments: 'No documents yet',
+    noRecentDocumentsDescription:
+      'Upload a PDF, Word, or Markdown file to start asking questions.',
+    viewAllDocuments: 'View all documents',
+  },
+  members: {
     membersTitle: 'Members',
     membersDescription:
       'People who can access this organization. If someone has no account yet, adding them creates a shareable invitation.',
@@ -635,7 +627,6 @@ export const en = {
     done: 'Done',
     role: 'Role',
     adding: 'Adding…',
-    addOrInvite: 'Add or invite',
     pendingInvitations: 'Pending invitations',
     pendingDescription: 'Invitations that have not been accepted yet.',
     invitationsLoadError: 'Unable to load invitations',
@@ -659,6 +650,18 @@ export const en = {
     linkCopied: 'Invitation link copied',
     copyFailed: 'Could not copy the link',
     copyFailedDescription: 'Select the link and copy it manually.',
+    createInvitation: 'Create invitation',
+    roleHintMember:
+      'People with an account join right away. Anyone else gets an invitation link.',
+    roleHintInvite: 'This creates an invitation link you can share.',
+    changeRoleTitle: 'Change role?',
+    changeRoleDescription: '{name} will go from {from} to {to}.',
+    changeRoleOwnerDescription:
+      '{name} will become an owner, with full access to this organization.',
+    changeRole: 'Change role',
+    revokeTitle: 'Revoke invitation?',
+    revokeDescription: 'The invitation link sent to {email} will stop working.',
+    revoking: 'Revoking…',
   },
   documentFailure: {
     EMPTY_OBJECT: {

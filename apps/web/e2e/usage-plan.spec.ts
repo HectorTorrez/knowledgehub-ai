@@ -30,7 +30,10 @@ test('pricing is reachable from the landing navigation', async ({
   test.skip(isMobile, 'The landing navigation is shown on desktop');
   await mockApi(page, { authenticated: false });
   await page.goto('/');
-  await page.getByRole('link', { name: 'Pricing', exact: true }).click();
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: 'Pricing', exact: true })
+    .click();
   await expect(page).toHaveURL(/#pricing$/);
   await expect(page.getByRole('heading', { name: 'Pricing' })).toBeVisible();
 });

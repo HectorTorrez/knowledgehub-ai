@@ -154,7 +154,7 @@ test('gives document and member names room on small screens', async ({
   expect(documentBox).not.toBeNull();
   expect(documentBox!.width).toBeGreaterThan(160);
 
-  await page.goto('/organizations/org-1');
+  await page.goto('/organizations/org-1/settings');
   await page.waitForLoadState('networkidle');
 
   const memberName = page.locator('main li p').first();
