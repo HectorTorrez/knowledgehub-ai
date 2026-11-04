@@ -9,6 +9,14 @@ import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { DatePicker } from '~/components/date-picker';
 import { PageHeader } from '~/components/page-header';
 import { Button } from '~/components/ui/button';
+import { Label } from '~/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { activityApi } from '~/lib/api/activity';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -120,38 +128,44 @@ function AuditLogPage() {
         description={t('auditLog.description')}
       />
       <div className="flex flex-wrap gap-3">
-        <label>
-          {t('auditLog.action')}{' '}
-          <select
-            aria-label={t('auditLog.action')}
-            value={action}
-            onChange={(event) => setAction(event.target.value)}
-            className="rounded-md border p-2"
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="audit-action">{t('auditLog.action')}</Label>
+          <Select
+            value={action || 'all'}
+            onValueChange={(value) => setAction(value === 'all' ? '' : value)}
           >
-            <option value="">{t('auditLog.allActions')}</option>
-            {actions.map((value) => (
-              <option key={value} value={value}>
-                {activityActionLabel(value, t)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t('auditLog.actor')}{' '}
-          <select
-            aria-label={t('auditLog.actor')}
-            value={actorId}
-            onChange={(event) => setActorId(event.target.value)}
-            className="rounded-md border p-2"
+            <SelectTrigger id="audit-action" className="w-full sm:w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('auditLog.allActions')}</SelectItem>
+              {actions.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {activityActionLabel(value, t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="audit-actor">{t('auditLog.actor')}</Label>
+          <Select
+            value={actorId || 'all'}
+            onValueChange={(value) => setActorId(value === 'all' ? '' : value)}
           >
-            <option value="">{t('auditLog.allActors')}</option>
-            {members.data?.members.map((member) => (
-              <option key={member.userId} value={member.userId}>
-                {member.firstName} {member.lastName} ({member.email})
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger id="audit-actor" className="w-full sm:w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('auditLog.allActors')}</SelectItem>
+              {members.data?.members.map((member) => (
+                <SelectItem key={member.userId} value={member.userId}>
+                  {member.firstName} {member.lastName} ({member.email})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <DatePicker
           ariaLabel={t('auditLog.fromDate')}
           value={from}

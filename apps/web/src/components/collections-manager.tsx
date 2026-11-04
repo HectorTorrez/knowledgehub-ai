@@ -7,6 +7,14 @@ import { useReportError } from '~/hooks/use-error-toast';
 import { useT } from '~/lib/i18n/hooks';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Label } from './ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import {
   Dialog,
   DialogContent,
@@ -112,20 +120,27 @@ export function CollectionsManager({
             onChange={(event) => setName(event.target.value)}
             maxLength={255}
           />
-          <label className="block text-sm">
-            {t('collections.color')}
-            <select
-              className="ml-2 rounded border p-2"
-              value={color}
-              onChange={(event) => setColor(event.target.value)}
-            >
-              {colors.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="space-y-1.5">
+            <Label htmlFor="collection-color">{t('collections.color')}</Label>
+            <Select value={color} onValueChange={setColor}>
+              <SelectTrigger id="collection-color" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {colors.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="size-3 rounded-full"
+                        style={{ backgroundColor: value }}
+                      />
+                      {value}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={mutation.isPending || !name.trim()}>
               {editing ? t('collections.save') : t('collections.create')}
