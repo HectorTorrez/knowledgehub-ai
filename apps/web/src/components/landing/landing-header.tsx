@@ -16,11 +16,11 @@ import {
 import { useT } from '~/lib/i18n/hooks';
 
 const sectionLinks = [
-  { href: '#features', key: 'features' },
-  { href: '#how-it-works', key: 'howItWorks' },
-  { href: '#security', key: 'security' },
-  { href: '#pricing', key: 'pricing' },
-  { href: '#faq', key: 'faq' },
+  { href: '/#features', key: 'features' },
+  { href: '/#how-it-works', key: 'howItWorks' },
+  { href: '/#security', key: 'security' },
+  { href: '/#pricing', key: 'pricing' },
+  { href: '/#faq', key: 'faq' },
 ] as const;
 
 export function LandingHeader() {

@@ -5,13 +5,14 @@ import {
   Check,
   ChevronDown,
   FileUp,
-  LockKeyhole,
   MessageSquareText,
   ShieldCheck,
 } from 'lucide-react';
 import { Brand } from '~/components/brand';
 import { SectionHeading } from '~/components/landing/section-heading';
+import { RequestCheckpoints } from '~/components/security/request-checkpoints';
 import { Button } from '~/components/ui/button';
+import { CONTACT_EMAIL_HREF } from '~/lib/contact';
 import { useT } from '~/lib/i18n/hooks';
 
 const howItWorksSteps = [
@@ -21,8 +22,6 @@ const howItWorksSteps = [
 ] as const;
 
 const securityPoints = ['membership', 'roles', 'files', 'audit'] as const;
-
-const CONTACT_EMAIL_HREF = 'mailto:hector.buruca80@gmail.com';
 
 const freePlanFeatures = [
   'citedAnswers',
@@ -71,32 +70,28 @@ export function LandingSecurity() {
   const t = useT();
   return (
     <section id="security" className="scroll-mt-20">
-      <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-24 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-24 lg:grid-cols-2 lg:gap-16">
         <div>
           <SectionHeading
             align="start"
             title={t('landing.isolation.title')}
             description={t('landing.isolation.text')}
           />
-          <Button asChild variant="link" className="mt-4 px-0">
+          <ul className="mt-8 space-y-3">
+            {securityPoints.map((point) => (
+              <li key={point} className="flex gap-3 text-sm">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
+                <span>{t(`landing.isolation.points.${point}`)}</span>
+              </li>
+            ))}
+          </ul>
+          <Button asChild variant="outline" className="mt-8">
             <Link to="/security">
               {t('landing.isolation.learnMore')} <ArrowRight />
             </Link>
           </Button>
         </div>
-        <div className="relative rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
-          <span className="absolute -top-5 left-6 flex size-10 items-center justify-center rounded-xl bg-brand text-brand-foreground shadow-lg shadow-brand/20 sm:left-8">
-            <LockKeyhole className="size-5" />
-          </span>
-          <ul className="mt-2 space-y-5">
-            {securityPoints.map((point) => (
-              <li key={point} className="flex gap-3">
-                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-success" />
-                <span>{t(`landing.isolation.points.${point}`)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <RequestCheckpoints />
       </div>
     </section>
   );
@@ -219,22 +214,22 @@ export function LandingFooter() {
           <p className="text-sm font-semibold">{t('landing.footer.product')}</p>
           <ul className="space-y-2">
             <li>
-              <a className={linkClass} href="#features">
+              <a className={linkClass} href="/#features">
                 {t('landing.nav.features')}
               </a>
             </li>
             <li>
-              <a className={linkClass} href="#how-it-works">
+              <a className={linkClass} href="/#how-it-works">
                 {t('landing.nav.howItWorks')}
               </a>
             </li>
             <li>
-              <a className={linkClass} href="#pricing">
+              <a className={linkClass} href="/#pricing">
                 {t('landing.nav.pricing')}
               </a>
             </li>
             <li>
-              <a className={linkClass} href="#faq">
+              <a className={linkClass} href="/#faq">
                 {t('landing.nav.faq')}
               </a>
             </li>
