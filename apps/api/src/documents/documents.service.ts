@@ -19,6 +19,7 @@ import type {
 } from '@knowledgehub/shared-types';
 import { ActivityService } from '../activity/activity.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { UsageService } from '../rate-limit/usage.service.js';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import {
   decodeListCursor,
@@ -142,12 +143,14 @@ export class DocumentsService {
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
     private readonly storageConfig: StorageConfig,
     private readonly activity: ActivityService,
+    private readonly usage: UsageService,
   ) {}
 
   async create(
     context: OrganizationContext,
     input: CreateDocumentInput,
   ): Promise<DocumentDetailResponse> {
+    await this.usage.assertDocumentCapacity(context.organizationId);
     const document = await this.prisma.document.create({
       data: {
         organizationId: context.organizationId,

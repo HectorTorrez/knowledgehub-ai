@@ -270,7 +270,28 @@ const envObjectSchema = z.object({
     .int()
     .positive()
     .default(20),
-  QUOTA_ANSWER_DAILY: z.coerce.number().int().positive().default(1000),
+  RATE_LIMIT_ANSWER_USER_PER_DAY: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30),
+  RATE_LIMIT_REGISTER_PER_HOUR: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_DOCUMENT_WRITE_USER_PER_HOUR: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(20),
+  RATE_LIMIT_ORGANIZATION_CREATE_USER_PER_DAY: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3),
+  QUOTA_ANSWER_DAILY: z.coerce.number().int().positive().default(100),
+  QUOTA_DOCUMENTS_PER_ORGANIZATION: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(25),
 
   METRICS_ENABLED: z.enum(['true', 'false']).default('false'),
 

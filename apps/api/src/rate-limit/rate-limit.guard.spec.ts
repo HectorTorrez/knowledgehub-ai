@@ -56,6 +56,14 @@ function budgetFor(name: RateLimitBudgetName): {
       return { scope: 'user', limit: 5, windowMs: 60_000 };
     case 'answerTenant':
       return { scope: 'tenant', limit: 20, windowMs: 60_000 };
+    case 'registerHourly':
+      return { scope: 'ip', limit: 5, windowMs: 3_600_000 };
+    case 'answerUserDaily':
+      return { scope: 'user', limit: 30, windowMs: 86_400_000 };
+    case 'documentWriteUser':
+      return { scope: 'user', limit: 20, windowMs: 3_600_000 };
+    case 'organizationCreateUser':
+      return { scope: 'user', limit: 3, windowMs: 86_400_000 };
   }
 }
 
@@ -105,7 +113,7 @@ describe('RateLimitGuard', () => {
 
     await guard.canActivate(context);
 
-    expect(store.hit).toHaveBeenCalledWith('ip:1.2.3.4', 60_000);
+    expect(store.hit).toHaveBeenCalledWith('login:ip:1.2.3.4', 60_000);
   });
 
   it('keys answer user limits by the authenticated user', async () => {
@@ -117,7 +125,25 @@ describe('RateLimitGuard', () => {
 
     await guard.canActivate(context);
 
-    expect(store.hit).toHaveBeenCalledWith('user:user-1', 60_000);
+    expect(store.hit).toHaveBeenCalledWith('answerUser:user:user-1', 60_000);
+  });
+
+  it('applies the daily answer budget with a one-day window per user', async () => {
+    const { guard, store } = createGuard({
+      budgets: ['answerUser', 'answerUserDaily'],
+    });
+    const { context } = createContext({
+      ip: '1.2.3.4',
+      auth: { userId: 'user-1', sessionId: 's-1' },
+    });
+
+    await guard.canActivate(context);
+
+    expect(store.hit).toHaveBeenCalledWith('answerUser:user:user-1', 60_000);
+    expect(store.hit).toHaveBeenCalledWith(
+      'answerUserDaily:user:user-1',
+      86_400_000,
+    );
   });
 
   it('keys login account limits by a hashed normalized email', async () => {
@@ -130,7 +156,10 @@ describe('RateLimitGuard', () => {
     await guard.canActivate(context);
 
     const hash = createHash('sha256').update('user@example.com').digest('hex');
-    expect(store.hit).toHaveBeenCalledWith(`account:${hash}`, 60_000);
+    expect(store.hit).toHaveBeenCalledWith(
+      `loginAccount:account:${hash}`,
+      60_000,
+    );
   });
 
   it('skips the account budget when the request carries no email', async () => {
@@ -151,7 +180,7 @@ describe('RateLimitGuard', () => {
 
     await guard.canActivate(context);
 
-    expect(store.hit).toHaveBeenCalledWith('tenant:org-1', 60_000);
+    expect(store.hit).toHaveBeenCalledWith('answerTenant:tenant:org-1', 60_000);
   });
 
   it('skips a tenant budget when the organization context is missing', async () => {

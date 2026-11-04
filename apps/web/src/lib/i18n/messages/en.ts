@@ -147,44 +147,80 @@ export const en = {
     nav: {
       features: 'Features',
       howItWorks: 'How it works',
+      security: 'Security',
       pricing: 'Pricing',
+      faq: 'FAQ',
       logIn: 'Log in',
       getStarted: 'Get started',
+      openMenu: 'Open menu',
+      menu: 'Menu',
     },
     hero: {
-      eyebrow: 'Your knowledge, connected',
-      title: 'Your documents have answers. Find them faster.',
+      badge: 'Cited answers from your own documents',
+      titleLead: 'Your documents have answers.',
+      titleAccent: 'Find them faster.',
       description:
         "Turn your team's documents into a searchable workspace. Ask questions, discover insights, and follow every answer back to its source.",
       openingDemo: 'Opening demo…',
       tryDemo: 'Try the live demo',
       createFreeAccount: 'Create free account',
+      points: {
+        cited: 'Every answer cites its sources',
+        formats: 'PDF, Word, and Markdown',
+        private: 'Private to your organization',
+      },
     },
     sample: {
       label: 'Example of a cited answer',
-      heading: 'Ask your workspace',
+      workspace: 'Northwind Labs',
+      page: 'Ask',
+      documents: 'Documents',
+      documentOnboarding: 'Customer onboarding guide.pdf',
+      documentHandbook: 'Success team handbook.docx',
+      documentNotes: 'Kickoff checklist.md',
       question: 'What is our approach to customer onboarding?',
       answer: 'Answer',
-      text: 'Our onboarding process helps customers reach their first milestone with a guided setup, a kickoff session, and a dedicated success contact.',
-      source: 'Customer onboarding guide',
+      textLead:
+        'New customers start with a guided setup and a kickoff session in their first week',
+      textTail:
+        'Each account is then paired with a dedicated success contact who tracks the first milestone',
+      sources: 'Sources',
+      sourceOnboarding: 'Customer onboarding guide',
+      sourceHandbook: 'Success team handbook',
       quote: '“Each customer begins with a guided setup and kickoff…”',
+      grounded: 'Grounded in 2 sources',
+      searched: 'Searched 3 documents',
       placeholder: 'Ask a question about your documents…',
     },
+    formats: {
+      title: 'Works with the files your team already has',
+    },
     features: {
+      eyebrow: 'Features',
       title: 'Knowledge that works for your team',
       description:
         'Everything you need to find and use the information you already have.',
       answers: {
         title: 'Answers you can trace',
-        text: 'Get grounded answers with citations that point back to your sources.',
+        text: 'Get grounded answers with citations that point back to the exact passage in your sources.',
+        quote: '“Renewals are reviewed 60 days before the contract end date.”',
+        source: 'Contract policy · page 4',
       },
       search: {
         title: 'Search beyond keywords',
         text: 'Hybrid search brings semantic understanding and keyword precision together.',
+        query: 'renewal terms',
+        semantic: 'Meaning',
+        keyword: 'Keyword',
+        resultPolicy: 'Contract policy',
+        resultFaq: 'Customer FAQ',
       },
       insights: {
         title: 'See the bigger picture',
         text: 'Explore insights and facts extracted from your documents.',
+        factDate: 'Renewal date',
+        factOwner: 'Account owner',
+        factValue: 'Contract value',
       },
       workspaces: {
         title: 'A workspace for every team',
@@ -196,7 +232,8 @@ export const en = {
       },
     },
     howItWorks: {
-      title: 'How it works',
+      eyebrow: 'How it works',
+      title: 'From files to answers in three steps',
       createTitle: 'Create a workspace',
       createText: 'Give your team a dedicated place for its knowledge.',
       uploadTitle: 'Upload documents',
@@ -206,19 +243,34 @@ export const en = {
       askText: 'Get cited answers and explore insights from your sources.',
     },
     isolation: {
+      eyebrow: 'Security',
       title: 'Your workspace, your data',
       text: 'Organizations are isolated from one another. Your documents and answers stay in your workspace, accessible to its members.',
+      points: {
+        membership: 'Every request is checked against organization membership',
+        roles: 'Owner, Admin, Member, and Viewer roles control access',
+        files: 'Files are served through short-lived links',
+        audit: 'An audit log records membership and document changes',
+      },
+      learnMore: 'How we protect your workspace',
     },
     pricing: {
       title: 'Pricing',
-      free: 'Free',
+      description: 'Start free today. Team plans are on the way.',
+      freePrice: '$0',
       comingSoon: 'Coming soon',
+      available: 'Available now',
       talkToUs: 'Talk to us',
       getStarted: 'Get started',
       plans: {
         free: 'Free',
         team: 'Team',
         enterprise: 'Enterprise',
+      },
+      summaries: {
+        free: 'For individuals and small teams getting started.',
+        team: 'For teams that share knowledge every day.',
+        enterprise: 'For organizations with many workspaces.',
       },
       features: {
         citedAnswers: 'Cited answers',
@@ -230,14 +282,44 @@ export const en = {
         knowledgeDiscovery: 'Knowledge discovery',
       },
     },
+    faq: {
+      eyebrow: 'FAQ',
+      title: 'Questions, answered',
+      formats: {
+        question: 'Which files can I upload?',
+        answer:
+          'PDF, Word (.docx), and Markdown files. KnowledgeHub prepares them for search as soon as they are uploaded.',
+      },
+      citations: {
+        question: 'How do I know an answer is correct?',
+        answer:
+          'Every answer cites the passages it was built from. Open a citation to read the original text in its document.',
+      },
+      access: {
+        question: 'Who can see my documents?',
+        answer:
+          'Only members of your organization. Each organization is isolated, and roles decide who can upload, manage, or only read.',
+      },
+      price: {
+        question: 'Is it free?',
+        answer:
+          'Yes. The Free plan includes cited answers, document search, and an organization workspace. Team and Enterprise plans are coming soon.',
+      },
+    },
     cta: {
       title: 'Put your knowledge to work',
       description: 'Create a workspace and start asking better questions.',
       getStarted: 'Get started',
+      logIn: 'I already have an account',
     },
     footer: {
-      tagline: "KnowledgeHub AI · Your team's knowledge, in one place.",
+      tagline: "Your team's knowledge, in one place.",
+      product: 'Product',
+      account: 'Account',
+      logIn: 'Log in',
+      register: 'Create account',
       security: 'Security',
+      copyright: '© {year} KnowledgeHub AI',
     },
   },
   security: {

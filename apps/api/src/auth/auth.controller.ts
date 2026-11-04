@@ -69,7 +69,7 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @SkipCsrf()
   @UseGuards(RateLimitGuard)
-  @RateLimit('login')
+  @RateLimit('login', 'registerHourly')
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
     @Req() request: Request,

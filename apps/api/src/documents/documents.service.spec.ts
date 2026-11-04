@@ -10,6 +10,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import type { OrganizationContext } from '../organizations/organization-context.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { UsageService } from '../rate-limit/usage.service.js';
 import { StorageConfig } from '../storage/storage.config.js';
 import { ObjectVersionMismatchError } from '../storage/object-storage.port.js';
 import { FakeObjectStorage } from '../../test/support/fake-object-storage.js';
@@ -173,14 +174,16 @@ function createHarness(options: HarnessOptions = {}) {
 
   const storage = new FakeObjectStorage();
   const activity = { record: vi.fn() };
+  const usage = { assertDocumentCapacity: vi.fn(async () => undefined) };
   const service = new DocumentsService(
     prisma as unknown as PrismaService,
     storage,
     storageConfig(options.uploadTtlSeconds, options.downloadTtlSeconds),
     activity as unknown as ActivityService,
+    usage as unknown as UsageService,
   );
 
-  return { service, prisma, storage, activity };
+  return { service, prisma, storage, activity, usage };
 }
 
 function createCompletionHarness(
@@ -239,11 +242,13 @@ function createCompletionHarness(
   };
 
   const activity = { record: vi.fn() };
+  const usage = { assertDocumentCapacity: vi.fn(async () => undefined) };
   const service = new DocumentsService(
     prisma as unknown as PrismaService,
     storage,
     storageConfig(),
     activity as unknown as ActivityService,
+    usage as unknown as UsageService,
   );
 
   return {
@@ -296,6 +301,19 @@ describe('DocumentsService.create', () => {
         updatedAt: '2026-01-02T00:00:00.000Z',
       },
     });
+  });
+
+  it('does not create the document when the organization is over its document limit', async () => {
+    const { service, prisma, usage } = createHarness();
+    usage.assertDocumentCapacity.mockRejectedValueOnce(
+      new Error('document limit reached'),
+    );
+
+    await expect(
+      service.create(organizationContext(), { title: 'Quarterly report' }),
+    ).rejects.toThrow('document limit reached');
+    expect(usage.assertDocumentCapacity).toHaveBeenCalledWith('org-1');
+    expect(prisma.document.create).not.toHaveBeenCalled();
   });
 
   it('writes the organization and uploader from the authorized context, never the input', async () => {
