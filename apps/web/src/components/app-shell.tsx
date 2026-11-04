@@ -1,4 +1,5 @@
 import { CommandPalette } from '~/components/command-palette';
+import { EmailVerificationBanner } from '~/components/email-verification-banner';
 import { LanguageMenuItems } from '~/components/language-switcher';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -365,6 +366,9 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
           tabIndex={-1}
           className="mx-auto max-w-6xl px-4 py-6 focus-visible:outline-2 focus-visible:outline-ring sm:px-6 sm:py-8"
         >
+          {user !== undefined && !user.emailVerified ? (
+            <EmailVerificationBanner user={user} />
+          ) : null}
           {children}
         </main>
       </div>

@@ -1,10 +1,13 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type {
   AcceptInvitationResponse,
+  EmailLocale,
   CreateInvitationResponse,
   InvitationListResponse,
   OrganizationInvitationSummary,
@@ -13,6 +16,8 @@ import type {
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { ActivityService } from '../activity/activity.service.js';
+import { EMAIL_SENDER, type EmailSender } from '../email/email-sender.port.js';
+import { invitationEmail } from '../email/templates.js';
 import { canManageRole } from './permissions.js';
 import { requireCapability } from './require-owner.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -48,16 +53,20 @@ function toInvitationSummary(
 
 @Injectable()
 export class InvitationsService {
+  private readonly logger = new Logger(InvitationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly activity: ActivityService,
+    @Inject(EMAIL_SENDER) private readonly email: EmailSender,
   ) {}
 
   async create(
     context: OrganizationContext,
     email: string,
     role: OrganizationRole = 'MEMBER',
+    locale: EmailLocale = 'en',
   ): Promise<CreateInvitationResponse> {
     const actorRole = await this.assertManager(context);
 
@@ -89,7 +98,16 @@ export class InvitationsService {
       targetId: invitation.id,
       metadata: { email: invitation.email, role: invitation.role },
     });
+
+    const emailDelivered = await this.sendInvitationEmail(
+      context,
+      invitation,
+      token,
+      locale,
+    );
+
     return {
+      emailDelivered,
       invitation: {
         id: invitation.id,
         email: invitation.email,
@@ -169,12 +187,18 @@ export class InvitationsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true },
+      select: { email: true, emailVerifiedAt: true },
     });
 
     if (!user || normalizeEmail(user.email) !== invitation.email) {
       throw new ForbiddenException(
         'This invitation is for a different account',
+      );
+    }
+
+    if (user.emailVerifiedAt === null) {
+      throw new ForbiddenException(
+        'Verify your email address before accepting invitations',
       );
     }
 
@@ -209,6 +233,52 @@ export class InvitationsService {
     });
 
     return { organizationId: invitation.organizationId };
+  }
+
+  private async sendInvitationEmail(
+    context: OrganizationContext,
+    invitation: InvitationProjection,
+    token: string,
+    locale: EmailLocale,
+  ): Promise<boolean> {
+    const [organization, inviter] = await Promise.all([
+      this.prisma.organization.findUniqueOrThrow({
+        where: { id: context.organizationId },
+        select: { name: true },
+      }),
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: context.userId },
+        select: { firstName: true, lastName: true },
+      }),
+    ]);
+
+    const acceptUrl = new URL(
+      '/invitations/accept',
+      this.config.getOrThrow<string>('APP_URL'),
+    );
+    acceptUrl.searchParams.set('token', token);
+
+    try {
+      await this.email.send(
+        invitationEmail({
+          to: invitation.email,
+          inviterName: `${inviter.firstName} ${inviter.lastName}`,
+          organizationName: organization.name,
+          role: invitation.role,
+          acceptUrl: acceptUrl.toString(),
+          expiresInDays: this.config.getOrThrow<number>('INVITATION_TTL_DAYS'),
+          locale,
+        }),
+      );
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        `Invitation email ${invitation.id} was not delivered: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return false;
+    }
   }
 
   private get ttlMs(): number {

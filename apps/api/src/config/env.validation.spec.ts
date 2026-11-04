@@ -18,6 +18,7 @@ const validProductionEnv = {
   ...validStorageEnv,
   NODE_ENV: 'production',
   CORS_ORIGIN: 'https://knowledgehub.example.com',
+  APP_URL: 'https://knowledgehub.example.com',
   PROCESSING_SANDBOX: 'worker',
   STORAGE_SWEEP_ENABLED: 'true',
   RESEND_API_KEY: 're_test_key',
@@ -30,6 +31,8 @@ describe('validateEnv', () => {
     expect(env.NODE_ENV).toBe('development');
     expect(env.PORT).toBe(3001);
     expect(env.CORS_ORIGIN).toBe('http://localhost:3000');
+    expect(env.APP_URL).toBe('http://localhost:3000');
+    expect(env.EMAIL_VERIFICATION_TTL_HOURS).toBe(48);
     expect(env.JWT_ACCESS_TTL).toBe('15m');
     expect(env.REFRESH_TOKEN_TTL_DAYS).toBe(7);
     expect(env.COOKIE_SAMESITE).toBe('lax');
@@ -230,6 +233,12 @@ describe('validateEnv', () => {
         CORS_ORIGIN: 'http://localhost:3000,https://knowledgehub.example.com',
       }),
     ).toThrow(/CORS_ORIGIN/);
+  });
+
+  it('rejects a local app URL in production', () => {
+    expect(() =>
+      validateEnv({ ...validProductionEnv, APP_URL: 'http://localhost:3000' }),
+    ).toThrow(/APP_URL/);
   });
 
   it('rejects placeholder JWT and storage secrets in production', () => {

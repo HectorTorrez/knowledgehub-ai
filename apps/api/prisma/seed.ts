@@ -50,12 +50,14 @@ async function main(): Promise<void> {
         passwordHash,
         firstName: DEMO_ACCOUNT.firstName,
         lastName: DEMO_ACCOUNT.lastName,
+        emailVerifiedAt: new Date(),
       },
       create: {
         email: DEMO_ACCOUNT.email,
         passwordHash,
         firstName: DEMO_ACCOUNT.firstName,
         lastName: DEMO_ACCOUNT.lastName,
+        emailVerifiedAt: new Date(),
       },
     });
 

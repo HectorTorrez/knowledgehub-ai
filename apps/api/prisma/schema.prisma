@@ -25,6 +25,10 @@ model User {
   /// normalized form; see `src/users/email.ts`.
   email String @unique
 
+  /// When the user proved ownership of `email` by following a verification
+  /// link. Null until then.
+  emailVerifiedAt DateTime?
+
   passwordHash String
   firstName    String
   lastName     String
@@ -32,13 +36,29 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions       AuthSession[]
-  memberships    Membership[]
-  documents      Document[]
-  answers        Answer[]
-  answerFeedback AnswerFeedback[]
-  activities     OrganizationActivity[]
-  conversations  Conversation[]
+  sessions                AuthSession[]
+  emailVerificationTokens EmailVerificationToken[]
+  memberships             Membership[]
+  documents               Document[]
+  answers                 Answer[]
+  answerFeedback          AnswerFeedback[]
+  activities              OrganizationActivity[]
+  conversations           Conversation[]
+}
+
+/// A one-time email verification link, stored as the SHA-256 hash of its token.
+model EmailVerificationToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String   @unique
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 /// A single login on a single device. This is the unit of revocation: revoking
@@ -121,15 +141,15 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships   Membership[]
-  documents     Document[]
-  collections   Collection[]
+  memberships         Membership[]
+  documents           Document[]
+  collections         Collection[]
   documentCollections DocumentCollection[]
-  answers       Answer[]
-  tenantUsage   TenantUsage[]
-  conversations Conversation[]
-  invitations   OrganizationInvitation[]
-  activities    OrganizationActivity[]
+  answers             Answer[]
+  tenantUsage         TenantUsage[]
+  conversations       Conversation[]
+  invitations         OrganizationInvitation[]
+  activities          OrganizationActivity[]
 }
 
 /// Links a user to an organization with a role. The [userId, organizationId]
@@ -280,13 +300,13 @@ model Document {
 }
 
 model Collection {
-  id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @db.Uuid
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   color          String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
   documents      DocumentCollection[]
 
   @@index([organizationId])

@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 import type { ActivityService } from '../activity/activity.service.js';
+import type { EmailMessage, EmailSender } from '../email/email-sender.port.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { OrganizationContext } from './organization-context.js';
 import { InvitationsService } from './invitations.service.js';
@@ -54,8 +55,10 @@ function buildService(
     actorRole?: 'OWNER' | 'MEMBER';
     invitation?: InvitationRow | null;
     userEmail?: string | null;
+    userVerified?: boolean;
     deleteCount?: number;
     ttlDays?: number;
+    emailFails?: boolean;
   } = {},
 ) {
   const prisma = {
@@ -67,8 +70,18 @@ function buildService(
         if (options.userEmail === null) {
           return null;
         }
-        return { email: options.userEmail ?? 'invitee@example.com' };
+        return {
+          email: options.userEmail ?? 'invitee@example.com',
+          emailVerifiedAt: options.userVerified === false ? null : new Date(),
+        };
       }),
+      findUniqueOrThrow: vi.fn(async () => ({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      })),
+    },
+    organization: {
+      findUniqueOrThrow: vi.fn(async () => ({ name: 'Acme' })),
     },
     organizationInvitation: {
       create: vi.fn(async (args?: unknown) => {
@@ -99,20 +112,29 @@ function buildService(
   } as unknown as PrismaService;
 
   const config = {
-    getOrThrow: vi.fn((key: string) =>
-      key === 'INVITATION_TTL_DAYS' ? (options.ttlDays ?? 7) : 0,
-    ),
+    getOrThrow: vi.fn((key: string) => {
+      if (key === 'INVITATION_TTL_DAYS') return options.ttlDays ?? 7;
+      if (key === 'APP_URL') return 'https://app.example.com';
+      throw new Error(`unexpected config key ${key}`);
+    }),
   } as unknown as ConfigService;
 
   const activity = { record: vi.fn(async () => {}) };
+  const email = {
+    send: vi.fn(async (_message: EmailMessage) => {
+      if (options.emailFails) throw new Error('provider down');
+    }),
+  };
   return {
     service: new InvitationsService(
       prisma,
       config,
       activity as unknown as ActivityService,
+      email as EmailSender,
     ),
     prisma,
     activity,
+    email,
   };
 }
 
@@ -144,13 +166,45 @@ describe('InvitationsService', () => {
     );
   });
 
+  it('emails the invitee a link carrying the one-time token', async () => {
+    const { service, email } = buildService();
+
+    const result = await service.create(
+      OWNER,
+      'invitee@example.com',
+      'ADMIN',
+      'es',
+    );
+
+    expect(result.emailDelivered).toBe(true);
+    expect(email.send).toHaveBeenCalledTimes(1);
+    const message = email.send.mock.calls[0]?.[0];
+    expect(message?.to).toBe('invitee@example.com');
+    expect(message?.subject).toContain('Ada Lovelace');
+    expect(message?.subject).toContain('Acme');
+    expect(message?.text).toContain(
+      `https://app.example.com/invitations/accept?token=${result.invitation.token}`,
+    );
+  });
+
+  it('keeps the invitation and reports it when the email cannot be sent', async () => {
+    const { service, prisma } = buildService({ emailFails: true });
+
+    const result = await service.create(OWNER, 'invitee@example.com');
+
+    expect(result.emailDelivered).toBe(false);
+    expect(result.invitation.token).toEqual(expect.any(String));
+    expect(prisma.organizationInvitation.create).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects a non-owner trying to create an invitation', async () => {
-    const { service, activity } = buildService({ actorRole: 'MEMBER' });
+    const { service, activity, email } = buildService({ actorRole: 'MEMBER' });
 
     await expect(
       service.create(MEMBER, 'invitee@example.com'),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(activity.record).not.toHaveBeenCalled();
+    expect(email.send).not.toHaveBeenCalled();
   });
 
   it('lists pending invitations for an owner', async () => {
@@ -217,6 +271,18 @@ describe('InvitationsService', () => {
     await expect(service.accept('user-1', 'the-token')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it('rejects an account whose email is not verified', async () => {
+    const { service, activity } = buildService({
+      invitation: invitationRow(),
+      userVerified: false,
+    });
+
+    await expect(service.accept('user-1', 'the-token')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(activity.record).not.toHaveBeenCalled();
   });
 
   it('rejects an expired or already-accepted invitation', async () => {

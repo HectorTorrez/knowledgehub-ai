@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailLocaleSchema } from '../../email/email-locale.schema.js';
 
 const NAME_MAX_LENGTH = 100;
 const PASSWORD_MIN_LENGTH = 12;
@@ -42,6 +43,7 @@ export const registerSchema = z
         NAME_MAX_LENGTH,
         `lastName must be at most ${NAME_MAX_LENGTH} characters`,
       ),
+    locale: emailLocaleSchema,
   })
   .strict();
 

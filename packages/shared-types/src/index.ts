@@ -28,9 +28,13 @@ export interface PublicUser {
   email: string;
   firstName: string;
   lastName: string;
+  emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Language of the transactional emails the API sends on a request's behalf. */
+export type EmailLocale = 'en' | 'es';
 
 /**
  * Request body of `POST /auth/register`. The account fields are the only
@@ -41,6 +45,17 @@ export interface RegisterRequest {
   password: string;
   firstName: string;
   lastName: string;
+  locale?: EmailLocale;
+}
+
+/** Request body of `POST /auth/verify-email`. */
+export interface VerifyEmailRequest {
+  token: string;
+}
+
+/** Request body of `POST /auth/verify-email/resend`. */
+export interface ResendVerificationRequest {
+  locale?: EmailLocale;
 }
 
 /**
@@ -264,11 +279,17 @@ export interface OrganizationInvitationSummary {
 export interface CreateInvitationRequest {
   role?: OrganizationRole;
   email: string;
+  locale?: EmailLocale;
 }
 
-/** Response body of `POST /organizations/:organizationId/invitations`. */
+/**
+ * Response body of `POST /organizations/:organizationId/invitations`.
+ * `emailDelivered` is false when the invitation email could not be sent; the
+ * invitation still exists and its link can be shared by hand.
+ */
 export interface CreateInvitationResponse {
   invitation: OrganizationInvitationDetail;
+  emailDelivered: boolean;
 }
 
 /** Response body of `GET /organizations/:organizationId/invitations`. */
@@ -276,7 +297,10 @@ export interface InvitationListResponse {
   invitations: OrganizationInvitationSummary[];
 }
 
-/** Request body of `POST /invitations/accept`. */
+/**
+ * Request body of `POST /invitations/accept`. Accounts whose email is not
+ * verified are refused with 403.
+ */
 export interface AcceptInvitationRequest {
   token: string;
 }

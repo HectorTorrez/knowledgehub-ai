@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailLocaleSchema } from '../../email/email-locale.schema.js';
 
 const EMAIL_MAX_LENGTH = 254;
 
@@ -14,6 +15,7 @@ export const createInvitationSchema = z
         `email must be at most ${EMAIL_MAX_LENGTH} characters`,
       )
       .pipe(z.email('email must be a valid email address')),
+    locale: emailLocaleSchema,
   })
   .strict();
 

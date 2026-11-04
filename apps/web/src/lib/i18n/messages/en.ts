@@ -69,6 +69,7 @@ export const en = {
       submitting: 'Creating account…',
       haveAccount: 'Already have an account?',
       created: 'Account created',
+      createdDescription: 'We sent a confirmation link to {email}.',
     },
     layout: {
       title: "Answers grounded in your team's documents",
@@ -577,6 +578,30 @@ export const en = {
     accepting: 'Accepting…',
     accept: 'Accept invitation',
     expiry: 'Invitations expire and can only be used once.',
+    verifyFirst: 'Confirm your email first',
+    verifyFirstDescription:
+      'To join an organization, confirm {email} with the link we emailed you. Then come back to this page.',
+  },
+  verifyEmail: {
+    pageTitle: 'Confirm email · KnowledgeHub AI',
+    pageDescription:
+      'Confirm the email address of your KnowledgeHub AI account.',
+    title: 'Confirm your email',
+    verifying: 'Confirming your email…',
+    verified: 'Email confirmed',
+    verifiedDescription: 'Your email address is confirmed.',
+    invalid: 'This link no longer works',
+    invalidDescription:
+      'Confirmation links expire and can only be used once. Sign in and request a new one.',
+    missingToken: 'This confirmation link is missing its token.',
+    continue: 'Continue',
+  },
+  emailBanner: {
+    message: 'Confirm {email} to join organizations you are invited to.',
+    resend: 'Resend email',
+    sending: 'Sending…',
+    sent: 'Confirmation email sent',
+    sentDescription: 'Check your inbox for {email}.',
   },
   activity: {
     someone: 'Someone',
@@ -820,7 +845,11 @@ export const en = {
     addMemberDescription:
       'Members with an existing account join immediately. Other selections create an invitation you can share.',
     inviteReady: 'Invitation ready for {email}',
-    inviteExpires: 'Share this one-time link. It expires on {date}.',
+    inviteEmailed: 'Invitation emailed to {email}',
+    inviteEmailedExpires:
+      'You can also share this one-time link. It expires on {date}.',
+    inviteNotEmailed:
+      'We could not email {email}. Share this one-time link instead. It expires on {date}.',
     invitationLink: 'Invitation link',
     copy: 'Copy',
     done: 'Done',
@@ -844,6 +873,8 @@ export const en = {
     roleUpdatedDescription: '{email} now has the {role} role.',
     invitationCreated: 'Invitation created',
     invitationCreatedDescription: 'Share the link with {email}.',
+    invitationEmailed: 'Invitation sent',
+    invitationEmailedDescription: 'We emailed the invitation to {email}.',
     invitationRevoked: 'Invitation revoked',
     memberRemoved: 'Member removed',
     linkCopied: 'Invitation link copied',

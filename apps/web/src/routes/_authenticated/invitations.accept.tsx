@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '~/components/ui/card';
 import { useToast } from '~/components/ui/toast';
+import { useResendVerificationEmail, useSession } from '~/hooks/use-auth';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { invitationsApi } from '~/lib/api/invitations';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -45,6 +46,9 @@ function AcceptInvitationPage() {
   const { toast } = useToast();
   const reportError = useReportError();
   const [accepted, setAccepted] = useState(false);
+  const session = useSession();
+  const user =
+    session.data?.status === 'authenticated' ? session.data.user : undefined;
   const tokenError = useMemo(
     () =>
       token === undefined ? new Error(t('invitations.missingToken')) : null,
@@ -102,7 +106,9 @@ function AcceptInvitationPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {accepted ? null : (
+          {user !== undefined && !user.emailVerified ? (
+            <VerifyEmailFirst email={user.email} />
+          ) : accepted ? null : (
             <Button
               className="w-full"
               disabled={token === undefined || accept.isPending}
@@ -119,6 +125,30 @@ function AcceptInvitationPage() {
       <p className="text-center text-xs text-muted-foreground">
         {t('invitations.expiry')}
       </p>
+    </div>
+  );
+}
+
+function VerifyEmailFirst({ email }: Readonly<{ email: string }>) {
+  const t = useT();
+  const resend = useResendVerificationEmail(email);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+        <p className="font-medium">{t('invitations.verifyFirst')}</p>
+        <p className="mt-1 text-muted-foreground">
+          {t('invitations.verifyFirstDescription', { email })}
+        </p>
+      </div>
+      <Button
+        className="w-full"
+        variant="outline"
+        disabled={resend.isPending || resend.isSuccess}
+        onClick={() => resend.mutate()}
+      >
+        {resend.isPending ? t('emailBanner.sending') : t('emailBanner.resend')}
+      </Button>
     </div>
   );
 }

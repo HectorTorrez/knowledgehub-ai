@@ -1,4 +1,5 @@
 import type {
+  CreateInvitationResponse,
   OrganizationInvitationDetail,
   OrganizationRole,
 } from '@knowledgehub/shared-types';
@@ -87,7 +88,7 @@ export function OrganizationMembers({
   const [inviteRole, setInviteRole] = useState<OrganizationRole>('MEMBER');
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [inviteResult, setInviteResult] =
-    useState<OrganizationInvitationDetail | null>(null);
+    useState<CreateInvitationResponse | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<MemberTarget | null>(
     null,
   );
@@ -171,16 +172,22 @@ export function OrganizationMembers({
 
   const createInvitation = useMutation({
     mutationFn: (input: { email: string; role: OrganizationRole }) =>
-      invitationsApi.create(organizationId, input),
+      invitationsApi.create(organizationId, { ...input, locale }),
     onSuccess: (data) => {
-      setInviteResult(data.invitation);
+      setInviteResult(data);
       setEmail('');
       toast({
         variant: 'success',
-        title: t('members.invitationCreated'),
-        description: t('members.invitationCreatedDescription', {
-          email: data.invitation.email,
-        }),
+        title: data.emailDelivered
+          ? t('members.invitationEmailed')
+          : t('members.invitationCreated'),
+        description: data.emailDelivered
+          ? t('members.invitationEmailedDescription', {
+              email: data.invitation.email,
+            })
+          : t('members.invitationCreatedDescription', {
+              email: data.invitation.email,
+            }),
       });
       return invalidateInvitations();
     },
@@ -461,12 +468,27 @@ export function OrganizationMembers({
             <div className="space-y-4">
               <div className="rounded-md border border-success/40 bg-success/5 p-3 text-sm">
                 <p className="font-medium">
-                  {t('members.inviteReady', { email: inviteResult.email })}
+                  {inviteResult.emailDelivered
+                    ? t('members.inviteEmailed', {
+                        email: inviteResult.invitation.email,
+                      })
+                    : t('members.inviteReady', {
+                        email: inviteResult.invitation.email,
+                      })}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  {t('members.inviteExpires', {
-                    date: formatDateTime(inviteResult.expiresAt, locale),
-                  })}
+                  {t(
+                    inviteResult.emailDelivered
+                      ? 'members.inviteEmailedExpires'
+                      : 'members.inviteNotEmailed',
+                    {
+                      email: inviteResult.invitation.email,
+                      date: formatDateTime(
+                        inviteResult.invitation.expiresAt,
+                        locale,
+                      ),
+                    },
+                  )}
                 </p>
               </div>
               <div className="space-y-2">
@@ -477,13 +499,13 @@ export function OrganizationMembers({
                   <Input
                     id="invite-link"
                     readOnly
-                    value={inviteLink(inviteResult.token)}
+                    value={inviteLink(inviteResult.invitation.token)}
                     onFocus={(event) => event.target.select()}
                   />
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => void copyInviteLink(inviteResult)}
+                    onClick={() => void copyInviteLink(inviteResult.invitation)}
                   >
                     <Copy />
                     {t('members.copy')}

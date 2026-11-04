@@ -89,11 +89,14 @@ interface TargetUser {
   lastName: string;
 }
 
-const defaultTargetUser: TargetUser = {
+type LookupUser = TargetUser & { emailVerifiedAt: Date | null };
+
+const defaultTargetUser: LookupUser = {
   id: 'new-user',
   email: 'new-user@example.test',
   firstName: 'Grace',
   lastName: 'Hopper',
+  emailVerifiedAt: new Date('2026-02-01T00:00:00.000Z'),
 };
 
 const ACTOR_USER_ID = 'owner-1';
@@ -128,7 +131,7 @@ interface HarnessOptions {
   memberships?: MembershipWithOrganization[];
   memberRows?: MemberRow[];
   actorMembership?: { role: 'OWNER' | 'MEMBER' } | null;
-  targetUser?: TargetUser | null;
+  targetUser?: LookupUser | null;
   targetMembership?: TargetMembershipRow | null;
   ownerCount?: number;
   lockRows?: { id: string }[];
@@ -782,6 +785,20 @@ describe('OrganizationsService.addMember', () => {
     await expect(
       service.addMember(organizationContext(), {
         email: 'missing@example.test',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(tx.membership.create).not.toHaveBeenCalled();
+  });
+
+  it('treats an account with an unverified email as missing', async () => {
+    const { service, tx } = createHarness({
+      targetUser: { ...defaultTargetUser, emailVerifiedAt: null },
+    });
+
+    await expect(
+      service.addMember(organizationContext(), {
+        email: 'new-user@example.test',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
 

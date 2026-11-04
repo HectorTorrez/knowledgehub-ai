@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SecurityRouteImport } from './routes/security'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedInvitationsAcceptRouteImport } from './routes/_authenticated/invitations.accept'
 import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations.index'
@@ -49,6 +50,11 @@ const RegisterRoute = RegisterRouteImport.update({
 const SecurityRoute = SecurityRouteImport.update({
   id: '/security',
   path: '/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/security': typeof SecurityRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/security': typeof SecurityRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/organizations': typeof AuthenticatedOrganizationsIndexRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/security': typeof SecurityRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
   '/_authenticated/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/security'
+    | '/verify-email'
     | '/settings'
     | '/invitations/accept'
     | '/organizations/$organizationId'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/security'
+    | '/verify-email'
     | '/settings'
     | '/invitations/accept'
     | '/organizations'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/security'
+    | '/verify-email'
     | '/_authenticated/settings'
     | '/_authenticated/invitations/accept'
     | '/_authenticated/organizations/$organizationId'
@@ -243,6 +255,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   SecurityRoute: typeof SecurityRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -280,6 +293,13 @@ declare module '@tanstack/react-router' {
       path: '/security'
       fullPath: '/security'
       preLoaderRoute: typeof SecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings': {
@@ -430,6 +450,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   SecurityRoute: SecurityRoute,
+  VerifyEmailRoute: VerifyEmailRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

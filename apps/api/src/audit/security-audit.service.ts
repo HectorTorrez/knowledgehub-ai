@@ -11,7 +11,8 @@ export type SecurityEvent =
   | 'rate_limit.exceeded'
   | 'auth.password.changed'
   | 'auth.session.revoked'
-  | 'auth.account.deleted';
+  | 'auth.account.deleted'
+  | 'auth.email.verified';
 
 export type SecurityEventFields = Record<string, unknown>;
 

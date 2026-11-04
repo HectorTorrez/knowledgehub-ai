@@ -15,6 +15,7 @@ import { SecurityAuditService } from '../audit/security-audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { normalizeEmail } from '../users/email.js';
 import { AuthConfig } from './auth.config.js';
+import { EmailVerificationService } from './email-verification.service.js';
 import type { ChangePasswordInput } from './dto/change-password.schema.js';
 import type { LoginInput } from './dto/login.schema.js';
 import type { RegisterInput } from './dto/register.schema.js';
@@ -50,6 +51,7 @@ interface PersistedUser {
   email: string;
   firstName: string;
   lastName: string;
+  emailVerifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,6 +68,7 @@ export class AuthService {
     private readonly tokens: TokenService,
     private readonly authConfig: AuthConfig,
     private readonly audit: SecurityAuditService,
+    private readonly verification: EmailVerificationService,
   ) {}
 
   async register(
@@ -120,6 +123,8 @@ export class AuthService {
       userId: user.id,
       ipAddress: options.ipAddress,
     });
+
+    await this.verification.sendWelcome(user, input.locale);
 
     const accessToken = await this.tokens.signAccessToken(user.id, sessionId);
 
@@ -545,6 +550,7 @@ function toPublicUser(user: PersistedUser): PublicUser {
     email: user.email,
     firstName: user.firstName,
     lastName: user.lastName,
+    emailVerified: user.emailVerifiedAt !== null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
