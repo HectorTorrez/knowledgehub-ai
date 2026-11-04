@@ -83,7 +83,22 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm exec playwright install --with-deps chromium
+      - id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        working-directory: apps/web
+
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
         working-directory: apps/web
 
       - run: pnpm test:e2e
@@ -111,6 +126,7 @@ jobs:
               - turbo.json
               - .npmrc
               - .nvmrc
+              - .dockerignore
               - .github/workflows/ci.yml
             api:
               - *shared
@@ -121,7 +137,7 @@ jobs:
 
   deploy-api:
     name: Deploy api to Railway
-    needs: [verify, e2e, web-e2e, changes]
+    needs: [verify, e2e, changes]
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     environment: production
@@ -140,7 +156,7 @@ jobs:
 
   deploy-web:
     name: Deploy web to Railway
-    needs: [verify, e2e, web-e2e, changes]
+    needs: [verify, web-e2e, changes]
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     environment: production
