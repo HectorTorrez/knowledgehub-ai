@@ -71,7 +71,11 @@ function AnimatedCheckpoints() {
   const [ref, inView] = useInView<HTMLDivElement>(0.4);
   return (
     <div ref={ref}>
-      <RequestCheckpoints key={String(inView)} animated={inView} />
+      <RequestCheckpoints
+        key={String(inView)}
+        animated={inView}
+        showEndpoint={false}
+      />
     </div>
   );
 }
@@ -79,7 +83,7 @@ function AnimatedCheckpoints() {
 export function LandingSecurity() {
   const t = useT();
   return (
-    <section id="security" className="marketing-inverted scroll-mt-20">
+    <section id="security" className="scroll-mt-20">
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-24 lg:grid-cols-2 lg:gap-16">
         <div>
           <SectionHeading
