@@ -249,7 +249,7 @@ export const en = {
     },
     formats: {
       title: 'Works with the files your team already has',
-      limit: 'Up to 25 MB per file',
+      limit: 'Up to 10 MB per file',
     },
     features: {
       title: 'Built around your documents',
@@ -348,7 +348,7 @@ export const en = {
       formats: {
         question: 'Which files can I upload?',
         answer:
-          'PDF, Word (.docx), Markdown, and plain text files up to 25 MB. KnowledgeHub prepares them for search as soon as they are uploaded.',
+          'PDF, Word (.docx), Markdown, and plain text files up to 10 MB. KnowledgeHub prepares them for search as soon as they are uploaded.',
       },
       citations: {
         question: 'How do I know an answer is correct?',
@@ -452,7 +452,7 @@ export const en = {
         },
         verify: {
           title: 'Content verification',
-          text: 'File signature, content type, and a 25 MB size limit are checked. Mismatches are rejected.',
+          text: 'File signature, content type, and a 10 MB size limit are checked. Mismatches are rejected.',
         },
         process: {
           title: 'Safe extraction',

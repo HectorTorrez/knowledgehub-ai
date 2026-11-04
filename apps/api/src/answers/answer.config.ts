@@ -18,7 +18,7 @@ export class AnswerConfig {
   }
 
   get queryRewriteEnabled(): boolean {
-    return this.config.get<string>('QUERY_REWRITE_ENABLED') !== 'false';
+    return this.config.get<string>('QUERY_REWRITE_ENABLED') === 'true';
   }
 
   get queryRewriteModel(): string {

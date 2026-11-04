@@ -306,7 +306,7 @@ export function SecurityFiles() {
         ))}
       </ol>
       <ul className="mt-10 flex flex-wrap gap-2">
-        {['PDF', 'DOCX', 'Markdown', 'TXT', '≤ 25 MB', '15 min'].map(
+        {['PDF', 'DOCX', 'Markdown', 'TXT', '≤ 10 MB', '15 min'].map(
           (label) => (
             <li
               key={label}

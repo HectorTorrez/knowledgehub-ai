@@ -199,7 +199,7 @@ describe('validateUploadFile', () => {
       result.ok
         ? ''
         : uploadRejectionMessage(result.reason, createTranslator('en'), 'en'),
-    ).toContain('25.0 MB');
+    ).toContain('10.0 MB');
   });
 });
 

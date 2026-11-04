@@ -665,8 +665,8 @@ verified object bound to its inspected version, and extracts text:
 - `application/pdf` extracts embedded text with `unpdf`, preserving the page each
   passage came from.
 
-Extraction is bounded before its output is used: an object above 25 MiB is
-rejected without being read, and a PDF above 500 pages or text above 2,000,000
+Extraction is bounded before its output is used: an object above 10 MiB is
+rejected without being read, and a PDF above 150 pages or text above 500,000
 characters is rejected after parsing. Those limits are deliberately far below the
 2 GB upload limit, but they are input-size bounds only: see the limitations
 below for what they do not guarantee.

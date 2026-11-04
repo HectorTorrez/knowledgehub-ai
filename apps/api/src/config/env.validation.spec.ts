@@ -52,10 +52,18 @@ describe('validateEnv', () => {
     expect(env.EMBEDDING_TIMEOUT_MS).toBe(30000);
     expect(env.ANSWER_MODEL).toBe('gpt-4.1-mini');
     expect(env.ANSWER_TIMEOUT_MS).toBe(30000);
-    expect(env.ANSWER_MAX_OUTPUT_TOKENS).toBe(700);
+    expect(env.ANSWER_MAX_OUTPUT_TOKENS).toBe(500);
     expect(env.ANSWERS_ENABLED).toBe('false');
-    expect(env.ANSWER_MAX_SOURCES).toBe(14);
-    expect(env.ANSWER_CONTEXT_MAX_CHARS).toBe(60000);
+    expect(env.ANSWER_MAX_SOURCES).toBe(8);
+    expect(env.ANSWER_CONTEXT_MAX_CHARS).toBe(24000);
+    expect(env.ANSWER_HISTORY_MAX_CHARS).toBe(4000);
+    expect(env.QUERY_REWRITE_ENABLED).toBe('false');
+    expect(env.SUMMARY_INPUT_MAX_CHARS).toBe(16000);
+    expect(env.QUOTA_ANSWER_DAILY).toBe(25);
+    expect(env.QUOTA_DOCUMENTS_PER_ORGANIZATION).toBe(10);
+    expect(env.RATE_LIMIT_ANSWER_USER_PER_DAY).toBe(10);
+    expect(env.RATE_LIMIT_ORGANIZATION_CREATE_USER_PER_DAY).toBe(1);
+    expect(env.PROCESSING_POLL_INTERVAL_MS).toBe(10000);
     expect(env.ANSWER_MIN_SIMILARITY).toBe(0.2);
   });
 

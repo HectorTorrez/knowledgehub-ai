@@ -112,7 +112,11 @@ const envObjectSchema = z.object({
   STORAGE_SWEEP_GRACE_MINUTES: z.coerce.number().int().positive().default(60),
 
   PROCESSING_WORKER_ENABLED: z.enum(['true', 'false']).default('false'),
-  PROCESSING_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+  PROCESSING_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10000),
   PROCESSING_LEASE_RENEWAL_INTERVAL_MS: z.coerce
     .number()
     .int()
@@ -126,7 +130,7 @@ const envObjectSchema = z.object({
 
   PROCESSING_SANDBOX: z.enum(['inline', 'worker']).default('inline'),
   PROCESSING_PDF_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
-  PROCESSING_PDF_MAX_MEMORY_MB: z.coerce.number().int().positive().default(512),
+  PROCESSING_PDF_MAX_MEMORY_MB: z.coerce.number().int().positive().default(256),
 
   OPENAI_API_KEY: z.string().min(1).optional(),
   OPENAI_BASE_URL: z.string().url().default(DEFAULT_OPENAI_BASE_URL),
@@ -153,7 +157,7 @@ const envObjectSchema = z.object({
   RERANK_MODEL: z.string().min(1).optional(),
   RERANK_CANDIDATES: z.coerce.number().int().min(1).max(50).default(30),
   QUERY_REWRITE_MODEL: z.string().min(1).optional(),
-  QUERY_REWRITE_ENABLED: z.enum(['true', 'false']).default('true'),
+  QUERY_REWRITE_ENABLED: z.enum(['true', 'false']).default('false'),
   ANSWER_TIMEOUT_MS: z.coerce
     .number()
     .int()
@@ -198,7 +202,7 @@ const envObjectSchema = z.object({
     .int()
     .min(1000)
     .max(100000)
-    .default(40000),
+    .default(16000),
   FACTS_ENABLED: z.enum(['true', 'false']).default('false'),
   FACTS_BACKFILL_ENABLED: z.enum(['true', 'false']).default('true'),
   FACTS_MODEL: z.string().min(1).default(DEFAULT_ANSWER_MODEL),
@@ -274,7 +278,7 @@ const envObjectSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(30),
+    .default(10),
   RATE_LIMIT_REGISTER_PER_HOUR: z.coerce.number().int().positive().default(5),
   RATE_LIMIT_DOCUMENT_WRITE_USER_PER_HOUR: z.coerce
     .number()
@@ -285,13 +289,13 @@ const envObjectSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(3),
-  QUOTA_ANSWER_DAILY: z.coerce.number().int().positive().default(100),
+    .default(1),
+  QUOTA_ANSWER_DAILY: z.coerce.number().int().positive().default(25),
   QUOTA_DOCUMENTS_PER_ORGANIZATION: z.coerce
     .number()
     .int()
     .positive()
-    .default(25),
+    .default(10),
 
   METRICS_ENABLED: z.enum(['true', 'false']).default('false'),
 

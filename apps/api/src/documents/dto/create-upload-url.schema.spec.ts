@@ -104,7 +104,7 @@ describe('createUploadUrlSchema', () => {
 
 describe('upload policy', () => {
   it('pins the upload cap to the extraction limit', () => {
-    expect(MAX_UPLOAD_BYTES).toBe(25 * 1024 * 1024);
+    expect(MAX_UPLOAD_BYTES).toBe(10 * 1024 * 1024);
     expect(MAX_UPLOAD_BYTES).toBe(MAX_EXTRACTABLE_BYTES);
   });
 

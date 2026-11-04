@@ -255,7 +255,7 @@ export const es: Messages = {
     },
     formats: {
       title: 'Funciona con los archivos que tu equipo ya tiene',
-      limit: 'Hasta 25 MB por archivo',
+      limit: 'Hasta 10 MB por archivo',
     },
     features: {
       title: 'Pensado para tus documentos',
@@ -358,7 +358,7 @@ export const es: Messages = {
       formats: {
         question: '¿Qué archivos puedo subir?',
         answer:
-          'Archivos PDF, Word (.docx), Markdown y texto plano de hasta 25 MB. KnowledgeHub los prepara para la búsqueda en cuanto se suben.',
+          'Archivos PDF, Word (.docx), Markdown y texto plano de hasta 10 MB. KnowledgeHub los prepara para la búsqueda en cuanto se suben.',
       },
       citations: {
         question: '¿Cómo sé que una respuesta es correcta?',
@@ -462,7 +462,7 @@ export const es: Messages = {
         },
         verify: {
           title: 'Verificación del contenido',
-          text: 'Se comprueban la firma del archivo, el tipo de contenido y un límite de 25 MB. Lo que no coincide se rechaza.',
+          text: 'Se comprueban la firma del archivo, el tipo de contenido y un límite de 10 MB. Lo que no coincide se rechaza.',
         },
         process: {
           title: 'Extracción segura',
