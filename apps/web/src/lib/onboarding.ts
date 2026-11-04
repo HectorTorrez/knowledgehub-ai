@@ -9,27 +9,27 @@ export function onboardingSteps(input: {
   return [
     {
       id: 'upload',
-      label: 'Upload your first document',
+      labelKey: 'overview.onboarding.upload',
       complete: input.documents > 0,
     },
     {
       id: 'ready',
-      label: 'Wait until it’s Ready',
+      labelKey: 'overview.onboarding.ready',
       complete: input.readyDocuments > 0,
     },
     {
       id: 'ask',
-      label: 'Ask your first question',
+      labelKey: 'overview.onboarding.ask',
       complete: input.conversations > 0,
     },
     ...(input.canManageMembers
       ? [
           {
             id: 'invite',
-            label: 'Invite a teammate',
+            labelKey: 'overview.onboarding.invite',
             complete: input.members >= 2 || input.invitations > 0,
           },
         ]
       : []),
-  ];
+  ] as const;
 }
