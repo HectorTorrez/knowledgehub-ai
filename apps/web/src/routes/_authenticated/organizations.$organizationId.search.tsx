@@ -37,18 +37,21 @@ import {
   readRecentSearches,
   rememberSearch,
 } from '~/lib/recent-searches';
+import { useT } from '~/lib/i18n/provider';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { SEARCH_QUERY_MAX_LENGTH, searchQuerySchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/search',
 )({
-  head: () =>
-    pageHead({
-      title: 'Search · KnowledgeHub AI',
-      description:
-        "Search across your organization's documents with semantic retrieval.",
-    }),
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('search.pageTitle'),
+      description: t('search.pageDescription'),
+    });
+  },
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === 'string' ? search.q : undefined,
     collectionIds: Array.isArray(search.collectionIds)
@@ -76,6 +79,7 @@ export const Route = createFileRoute(
 });
 
 function SearchPage() {
+  const t = useT();
   const { organizationId } = Route.useParams();
   const inputRef = useRef<HTMLInputElement>(null);
   useSlashFocus(inputRef);
@@ -141,10 +145,12 @@ function SearchPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const parsed = searchQuerySchema.safeParse({ q: draft });
+    const parsed = searchQuerySchema(t).safeParse({ q: draft });
     if (!parsed.success) {
       reportError(
-        new Error(parsed.error.issues[0]?.message ?? 'Enter a search query.'),
+        new Error(
+          parsed.error.issues[0]?.message ?? t('validation.searchRequired'),
+        ),
       );
       return;
     }
@@ -161,29 +167,29 @@ function SearchPage() {
   const isSearching = submitted !== null && results.isPending;
   const scopeLabel =
     filters.documentIds.length > 1
-      ? 'selected documents'
+      ? t('search.scopeSelected')
       : documentId === undefined
-        ? 'all ready documents'
+        ? t('search.scopeAll')
         : (ready.documents.find((document) => document.id === documentId)
-            ?.title ?? 'the selected document');
+            ?.title ?? t('search.scopeOne'));
 
   return (
     <div className="space-y-6">
       {collections.isError ? (
         <RouteError
-          title="Unable to load collections"
+          title={t('documents.collectionsLoadError')}
           onRetry={() => void collections.refetch()}
         />
       ) : null}
       {ready.query.isError ? (
         <RouteError
-          title="Unable to load documents"
+          title={t('documents.loadError')}
           onRetry={() => void ready.query.refetch()}
         />
       ) : null}
       <PageHeader
-        title="Search"
-        description="Find passages across this organization's ready documents."
+        title={t('nav.search')}
+        description={t('search.description')}
       />
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row">
@@ -193,8 +199,8 @@ function SearchPage() {
             ref={inputRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Search your documents…"
-            aria-label="Search query"
+            placeholder={t('search.placeholder')}
+            aria-label={t('search.queryLabel')}
             maxLength={SEARCH_QUERY_MAX_LENGTH}
             className="pr-12 pl-9 sm:pr-9"
           />
@@ -204,7 +210,7 @@ function SearchPage() {
               variant="ghost"
               size="icon"
               onClick={clearSearch}
-              aria-label="Clear search"
+              aria-label={t('documents.clearSearch')}
               className="absolute top-1/2 right-1.5 size-9 -translate-y-1/2 sm:size-8 text-muted-foreground hover:text-foreground"
             >
               <XIcon className="size-4" />
@@ -215,12 +221,12 @@ function SearchPage() {
           {isSearching ? (
             <>
               <Spinner />
-              Searching…
+              {t('search.searching')}
             </>
           ) : (
             <>
               <SearchIcon />
-              Search
+              {t('nav.search')}
             </>
           )}
         </Button>
@@ -236,8 +242,8 @@ function SearchPage() {
             />
           </div>
           <DocumentMultiSelect
-            label="Collections"
-            emptyLabel="All collections"
+            label={t('search.collections')}
+            emptyLabel={t('documents.allCollections')}
             documents={(collections.data ?? []).map((item) => ({
               id: item.id,
               title: item.name,
@@ -246,20 +252,24 @@ function SearchPage() {
             onChange={(collectionIds) => updateFilters({ collectionIds })}
           />
           <div className="space-y-1.5">
-            <Label htmlFor="search-created-after">Created after</Label>
+            <Label htmlFor="search-created-after">
+              {t('search.createdAfter')}
+            </Label>
             <DatePicker
               id="search-created-after"
-              ariaLabel="Created after"
+              ariaLabel={t('search.createdAfter')}
               value={filters.createdAfter}
               max={createdBefore ?? endOfToday}
               onChange={(createdAfter) => updateFilters({ createdAfter })}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="search-created-before">Created before</Label>
+            <Label htmlFor="search-created-before">
+              {t('search.createdBefore')}
+            </Label>
             <DatePicker
               id="search-created-before"
-              ariaLabel="Created before"
+              ariaLabel={t('search.createdBefore')}
               value={filters.createdBefore}
               min={createdAfter}
               max={endOfToday}
@@ -280,7 +290,7 @@ function SearchPage() {
                 })
               }
             >
-              Clear filters
+              {t('search.clearFilters')}
             </Button>
           ) : null}
         </CardContent>
@@ -293,7 +303,7 @@ function SearchPage() {
               <div className="flex items-center justify-between gap-2">
                 <h2 className="flex items-center gap-1.5 text-sm font-semibold">
                   <History className="size-4 text-muted-foreground" />
-                  Recent searches
+                  {t('search.recent')}
                 </h2>
                 <Button
                   variant="ghost"
@@ -303,7 +313,7 @@ function SearchPage() {
                     setRecent([]);
                   }}
                 >
-                  Clear
+                  {t('search.clear')}
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -327,8 +337,8 @@ function SearchPage() {
 
           <EmptyState
             icon={SearchIcon}
-            title="Search your documents"
-            description="Type a query to find passages across everything this organization has ingested."
+            title={t('search.emptyTitle')}
+            description={t('search.emptyDescription')}
           />
         </div>
       ) : null}
@@ -343,7 +353,7 @@ function SearchPage() {
 
       {submitted !== null && results.isError ? (
         <RouteError
-          title="Unable to search documents"
+          title={t('search.loadError')}
           onRetry={() => void results.refetch()}
         />
       ) : null}
@@ -351,8 +361,11 @@ function SearchPage() {
       {submitted !== null && results.isSuccess && rows.length === 0 ? (
         <EmptyState
           icon={SearchIcon}
-          title="No results"
-          description={`Nothing matched “${submitted}” in ${scopeLabel}. Try different wording or broaden the scope.`}
+          title={t('search.noResults')}
+          description={t('search.noResultsDescription', {
+            query: submitted,
+            scope: scopeLabel,
+          })}
           action={
             <Button
               onClick={() =>
@@ -364,7 +377,7 @@ function SearchPage() {
                 })
               }
             >
-              Clear filters
+              {t('search.clearFilters')}
             </Button>
           }
         />
@@ -374,8 +387,11 @@ function SearchPage() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground" role="status">
-              {rows.length} {rows.length === 1 ? 'result' : 'results'} for “
-              {submitted}” in {scopeLabel}
+              {t('search.resultsFor', {
+                count: rows.length,
+                query: submitted,
+                scope: scopeLabel,
+              })}
             </p>
             <Button variant="outline" size="sm" asChild>
               <Link
@@ -384,7 +400,7 @@ function SearchPage() {
                 search={{ q: submitted, documentId }}
               >
                 <Sparkles />
-                Ask instead
+                {t('search.askInstead')}
               </Link>
             </Button>
           </div>
@@ -405,6 +421,7 @@ function SearchResultCard({
   organizationId,
   result,
 }: Readonly<{ organizationId: string; result: SearchResult }>) {
+  const t = useT();
   const match = Math.max(0, Math.min(100, Math.round(result.score * 100)));
   const [expanded, setExpanded] = useState(false);
 
@@ -420,13 +437,15 @@ function SearchResultCard({
               quote: result.matches[0]?.excerpt,
             }}
             className="min-w-0 truncate text-sm font-medium hover:underline"
-            title={`Open ${result.documentTitle}`}
+            title={t('search.openDocument', { title: result.documentTitle })}
           >
             {result.documentTitle}
           </Link>
           <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-            <span>{match}% match</span>
-            <span>Page {result.matches[0]?.pageNumber}</span>
+            <span>{t('search.match', { percent: match })}</span>
+            <span>
+              {t('search.page', { page: result.matches[0]?.pageNumber ?? '' })}
+            </span>
           </div>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -443,8 +462,8 @@ function SearchResultCard({
               aria-expanded={expanded}
             >
               {expanded
-                ? 'Show fewer matches'
-                : `+${result.matchCount - 1} more matches`}
+                ? t('search.showFewer')
+                : t('search.moreMatches', { count: result.matchCount - 1 })}
             </Button>
             {expanded
               ? result.matches.slice(1).map((item) => (
@@ -452,7 +471,7 @@ function SearchResultCard({
                     key={`${item.pageNumber}-${item.chunkIndex}`}
                     className="text-sm text-muted-foreground"
                   >
-                    <span>Page {item.pageNumber}</span>
+                    <span>{t('search.page', { page: item.pageNumber })}</span>
                     <p>
                       <HighlightedExcerpt match={item} />
                     </p>
@@ -467,7 +486,7 @@ function SearchResultCard({
             params={{ organizationId }}
             search={{ documentId: result.documentId }}
           >
-            Ask about this document
+            {t('search.askAboutDocument')}
           </Link>
         </Button>
       </CardContent>

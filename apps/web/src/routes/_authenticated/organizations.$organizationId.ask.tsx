@@ -67,18 +67,21 @@ import {
   resolveDocumentScope,
 } from '~/lib/document-scope';
 import { formatDateTime } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/provider';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { questionSchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/ask',
 )({
-  head: () =>
-    pageHead({
-      title: 'Ask a question · KnowledgeHub AI',
-      description:
-        "Ask a question and get answers grounded in your organization's documents, with citations.",
-    }),
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('ask.pageTitle'),
+      description: t('ask.pageDescription'),
+    });
+  },
   validateSearch: (
     search: Record<string, unknown>,
   ): {
@@ -113,12 +116,13 @@ export const Route = createFileRoute(
 });
 
 const SUGGESTED_QUESTIONS = [
-  'Summarize the key points in these documents.',
-  'What policies should every new employee know?',
-  'What are the most important deadlines or dates?',
-];
+  'ask.suggestions.summarize',
+  'ask.suggestions.policies',
+  'ask.suggestions.deadlines',
+] as const;
 
 function AskPage() {
+  const t = useT();
   const { organizationId } = Route.useParams();
   const {
     answer: permalinkAnswerId,
@@ -179,8 +183,12 @@ function AskPage() {
   const scope = selectedCollection
     ? { documentId: undefined, label: `“${selectedCollection.name}”` }
     : collectionId
-      ? { documentId: undefined, label: 'the selected collection' }
-      : resolveDocumentScope(selection, ready.documents);
+      ? { documentId: undefined, label: t('ask.scopeCollection') }
+      : resolveDocumentScope(
+          selection,
+          ready.documents,
+          t('ask.scopeAllDocuments'),
+        );
   const stream = useAnswerStream(organizationId);
   const reportError = useReportError();
 
@@ -235,7 +243,7 @@ function AskPage() {
         startNewConversation();
       }
 
-      toast({ variant: 'success', title: 'Conversation deleted' });
+      toast({ variant: 'success', title: t('ask.conversationDeleted') });
 
       return client.invalidateQueries({
         queryKey: queryKeys.organizations.conversations.all(organizationId),
@@ -265,11 +273,13 @@ function AskPage() {
       return;
     }
 
-    const result = questionSchema.safeParse({ question });
+    const result = questionSchema(t).safeParse({ question });
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'Enter a question.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.questionRequired'),
+        ),
       );
       return;
     }
@@ -382,31 +392,31 @@ function AskPage() {
   const conversationTitle =
     activeConversation?.title?.trim() ||
     activeConversationDetail.data?.conversation.title?.trim() ||
-    'New conversation';
+    t('ask.newConversation');
   const heading =
-    activeConversationId === null ? 'Ask a question' : conversationTitle;
+    activeConversationId === null ? t('ask.title') : conversationTitle;
   const subtitle =
     activeConversationId === null
-      ? 'Answers are grounded in your documents and cite their sources.'
-      : 'Follow-ups keep the context of this conversation.';
+      ? t('ask.subtitleNew')
+      : t('ask.subtitleFollowUp');
 
   return (
     <div className="space-y-6">
       {collections.isError ? (
         <RouteError
-          title="Unable to load collections"
+          title={t('documents.collectionsLoadError')}
           onRetry={() => void collections.refetch()}
         />
       ) : null}
       {ready.query.isError ? (
         <RouteError
-          title="Unable to load documents"
+          title={t('documents.loadError')}
           onRetry={() => void ready.query.refetch()}
         />
       ) : null}
       {activeConversationDetail.isError ? (
         <RouteError
-          title="Unable to load conversation"
+          title={t('ask.conversationLoadError')}
           onRetry={() => void activeConversationDetail.refetch()}
         />
       ) : null}
@@ -446,7 +456,7 @@ function AskPage() {
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Conversations"
+              aria-label={t('ask.conversations')}
               className="lg:hidden"
               onClick={() => setShowConversations(true)}
             >
@@ -478,19 +488,19 @@ function AskPage() {
                     .catch(() => {
                       toast({
                         variant: 'error',
-                        title: 'Could not export conversation',
+                        title: t('ask.exportError'),
                       });
                     });
                 }}
               >
-                <Download className="size-4" /> Export
+                <Download className="size-4" /> {t('ask.exportConversation')}
               </Button>
             )}
 
             <Button
               variant="ghost"
               size="icon"
-              aria-label="New conversation"
+              aria-label={t('ask.newConversation')}
               className="lg:hidden"
               onClick={startNewConversation}
             >
@@ -523,15 +533,16 @@ function AskPage() {
           {activeConversationDetail.data?.conversation.canEdit === false ? (
             <div className="space-y-2 border-t p-4 text-sm">
               <Textarea
-                aria-label="Your question"
+                aria-label={t('ask.yourQuestion')}
                 disabled
-                placeholder="This conversation is read-only"
+                placeholder={t('ask.readOnly')}
               />
               <p>
-                Only{' '}
-                {activeConversationDetail.data.conversation.createdBy
-                  ?.firstName ?? 'the creator'}{' '}
-                can continue this conversation.
+                {t('ask.onlyCreator', {
+                  name:
+                    activeConversationDetail.data.conversation.createdBy
+                      ?.firstName ?? t('ask.theCreator'),
+                })}
               </p>
               <Button
                 onClick={() => {
@@ -542,7 +553,7 @@ function AskPage() {
                   );
                 }}
               >
-                Ask a follow-up in a new conversation
+                {t('ask.followUpNew')}
               </Button>
             </div>
           ) : (
@@ -582,9 +593,11 @@ function AskPage() {
       <Dialog open={showConversations} onOpenChange={setShowConversations}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-sm">
           <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12">
-            <DialogTitle className="text-base">Conversations</DialogTitle>
+            <DialogTitle className="text-base">
+              {t('ask.conversations')}
+            </DialogTitle>
             <DialogDescription className="sr-only">
-              Switch to another conversation or start a new one.
+              {t('ask.switchConversation')}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1">
@@ -619,9 +632,9 @@ function AskPage() {
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
           <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 sm:px-6">
-            <DialogTitle className="text-base">Question history</DialogTitle>
+            <DialogTitle className="text-base">{t('ask.history')}</DialogTitle>
             <DialogDescription className="sr-only">
-              Browse the questions asked in this organization.
+              {t('ask.historyDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
@@ -640,14 +653,13 @@ function AskPage() {
       >
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete conversation</AlertDialogTitle>
+            <AlertDialogTitle>{t('ask.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the conversation and every answer in it.
-              This cannot be undone.
+              {t('ask.deleteDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: 'destructive' })}
               disabled={removeConversation.isPending}
@@ -656,7 +668,9 @@ function AskPage() {
                 void handleDelete();
               }}
             >
-              {removeConversation.isPending ? 'Deleting…' : 'Delete'}
+              {removeConversation.isPending
+                ? t('documents.deleting')
+                : t('documents.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -676,6 +690,8 @@ function EmptyConversation({
   documentsPending: boolean;
   onSuggestion: (suggestion: string) => void;
 }>) {
+  const t = useT();
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-8 sm:px-6">
@@ -684,12 +700,12 @@ function EmptyConversation({
             <MessageSquareText className="size-5 text-brand" />
           </div>
           <h2 className="mt-4 text-lg font-semibold tracking-tight sm:text-xl">
-            Ask your documents anything
+            {t('ask.emptyTitle')}
           </h2>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
             {documentsCount > 0
-              ? `Search ${countLabel(documentsCount)} and get an answer with the pages it came from.`
-              : 'Upload a document and get answers grounded in its contents, with citations.'}
+              ? t('ask.emptySearch', { count: documentsCount })
+              : t('ask.emptyUpload')}
           </p>
 
           {documentsPending ? (
@@ -697,21 +713,24 @@ function EmptyConversation({
           ) : documentsCount > 0 ? (
             <div className="mt-6 space-y-2">
               <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                Try asking
+                {t('ask.tryAsking')}
               </p>
               <div className="grid gap-2">
-                {SUGGESTED_QUESTIONS.map((suggestion) => (
-                  <Button
-                    key={suggestion}
-                    type="button"
-                    variant="outline"
-                    onClick={() => onSuggestion(suggestion)}
-                    className="group h-auto sm:h-auto justify-between gap-3 rounded-lg px-3.5 py-3 text-left text-sm font-normal whitespace-normal"
-                  >
-                    <span>{suggestion}</span>
-                    <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                  </Button>
-                ))}
+                {SUGGESTED_QUESTIONS.map((suggestionKey) => {
+                  const suggestion = t(suggestionKey);
+                  return (
+                    <Button
+                      key={suggestionKey}
+                      type="button"
+                      variant="outline"
+                      onClick={() => onSuggestion(suggestion)}
+                      className="group h-auto sm:h-auto justify-between gap-3 rounded-lg px-3.5 py-3 text-left text-sm font-normal whitespace-normal"
+                    >
+                      <span>{suggestion}</span>
+                      <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -720,7 +739,7 @@ function EmptyConversation({
                 to="/organizations/$organizationId/documents"
                 params={{ organizationId }}
               >
-                Upload a document first
+                {t('ask.uploadFirst')}
               </Link>
             </Button>
           )}
@@ -730,14 +749,12 @@ function EmptyConversation({
   );
 }
 
-function countLabel(count: number): string {
-  return count === 1 ? '1 ready document' : `${count} ready documents`;
-}
-
 function PermalinkAnswer({
   organizationId,
   answerId,
 }: Readonly<{ organizationId: string; answerId: string }>) {
+  const t = useT();
+  const locale = useLocale();
   const detail = useQuery({
     queryKey: queryKeys.organizations.answers.detail(organizationId, answerId),
     queryFn: () => answersApi.detail(organizationId, answerId),
@@ -749,14 +766,14 @@ function PermalinkAnswer({
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Shared answer
+            {t('ask.sharedAnswer')}
           </p>
           <Button variant="ghost" size="sm" asChild>
             <Link
               to="/organizations/$organizationId/ask"
               params={{ organizationId }}
             >
-              Close
+              {t('documents.close')}
             </Link>
           </Button>
         </div>
@@ -764,7 +781,7 @@ function PermalinkAnswer({
         {detail.isPending ? <Skeleton className="h-24 w-full" /> : null}
         {detail.isError ? (
           <RouteError
-            title="Unable to load answer"
+            title={t('ask.answerLoadError')}
             onRetry={() => void detail.refetch()}
           />
         ) : null}
@@ -775,7 +792,7 @@ function PermalinkAnswer({
                 {detail.data.answer.question}
               </p>
               <p className="text-xs text-muted-foreground">
-                {formatDateTime(detail.data.answer.createdAt)}
+                {formatDateTime(detail.data.answer.createdAt, locale)}
               </p>
             </div>
             {detail.data.answer.status !== 'insufficient_evidence' ? (

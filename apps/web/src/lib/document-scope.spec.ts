@@ -39,30 +39,40 @@ describe('readyDocuments', () => {
 
 describe('resolveDocumentScope', () => {
   it('resolves the all-documents selection without a document id', () => {
-    expect(resolveDocumentScope(ALL_DOCUMENTS, [READY])).toEqual({
+    expect(
+      resolveDocumentScope(ALL_DOCUMENTS, [READY], 'all documents'),
+    ).toEqual({
       documentId: undefined,
       label: 'all documents',
     });
   });
 
   it('resolves a ready document selection to its id and quoted title', () => {
-    expect(resolveDocumentScope('doc-ready', [READY, PROCESSING])).toEqual({
+    expect(
+      resolveDocumentScope('doc-ready', [READY, PROCESSING], 'all documents'),
+    ).toEqual({
       documentId: 'doc-ready',
       label: '“Handbook”',
     });
   });
 
   it('falls back to all documents for a document that is not ready', () => {
-    expect(resolveDocumentScope('doc-processing', [READY, PROCESSING])).toEqual(
-      {
-        documentId: undefined,
-        label: 'all documents',
-      },
-    );
+    expect(
+      resolveDocumentScope(
+        'doc-processing',
+        [READY, PROCESSING],
+        'all documents',
+      ),
+    ).toEqual({
+      documentId: undefined,
+      label: 'all documents',
+    });
   });
 
   it('falls back to all documents for an unknown document id', () => {
-    expect(resolveDocumentScope('doc-missing', [READY])).toEqual({
+    expect(
+      resolveDocumentScope('doc-missing', [READY], 'all documents'),
+    ).toEqual({
       documentId: undefined,
       label: 'all documents',
     });
