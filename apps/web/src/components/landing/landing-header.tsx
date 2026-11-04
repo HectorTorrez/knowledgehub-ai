@@ -78,7 +78,7 @@ function MobileMenu() {
           <Menu />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="gap-0">
+      <SheetContent side="right" className="marketing gap-0">
         <SheetHeader>
           <SheetTitle>
             <Brand />

@@ -50,7 +50,7 @@ test.describe('Accept-Language detection', () => {
     await expect(
       page.getByRole('heading', {
         level: 1,
-        name: 'Tus documentos tienen respuestas. Encuéntralas más rápido.',
+        name: /^Pregúntale lo que sea a tus documentos\./,
       }),
     ).toBeVisible();
   });

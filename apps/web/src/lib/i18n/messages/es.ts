@@ -154,100 +154,175 @@ export const es: Messages = {
       pricing: 'Precios',
       faq: 'Preguntas',
       logIn: 'Iniciar sesión',
-      getStarted: 'Crea una cuenta gratis',
+      getStarted: 'Empieza gratis',
       openMenu: 'Abrir menú',
       menu: 'Menú',
     },
     hero: {
-      titleLead: 'Tus documentos tienen respuestas.',
-      titleAccent: 'Encuéntralas más rápido.',
+      titleLead: 'Pregúntale lo que sea a tus documentos.',
+      titleTail: 'Cada respuesta muestra de dónde salió.',
       description:
-        'Convierte los documentos de tu equipo en un espacio de trabajo con búsqueda. Haz preguntas, descubre análisis y sigue cada respuesta hasta su fuente.',
+        'Sube PDF, archivos de Word y notas. KnowledgeHub AI responde en lenguaje natural y enlaza cada frase con la página y el pasaje exactos de tus archivos.',
       openingDemo: 'Abriendo demostración…',
       tryDemo: 'Prueba la demostración en vivo',
       createFreeAccount: 'Crea una cuenta gratis',
-      points: {
-        cited: 'Cada respuesta cita sus fuentes',
-        formats: 'PDF, Word y Markdown',
-        private: 'Privado para tu organización',
-      },
+      seeHow: 'Mira cómo funciona',
+      sampleNote: 'Espacio de trabajo de ejemplo con documentos ficticios',
     },
     sample: {
-      label: 'Ejemplo de respuesta con citas',
+      label:
+        'Espacio de trabajo de KnowledgeHub AI con documentos, una respuesta con citas y su fuente',
       workspace: 'Northwind Labs',
-      page: 'Preguntar',
+      navDocuments: 'Documentos',
+      navAsk: 'Preguntar',
+      navSearch: 'Buscar',
+      navCollections: 'Colecciones',
       documents: 'Documentos',
-      documentOnboarding: 'Guía de incorporación de clientes.pdf',
-      documentHandbook: 'Manual del equipo de éxito.docx',
-      documentNotes: 'Lista de inicio.md',
-      question: '¿Cuál es nuestro enfoque para la incorporación de clientes?',
+      ready: 'Listo',
+      processing: 'Indexando',
+      pageOf: 'Página {page}',
+      ask: 'Preguntar',
       answer: 'Respuesta',
-      textLead:
-        'Los nuevos clientes empiezan con una configuración guiada y una sesión de inicio en su primera semana',
-      textTail:
-        'Después, cada cuenta recibe un contacto de éxito dedicado que acompaña su primer hito',
       sources: 'Fuentes',
-      sourceOnboarding: 'Guía de incorporación de clientes',
-      sourceHandbook: 'Manual del equipo de éxito',
-      quote:
-        '“Cada cliente comienza con una configuración guiada y una sesión de inicio…”',
+      showSource: 'Mostrar la fuente {number}',
+      tryQuestion: 'Prueba otra pregunta',
+      searching: 'Buscando en 5 documentos…',
       grounded: 'Basada en 2 fuentes',
-      searched: 'Se buscó en 3 documentos',
       placeholder: 'Haz una pregunta sobre tus documentos…',
+      questions: {
+        onboarding: {
+          question: '¿Cuál es nuestro enfoque para incorporar clientes?',
+          sentence1:
+            'Los nuevos clientes empiezan con una configuración guiada y una sesión de inicio en su primera semana.',
+          sentence2:
+            'Después, cada cuenta recibe un contacto de éxito que acompaña su primer hito.',
+          note1Document: 'Guía de incorporación de clientes.pdf',
+          note1Page: '4',
+          note1Context:
+            'La incorporación es la primera promesa que cumplimos con un cliente nuevo.',
+          note1Quote:
+            'Cada cliente comienza con una configuración guiada y una sesión de inicio en su primera semana.',
+          note2Document: 'Manual del equipo de éxito.docx',
+          note2Page: '12',
+          note2Context:
+            'El responsable se asigna antes de la llamada de inicio.',
+          note2Quote:
+            'Cada cuenta nueva recibe un contacto de éxito, responsable de revisar el primer hito.',
+        },
+        renewals: {
+          question: '¿Cuándo revisamos las renovaciones de contrato?',
+          sentence1:
+            'Las renovaciones se revisan 60 días antes de que termine el contrato.',
+          sentence2:
+            'El responsable de la cuenta prepara un resumen de uso para esa revisión.',
+          note1Document: 'Política de contratos.pdf',
+          note1Page: '4',
+          note1Context:
+            'Los contratos estándar duran doce meses salvo que se indique otra cosa.',
+          note1Quote:
+            'Las renovaciones se revisan 60 días antes de la fecha de fin del contrato.',
+          note2Document: 'Manual del equipo de éxito.docx',
+          note2Page: '18',
+          note2Context:
+            'Las conversaciones de renovación deben partir de evidencia.',
+          note2Quote:
+            'Antes de revisar una renovación, el responsable de la cuenta prepara un resumen del uso desde la firma.',
+        },
+        kickoff: {
+          question: '¿Qué cubrimos en la llamada de inicio?',
+          sentence1:
+            'La llamada de inicio confirma los criterios de éxito y fija la fecha del primer hito.',
+          sentence2: 'Las notas de la llamada se comparten con el cliente.',
+          note1Document: 'Guía de incorporación de clientes.pdf',
+          note1Page: '6',
+          note1Context: 'La llamada de inicio dura alrededor de una hora.',
+          note1Quote:
+            'Acordar los criterios de éxito y fijar la fecha del primer hito.',
+          note2Document: 'Manual del equipo de éxito.docx',
+          note2Page: '9',
+          note2Context: 'Toma notas durante la llamada, no después.',
+          note2Quote:
+            'Enviar las notas de la llamada al cliente en menos de un día.',
+        },
+      },
+      files: {
+        onboarding: 'Guía de incorporación de clientes.pdf',
+        handbook: 'Manual del equipo de éxito.docx',
+        contract: 'Política de contratos.pdf',
+        kickoff: 'Lista de inicio.md',
+        pricing: 'Notas de precios.txt',
+      },
     },
     formats: {
       title: 'Funciona con los archivos que tu equipo ya tiene',
+      limit: 'Hasta 25 MB por archivo',
     },
     features: {
-      title: 'Conocimiento que funciona para tu equipo',
+      title: 'Pensado para tus documentos',
       description:
-        'Todo lo que necesitas para encontrar y usar la información que ya tienes.',
-      answers: {
-        title: 'Respuestas que puedes rastrear',
-        text: 'Obtén respuestas fundamentadas con citas que llevan al pasaje exacto de tus fuentes.',
-        quote:
-          '“Las renovaciones se revisan 60 días antes del fin del contrato.”',
-        source: 'Política de contratos · página 4',
+        'Desde la primera subida hasta una respuesta compartida, cada paso mantiene la fuente a la vista.',
+      upload: {
+        title: 'Súbelo y ya puedes preguntar',
+        text: 'El texto se extrae, se divide en pasajes y se indexa. Puedes ver cada archivo avanzar por los pasos.',
+        steps: {
+          uploaded: 'Subido',
+          extracting: 'Extrayendo texto',
+          indexing: 'Indexando pasajes',
+          ready: 'Listo para preguntar',
+        },
       },
       search: {
-        title: 'Búsqueda más allá de las palabras clave',
-        text: 'La búsqueda híbrida combina comprensión semántica y precisión de palabras clave.',
-        query: 'términos de renovación',
-        semantic: 'Significado',
-        keyword: 'Palabra clave',
-        resultPolicy: 'Política de contratos',
-        resultFaq: 'Preguntas de clientes',
+        title: 'Busca por significado y por palabra clave',
+        text: 'La búsqueda híbrida ordena los pasajes por lo que significan y por las palabras exactas que usan.',
+        query: 'plazo de aviso de renovación',
+        result1:
+          'Las renovaciones se revisan 60 días antes de la fecha de fin del contrato.',
+        result2:
+          'Antes de revisar una renovación, el responsable prepara un resumen de uso.',
+      },
+      collections: {
+        title: 'Colecciones',
+        text: 'Agrupa documentos relacionados y pregunta dentro de una colección.',
+        sales: 'Ventas',
+        support: 'Soporte',
+        legal: 'Legal',
+        documents: '{count} documentos',
       },
       insights: {
-        title: 'Ve el panorama completo',
-        text: 'Explora análisis y datos extraídos de tus documentos.',
-        factDate: 'Fecha de renovación',
-        factOwner: 'Responsable de la cuenta',
-        factValue: 'Valor del contrato',
+        title: 'Análisis',
+        text: 'Mira qué pregunta tu equipo y qué preguntas quedaron sin respuesta.',
+        asked: 'Preguntas hechas',
+        unanswered: 'Sin respuesta',
+        helpful: 'Marcadas como útiles',
       },
-      workspaces: {
-        title: 'Un espacio de trabajo para cada equipo',
-        text: 'Mantén las organizaciones separadas y gestiona el acceso con roles de miembro.',
+      roles: {
+        title: 'Roles y compartir',
+        text: 'Owner, Admin, Member y Viewer. Las conversaciones son privadas hasta que las compartes.',
+      },
+      audit: {
+        title: 'Registro de auditoría',
+        text: 'Admins y Owners ven quién cambió miembros y documentos, y cuándo.',
       },
     },
     howItWorks: {
-      title: 'De archivos a respuestas en tres pasos',
+      title: 'De una carpeta a una respuesta',
       createTitle: 'Crea un espacio de trabajo',
-      createText: 'Dale a tu equipo un lugar dedicado para su conocimiento.',
+      createText:
+        'Ponle nombre a tu organización e invita a quienes deben tener acceso.',
       uploadTitle: 'Sube documentos',
       uploadText:
-        'Agrega tus archivos y deja que KnowledgeHub los prepare para la búsqueda.',
-      askTitle: 'Pregunta y descubre',
-      askText: 'Obtén respuestas con citas y explora análisis de tus fuentes.',
+        'Agrega archivos PDF, Word, Markdown o de texto. Se indexan en segundo plano.',
+      askTitle: 'Pregunta y comprueba',
+      askText:
+        'Pregunta en lenguaje natural y abre cualquier cita para leer el pasaje original.',
     },
     isolation: {
       title: 'Tu espacio de trabajo, tus datos',
-      text: 'Las organizaciones están aisladas entre sí. Tus documentos y respuestas permanecen en tu espacio de trabajo, accesibles para sus miembros.',
+      text: 'Las organizaciones están aisladas entre sí. Antes de leer un solo documento, la API comprueba quién eres, que perteneces a la organización y qué permite tu rol.',
       points: {
         membership:
           'Cada solicitud se verifica contra la membresía de la organización',
-        roles:
-          'Los roles Propietario, Administrador, Miembro y Lector controlan el acceso',
+        roles: 'Los roles Owner, Admin, Member y Viewer controlan el acceso',
         files: 'Los archivos se sirven mediante enlaces de corta duración',
         audit:
           'Un registro de auditoría guarda los cambios de miembros y documentos',
@@ -257,50 +332,59 @@ export const es: Messages = {
     pricing: {
       title: 'Precios',
       description:
-        'Empieza gratis hoy. Los planes para equipos están en camino.',
-      freePrice: '0 US$',
+        'Empieza con el plan Free. Los planes para equipos están en camino.',
+      freePrice: '$0',
+      period: 'Sin tarjeta',
       getStarted: 'Crea una cuenta gratis',
-      waitlistText: '¿Necesitas los planes Equipo o Empresa?',
+      waitlistText:
+        'Los planes Team y Enterprise todavía no están disponibles. ¿Quieres saber cuando lo estén?',
       waitlistAction: 'Únete a la lista de espera',
+      soon: 'Próximamente',
       plans: {
-        free: 'Gratis',
+        free: 'Free',
+        team: 'Team y Enterprise',
       },
       summaries: {
         free: 'Para personas y equipos pequeños que están empezando.',
       },
       features: {
         citedAnswers: 'Respuestas con citas',
-        documentSearch: 'Búsqueda de documentos',
-        organizationWorkspace: 'Espacio de trabajo de la organización',
+        documentSearch: 'Búsqueda híbrida de documentos',
+        organizationWorkspace: 'Un espacio de trabajo con roles',
       },
     },
     faq: {
-      title: 'Preguntas, respondidas',
+      title: 'Preguntas y respuestas',
       formats: {
         question: '¿Qué archivos puedo subir?',
         answer:
-          'Archivos PDF, Word (.docx) y Markdown. KnowledgeHub los prepara para la búsqueda en cuanto se suben.',
+          'Archivos PDF, Word (.docx), Markdown y texto plano de hasta 25 MB. KnowledgeHub los prepara para la búsqueda en cuanto se suben.',
       },
       citations: {
         question: '¿Cómo sé que una respuesta es correcta?',
         answer:
-          'Cada respuesta cita los pasajes con los que se construyó. Abre una cita para leer el texto original en su documento.',
+          'Cada respuesta cita los pasajes con los que se construyó. Abre una cita para leer el texto original en su documento. Si los documentos no contienen la respuesta, lo indica.',
       },
       access: {
         question: '¿Quién puede ver mis documentos?',
         answer:
-          'Solo los miembros de tu organización. Cada organización está aislada y los roles deciden quién puede subir, gestionar o solo leer.',
+          'Solo los miembros de tu organización. Cada organización está aislada, y los roles deciden quién puede subir, administrar o solo leer.',
+      },
+      model: {
+        question: '¿Qué IA escribe las respuestas?',
+        answer:
+          'KnowledgeHub recupera pasajes solo de tu organización y envía esos pasajes a OpenAI para escribir la respuesta.',
       },
       price: {
         question: '¿Es gratis?',
         answer:
-          'Sí. El plan Gratis incluye respuestas con citas, búsqueda de documentos y un espacio de trabajo para tu organización. Los planes Equipo y Empresa llegarán pronto.',
+          'Sí. El plan Free incluye respuestas con citas, búsqueda de documentos y un espacio de trabajo para tu organización. Los planes Team y Enterprise llegarán pronto.',
       },
     },
     cta: {
-      title: 'Pon tu conocimiento a trabajar',
+      title: 'Pon tus documentos a trabajar',
       description:
-        'Crea un espacio de trabajo y empieza a hacer mejores preguntas.',
+        'Crea un espacio de trabajo, sube un archivo y haz tu primera pregunta.',
       getStarted: 'Crea una cuenta gratis',
       logIn: 'Iniciar sesión',
     },
