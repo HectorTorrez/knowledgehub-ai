@@ -1,20 +1,35 @@
 import type { LucideIcon } from 'lucide-react';
-import {
-  BookOpen,
-  FileSearch,
-  FileText,
-  Files,
-  Search,
-  Sparkles,
-  Users,
-} from 'lucide-react';
+import { BookOpen, FileSearch, Files, Sparkles, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { SectionHeading } from '~/components/landing/section-heading';
 import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 const FILE_FORMATS = ['PDF', 'DOCX', 'Markdown'] as const;
-const ROLES = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'] as const;
+
+const featureShots = {
+  answers: { src: '/landing/answers.png', width: 1400, height: 840 },
+  search: { src: '/landing/search.png', width: 2272, height: 1316 },
+  documents: { src: '/landing/documents.png', width: 2272, height: 794 },
+  members: { src: '/landing/members.png', width: 2272, height: 734 },
+  usage: { src: '/landing/usage.png', width: 2272, height: 856 },
+} as const;
+
+function FeatureShot({
+  shot,
+}: Readonly<{ shot: (typeof featureShots)[keyof typeof featureShots] }>) {
+  return (
+    <img
+      src={shot.src}
+      alt=""
+      width={shot.width}
+      height={shot.height}
+      loading="lazy"
+      decoding="async"
+      className="w-full rounded-lg border bg-background shadow-sm"
+    />
+  );
+}
 
 function FeatureCard({
   icon: Icon,
@@ -32,7 +47,7 @@ function FeatureCard({
   return (
     <article
       className={cn(
-        'group flex flex-col overflow-hidden rounded-2xl border bg-card transition-shadow hover:shadow-lg hover:shadow-brand/5',
+        'flex flex-col overflow-hidden rounded-2xl border bg-card transition-shadow hover:shadow-lg hover:shadow-brand/5',
         className,
       )}
     >
@@ -49,154 +64,6 @@ function FeatureCard({
         </p>
       </div>
     </article>
-  );
-}
-
-function AnswersVisual() {
-  const t = useT();
-  return (
-    <div aria-hidden="true" className="space-y-3 text-sm">
-      <div className="space-y-2">
-        <div className="h-2.5 w-11/12 rounded-full bg-foreground/10" />
-        <div className="h-2.5 w-4/5 rounded-full bg-foreground/10" />
-        <div className="flex items-center gap-2">
-          <div className="h-2.5 w-1/2 rounded-full bg-foreground/10" />
-          <span className="rounded-md bg-brand px-1.5 text-[0.7rem] font-semibold text-brand-foreground">
-            1
-          </span>
-        </div>
-      </div>
-      <div className="rounded-lg border bg-card p-3 shadow-sm transition-transform group-hover:-translate-y-0.5">
-        <p className="text-xs font-semibold text-brand">
-          {t('landing.features.answers.source')}
-        </p>
-        <p className="mt-1 text-sm">
-          <mark className="rounded bg-brand/15 px-0.5 text-foreground">
-            {t('landing.features.answers.quote')}
-          </mark>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function SearchVisual() {
-  const t = useT();
-  const results = [
-    {
-      name: t('landing.features.search.resultPolicy'),
-      semantic: 92,
-      keyword: 78,
-    },
-    { name: t('landing.features.search.resultFaq'), semantic: 74, keyword: 41 },
-  ];
-  return (
-    <div aria-hidden="true" className="space-y-3 text-xs">
-      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-xs">
-        <Search className="size-3.5 text-muted-foreground" />
-        <span>{t('landing.features.search.query')}</span>
-      </div>
-      {results.map((result) => (
-        <div key={result.name} className="rounded-lg border bg-card p-3">
-          <p className="flex items-center gap-1.5 font-medium">
-            <FileText className="size-3.5 text-brand" />
-            {result.name}
-          </p>
-          <div className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 text-muted-foreground">
-            <span>{t('landing.features.search.semantic')}</span>
-            <span className="h-1.5 rounded-full bg-muted">
-              <span
-                className="block h-full rounded-full bg-brand"
-                style={{ width: `${result.semantic}%` }}
-              />
-            </span>
-            <span>{t('landing.features.search.keyword')}</span>
-            <span className="h-1.5 rounded-full bg-muted">
-              <span
-                className="block h-full rounded-full bg-brand/50"
-                style={{ width: `${result.keyword}%` }}
-              />
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function InsightsVisual() {
-  const t = useT();
-  const facts = [
-    { label: t('landing.features.insights.factDate'), value: '2027-03-01' },
-    { label: t('landing.features.insights.factOwner'), value: 'Dana Ortiz' },
-    { label: t('landing.features.insights.factValue'), value: '$48,000' },
-  ];
-  return (
-    <dl
-      aria-hidden="true"
-      className="divide-y rounded-lg border bg-card text-xs"
-    >
-      {facts.map((fact) => (
-        <div
-          key={fact.label}
-          className="flex items-center justify-between gap-3 px-3 py-2.5"
-        >
-          <dt className="text-muted-foreground">{fact.label}</dt>
-          <dd className="font-semibold tabular-nums">{fact.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function WorkspacesVisual() {
-  const t = useT();
-  return (
-    <ul aria-hidden="true" className="space-y-2 text-xs">
-      {ROLES.map((role, index) => (
-        <li
-          key={role}
-          className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2"
-        >
-          <span
-            className="flex size-6 items-center justify-center rounded-full bg-brand text-[0.65rem] font-semibold text-brand-foreground"
-            style={{ opacity: 1 - index * 0.2 }}
-          >
-            {t(`roles.${role}`).charAt(0)}
-          </span>
-          <span className="h-2 flex-1 rounded-full bg-foreground/10" />
-          <span className="rounded-full border px-2 py-0.5 font-medium">
-            {t(`roles.${role}`)}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function DocumentsVisual() {
-  return (
-    <div
-      aria-hidden="true"
-      className="flex h-full items-center justify-center gap-3"
-    >
-      {FILE_FORMATS.map((format, index) => (
-        <div
-          key={format}
-          className="flex h-24 w-20 flex-col justify-between rounded-lg border bg-card p-2 shadow-sm transition-transform group-hover:-translate-y-1"
-          style={{ transitionDelay: `${index * 60}ms` }}
-        >
-          <div className="space-y-1">
-            <div className="h-1.5 w-full rounded-full bg-foreground/10" />
-            <div className="h-1.5 w-3/4 rounded-full bg-foreground/10" />
-            <div className="h-1.5 w-5/6 rounded-full bg-foreground/10" />
-          </div>
-          <span className="w-fit rounded bg-brand/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-brand">
-            {format}
-          </span>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -241,7 +108,7 @@ export function LandingFeatures() {
             text={t('landing.features.answers.text')}
             className="lg:col-span-3"
           >
-            <AnswersVisual />
+            <FeatureShot shot={featureShots.answers} />
           </FeatureCard>
           <FeatureCard
             icon={FileSearch}
@@ -249,7 +116,7 @@ export function LandingFeatures() {
             text={t('landing.features.search.text')}
             className="lg:col-span-3"
           >
-            <SearchVisual />
+            <FeatureShot shot={featureShots.search} />
           </FeatureCard>
           <FeatureCard
             icon={BookOpen}
@@ -257,7 +124,7 @@ export function LandingFeatures() {
             text={t('landing.features.insights.text')}
             className="lg:col-span-2"
           >
-            <InsightsVisual />
+            <FeatureShot shot={featureShots.usage} />
           </FeatureCard>
           <FeatureCard
             icon={Users}
@@ -265,7 +132,7 @@ export function LandingFeatures() {
             text={t('landing.features.workspaces.text')}
             className="lg:col-span-2"
           >
-            <WorkspacesVisual />
+            <FeatureShot shot={featureShots.members} />
           </FeatureCard>
           <FeatureCard
             icon={Files}
@@ -273,7 +140,7 @@ export function LandingFeatures() {
             text={t('landing.features.documents.text')}
             className="md:col-span-2 lg:col-span-2"
           >
-            <DocumentsVisual />
+            <FeatureShot shot={featureShots.documents} />
           </FeatureCard>
         </div>
       </div>

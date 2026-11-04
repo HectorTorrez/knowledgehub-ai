@@ -203,24 +203,14 @@ export const en = {
       answers: {
         title: 'Answers you can trace',
         text: 'Get grounded answers with citations that point back to the exact passage in your sources.',
-        quote: '“Renewals are reviewed 60 days before the contract end date.”',
-        source: 'Contract policy · page 4',
       },
       search: {
         title: 'Search beyond keywords',
         text: 'Hybrid search brings semantic understanding and keyword precision together.',
-        query: 'renewal terms',
-        semantic: 'Meaning',
-        keyword: 'Keyword',
-        resultPolicy: 'Contract policy',
-        resultFaq: 'Customer FAQ',
       },
       insights: {
         title: 'See the bigger picture',
-        text: 'Explore insights and facts extracted from your documents.',
-        factDate: 'Renewal date',
-        factOwner: 'Account owner',
-        factValue: 'Contract value',
+        text: 'Track documents, answers, storage, and members in one place.',
       },
       workspaces: {
         title: 'A workspace for every team',

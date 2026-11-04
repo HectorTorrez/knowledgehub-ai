@@ -207,25 +207,14 @@ export const es: Messages = {
       answers: {
         title: 'Respuestas que puedes rastrear',
         text: 'Obtén respuestas fundamentadas con citas que llevan al pasaje exacto de tus fuentes.',
-        quote:
-          '“Las renovaciones se revisan 60 días antes del fin del contrato.”',
-        source: 'Política de contratos · página 4',
       },
       search: {
         title: 'Búsqueda más allá de las palabras clave',
         text: 'La búsqueda híbrida combina comprensión semántica y precisión de palabras clave.',
-        query: 'términos de renovación',
-        semantic: 'Significado',
-        keyword: 'Palabra clave',
-        resultPolicy: 'Política de contratos',
-        resultFaq: 'Preguntas de clientes',
       },
       insights: {
         title: 'Ve el panorama completo',
-        text: 'Explora análisis y datos extraídos de tus documentos.',
-        factDate: 'Fecha de renovación',
-        factOwner: 'Responsable de la cuenta',
-        factValue: 'Valor del contrato',
+        text: 'Consulta documentos, respuestas, almacenamiento y miembros en un solo lugar.',
       },
       workspaces: {
         title: 'Un espacio de trabajo para cada equipo',
