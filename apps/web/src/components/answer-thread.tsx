@@ -12,6 +12,7 @@ import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/provider';
 import { cn } from '~/lib/utils';
 import {
   AnswerBody,
@@ -51,6 +52,7 @@ export function AnswerThread({
   organizationId,
   latest,
 }: Readonly<{ organizationId: string; latest?: LatestAnswer }>) {
+  const t = useT();
   const client = useQueryClient();
   const { toast } = useToast();
   const reportError = useReportError();
@@ -75,7 +77,10 @@ export function AnswerThread({
     mutationFn: (answerId: string) =>
       answersApi.remove(organizationId, answerId),
     onSuccess: () => {
-      toast({ variant: 'success', title: 'Question removed from history' });
+      toast({
+        variant: 'success',
+        title: t('answerThread.removedFromHistory'),
+      });
 
       return client.invalidateQueries({
         queryKey: queryKeys.organizations.answers.list(organizationId),
@@ -132,21 +137,21 @@ export function AnswerThread({
 
       {!history.isPending && !latest && rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Questions you ask will appear here so you can revisit their answers.
+          {t('answerThread.emptyHint')}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {scope === 'me'
-            ? 'Questions you asked in this organization.'
-            : 'Questions asked by everyone in this organization.'}
+            ? t('answerThread.yourQuestionsDescription')
+            : t('answerThread.everyoneDescription')}
         </p>
         <ToggleGroup
           type="single"
           variant="outline"
           size="sm"
-          aria-label="History scope"
+          aria-label={t('answerThread.historyScope')}
           value={scope}
           onValueChange={(value) => {
             if (value === 'me' || value === 'organization') {
@@ -154,15 +159,21 @@ export function AnswerThread({
             }
           }}
         >
-          <ToggleGroupItem value="me">Your questions</ToggleGroupItem>
-          <ToggleGroupItem value="organization">Everyone</ToggleGroupItem>
+          <ToggleGroupItem value="me">
+            {t('answerThread.yourQuestions')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="organization">
+            {t('answerThread.everyone')}
+          </ToggleGroupItem>
         </ToggleGroup>
       </div>
 
       {earlier.length > 0 ? (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">
-            {latest ? 'Earlier questions' : 'History'}
+            {latest
+              ? t('answerThread.earlierQuestions')
+              : t('answerThread.history')}
           </h2>
           <Card>
             <CardContent className="p-0">
@@ -196,7 +207,7 @@ export function AnswerThread({
             disabled={history.isFetchingNextPage}
           >
             {history.isFetchingNextPage ? <Spinner /> : null}
-            Load more
+            {t('orgSettings.loadMore')}
           </Button>
         </div>
       ) : null}
@@ -211,14 +222,13 @@ export function AnswerThread({
       >
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove from history</AlertDialogTitle>
+            <AlertDialogTitle>{t('answerThread.removeTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes this question and its answer from your
-              history. This cannot be undone.
+              {t('answerThread.removeDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: 'destructive' })}
               disabled={remove.isPending}
@@ -227,7 +237,9 @@ export function AnswerThread({
                 void handleDelete();
               }}
             >
-              {remove.isPending ? 'Removing…' : 'Remove'}
+              {remove.isPending
+                ? t('answerThread.removing')
+                : t('answerThread.remove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -247,6 +259,8 @@ function LatestAnswerCard({
   latest: LatestAnswer;
   onRequestDelete?: () => void;
 }>) {
+  const t = useT();
+
   return (
     <div className="space-y-3">
       <Card>
@@ -254,11 +268,11 @@ function LatestAnswerCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-1">
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Question
+                {t('answerThread.question')}
               </p>
               <p className="text-sm font-medium">{latest.question}</p>
               <p className="text-xs text-muted-foreground">
-                Answered from {latest.scopeLabel}
+                {t('answerThread.answeredFrom', { scope: latest.scopeLabel })}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -290,7 +304,9 @@ function LatestAnswerCard({
                   variant="ghost"
                   size="icon"
                   onClick={onRequestDelete}
-                  aria-label={`Remove “${latest.question}” from history`}
+                  aria-label={t('answerThread.removeAria', {
+                    question: latest.question,
+                  })}
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="size-4" />
@@ -337,6 +353,9 @@ function HistoryRow({
   onToggle: () => void;
   onRequestDelete: () => void;
 }>) {
+  const t = useT();
+  const locale = useLocale();
+
   return (
     <Collapsible asChild open={expanded} onOpenChange={() => onToggle()}>
       <li>
@@ -360,12 +379,12 @@ function HistoryRow({
                   {answer.question}
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {formatDateTime(answer.createdAt)}
+                  {formatDateTime(answer.createdAt, locale)}
                   {answer.status === 'partial'
-                    ? ' · Partial answer'
+                    ? t('answerThread.partialAnswer')
                     : answer.status === 'answered'
                       ? ''
-                      : ' · Not answered'}
+                      : t('answerThread.notAnswered')}
                 </span>
               </span>
               <ChevronDown
@@ -380,7 +399,9 @@ function HistoryRow({
             variant="ghost"
             size="icon"
             onClick={onRequestDelete}
-            aria-label={`Remove “${answer.question}” from history`}
+            aria-label={t('answerThread.removeAria', {
+              question: answer.question,
+            })}
             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2 className="size-4" />

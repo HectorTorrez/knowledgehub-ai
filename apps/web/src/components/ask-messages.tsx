@@ -30,6 +30,7 @@ import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { sourceId } from '~/lib/answer-source';
 import { formatDateTime } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/provider';
 
 export interface AskedQuestion {
   question: string;
@@ -56,6 +57,7 @@ export function ConversationMessages({
   pending: AskedQuestion | null;
   stream: StreamSnapshot;
 }>) {
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
@@ -224,14 +226,14 @@ export function ConversationMessages({
                 disabled={answers.isFetchingNextPage}
               >
                 {answers.isFetchingNextPage ? <Spinner /> : null}
-                Load earlier questions
+                {t('askMessages.loadEarlier')}
               </Button>
             </div>
           ) : null}
 
           {rows.length === 0 && !pendingVisible && !answers.isPending ? (
             <p className="py-12 text-center text-sm text-muted-foreground">
-              This conversation has no questions yet.
+              {t('askMessages.noQuestions')}
             </p>
           ) : null}
 
@@ -267,7 +269,7 @@ export function ConversationMessages({
           }}
         >
           <ArrowDown />
-          Jump to latest
+          {t('askMessages.jumpToLatest')}
         </Button>
       ) : null}
     </div>
@@ -278,6 +280,7 @@ function PersistedTurn({
   organizationId,
   answer,
 }: Readonly<{ organizationId: string; answer: AnswerSummary }>) {
+  const locale = useLocale();
   const detail = useQuery({
     queryKey: queryKeys.organizations.answers.detail(organizationId, answer.id),
     queryFn: () => answersApi.detail(organizationId, answer.id),
@@ -291,7 +294,7 @@ function PersistedTurn({
       {detail.isPending ? (
         <AssistantFrame
           heading="KnowledgeHub"
-          meta={formatDateTime(answer.createdAt)}
+          meta={formatDateTime(answer.createdAt, locale)}
         >
           <Skeleton className="h-24 w-full rounded-2xl" />
         </AssistantFrame>
@@ -319,6 +322,7 @@ function PendingTurn({
   pending,
   stream,
 }: Readonly<{ pending: AskedQuestion; stream: StreamSnapshot }>) {
+  const t = useT();
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [pendingSource, setPendingSource] = useState<number | null>(null);
   const hasText = stream.text.length > 0;
@@ -353,7 +357,7 @@ function PendingTurn({
 
       <AssistantFrame
         heading="KnowledgeHub"
-        meta={`Answered from ${pending.scopeLabel}`}
+        meta={t('askMessages.answeredFrom', { scope: pending.scopeLabel })}
       >
         <Card className="rounded-2xl shadow-none">
           <CardContent
@@ -376,7 +380,7 @@ function PendingTurn({
               <ThinkingIndicator scopeLabel={pending.scopeLabel} />
             ) : (
               <p className="text-sm text-muted-foreground">
-                No answer was returned. Try rephrasing the question.
+                {t('askMessages.noAnswer')}
               </p>
             )}
 
@@ -387,7 +391,7 @@ function PendingTurn({
             {stream.status === 'streaming' && hasText ? (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Spinner className="size-3.5" />
-                Writing…
+                {t('askMessages.writing')}
               </p>
             ) : null}
           </CardContent>
@@ -429,6 +433,8 @@ function AssistantAnswer({
   feedback: AnswerFeedbackSummary | null;
   sourceIdPrefix: string;
 }>) {
+  const t = useT();
+  const locale = useLocale();
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [pendingSource, setPendingSource] = useState<number | null>(null);
 
@@ -456,7 +462,10 @@ function AssistantAnswer({
   }, [pendingSource, sourcesOpen, sourceIdPrefix]);
 
   return (
-    <AssistantFrame heading="KnowledgeHub" meta={formatDateTime(createdAt)}>
+    <AssistantFrame
+      heading="KnowledgeHub"
+      meta={formatDateTime(createdAt, locale)}
+    >
       <Card className="rounded-2xl shadow-none">
         <CardContent className="space-y-3 p-4 sm:p-5">
           {status !== 'insufficient_evidence' ? (
@@ -489,7 +498,7 @@ function AssistantAnswer({
 
       <div className="flex flex-wrap items-center gap-1">
         <span className="mr-1 text-[11px] text-muted-foreground">
-          Was this helpful?
+          {t('askMessages.wasHelpful')}
         </span>
         <AnswerFeedback
           organizationId={organizationId}
@@ -552,6 +561,8 @@ function QuestionBubble({ question }: Readonly<{ question: string }>) {
 }
 
 function ThinkingIndicator({ scopeLabel }: Readonly<{ scopeLabel: string }>) {
+  const t = useT();
+
   return (
     <div className="flex items-center gap-2.5 py-0.5 text-sm text-muted-foreground">
       <span aria-hidden="true" className="flex items-center gap-1">
@@ -563,7 +574,7 @@ function ThinkingIndicator({ scopeLabel }: Readonly<{ scopeLabel: string }>) {
           />
         ))}
       </span>
-      Searching {scopeLabel}…
+      {t('askMessages.searchingScope', { scope: scopeLabel })}
     </div>
   );
 }

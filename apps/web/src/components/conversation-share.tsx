@@ -13,6 +13,8 @@ import { conversationsApi } from '~/lib/api/conversations';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 
+import { useT } from '~/lib/i18n/provider';
+
 export function ConversationShare({
   organizationId,
   conversation,
@@ -20,6 +22,7 @@ export function ConversationShare({
   organizationId: string;
   conversation: ConversationSummary;
 }>) {
+  const t = useT();
   const client = useQueryClient();
   const { toast } = useToast();
   const session = useSession();
@@ -39,8 +42,7 @@ export function ConversationShare({
         data,
       );
     },
-    onError: () =>
-      toast({ variant: 'error', title: 'Could not update sharing' }),
+    onError: () => toast({ variant: 'error', title: t('share.updateError') }),
     onSettled: () =>
       client.invalidateQueries({
         queryKey: queryKeys.organizations.conversations.all(organizationId),
@@ -61,9 +63,9 @@ export function ConversationShare({
     url.searchParams.set('conversation', conversation.id);
     try {
       await navigator.clipboard.writeText(url.toString());
-      toast({ variant: 'success', title: 'Link copied' });
+      toast({ variant: 'success', title: t('answerActions.linkCopied') });
     } catch {
-      toast({ variant: 'error', title: 'Could not copy link' });
+      toast({ variant: 'error', title: t('share.copyLinkError') });
     }
   }
 
@@ -71,7 +73,7 @@ export function ConversationShare({
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm">
-          {shared ? 'Shared' : 'Share'}
+          {shared ? t('share.shared') : t('share.share')}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -80,7 +82,7 @@ export function ConversationShare({
       >
         <div className="flex items-center justify-between gap-3">
           <label htmlFor="share-organization" className="text-sm font-medium">
-            Share with organization
+            {t('share.withOrganization')}
           </label>
           <Switch
             id="share-organization"
@@ -92,13 +94,17 @@ export function ConversationShare({
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          Only members of{' '}
-          {organization.data?.organization.name ?? 'this organization'} can open
-          this link.
+          {t('share.onlyMembers', {
+            name:
+              organization.data?.organization.name ??
+              t('share.thisOrganization'),
+          })}
         </p>
         {creator && viewerId && creator.id !== viewerId ? (
           <p className="text-xs text-muted-foreground">
-            Shared by {creator.firstName} {creator.lastName}
+            {t('share.sharedBy', {
+              name: `${creator.firstName} ${creator.lastName}`,
+            })}
           </p>
         ) : null}
         <Button
@@ -107,7 +113,7 @@ export function ConversationShare({
           className="w-full"
           onClick={() => void copyLink()}
         >
-          Copy link
+          {t('answerActions.copyLink')}
         </Button>
       </PopoverContent>
     </Popover>

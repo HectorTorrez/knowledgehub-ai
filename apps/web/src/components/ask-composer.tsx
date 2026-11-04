@@ -8,6 +8,8 @@ import { Spinner } from '~/components/ui/spinner';
 import { Textarea } from '~/components/ui/textarea';
 import { QUESTION_MAX_LENGTH } from '~/lib/validation';
 
+import { useT } from '~/lib/i18n/provider';
+
 export function AskComposer({
   organizationId,
   documents,
@@ -35,6 +37,8 @@ export function AskComposer({
   submitting: boolean;
   documentsPending: boolean;
 }>) {
+  const t = useT();
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (
       event.nativeEvent.isComposing ||
@@ -55,7 +59,7 @@ export function AskComposer({
   return (
     <div className="shrink-0 border-t bg-background/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6 sm:py-4">
       <form
-        aria-label="Ask a question"
+        aria-label={t('ask.title')}
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit();
@@ -65,13 +69,13 @@ export function AskComposer({
         <div className="rounded-2xl border bg-card shadow-sm transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30">
           <Textarea
             id="ask-question"
-            aria-label="Your question"
+            aria-label={t('ask.yourQuestion')}
             rows={1}
             maxLength={QUESTION_MAX_LENGTH}
             value={question}
             onChange={(event) => onQuestionChange(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything about these documents…"
+            placeholder={t('composer.placeholder')}
             className="field-sizing-content max-h-40 min-h-12 resize-none border-0 bg-transparent px-4 pt-3.5 pb-1 text-base shadow-none placeholder:text-muted-foreground focus-visible:ring-0 md:text-sm"
           />
 
@@ -93,8 +97,8 @@ export function AskComposer({
                 <Button
                   type="button"
                   size="icon"
-                  aria-label="Stop generating"
-                  title="Stop generating"
+                  aria-label={t('composer.stop')}
+                  title={t('composer.stop')}
                   className="rounded-full"
                   onClick={onStop}
                 >
@@ -104,7 +108,7 @@ export function AskComposer({
                 <Button
                   type="submit"
                   size="icon"
-                  aria-label="Ask"
+                  aria-label={t('composer.ask')}
                   className="rounded-full"
                   disabled={submitting || question.trim().length === 0}
                 >
@@ -118,20 +122,18 @@ export function AskComposer({
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
           {documents.length === 0 && !documentsPending ? (
             <p>
-              No documents are ready.{' '}
+              {t('composer.noDocumentsReady')}{' '}
               <Link
                 to="/organizations/$organizationId/documents"
                 params={{ organizationId }}
                 className="font-medium text-foreground underline-offset-4 hover:underline"
               >
-                Upload one
+                {t('composer.uploadOne')}
               </Link>{' '}
-              to ask questions.
+              {t('composer.toAsk')}
             </p>
           ) : (
-            <p className="hidden sm:block">
-              Enter to send · Shift+Enter for a new line
-            </p>
+            <p className="hidden sm:block">{t('composer.hint')}</p>
           )}
           <p className="sm:hidden">Tap Ask to send</p>
         </div>

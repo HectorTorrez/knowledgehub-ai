@@ -7,16 +7,17 @@ import { RouteError } from '~/components/route-states';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import { formatDate } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/provider';
 import { initials } from '~/lib/initials';
 import { useSession } from '~/hooks/use-auth';
 import { cn } from '~/lib/utils';
 
 interface ConversationGroup {
-  label: string;
+  label: (typeof GROUP_ORDER)[number];
   conversations: ConversationSummary[];
 }
 
-const GROUP_ORDER = ['Today', 'Yesterday', 'Previous 7 days', 'Older'] as const;
+const GROUP_ORDER = ['today', 'yesterday', 'previous7', 'older'] as const;
 
 export function ConversationRail({
   conversations,
@@ -53,6 +54,7 @@ export function ConversationRail({
   onDelete: (conversation: ConversationSummary) => void;
   onOpenHistory: () => void;
 }>) {
+  const t = useT();
   const groups = useMemo(
     () => groupConversations(conversations),
     [conversations],
@@ -62,7 +64,7 @@ export function ConversationRail({
     <div className="flex h-full min-h-0 flex-col">
       {showHeading ? (
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-3">
-          <h2 className="text-sm font-semibold">Conversations</h2>
+          <h2 className="text-sm font-semibold">{t('ask.conversations')}</h2>
         </div>
       ) : null}
 
@@ -75,11 +77,11 @@ export function ConversationRail({
           onClick={onNew}
         >
           <MessageSquarePlus />
-          New conversation
+          {t('ask.newConversation')}
         </Button>
       </div>
 
-      <div className="flex gap-1 px-2" aria-label="Conversation scope">
+      <div className="flex gap-1 px-2" aria-label={t('rail.scopeLabel')}>
         {(['all', 'mine', 'shared'] as const).map((value) => (
           <Button
             key={value}
@@ -87,7 +89,7 @@ export function ConversationRail({
             variant={scope === value ? 'secondary' : 'ghost'}
             onClick={() => onScopeChange(value)}
           >
-            {value[0].toUpperCase() + value.slice(1)}
+            {t(`rail.scopes.${value}`)}
           </Button>
         ))}
       </div>
@@ -105,21 +107,21 @@ export function ConversationRail({
         ) : null}
 
         {isError ? (
-          <RouteError title="Unable to load conversations" onRetry={onRetry} />
+          <RouteError title={t('rail.loadError')} onRetry={onRetry} />
         ) : null}
         {!isPending && !isError && conversations.length === 0 ? (
           <EmptyState
             icon={MessageSquarePlus}
-            title="No conversations yet"
-            description="Ask a question to start a conversation."
-            action={<Button onClick={onNew}>New conversation</Button>}
+            title={t('rail.emptyTitle')}
+            description={t('rail.emptyDescription')}
+            action={<Button onClick={onNew}>{t('ask.newConversation')}</Button>}
           />
         ) : null}
 
         {groups.map((group) => (
           <section key={group.label} className="pt-2">
             <h3 className="px-2 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-              {group.label}
+              {t(`rail.groups.${group.label}`)}
             </h3>
             <ul className="space-y-0.5">
               {group.conversations.map((conversation) => (
@@ -145,7 +147,7 @@ export function ConversationRail({
             disabled={isFetchingNextPage}
           >
             {isFetchingNextPage ? <Spinner /> : null}
-            Load older
+            {t('rail.loadOlder')}
           </Button>
         ) : null}
       </div>
@@ -159,7 +161,7 @@ export function ConversationRail({
           onClick={onOpenHistory}
         >
           <History />
-          Question history
+          {t('ask.history')}
         </Button>
       </div>
     </div>
@@ -177,12 +179,14 @@ function ConversationRailItem({
   onSelect: () => void;
   onDelete: () => void;
 }>) {
+  const t = useT();
+  const locale = useLocale();
   const session = useSession();
   const viewerId =
     session.data?.status === 'authenticated' ? session.data.user.id : undefined;
   const creator = conversation.createdBy;
   const showCreator = creator && viewerId && creator.id !== viewerId;
-  const title = conversation.title?.trim() || 'New conversation';
+  const title = conversation.title?.trim() || t('ask.newConversation');
 
   return (
     <div
@@ -207,9 +211,14 @@ function ConversationRailItem({
           {title}
         </span>
         <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
-          <span className="shrink-0">{formatDate(conversation.createdAt)}</span>
+          <span className="shrink-0">
+            {formatDate(conversation.createdAt, locale)}
+          </span>
           {conversation.visibility === 'ORGANIZATION' ? (
-            <Users aria-label="Shared" className="size-3 shrink-0" />
+            <Users
+              aria-label={t('rail.sharedLabel')}
+              className="size-3 shrink-0"
+            />
           ) : null}
           {showCreator ? (
             <>
@@ -226,7 +235,7 @@ function ConversationRailItem({
       <Button
         variant="ghost"
         size="icon"
-        aria-label={`Delete ${title}`}
+        aria-label={t('rail.deleteFor', { title })}
         className="size-11 shrink-0 text-muted-foreground opacity-100 hover:text-destructive lg:size-8 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
         onClick={onDelete}
       >
@@ -273,16 +282,16 @@ function groupLabel(iso: string): (typeof GROUP_ORDER)[number] {
   );
 
   if (daysAgo <= 0) {
-    return 'Today';
+    return 'today';
   }
 
   if (daysAgo === 1) {
-    return 'Yesterday';
+    return 'yesterday';
   }
 
   if (daysAgo < 7) {
-    return 'Previous 7 days';
+    return 'previous7';
   }
 
-  return 'Older';
+  return 'older';
 }
