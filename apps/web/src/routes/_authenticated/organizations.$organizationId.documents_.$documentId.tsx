@@ -61,18 +61,21 @@ import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { organizationsApi } from '~/lib/api/organizations';
 import { formatBytes, formatDateTime } from '~/lib/format';
+import { useLocale, useT } from '~/lib/i18n/provider';
+import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { documentTitleSchema } from '~/lib/validation';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/documents_/$documentId',
 )({
-  head: () =>
-    pageHead({
-      title: 'Document · KnowledgeHub AI',
-      description:
-        'Inspect a document, its processing status, and the file it was uploaded from.',
-    }),
+  head: ({ match }) => {
+    const t = createTranslator(match.context.locale);
+    return pageHead({
+      title: t('documentDetail.pageTitle'),
+      description: t('documentDetail.pageDescription'),
+    });
+  },
   validateSearch: (
     search: Record<string, unknown>,
   ): { page?: number; quote?: string } => {
@@ -100,6 +103,8 @@ export const Route = createFileRoute(
 const ACTIVE_STATUSES = new Set(['PENDING', 'PROCESSING']);
 
 function DocumentDetailPage() {
+  const t = useT();
+  const locale = useLocale();
   const { organizationId, documentId } = Route.useParams();
   const organization = useQuery({
     queryKey: queryKeys.organizations.detail(organizationId),
@@ -242,7 +247,7 @@ function DocumentDetailPage() {
     mutationFn: (title: string) =>
       documentsApi.rename(organizationId, documentId, { title }),
     onSuccess: () => {
-      toast({ variant: 'success', title: 'Document renamed' });
+      toast({ variant: 'success', title: t('documents.renamed') });
       setRenameOpen(false);
 
       return Promise.all([
@@ -265,8 +270,8 @@ function DocumentDetailPage() {
     onSuccess: () => {
       toast({
         variant: 'success',
-        title: 'Reprocessing started',
-        description: 'This page will refresh when the document moves forward.',
+        title: t('documents.reprocessing'),
+        description: t('documentDetail.reprocessingDescription'),
       });
 
       return client.invalidateQueries({
@@ -284,9 +289,8 @@ function DocumentDetailPage() {
     onSuccess: async () => {
       toast({
         variant: 'success',
-        title: 'Document deleted',
-        description:
-          'The document and everything derived from it were removed.',
+        title: t('documents.deleted'),
+        description: t('documentDetail.deletedDescription'),
       });
       await client.invalidateQueries({
         queryKey: queryKeys.organizations.documents.list(organizationId),
@@ -313,11 +317,13 @@ function DocumentDetailPage() {
   async function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const result = documentTitleSchema.safeParse({ title: renameTitle });
+    const result = documentTitleSchema(t).safeParse({ title: renameTitle });
 
     if (!result.success) {
       reportError(
-        new Error(result.error.issues[0]?.message ?? 'A title is required.'),
+        new Error(
+          result.error.issues[0]?.message ?? t('validation.titleRequired'),
+        ),
       );
       return;
     }
@@ -344,7 +350,7 @@ function DocumentDetailPage() {
       <div className="space-y-6">
         <BackLink organizationId={organizationId} />
         <RouteError
-          title="Unable to load document"
+          title={t('documentDetail.loadError')}
           onRetry={() => void document.refetch()}
         />
       </div>
@@ -362,8 +368,8 @@ function DocumentDetailPage() {
         {canWrite ? (
           <DocumentMultiSelect
             disabled={assignment.isPending}
-            label="Collections"
-            emptyLabel="No collections"
+            label={t('search.collections')}
+            emptyLabel={t('documentDetail.noCollections')}
             documents={(collections.data ?? []).map((item) => ({
               id: item.id,
               title: item.name,
@@ -375,7 +381,7 @@ function DocumentDetailPage() {
       </div>
       <PageHeader
         title={entry.title}
-        description="The file, processing state, and metadata behind this document."
+        description={t('documentDetail.description')}
         eyebrow={<DocumentStatusBadge status={entry.status} />}
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -388,7 +394,7 @@ function DocumentDetailPage() {
                   onClick={(event) => void openOriginal(event)}
                 >
                   <ExternalLink />
-                  Download original
+                  {t('documentDetail.downloadOriginal')}
                 </a>
               </Button>
             ) : null}
@@ -399,19 +405,21 @@ function DocumentDetailPage() {
                 onClick={() => reprocess.mutate()}
               >
                 <RotateCcw />
-                {reprocess.isPending ? 'Retrying…' : 'Retry processing'}
+                {reprocess.isPending
+                  ? t('documentDetail.retrying')
+                  : t('documents.retryProcessing')}
               </Button>
             ) : null}
             {canWrite ? (
               <Button variant="outline" onClick={openRename}>
                 <Pencil />
-                Rename
+                {t('documents.rename')}
               </Button>
             ) : null}
             {canDelete ? (
               <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
                 <Trash2 />
-                Delete
+                {t('documents.delete')}
               </Button>
             ) : null}
           </div>
@@ -420,13 +428,13 @@ function DocumentDetailPage() {
 
       {originalAvailable && download.isError ? (
         <p className="text-sm text-muted-foreground">
-          The original file is not available right now.{' '}
+          {t('documentDetail.originalUnavailable')}{' '}
           <button
             type="button"
             className="font-medium underline underline-offset-4"
             onClick={() => void download.refetch()}
           >
-            Try again
+            {t('common.tryAgain')}
           </button>
         </p>
       ) : null}
@@ -445,11 +453,11 @@ function DocumentDetailPage() {
       {entry.status === 'FAILED' ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
           <p className="font-medium text-destructive">
-            {documentFailureGuidance(entry.failureReason).title}
+            {documentFailureGuidance(entry.failureReason, t).title}
           </p>
           <p className="mt-1 text-muted-foreground">
-            {documentFailureMessage(entry.failureReason) ??
-              'No failure details were recorded. Delete this document and upload it again.'}
+            {documentFailureMessage(entry.failureReason, t) ??
+              t('documentDetail.noFailureDetails')}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {canWrite ? (
@@ -459,7 +467,7 @@ function DocumentDetailPage() {
                   onClick={() => reprocess.mutate()}
                   disabled={reprocess.isPending}
                 >
-                  Reprocess
+                  {t('documentDetail.reprocess')}
                 </Button>
                 <Link
                   className={buttonVariants({ variant: 'outline', size: 'sm' })}
@@ -467,7 +475,7 @@ function DocumentDetailPage() {
                   params={{ organizationId }}
                   hash="upload"
                 >
-                  Upload again
+                  {t('documentDetail.uploadAgain')}
                 </Link>
               </>
             ) : null}
@@ -477,7 +485,7 @@ function DocumentDetailPage() {
                 variant="destructive"
                 onClick={() => setDeleteOpen(true)}
               >
-                Delete
+                {t('documents.delete')}
               </Button>
             ) : null}
           </div>
@@ -487,8 +495,7 @@ function DocumentDetailPage() {
       <DocumentProgress document={entry} detailed />
       {ACTIVE_STATUSES.has(entry.status) ? (
         <p className="text-sm text-muted-foreground" role="status">
-          This page refreshes automatically while the document is being
-          processed.
+          {t('documentDetail.refreshing')}
         </p>
       ) : null}
 
@@ -496,28 +503,30 @@ function DocumentDetailPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="size-4 text-muted-foreground" />
-            Details
+            {t('documentDetail.details')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <DetailItem label="Status">
+            <DetailItem label={t('documentDetail.status')}>
               <DocumentStatusBadge status={entry.status} />
             </DetailItem>
-            <DetailItem label="Original file">
-              {entry.originalFileName ?? 'Upload pending'}
+            <DetailItem label={t('documentDetail.originalFile')}>
+              {entry.originalFileName ?? t('documents.uploadPending')}
             </DetailItem>
-            <DetailItem label="Content type">
-              {documentContentTypeLabel(entry.contentType)}
+            <DetailItem label={t('documentDetail.contentType')}>
+              {documentContentTypeLabel(entry.contentType, t)}
             </DetailItem>
-            <DetailItem label="Size">
-              {entry.sizeBytes === null ? '—' : formatBytes(entry.sizeBytes)}
+            <DetailItem label={t('documentDetail.size')}>
+              {entry.sizeBytes === null
+                ? '—'
+                : formatBytes(entry.sizeBytes, locale)}
             </DetailItem>
-            <DetailItem label="Uploaded">
-              {formatDateTime(entry.createdAt)}
+            <DetailItem label={t('documentDetail.uploaded')}>
+              {formatDateTime(entry.createdAt, locale)}
             </DetailItem>
-            <DetailItem label="Last updated">
-              {formatDateTime(entry.updatedAt)}
+            <DetailItem label={t('documentDetail.lastUpdated')}>
+              {formatDateTime(entry.updatedAt, locale)}
             </DetailItem>
           </dl>
         </CardContent>
@@ -528,10 +537,10 @@ function DocumentDetailPage() {
           <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-sm font-medium">
-                Use this document in answers
+                {t('documentDetail.useInAnswers')}
               </p>
               <p className="text-sm text-muted-foreground">
-                Ask a question and narrow the scope to this document.
+                {t('documentDetail.useInAnswersDescription')}
               </p>
             </div>
             <Button asChild variant="outline">
@@ -539,7 +548,7 @@ function DocumentDetailPage() {
                 to="/organizations/$organizationId/ask"
                 params={{ organizationId }}
               >
-                Ask about this document
+                {t('search.askAboutDocument')}
               </Link>
             </Button>
           </CardContent>
@@ -556,14 +565,16 @@ function DocumentDetailPage() {
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rename document</DialogTitle>
+            <DialogTitle>{t('documents.renameTitle')}</DialogTitle>
             <DialogDescription>
-              Change the display name of this document.
+              {t('documents.renameDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRename} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="detail-rename-title">Title</Label>
+              <Label htmlFor="detail-rename-title">
+                {t('documents.titleLabel')}
+              </Label>
               <Input
                 id="detail-rename-title"
                 autoFocus
@@ -577,10 +588,10 @@ function DocumentDetailPage() {
                 variant="outline"
                 onClick={() => setRenameOpen(false)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={rename.isPending}>
-                {rename.isPending ? 'Saving…' : 'Save'}
+                {rename.isPending ? t('common.saving') : t('common.save')}
               </Button>
             </DialogFooter>
           </form>
@@ -590,14 +601,13 @@ function DocumentDetailPage() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete document</AlertDialogTitle>
+            <AlertDialogTitle>{t('documents.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes “{entry.title}” and everything derived
-              from it. This cannot be undone.
+              {t('documents.deleteDescription', { title: entry.title })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: 'destructive' })}
               onClick={(event) => {
@@ -606,7 +616,9 @@ function DocumentDetailPage() {
               }}
               disabled={remove.isPending}
             >
-              {remove.isPending ? 'Deleting…' : 'Delete'}
+              {remove.isPending
+                ? t('documents.deleting')
+                : t('documents.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -616,6 +628,8 @@ function DocumentDetailPage() {
 }
 
 function BackLink({ organizationId }: Readonly<{ organizationId: string }>) {
+  const t = useT();
+
   return (
     <Link
       to="/organizations/$organizationId/documents"
@@ -623,7 +637,7 @@ function BackLink({ organizationId }: Readonly<{ organizationId: string }>) {
       className="inline-flex items-center gap-1 py-2 -my-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
     >
       <ArrowLeft className="size-4" />
-      All documents
+      {t('ask.allDocuments')}
     </Link>
   );
 }
