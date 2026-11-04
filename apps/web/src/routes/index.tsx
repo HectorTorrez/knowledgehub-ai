@@ -1,4 +1,10 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  useLocation,
+  useNavigate,
+} from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import {
   LandingFeatures,
   LandingFormats,
@@ -27,18 +33,25 @@ export const Route = createFileRoute('/')({
       path: '/',
     });
   },
-  beforeLoad: async ({ context, location }) => {
+  beforeLoad: ({ context, location }) => {
     if (location.hash === 'pricing') return;
-    const state = await context.queryClient
-      .fetchQuery(sessionQuery)
-      .catch(() => null);
-    if (state?.status === 'authenticated')
-      throw redirect({ to: '/organizations' });
+    void context.queryClient.prefetchQuery(sessionQuery);
   },
   component: LandingPage,
 });
 
 function LandingPage() {
+  const session = useQuery(sessionQuery);
+  const navigate = useNavigate();
+  const { hash } = useLocation();
+  const authenticated = session.data?.status === 'authenticated';
+
+  useEffect(() => {
+    if (authenticated && hash !== 'pricing') {
+      void navigate({ to: '/organizations', replace: true });
+    }
+  }, [authenticated, hash, navigate]);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <LandingHeader />
