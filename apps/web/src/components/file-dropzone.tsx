@@ -1,7 +1,7 @@
 import { FileText, UploadCloud } from 'lucide-react';
 import { useRef, useState, type DragEvent } from 'react';
 import { formatBytes } from '~/lib/format';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { MAX_PROCESSABLE_UPLOAD_BYTES } from '~/lib/upload-validation';
 import { cn } from '~/lib/utils';
 

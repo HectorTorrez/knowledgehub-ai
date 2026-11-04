@@ -67,7 +67,7 @@ import {
   resolveDocumentScope,
 } from '~/lib/document-scope';
 import { formatDateTime } from '~/lib/format';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { questionSchema } from '~/lib/validation';

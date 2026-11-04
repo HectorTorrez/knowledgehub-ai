@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { Brand } from '~/components/brand';
 import { Button } from '~/components/ui/button';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function NotFound() {
   const t = useT();

@@ -4,7 +4,7 @@ import type { Collection } from '@knowledgehub/shared-types';
 import { collectionsApi } from '~/lib/api/collections';
 import { queryKeys } from '~/lib/api/query-keys';
 import { useReportError } from '~/hooks/use-error-toast';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {

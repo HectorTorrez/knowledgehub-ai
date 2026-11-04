@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { LanguageSwitcher } from '~/components/language-switcher';
 import { Brand } from '~/components/brand';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 

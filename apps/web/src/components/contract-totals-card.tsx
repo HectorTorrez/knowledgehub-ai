@@ -21,7 +21,7 @@ import { aggregationApi } from '~/lib/api/aggregation';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatMinorAmount } from '~/lib/format';
 
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 
 export function ContractTotalsCard({
   organizationId,

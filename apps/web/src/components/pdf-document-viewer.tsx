@@ -10,7 +10,7 @@ import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { findPassage, overlapsPassage } from '~/lib/passage';
 import 'pdfjs-dist/web/pdf_viewer.css';
 

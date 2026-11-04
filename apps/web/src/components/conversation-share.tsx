@@ -13,7 +13,7 @@ import { conversationsApi } from '~/lib/api/conversations';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function ConversationShare({
   organizationId,

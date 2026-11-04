@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { LOCALES, LOCALE_NAMES } from '~/lib/i18n/locale';
-import { useLocale, useSetLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useSetLocale, useT } from '~/lib/i18n/hooks';
 
 export function LanguageMenuItems() {
   const t = useT();
@@ -33,13 +33,12 @@ export function LanguageMenuItems() {
 }
 
 export function LanguageSwitcher() {
-  const t = useT();
   const locale = useLocale();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label={t('common.language')}>
+        <Button variant="ghost" size="sm">
           <Languages />
           {LOCALE_NAMES[locale]}
         </Button>

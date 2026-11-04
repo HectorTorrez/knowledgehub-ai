@@ -16,7 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Button } from '~/components/ui/button';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 export type ToastVariant = 'success' | 'error' | 'info';

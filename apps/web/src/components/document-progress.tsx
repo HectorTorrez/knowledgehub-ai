@@ -1,6 +1,6 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { Progress } from '~/components/ui/progress';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 
 const steps = ['uploading', 'queued', 'processing', 'ready'] as const;
 

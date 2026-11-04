@@ -1,6 +1,6 @@
 import { LoaderCircle } from 'lucide-react';
 import type * as React from 'react';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 function Spinner({ className, ...props }: React.ComponentProps<'svg'>) {

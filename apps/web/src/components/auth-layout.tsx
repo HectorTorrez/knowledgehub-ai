@@ -1,7 +1,8 @@
 import { MessageSquareText, ShieldCheck, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Brand } from '~/components/brand';
-import { useT } from '~/lib/i18n/provider';
+import { LanguageSwitcher } from '~/components/language-switcher';
+import { useT } from '~/lib/i18n/hooks';
 
 export function AuthLayout({ children }: Readonly<{ children: ReactNode }>) {
   const t = useT();
@@ -32,7 +33,12 @@ export function AuthLayout({ children }: Readonly<{ children: ReactNode }>) {
         <p className="text-sm text-brand-foreground/70">KnowledgeHub AI</p>
       </div>
       <div className="flex w-full items-center justify-center lg:px-4 lg:py-12">
-        <div className="w-full max-w-sm space-y-6">{children}</div>
+        <div className="w-full max-w-sm space-y-6">
+          <div className="flex justify-end">
+            <LanguageSwitcher />
+          </div>
+          {children}
+        </div>
       </div>
     </main>
   );

@@ -61,7 +61,7 @@ import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { organizationsApi } from '~/lib/api/organizations';
 import { formatBytes, formatDateTime } from '~/lib/format';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { documentTitleSchema } from '~/lib/validation';

@@ -74,7 +74,7 @@ import { queryKeys } from '~/lib/api/query-keys';
 import { isNotFound } from '~/lib/api/errors';
 import { cn } from '~/lib/utils';
 import { formatDate, formatDateTime, formatRole } from '~/lib/format';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { memberEmailSchema } from '~/lib/validation';

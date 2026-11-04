@@ -4,7 +4,7 @@ import type { ErrorComponentProps } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
 import { Brand } from '~/components/brand';
 import { Button } from '~/components/ui/button';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function DefaultCatchBoundary({ error, reset }: ErrorComponentProps) {
   const t = useT();

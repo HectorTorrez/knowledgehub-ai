@@ -6,7 +6,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { terminalTransition } from '~/lib/document-polling';
 import { useToast } from '~/components/ui/toast';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function useDocumentNotifications(
   organizationId: string,

@@ -37,7 +37,7 @@ import {
   readRecentSearches,
   rememberSearch,
 } from '~/lib/recent-searches';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 import { SEARCH_QUERY_MAX_LENGTH, searchQuerySchema } from '~/lib/validation';

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '~/components/ui/toast';
 import { describeError } from '~/lib/api/error-messages';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function errorToastContent(
   error: unknown,

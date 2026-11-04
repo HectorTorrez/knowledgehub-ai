@@ -7,7 +7,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 const STATUS_CONFIG: Record<

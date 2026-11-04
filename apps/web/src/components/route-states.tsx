@@ -2,7 +2,7 @@ import { AlertCircle } from 'lucide-react';
 import { EmptyState } from '~/components/empty-state';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function RoutePending() {
   const t = useT();

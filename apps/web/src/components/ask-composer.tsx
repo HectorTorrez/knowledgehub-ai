@@ -8,7 +8,7 @@ import { Spinner } from '~/components/ui/spinner';
 import { Textarea } from '~/components/ui/textarea';
 import { QUESTION_MAX_LENGTH } from '~/lib/validation';
 
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function AskComposer({
   organizationId,

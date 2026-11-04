@@ -1,20 +1,7 @@
-import {
-  createContext,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { I18nContext, type I18nValue } from './context';
 import type { Locale } from './locale';
-import { createTranslator, type Translator } from './translate';
-
-interface I18nValue {
-  locale: Locale;
-  t: Translator;
-  setLocale: (locale: Locale) => void;
-}
-
-const I18nContext = createContext<I18nValue | null>(null);
+import { createTranslator } from './translate';
 
 export function I18nProvider({
   initialLocale,
@@ -40,24 +27,4 @@ export function I18nProvider({
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
-}
-
-function useI18n(): I18nValue {
-  const value = useContext(I18nContext);
-  if (!value) {
-    throw new Error('useI18n must be used within I18nProvider');
-  }
-  return value;
-}
-
-export function useT(): Translator {
-  return useI18n().t;
-}
-
-export function useLocale(): Locale {
-  return useI18n().locale;
-}
-
-export function useSetLocale(): (locale: Locale) => void {
-  return useI18n().setLocale;
 }

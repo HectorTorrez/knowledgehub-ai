@@ -19,7 +19,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { useQueryErrorToast } from '~/hooks/use-error-toast';
 import { getInsights } from '~/lib/api/insights';
 import { formatDateTime } from '~/lib/format';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/insights',

@@ -15,7 +15,7 @@ import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { activityActionLabel, formatActivity } from '~/lib/activity-format';
 import { auditCsv } from '~/lib/audit-csv';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 
 export const Route = createFileRoute(
   '/_authenticated/organizations/$organizationId/audit-log',

@@ -12,7 +12,7 @@ import {
 import { sourceId } from '~/lib/answer-source';
 import { cn } from '~/lib/utils';
 
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function AnswerBody({
   text,

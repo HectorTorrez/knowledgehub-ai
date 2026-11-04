@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '~/components/ui/skeleton';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { findPassage } from '~/lib/passage';
 
 export function TextDocumentViewer({

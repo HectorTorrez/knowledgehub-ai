@@ -1,7 +1,7 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { FileText } from 'lucide-react';
 import { ALL_DOCUMENTS, collectionSelection } from '~/lib/document-scope';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 import {
   Select,

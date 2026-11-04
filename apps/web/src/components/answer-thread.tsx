@@ -12,7 +12,7 @@ import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { answersApi } from '~/lib/api/answers';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime } from '~/lib/format';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 import {
   AnswerBody,

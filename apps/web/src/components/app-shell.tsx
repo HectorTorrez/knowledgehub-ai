@@ -51,7 +51,7 @@ import { useTheme } from '~/hooks/use-theme';
 import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 const sections = [
   {

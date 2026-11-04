@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
 } from '~/components/ui/popover';
 import { dateFnsLocale } from '~/lib/i18n/date-locale';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 export function DatePicker({

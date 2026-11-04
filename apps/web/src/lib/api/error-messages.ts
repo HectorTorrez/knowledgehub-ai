@@ -58,19 +58,23 @@ export function describeError(
     details.push(...error.validationErrors);
   }
 
+  const hasServerMessage = error.message !== fallbackMessage(error.status);
   const statusKey = STATUS_MESSAGE_KEYS[error.status];
+
+  if (hasServerMessage && error.status < 500) {
+    return { title: error.message, details };
+  }
 
   if (statusKey) {
     return { title: t(statusKey), details };
   }
 
   if (error.status >= 500) {
-    return { title: t('errors.server'), details };
+    return {
+      title: hasServerMessage ? error.message : t('errors.server'),
+      details,
+    };
   }
 
-  if (error.message === fallbackMessage(error.status)) {
-    return { title: t('errors.generic'), details };
-  }
-
-  return { title: error.message, details };
+  return { title: t('errors.generic'), details };
 }

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 import { PanelLeftIcon } from 'lucide-react';
 import { Slot } from 'radix-ui';

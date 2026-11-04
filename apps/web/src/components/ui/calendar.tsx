@@ -12,7 +12,7 @@ import {
 } from 'react-day-picker';
 import { Button, buttonVariants } from '~/components/ui/button';
 import { dateFnsLocale } from '~/lib/i18n/date-locale';
-import { useLocale } from '~/lib/i18n/provider';
+import { useLocale } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 
 function Calendar({

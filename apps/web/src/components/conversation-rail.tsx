@@ -7,7 +7,7 @@ import { RouteError } from '~/components/route-states';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import { formatDate } from '~/lib/format';
-import { useLocale, useT } from '~/lib/i18n/provider';
+import { useLocale, useT } from '~/lib/i18n/hooks';
 import { initials } from '~/lib/initials';
 import { useSession } from '~/hooks/use-auth';
 import { cn } from '~/lib/utils';

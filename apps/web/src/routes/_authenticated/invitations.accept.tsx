@@ -15,7 +15,7 @@ import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { invitationsApi } from '~/lib/api/invitations';
 import { queryKeys } from '~/lib/api/query-keys';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 

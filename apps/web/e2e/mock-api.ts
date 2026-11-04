@@ -84,6 +84,11 @@ function json(
 }
 
 export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
+  await page
+    .context()
+    .addCookies([
+      { name: 'locale', value: 'en', domain: 'localhost', path: '/' },
+    ]);
   let authenticated = options.authenticated;
   let documentRequests = 0;
   let collections: Array<{

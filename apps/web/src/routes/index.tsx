@@ -21,7 +21,7 @@ import { useReportError } from '~/hooks/use-error-toast';
 import { organizationsApi } from '~/lib/api/organizations';
 import { sessionQuery } from '~/lib/auth/session';
 import { DEMO_ACCOUNT } from '~/lib/demo-account';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 

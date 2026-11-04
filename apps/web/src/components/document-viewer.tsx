@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { PdfDocumentViewer } from '~/components/pdf-document-viewer';
 import { TextDocumentViewer } from '~/components/text-document-viewer';
 import { Button } from '~/components/ui/button';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function DocumentViewer({
   url,

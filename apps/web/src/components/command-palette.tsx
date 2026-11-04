@@ -22,7 +22,7 @@ import { conversationsApi } from '~/lib/api/conversations';
 import { documentsApi } from '~/lib/api/documents';
 import { shortcutLabel } from '~/lib/shortcut-label';
 import { writeAskDraft } from '~/lib/ask-draft';
-import { useT } from '~/lib/i18n/provider';
+import { useT } from '~/lib/i18n/hooks';
 
 export function CommandPalette({
   organizationId,
