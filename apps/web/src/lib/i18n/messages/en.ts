@@ -701,6 +701,8 @@ export const en = {
     uploadTitle: 'Upload documents',
     uploadDescription:
       'Add PDF, Word, plain text, or Markdown files up to {size} each. Titles are taken from file names and can be changed later.',
+    uploadCollections: 'Add to collections',
+    uploadNoCollection: 'No collection',
     removeFile: 'Remove {name}',
     uploadingFile: 'Uploading {name}',
     uploadingPercent: 'Uploading… {percent}%',

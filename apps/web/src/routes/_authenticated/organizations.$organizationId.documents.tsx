@@ -30,6 +30,7 @@ import {
 } from '~/components/collections-manager';
 import { collectionsApi } from '~/lib/api/collections';
 import { DocumentProgress } from '~/components/document-progress';
+import { DocumentMultiSelect } from '~/components/document-multi-select';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
 import { RouteError } from '~/components/route-states';
@@ -149,6 +150,7 @@ function DocumentsPage() {
     }
   }, [hash, navigate]);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
+  const [uploadCollectionIds, setUploadCollectionIds] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const uploadAbortRef = useRef<AbortController | null>(null);
   const [renameTarget, setRenameTarget] = useState<DocumentSummary | null>(
@@ -322,6 +324,7 @@ function DocumentsPage() {
           item.file,
           {
             contentType: validation.contentType,
+            collectionIds: uploadCollectionIds,
             signal: controller.signal,
             onProgress: (fraction) =>
               updateUploadItem(item.id, { progress: fraction }),
@@ -345,9 +348,14 @@ function DocumentsPage() {
 
     uploadAbortRef.current = null;
     setUploading(false);
-    await client.invalidateQueries({
-      queryKey: queryKeys.organizations.documents.all(organizationId),
-    });
+    await Promise.all([
+      client.invalidateQueries({
+        queryKey: queryKeys.organizations.documents.all(organizationId),
+      }),
+      client.invalidateQueries({
+        queryKey: queryKeys.organizations.collections(organizationId),
+      }),
+    ]);
 
     if (failures === 0) {
       toast({
@@ -356,6 +364,7 @@ function DocumentsPage() {
         description: t('documents.queuedForProcessing'),
       });
       setUploadItems([]);
+      setUploadCollectionIds([]);
       setUploadOpen(false);
       return;
     }
@@ -391,9 +400,13 @@ function DocumentsPage() {
 
     setUploadOpen(open);
 
-    if (!open) {
-      setUploadItems([]);
+    if (open) {
+      setUploadCollectionIds(collectionId === 'all' ? [] : [collectionId]);
+      return;
     }
+
+    setUploadItems([]);
+    setUploadCollectionIds([]);
   }
 
   const rename = useMutation({
@@ -836,6 +849,18 @@ function DocumentsPage() {
               files={uploadItems.map((item) => item.file)}
               disabled={uploading || !canWrite}
               onFilesAdd={(files) => void addFiles(files)}
+            />
+
+            <DocumentMultiSelect
+              disabled={uploading}
+              label={t('documents.uploadCollections')}
+              emptyLabel={t('documents.uploadNoCollection')}
+              documents={(collections.data ?? []).map((collection) => ({
+                id: collection.id,
+                title: collection.name,
+              }))}
+              selectedIds={uploadCollectionIds}
+              onChange={setUploadCollectionIds}
             />
 
             {uploadItems.length > 0 ? (

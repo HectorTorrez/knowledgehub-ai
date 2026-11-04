@@ -419,16 +419,74 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       }
       return;
     }
-    if (
-      path === `/organizations/org-1/documents/${DOCUMENT.id}/collections` &&
-      method === 'PUT'
-    ) {
+    const documentCollectionsMatch =
+      /^\/organizations\/org-1\/documents\/([^/]+)\/collections$/.exec(path);
+    if (documentCollectionsMatch && method === 'PUT') {
       assigned = request.postDataJSON().collectionIds;
       await route.fulfill({ status: 204 });
       return;
     }
 
+    const uploadUrlMatch =
+      /^\/organizations\/org-1\/documents\/([^/]+)\/upload-url$/.exec(path);
+    if (uploadUrlMatch && method === 'POST') {
+      await route.fulfill(
+        json({
+          uploadUrl: 'https://fake-object-storage.test/upload',
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/pdf' },
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          maxSizeBytes: 25 * 1024 * 1024,
+        }),
+      );
+      return;
+    }
+
+    const uploadCompleteMatch =
+      /^\/organizations\/org-1\/documents\/([^/]+)\/upload-complete$/.exec(
+        path,
+      );
+    if (uploadCompleteMatch && method === 'POST') {
+      await route.fulfill(
+        json({
+          document: {
+            ...DOCUMENT,
+            id: uploadCompleteMatch[1],
+            title: 'Policy',
+            status: 'PROCESSING',
+            processingStage: 'PROCESSING',
+            collections: collections.filter((item) =>
+              assigned.includes(item.id),
+            ),
+          },
+        }),
+      );
+      return;
+    }
+
     if (path === '/organizations/org-1/documents') {
+      if (method === 'POST') {
+        await route.fulfill(
+          json(
+            {
+              document: {
+                ...DOCUMENT,
+                id: 'doc-2',
+                title: request.postDataJSON().title,
+                status: 'PENDING',
+                processingStage: 'UPLOADING',
+                originalFileName: null,
+                contentType: null,
+                sizeBytes: null,
+                collections: [],
+              },
+            },
+            201,
+          ),
+        );
+        return;
+      }
+
       const failedOnly = url.searchParams.get('status') === 'FAILED';
       await route.fulfill(
         json({

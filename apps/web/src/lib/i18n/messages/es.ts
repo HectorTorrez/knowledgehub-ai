@@ -714,6 +714,8 @@ export const es: Messages = {
     uploadTitle: 'Subir documentos',
     uploadDescription:
       'Agrega archivos PDF, Word, de texto plano o Markdown de hasta {size} cada uno. Los títulos se toman de los nombres de archivo y se pueden cambiar después.',
+    uploadCollections: 'Agregar a colecciones',
+    uploadNoCollection: 'Sin colección',
     removeFile: 'Quitar {name}',
     uploadingFile: 'Subiendo {name}',
     uploadingPercent: 'Subiendo… {percent}%',

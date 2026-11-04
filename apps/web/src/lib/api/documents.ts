@@ -10,6 +10,7 @@ import type {
   UpdateDocumentRequest,
 } from '@knowledgehub/shared-types';
 import { apiFetch, type RequestOptions } from './client';
+import { collectionsApi } from './collections';
 
 function documentsPath(organizationId: string): string {
   return `/organizations/${organizationId}/documents`;
@@ -143,6 +144,7 @@ export const documentsApi = {
 
 export interface UploadProgressOptions {
   contentType: string;
+  collectionIds?: string[];
   signal?: AbortSignal;
   onProgress?: (fraction: number) => void;
 }
@@ -155,6 +157,15 @@ export async function uploadFileToDocument(
 ): Promise<DocumentDetailResponse> {
   const created = await documentsApi.create(organizationId, { title });
   const documentId = created.document.id;
+
+  if (options.collectionIds !== undefined && options.collectionIds.length > 0) {
+    await collectionsApi.setDocumentCollections(
+      organizationId,
+      documentId,
+      options.collectionIds,
+    );
+  }
+
   const target = await documentsApi.createUploadUrl(
     organizationId,
     documentId,
