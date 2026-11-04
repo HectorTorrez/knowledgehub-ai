@@ -1,5 +1,6 @@
 import { Link, useRouter } from '@tanstack/react-router';
-import { ArrowRight, Check, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, Check } from 'lucide-react';
 import { ProductPreview } from '~/components/landing/product-preview';
 import { Button } from '~/components/ui/button';
 import { useLogin } from '~/hooks/use-auth';
@@ -16,8 +17,10 @@ function useOpenDemo() {
   const login = useLogin();
   const router = useRouter();
   const reportError = useReportError();
+  const [isOpening, setIsOpening] = useState(false);
 
   async function openDemo() {
+    setIsOpening(true);
     try {
       await login.mutateAsync(DEMO_ACCOUNT);
       const { organizations } = await organizationsApi.list();
@@ -34,10 +37,11 @@ function useOpenDemo() {
       }
     } catch (error) {
       reportError(error);
+      setIsOpening(false);
     }
   }
 
-  return { openDemo, isOpening: login.isPending };
+  return { openDemo, isOpening };
 }
 
 export function LandingHero() {
@@ -46,23 +50,12 @@ export function LandingHero() {
   const demoEnabled = import.meta.env.VITE_DEMO_ENABLED === 'true';
 
   return (
-    <section className="relative isolate overflow-hidden">
-      <div aria-hidden="true" className="landing-grid absolute inset-0 -z-10" />
-      <div
-        aria-hidden="true"
-        className="absolute top-0 left-1/2 -z-10 h-[32rem] w-[64rem] -translate-x-1/2 rounded-full bg-brand/15 blur-3xl"
-      />
+    <section>
       <div className="mx-auto grid max-w-7xl items-center gap-16 px-5 pt-16 pb-20 lg:grid-cols-[1.05fr_1fr] lg:pt-24 lg:pb-28">
         <div className="landing-rise space-y-8">
-          <p className="inline-flex items-center gap-2 rounded-full border bg-card/80 px-3 py-1 text-sm font-medium shadow-xs">
-            <Sparkles className="size-4 text-brand" />
-            {t('landing.hero.badge')}
-          </p>
           <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
             {t('landing.hero.titleLead')}{' '}
-            <span className="bg-gradient-to-r from-brand to-brand/60 bg-clip-text text-transparent">
-              {t('landing.hero.titleAccent')}
-            </span>
+            <span className="text-brand">{t('landing.hero.titleAccent')}</span>
           </h1>
           <p className="max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
             {t('landing.hero.description')}

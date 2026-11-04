@@ -18,6 +18,7 @@ import { I18nProvider } from '~/lib/i18n/provider';
 import { useLocale } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { SITE_NAME, pageHead } from '~/lib/seo';
+import { themeBootstrapScript } from '~/lib/theme';
 import appCss from '~/styles/app.css?url';
 
 export const Route = createRootRouteWithContext<{
@@ -97,8 +98,9 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   const locale = useLocale();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <HeadContent />
       </head>
       <body>

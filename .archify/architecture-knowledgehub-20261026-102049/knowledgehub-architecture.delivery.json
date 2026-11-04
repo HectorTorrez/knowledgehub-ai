@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "2a48e7f9-9d39-42d2-82b0-3fe045513e89",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hectorburuca/projects/knowledgehub-ai/.archify/architecture-knowledgehub-20261026-102049/candidate.json",
+  "output": "/Users/hectorburuca/projects/knowledgehub-ai/.archify/architecture-knowledgehub-20261026-102049/knowledgehub-architecture.html",
+  "specification": {
+    "sha256": "2ece096f29b89939f453ad2e39904cb98f09b94828ed54d10a4c610c372aceda",
+    "bytes": 8418
+  },
+  "artifact": {
+    "sha256": "5ebc08683d37505be2dfab1898fcf5e71fe72bd9a701bf9e398c8d150f487672",
+    "bytes": 854600
+  }
+}

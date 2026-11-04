@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { AppShell } from '~/components/app-shell';
+import { AppShellPending } from '~/components/route-states';
 import { sessionQuery } from '~/lib/auth/session';
 
 export const Route = createFileRoute('/_authenticated')({
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/_authenticated')({
 
     return { user: state.user };
   },
+  pendingComponent: AppShellPending,
   component: AuthenticatedLayout,
 });
 

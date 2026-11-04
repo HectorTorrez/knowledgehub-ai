@@ -1,12 +1,10 @@
 import { cn } from '~/lib/utils';
 
 export function SectionHeading({
-  eyebrow,
   title,
   description,
   align = 'center',
 }: Readonly<{
-  eyebrow: string;
   title: string;
   description?: string;
   align?: 'center' | 'start';
@@ -15,8 +13,7 @@ export function SectionHeading({
     <div
       className={cn('max-w-2xl', align === 'center' && 'mx-auto text-center')}
     >
-      <p className="text-sm font-semibold text-brand">{eyebrow}</p>
-      <h2 className="mt-2 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+      <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
         {title}
       </h2>
       {description && (

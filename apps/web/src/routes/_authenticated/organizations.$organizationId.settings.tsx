@@ -9,6 +9,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { History, LogOut, Settings, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { EmptyState } from '~/components/empty-state';
+import { OrganizationMembers } from '~/components/organization-members';
 import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
 import { Button, buttonVariants } from '~/components/ui/button';
@@ -241,6 +242,8 @@ function OrganizationSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <OrganizationMembers organizationId={organizationId} />
 
       {canManage ? (
         <Card>

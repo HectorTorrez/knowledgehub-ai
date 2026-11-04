@@ -154,12 +154,11 @@ export const es: Messages = {
       pricing: 'Precios',
       faq: 'Preguntas',
       logIn: 'Iniciar sesión',
-      getStarted: 'Empezar',
+      getStarted: 'Crea una cuenta gratis',
       openMenu: 'Abrir menú',
       menu: 'Menú',
     },
     hero: {
-      badge: 'Respuestas con citas de tus propios documentos',
       titleLead: 'Tus documentos tienen respuestas.',
       titleAccent: 'Encuéntralas más rápido.',
       description:
@@ -200,7 +199,6 @@ export const es: Messages = {
       title: 'Funciona con los archivos que tu equipo ya tiene',
     },
     features: {
-      eyebrow: 'Funciones',
       title: 'Conocimiento que funciona para tu equipo',
       description:
         'Todo lo que necesitas para encontrar y usar la información que ya tienes.',
@@ -231,13 +229,8 @@ export const es: Messages = {
         title: 'Un espacio de trabajo para cada equipo',
         text: 'Mantén las organizaciones separadas y gestiona el acceso con roles de miembro.',
       },
-      documents: {
-        title: 'Trae tus documentos',
-        text: 'Trabaja con archivos PDF, Word y Markdown en un solo lugar.',
-      },
     },
     howItWorks: {
-      eyebrow: 'Cómo funciona',
       title: 'De archivos a respuestas en tres pasos',
       createTitle: 'Crea un espacio de trabajo',
       createText: 'Dale a tu equipo un lugar dedicado para su conocimiento.',
@@ -248,7 +241,6 @@ export const es: Messages = {
       askText: 'Obtén respuestas con citas y explora análisis de tus fuentes.',
     },
     isolation: {
-      eyebrow: 'Seguridad',
       title: 'Tu espacio de trabajo, tus datos',
       text: 'Las organizaciones están aisladas entre sí. Tus documentos y respuestas permanecen en tu espacio de trabajo, accesibles para sus miembros.',
       points: {
@@ -267,32 +259,22 @@ export const es: Messages = {
       description:
         'Empieza gratis hoy. Los planes para equipos están en camino.',
       freePrice: '0 US$',
-      comingSoon: 'Próximamente',
-      available: 'Disponible ahora',
-      talkToUs: 'Contáctanos',
-      getStarted: 'Empezar',
+      getStarted: 'Crea una cuenta gratis',
+      waitlistText: '¿Necesitas los planes Equipo o Empresa?',
+      waitlistAction: 'Únete a la lista de espera',
       plans: {
         free: 'Gratis',
-        team: 'Equipo',
-        enterprise: 'Empresa',
       },
       summaries: {
         free: 'Para personas y equipos pequeños que están empezando.',
-        team: 'Para equipos que comparten conocimiento a diario.',
-        enterprise: 'Para organizaciones con muchos espacios de trabajo.',
       },
       features: {
         citedAnswers: 'Respuestas con citas',
         documentSearch: 'Búsqueda de documentos',
         organizationWorkspace: 'Espacio de trabajo de la organización',
-        teamCollaboration: 'Colaboración en equipo',
-        sharedKnowledge: 'Conocimiento compartido',
-        organizationWorkspaces: 'Espacios de trabajo por organización',
-        knowledgeDiscovery: 'Descubrimiento de conocimiento',
       },
     },
     faq: {
-      eyebrow: 'Preguntas frecuentes',
       title: 'Preguntas, respondidas',
       formats: {
         question: '¿Qué archivos puedo subir?',
@@ -319,8 +301,8 @@ export const es: Messages = {
       title: 'Pon tu conocimiento a trabajar',
       description:
         'Crea un espacio de trabajo y empieza a hacer mejores preguntas.',
-      getStarted: 'Empezar',
-      logIn: 'Ya tengo una cuenta',
+      getStarted: 'Crea una cuenta gratis',
+      logIn: 'Iniciar sesión',
     },
     footer: {
       tagline: 'El conocimiento de tu equipo, en un solo lugar.',
@@ -463,10 +445,11 @@ export const es: Messages = {
   },
   orgSettings: {
     pageTitle: 'Configuración · KnowledgeHub AI',
-    pageDescription: 'Cambia el nombre, sal o elimina esta organización.',
+    pageDescription:
+      'Administra los miembros, el nombre y el uso de esta organización.',
     title: 'Configuración',
     description:
-      'Administra el nombre de esta organización y tu pertenencia a ella.',
+      'Administra los miembros, el nombre de esta organización y tu pertenencia a ella.',
     loadError: 'No se pudo cargar la configuración',
     renamed: 'Organización renombrada',
     renamedDescription: 'Ahora se llama “{name}”.',
@@ -599,7 +582,7 @@ export const es: Messages = {
   overview: {
     pageTitle: 'Resumen · KnowledgeHub AI',
     pageDescription:
-      'Administra los miembros y roles con acceso a esta organización.',
+      'Consulta los documentos recientes, los miembros y el uso de respuestas de esta organización.',
     defaultTitle: 'Organización',
     description:
       'Tu organización de un vistazo: documentos, miembros y uso de respuestas de hoy.',
@@ -617,7 +600,6 @@ export const es: Messages = {
     statReadyDocuments: 'Documentos listos',
     statMembers: 'Miembros',
     statYourRole: 'Tu rol',
-    statCreated: 'Creada',
     uploadDocument: 'Subir un documento',
     askQuestion: 'Haz una pregunta',
     searchDocuments: 'Buscar documentos',
@@ -626,6 +608,16 @@ export const es: Messages = {
       'Las respuestas se restablecen a medianoche UTC. El límite es compartido por todos los miembros de esta organización.',
     answersOf: '{used} de {limit} respuestas',
     resetsOn: 'Se restablece el {date}',
+    recentDocuments: 'Documentos recientes',
+    recentDocumentsDescription:
+      'Las últimas subidas y en qué punto del procesamiento están.',
+    recentDocumentsLoadError: 'No se pudieron cargar los documentos',
+    noRecentDocuments: 'Aún no hay documentos',
+    noRecentDocumentsDescription:
+      'Sube un archivo PDF, Word o Markdown para empezar a hacer preguntas.',
+    viewAllDocuments: 'Ver todos los documentos',
+  },
+  members: {
     membersTitle: 'Miembros',
     membersDescription:
       'Personas que pueden acceder a esta organización. Si alguien aún no tiene cuenta, al agregarlo se creará una invitación para compartir.',
@@ -653,7 +645,6 @@ export const es: Messages = {
     done: 'Listo',
     role: 'Rol',
     adding: 'Agregando…',
-    addOrInvite: 'Agregar o invitar',
     pendingInvitations: 'Invitaciones pendientes',
     pendingDescription: 'Invitaciones que aún no se han aceptado.',
     invitationsLoadError: 'No se pudieron cargar las invitaciones',
@@ -677,6 +668,19 @@ export const es: Messages = {
     linkCopied: 'Enlace de invitación copiado',
     copyFailed: 'No se pudo copiar el enlace',
     copyFailedDescription: 'Selecciona el enlace y cópialo manualmente.',
+    createInvitation: 'Crear invitación',
+    roleHintMember:
+      'Las personas con cuenta se unen de inmediato. Las demás reciben un enlace de invitación.',
+    roleHintInvite: 'Esto crea un enlace de invitación que puedes compartir.',
+    changeRoleTitle: '¿Cambiar el rol?',
+    changeRoleDescription: '{name} pasará de {from} a {to}.',
+    changeRoleOwnerDescription:
+      '{name} será propietario, con acceso total a esta organización.',
+    changeRole: 'Cambiar rol',
+    revokeTitle: '¿Revocar la invitación?',
+    revokeDescription:
+      'El enlace de invitación enviado a {email} dejará de funcionar.',
+    revoking: 'Revocando…',
   },
   documentFailure: {
     EMPTY_OBJECT: {

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/hectorburuca/projects/knowledgehub-ai/.archify/architecture-knowledgehub-20261026-102049/candidate.json",
+    "sha256": "2ece096f29b89939f453ad2e39904cb98f09b94828ed54d10a4c610c372aceda",
+    "bytes": 8418
+  },
+  "artifact": {
+    "path": "/Users/hectorburuca/projects/knowledgehub-ai/.archify/architecture-knowledgehub-20261026-102049/knowledgehub-architecture.html",
+    "sha256": "5ebc08683d37505be2dfab1898fcf5e71fe72bd9a701bf9e398c8d150f487672",
+    "bytes": 854600
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/hectorburuca/projects/knowledgehub-ai/.archify/architecture-knowledgehub-20261026-102049/knowledgehub-architecture.finalize.json",
+    "summaryReceipt": "/Users/hectorburuca/projects/knowledgehub-ai/.archify/architecture-knowledgehub-20261026-102049/knowledgehub-architecture.finalize-summary.json",
+    "browserCheckReceipt": "/Users/hectorburuca/projects/knowledgehub-ai/.archify/architecture-knowledgehub-20261026-102049/knowledgehub-architecture.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-26T16:22:28.292Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 7243,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "worker-to-postgres",
+            "from": "worker",
+            "to": "postgres",
+            "label": "chunks",
+            "collectionIndex": 9,
+            "artifactIndex": 10
+          },
+          "bends": 3,
+          "stretch": 1
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "worker → postgres needs 3 bends: move node worker or postgres so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}
