@@ -1,7 +1,7 @@
 import {
   createFileRoute,
   Link,
-  redirect,
+  useHydrated,
   useRouter,
 } from '@tanstack/react-router';
 import { CircleCheck } from 'lucide-react';
@@ -23,7 +23,7 @@ import { Label } from '~/components/ui/label';
 import { useToast } from '~/components/ui/toast';
 import { useRegister } from '~/hooks/use-auth';
 import { useReportError } from '~/hooks/use-error-toast';
-import { sessionQuery } from '~/lib/auth/session';
+import { useRedirectSignedInVisitor } from '~/hooks/use-redirect-signed-in-visitor';
 import { useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
@@ -31,7 +31,6 @@ import { cn } from '~/lib/utils';
 import { PASSWORD_MIN_LENGTH, registerFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/register')({
-  ssr: false,
   head: ({ match }) => {
     const t = createTranslator(match.context.locale);
     return pageHead({
@@ -40,21 +39,14 @@ export const Route = createFileRoute('/register')({
       path: '/register',
     });
   },
-  beforeLoad: async ({ context }) => {
-    const state = await context.queryClient
-      .fetchQuery(sessionQuery)
-      .catch(() => null);
-
-    if (state?.status === 'authenticated') {
-      throw redirect({ to: '/organizations' });
-    }
-  },
   component: RegisterPage,
 });
 
 function RegisterPage() {
+  useRedirectSignedInVisitor('/organizations');
   const router = useRouter();
   const register = useRegister();
+  const isHydrated = useHydrated();
   const { toast } = useToast();
   const reportError = useReportError();
   const t = useT();
@@ -111,6 +103,7 @@ function RegisterPage() {
               <div className="space-y-2">
                 <Label htmlFor="firstName">{t('fields.firstName')}</Label>
                 <Input
+                  readOnly={!isHydrated}
                   id="firstName"
                   autoComplete="given-name"
                   autoFocus
@@ -121,6 +114,7 @@ function RegisterPage() {
               <div className="space-y-2">
                 <Label htmlFor="lastName">{t('fields.lastName')}</Label>
                 <Input
+                  readOnly={!isHydrated}
                   id="lastName"
                   autoComplete="family-name"
                   value={form.lastName}
@@ -131,6 +125,7 @@ function RegisterPage() {
             <div className="space-y-2">
               <Label htmlFor="email">{t('fields.email')}</Label>
               <Input
+                readOnly={!isHydrated}
                 id="email"
                 type="email"
                 autoComplete="email"
@@ -142,6 +137,7 @@ function RegisterPage() {
             <div className="space-y-2">
               <Label htmlFor="password">{t('fields.password')}</Label>
               <PasswordInput
+                readOnly={!isHydrated}
                 id="password"
                 name="password"
                 autoComplete="new-password"
@@ -169,7 +165,7 @@ function RegisterPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={register.isPending}
+              disabled={!isHydrated || register.isPending}
             >
               {register.isPending
                 ? t('auth.register.submitting')

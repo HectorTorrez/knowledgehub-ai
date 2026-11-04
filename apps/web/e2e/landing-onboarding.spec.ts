@@ -22,6 +22,14 @@ test('signed-in visitors are redirected', async ({ page }) => {
   await expect(page).toHaveURL(/\/organizations\/?$/);
 });
 
+test('signed-in visitors on the login page continue to their redirect', async ({
+  page,
+}) => {
+  await mockApi(page, { authenticated: true });
+  await page.goto('/login?redirect=%2Forganizations%2Forg-1%2Fdocuments');
+  await expect(page).toHaveURL(/\/organizations\/org-1\/documents$/);
+});
+
 test('checklist shows progress and remembers dismissal', async ({ page }) => {
   await mockApi(page, { authenticated: true, empty: true });
   await page.goto('/organizations/org-1');
