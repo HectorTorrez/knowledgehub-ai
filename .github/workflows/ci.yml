@@ -88,3 +88,71 @@ jobs:
 
       - run: pnpm test:e2e
         working-directory: apps/web
+
+  changes:
+    name: Detect deployable changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared: &shared
+              - packages/**
+              - package.json
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - turbo.json
+              - .npmrc
+              - .nvmrc
+              - .github/workflows/ci.yml
+            api:
+              - *shared
+              - apps/api/**
+            web:
+              - *shared
+              - apps/web/**
+
+  deploy-api:
+    name: Deploy api to Railway
+    needs: [verify, e2e, web-e2e, changes]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: railway-api
+      cancel-in-progress: false
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm install --global @railway/cli@5.71.0
+
+      - run: railway up --ci --service api --environment production -m "${{ github.sha }}"
+        timeout-minutes: 20
+
+  deploy-web:
+    name: Deploy web to Railway
+    needs: [verify, e2e, web-e2e, changes]
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: railway-knowledgehub-ai
+      cancel-in-progress: false
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm install --global @railway/cli@5.71.0
+
+      - run: railway up --ci --service knowledgehub-ai --environment production -m "${{ github.sha }}"
+        timeout-minutes: 20
