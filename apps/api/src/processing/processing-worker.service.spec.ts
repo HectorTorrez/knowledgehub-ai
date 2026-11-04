@@ -335,7 +335,7 @@ describe('ProcessingWorkerService', () => {
       const { worker, jobs, storage } = createWorker();
       storage.inspectObject.mockResolvedValueOnce({
         key: JOB.verifiedStorageKey,
-        sizeBytes: 25 * 1024 * 1024 + 1,
+        sizeBytes: 10 * 1024 * 1024 + 1,
         contentType: 'text/plain',
         version: 'version-1',
       });

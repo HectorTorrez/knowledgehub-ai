@@ -436,7 +436,7 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
           method: 'PUT',
           headers: { 'Content-Type': 'application/pdf' },
           expiresAt: '2099-01-01T00:00:00.000Z',
-          maxSizeBytes: 25 * 1024 * 1024,
+          maxSizeBytes: 10 * 1024 * 1024,
         }),
       );
       return;

@@ -411,7 +411,7 @@ describe('answers (e2e)', () => {
       'Processing retries are bounded by maxAttempts.',
     );
     expect(prompt.user).toContain('How are retries bounded?');
-    expect(options.maxOutputTokens).toBe(700);
+    expect(options.maxOutputTokens).toBe(500);
 
     const serialized = JSON.stringify(response.body);
     expect(serialized).not.toContain('storageKey');

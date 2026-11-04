@@ -5,7 +5,7 @@ import { DOCUMENT_TITLE_MAX_LENGTH } from './validation';
 import { DOCX_CONTENT_TYPE, isAllowedUploadContentType } from './validation';
 
 export const SIGNATURE_PREFIX_BYTES = 1024;
-export const MAX_PROCESSABLE_UPLOAD_BYTES = 25 * 1024 * 1024;
+export const MAX_PROCESSABLE_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 const PDF_MAGIC = Uint8Array.of(0x25, 0x50, 0x44, 0x46, 0x2d);
 const NUL_BYTE = 0x00;
