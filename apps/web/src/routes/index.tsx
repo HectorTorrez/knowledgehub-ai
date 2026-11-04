@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute, useLocation } from '@tanstack/react-router';
 import {
   LandingFeatures,
   LandingFormats,
@@ -13,12 +13,11 @@ import {
   LandingPricing,
   LandingSecurity,
 } from '~/components/landing/landing-sections';
-import { sessionQuery } from '~/lib/auth/session';
+import { useRedirectSignedInVisitor } from '~/hooks/use-redirect-signed-in-visitor';
 import { createTranslator } from '~/lib/i18n/translate';
 import { pageHead } from '~/lib/seo';
 
 export const Route = createFileRoute('/')({
-  ssr: false,
   head: ({ match }) => {
     const t = createTranslator(match.context.locale);
     return pageHead({
@@ -27,18 +26,13 @@ export const Route = createFileRoute('/')({
       path: '/',
     });
   },
-  beforeLoad: async ({ context, location }) => {
-    if (location.hash === 'pricing') return;
-    const state = await context.queryClient
-      .fetchQuery(sessionQuery)
-      .catch(() => null);
-    if (state?.status === 'authenticated')
-      throw redirect({ to: '/organizations' });
-  },
   component: LandingPage,
 });
 
 function LandingPage() {
+  const hash = useLocation({ select: (location) => location.hash });
+  useRedirectSignedInVisitor(hash === 'pricing' ? null : '/organizations');
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <LandingHeader />

@@ -1,7 +1,7 @@
 import {
   createFileRoute,
   Link,
-  redirect,
+  useHydrated,
   useRouter,
 } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
@@ -22,7 +22,7 @@ import { Label } from '~/components/ui/label';
 import { useToast } from '~/components/ui/toast';
 import { useLogin } from '~/hooks/use-auth';
 import { useReportError } from '~/hooks/use-error-toast';
-import { sessionQuery } from '~/lib/auth/session';
+import { useRedirectSignedInVisitor } from '~/hooks/use-redirect-signed-in-visitor';
 import { DEMO_ACCOUNT } from '~/lib/demo-account';
 import { useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
@@ -30,7 +30,6 @@ import { pageHead } from '~/lib/seo';
 import { loginFormSchema } from '~/lib/validation';
 
 export const Route = createFileRoute('/login')({
-  ssr: false,
   head: ({ match }) => {
     const t = createTranslator(match.context.locale);
     return pageHead({
@@ -42,15 +41,6 @@ export const Route = createFileRoute('/login')({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: toSameOriginPath(search.redirect),
   }),
-  beforeLoad: async ({ context }) => {
-    const state = await context.queryClient
-      .fetchQuery(sessionQuery)
-      .catch(() => null);
-
-    if (state?.status === 'authenticated') {
-      throw redirect({ to: '/organizations' });
-    }
-  },
   component: LoginPage,
 });
 
@@ -74,8 +64,10 @@ function toSameOriginPath(value: unknown): string | undefined {
 
 function LoginPage() {
   const { redirect: redirectTo } = Route.useSearch();
+  useRedirectSignedInVisitor(redirectTo ?? '/organizations');
   const router = useRouter();
   const login = useLogin();
+  const isHydrated = useHydrated();
   const { toast } = useToast();
   const reportError = useReportError();
   const t = useT();
@@ -156,6 +148,7 @@ function LoginPage() {
             <div className="space-y-2">
               <Label htmlFor="email">{t('fields.email')}</Label>
               <Input
+                readOnly={!isHydrated}
                 id="email"
                 name="email"
                 type="email"
@@ -169,6 +162,7 @@ function LoginPage() {
             <div className="space-y-2">
               <Label htmlFor="password">{t('fields.password')}</Label>
               <PasswordInput
+                readOnly={!isHydrated}
                 id="password"
                 name="password"
                 autoComplete="current-password"
@@ -176,7 +170,11 @@ function LoginPage() {
                 onChange={setPassword}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={login.isPending}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={!isHydrated || login.isPending}
+            >
               {login.isPending
                 ? t('auth.login.submitting')
                 : t('auth.login.submit')}

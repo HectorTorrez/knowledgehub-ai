@@ -12,6 +12,7 @@ export function PasswordInput({
   onChange,
   autoFocus,
   describedBy,
+  readOnly,
 }: Readonly<{
   id: string;
   name: string;
@@ -20,6 +21,7 @@ export function PasswordInput({
   onChange: (value: string) => void;
   autoFocus?: boolean;
   describedBy?: string;
+  readOnly?: boolean;
 }>) {
   const t = useT();
   const [visible, setVisible] = useState(false);
@@ -35,6 +37,7 @@ export function PasswordInput({
         aria-describedby={describedBy}
         className="pr-10"
         value={value}
+        readOnly={readOnly}
         onChange={(event) => onChange(event.target.value)}
       />
       <Button
