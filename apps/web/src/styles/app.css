@@ -148,6 +148,34 @@
   }
 }
 
+@keyframes landing-rise {
+  from {
+    transform: translateY(1.5rem);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@utility landing-rise {
+  animation: landing-rise 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility landing-grid {
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 3rem 3rem;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise {
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

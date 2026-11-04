@@ -150,45 +150,82 @@ export const es: Messages = {
     nav: {
       features: 'Funciones',
       howItWorks: 'Cómo funciona',
+      security: 'Seguridad',
       pricing: 'Precios',
+      faq: 'Preguntas',
       logIn: 'Iniciar sesión',
       getStarted: 'Empezar',
+      openMenu: 'Abrir menú',
+      menu: 'Menú',
     },
     hero: {
-      eyebrow: 'Tu conocimiento, conectado',
-      title: 'Tus documentos tienen respuestas. Encuéntralas más rápido.',
+      badge: 'Respuestas con citas de tus propios documentos',
+      titleLead: 'Tus documentos tienen respuestas.',
+      titleAccent: 'Encuéntralas más rápido.',
       description:
         'Convierte los documentos de tu equipo en un espacio de trabajo con búsqueda. Haz preguntas, descubre análisis y sigue cada respuesta hasta su fuente.',
       openingDemo: 'Abriendo demostración…',
       tryDemo: 'Prueba la demostración en vivo',
       createFreeAccount: 'Crea una cuenta gratis',
+      points: {
+        cited: 'Cada respuesta cita sus fuentes',
+        formats: 'PDF, Word y Markdown',
+        private: 'Privado para tu organización',
+      },
     },
     sample: {
       label: 'Ejemplo de respuesta con citas',
-      heading: 'Pregunta a tu espacio de trabajo',
+      workspace: 'Northwind Labs',
+      page: 'Preguntar',
+      documents: 'Documentos',
+      documentOnboarding: 'Guía de incorporación de clientes.pdf',
+      documentHandbook: 'Manual del equipo de éxito.docx',
+      documentNotes: 'Lista de inicio.md',
       question: '¿Cuál es nuestro enfoque para la incorporación de clientes?',
       answer: 'Respuesta',
-      text: 'Nuestro proceso de incorporación ayuda a los clientes a alcanzar su primer hito con una configuración guiada, una sesión de inicio y un contacto de éxito dedicado.',
-      source: 'Guía de incorporación de clientes',
+      textLead:
+        'Los nuevos clientes empiezan con una configuración guiada y una sesión de inicio en su primera semana',
+      textTail:
+        'Después, cada cuenta recibe un contacto de éxito dedicado que acompaña su primer hito',
+      sources: 'Fuentes',
+      sourceOnboarding: 'Guía de incorporación de clientes',
+      sourceHandbook: 'Manual del equipo de éxito',
       quote:
         '“Cada cliente comienza con una configuración guiada y una sesión de inicio…”',
+      grounded: 'Basada en 2 fuentes',
+      searched: 'Se buscó en 3 documentos',
       placeholder: 'Haz una pregunta sobre tus documentos…',
     },
+    formats: {
+      title: 'Funciona con los archivos que tu equipo ya tiene',
+    },
     features: {
+      eyebrow: 'Funciones',
       title: 'Conocimiento que funciona para tu equipo',
       description:
         'Todo lo que necesitas para encontrar y usar la información que ya tienes.',
       answers: {
         title: 'Respuestas que puedes rastrear',
-        text: 'Obtén respuestas fundamentadas con citas que llevan a tus fuentes.',
+        text: 'Obtén respuestas fundamentadas con citas que llevan al pasaje exacto de tus fuentes.',
+        quote:
+          '“Las renovaciones se revisan 60 días antes del fin del contrato.”',
+        source: 'Política de contratos · página 4',
       },
       search: {
         title: 'Búsqueda más allá de las palabras clave',
         text: 'La búsqueda híbrida combina comprensión semántica y precisión de palabras clave.',
+        query: 'términos de renovación',
+        semantic: 'Significado',
+        keyword: 'Palabra clave',
+        resultPolicy: 'Política de contratos',
+        resultFaq: 'Preguntas de clientes',
       },
       insights: {
         title: 'Ve el panorama completo',
         text: 'Explora análisis y datos extraídos de tus documentos.',
+        factDate: 'Fecha de renovación',
+        factOwner: 'Responsable de la cuenta',
+        factValue: 'Valor del contrato',
       },
       workspaces: {
         title: 'Un espacio de trabajo para cada equipo',
@@ -200,7 +237,8 @@ export const es: Messages = {
       },
     },
     howItWorks: {
-      title: 'Cómo funciona',
+      eyebrow: 'Cómo funciona',
+      title: 'De archivos a respuestas en tres pasos',
       createTitle: 'Crea un espacio de trabajo',
       createText: 'Dale a tu equipo un lugar dedicado para su conocimiento.',
       uploadTitle: 'Sube documentos',
@@ -210,19 +248,38 @@ export const es: Messages = {
       askText: 'Obtén respuestas con citas y explora análisis de tus fuentes.',
     },
     isolation: {
+      eyebrow: 'Seguridad',
       title: 'Tu espacio de trabajo, tus datos',
       text: 'Las organizaciones están aisladas entre sí. Tus documentos y respuestas permanecen en tu espacio de trabajo, accesibles para sus miembros.',
+      points: {
+        membership:
+          'Cada solicitud se verifica contra la membresía de la organización',
+        roles:
+          'Los roles Propietario, Administrador, Miembro y Lector controlan el acceso',
+        files: 'Los archivos se sirven mediante enlaces de corta duración',
+        audit:
+          'Un registro de auditoría guarda los cambios de miembros y documentos',
+      },
+      learnMore: 'Cómo protegemos tu espacio de trabajo',
     },
     pricing: {
       title: 'Precios',
-      free: 'Gratis',
+      description:
+        'Empieza gratis hoy. Los planes para equipos están en camino.',
+      freePrice: '0 US$',
       comingSoon: 'Próximamente',
+      available: 'Disponible ahora',
       talkToUs: 'Contáctanos',
       getStarted: 'Empezar',
       plans: {
         free: 'Gratis',
         team: 'Equipo',
         enterprise: 'Empresa',
+      },
+      summaries: {
+        free: 'Para personas y equipos pequeños que están empezando.',
+        team: 'Para equipos que comparten conocimiento a diario.',
+        enterprise: 'Para organizaciones con muchos espacios de trabajo.',
       },
       features: {
         citedAnswers: 'Respuestas con citas',
@@ -234,16 +291,45 @@ export const es: Messages = {
         knowledgeDiscovery: 'Descubrimiento de conocimiento',
       },
     },
+    faq: {
+      eyebrow: 'Preguntas frecuentes',
+      title: 'Preguntas, respondidas',
+      formats: {
+        question: '¿Qué archivos puedo subir?',
+        answer:
+          'Archivos PDF, Word (.docx) y Markdown. KnowledgeHub los prepara para la búsqueda en cuanto se suben.',
+      },
+      citations: {
+        question: '¿Cómo sé que una respuesta es correcta?',
+        answer:
+          'Cada respuesta cita los pasajes con los que se construyó. Abre una cita para leer el texto original en su documento.',
+      },
+      access: {
+        question: '¿Quién puede ver mis documentos?',
+        answer:
+          'Solo los miembros de tu organización. Cada organización está aislada y los roles deciden quién puede subir, gestionar o solo leer.',
+      },
+      price: {
+        question: '¿Es gratis?',
+        answer:
+          'Sí. El plan Gratis incluye respuestas con citas, búsqueda de documentos y un espacio de trabajo para tu organización. Los planes Equipo y Empresa llegarán pronto.',
+      },
+    },
     cta: {
       title: 'Pon tu conocimiento a trabajar',
       description:
         'Crea un espacio de trabajo y empieza a hacer mejores preguntas.',
       getStarted: 'Empezar',
+      logIn: 'Ya tengo una cuenta',
     },
     footer: {
-      tagline:
-        'KnowledgeHub AI · El conocimiento de tu equipo, en un solo lugar.',
+      tagline: 'El conocimiento de tu equipo, en un solo lugar.',
+      product: 'Producto',
+      account: 'Cuenta',
+      logIn: 'Iniciar sesión',
+      register: 'Crear cuenta',
       security: 'Seguridad',
+      copyright: '© {year} KnowledgeHub AI',
     },
   },
   security: {
