@@ -273,6 +273,9 @@ const envObjectSchema = z.object({
   QUOTA_ANSWER_DAILY: z.coerce.number().int().positive().default(1000),
 
   METRICS_ENABLED: z.enum(['true', 'false']).default('false'),
+
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(1).default('onboarding@resend.dev'),
 });
 
 const PRODUCTION_STORAGE_KEYS = [
@@ -351,6 +354,14 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
   }
 
   if (env.NODE_ENV === 'production') {
+    if (env.RESEND_API_KEY === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RESEND_API_KEY'],
+        message: 'RESEND_API_KEY is required when NODE_ENV is production',
+      });
+    }
+
     for (const key of PRODUCTION_STORAGE_KEYS) {
       if (env[key] === undefined) {
         ctx.addIssue({
@@ -367,6 +378,7 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
       'CSRF_SECRET',
       'STORAGE_SECRET_ACCESS_KEY',
       'OPENAI_API_KEY',
+      'RESEND_API_KEY',
     ] as const) {
       if (isPlaceholderSecret(env[key])) {
         ctx.addIssue({

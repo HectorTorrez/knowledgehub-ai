@@ -20,6 +20,7 @@ const validProductionEnv = {
   CORS_ORIGIN: 'https://knowledgehub.example.com',
   PROCESSING_SANDBOX: 'worker',
   STORAGE_SWEEP_ENABLED: 'true',
+  RESEND_API_KEY: 're_test_key',
 };
 
 describe('validateEnv', () => {
@@ -277,6 +278,18 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ ...validProductionEnv, STORAGE_SWEEP_ENABLED: 'false' }),
     ).toThrow(/STORAGE_SWEEP_ENABLED/);
+  });
+
+  it('requires a Resend API key in production', () => {
+    const { RESEND_API_KEY: _omitted, ...withoutKey } = validProductionEnv;
+
+    expect(() => validateEnv(withoutKey)).toThrow(/RESEND_API_KEY/);
+  });
+
+  it('defaults the email sender address', () => {
+    expect(validateEnv({ ...validEnv }).EMAIL_FROM).toBe(
+      'onboarding@resend.dev',
+    );
   });
 
   it('accepts a provider-shaped storage access key shorter than 32 characters', () => {
