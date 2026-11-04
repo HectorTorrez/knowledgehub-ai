@@ -142,7 +142,9 @@ describe('documents (e2e)', () => {
     body: object,
   ) =>
     request(app.getHttpServer())
-      .post(`/organizations/${organizationId}/documents/${documentId}/upload-url`)
+      .post(
+        `/organizations/${organizationId}/documents/${documentId}/upload-url`,
+      )
       .set(bearer(token))
       .send(body);
 
@@ -191,7 +193,11 @@ describe('documents (e2e)', () => {
     storage = new FakeObjectStorage();
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(OBJECT_STORAGE)
       .useValue(storage)
       .compile();
@@ -345,9 +351,9 @@ describe('documents (e2e)', () => {
         await createDocument(token, organizationId, body).expect(400);
       }
 
-      expect(
-        await prisma.document.count({ where: { organizationId } }),
-      ).toBe(0);
+      expect(await prisma.document.count({ where: { organizationId } })).toBe(
+        0,
+      );
     });
 
     it('accepts a title of exactly 200 characters', async () => {
@@ -376,9 +382,9 @@ describe('documents (e2e)', () => {
         uploadedById: 'someone-else',
       }).expect(400);
 
-      expect(
-        await prisma.document.count({ where: { organizationId } }),
-      ).toBe(0);
+      expect(await prisma.document.count({ where: { organizationId } })).toBe(
+        0,
+      );
     });
 
     it('rejects a non-member with 403 and writes nothing', async () => {
@@ -390,9 +396,9 @@ describe('documents (e2e)', () => {
         title: 'Intrusion',
       }).expect(403);
 
-      expect(
-        await prisma.document.count({ where: { organizationId } }),
-      ).toBe(0);
+      expect(await prisma.document.count({ where: { organizationId } })).toBe(
+        0,
+      );
     });
 
     it('rejects a malformed organization id with 400', async () => {
@@ -466,9 +472,9 @@ describe('documents (e2e)', () => {
         200,
       );
 
-      expect(response.body.documents.map((doc: { id: string }) => doc.id)).toEqual(
-        [mine.body.document.id],
-      );
+      expect(
+        response.body.documents.map((doc: { id: string }) => doc.id),
+      ).toEqual([mine.body.document.id]);
       expect(JSON.stringify(response.body)).not.toContain('Theirs');
     });
 
@@ -565,9 +571,9 @@ describe('documents (e2e)', () => {
         .query({ limit: '2' })
         .expect(200);
 
-      expect(
-        firstPage.body.documents.map((d: { id: string }) => d.id),
-      ).toEqual(ids.slice(0, 2));
+      expect(firstPage.body.documents.map((d: { id: string }) => d.id)).toEqual(
+        ids.slice(0, 2),
+      );
       expect(firstPage.body.nextCursor).not.toBeNull();
 
       const secondPage = await listDocuments(token, organizationId)
@@ -582,9 +588,9 @@ describe('documents (e2e)', () => {
         .query({ limit: '2', cursor: secondPage.body.nextCursor as string })
         .expect(200);
 
-      expect(
-        lastPage.body.documents.map((d: { id: string }) => d.id),
-      ).toEqual(ids.slice(4));
+      expect(lastPage.body.documents.map((d: { id: string }) => d.id)).toEqual(
+        ids.slice(4),
+      );
       expect(lastPage.body.nextCursor).toBeNull();
     });
   });
@@ -611,7 +617,10 @@ describe('documents (e2e)', () => {
       const owner = await registerUser();
       const other = await registerUser();
       const organizationId = await createOrganization(owner.token, 'Rename A');
-      const otherOrganizationId = await createOrganization(other.token, 'Rename B');
+      const otherOrganizationId = await createOrganization(
+        other.token,
+        'Rename B',
+      );
 
       const created = await createDocument(owner.token, organizationId, {
         title: 'Private',
@@ -657,7 +666,10 @@ describe('documents (e2e)', () => {
       const owner = await registerUser();
       const other = await registerUser();
       const organizationId = await createOrganization(owner.token, 'Delete A');
-      const otherOrganizationId = await createOrganization(other.token, 'Delete B');
+      const otherOrganizationId = await createOrganization(
+        other.token,
+        'Delete B',
+      );
 
       const created = await createDocument(owner.token, organizationId, {
         title: 'Mine',
@@ -760,10 +772,7 @@ describe('documents (e2e)', () => {
 
     const createVerifiedDocument = async () => {
       const { token } = await registerUser();
-      const organizationId = await createOrganization(
-        token,
-        'Download Org',
-      );
+      const organizationId = await createOrganization(token, 'Download Org');
       const created = await createDocument(token, organizationId, {
         title: 'Report',
       }).expect(201);
@@ -849,11 +858,9 @@ describe('documents (e2e)', () => {
       const { organizationId, documentId } = await createVerifiedDocument();
       const outsider = await registerUser();
 
-      await getDownloadUrl(
-        outsider.token,
-        organizationId,
-        documentId,
-      ).expect(403);
+      await getDownloadUrl(outsider.token, organizationId, documentId).expect(
+        403,
+      );
     });
 
     it('rejects a malformed document id with 400', async () => {
@@ -929,9 +936,7 @@ describe('documents (e2e)', () => {
       expect(document.expectedContentType).toBe('application/pdf');
       expect(document.uploadStorageKey).toBe(lastCall().key);
       expect(document.uploadStorageKey).toMatch(
-        new RegExp(
-          `^organizations/${organizationId}/documents/${documentId}/`,
-        ),
+        new RegExp(`^organizations/${organizationId}/documents/${documentId}/`),
       );
     });
 
@@ -1099,12 +1104,9 @@ describe('documents (e2e)', () => {
       const { token } = await registerUser();
       const organizationId = await createOrganization(token, 'Missing Upload');
 
-      await createUploadUrl(
-        token,
-        organizationId,
-        randomUUID(),
-        body,
-      ).expect(404);
+      await createUploadUrl(token, organizationId, randomUUID(), body).expect(
+        404,
+      );
     });
 
     it('returns 403 for an authenticated non-member and writes nothing', async () => {
@@ -1233,12 +1235,9 @@ describe('documents (e2e)', () => {
       const documentId = created.body.document.id as string;
 
       await createUploadUrl(token, 'not-a-uuid', documentId, body).expect(400);
-      await createUploadUrl(
-        token,
-        organizationId,
-        'not-a-uuid',
-        body,
-      ).expect(400);
+      await createUploadUrl(token, organizationId, 'not-a-uuid', body).expect(
+        400,
+      );
     });
 
     it('exposes only the approved upload-url fields', async () => {
@@ -1292,15 +1291,13 @@ describe('documents (e2e)', () => {
       storage.onReadObjectPrefix = null;
       storage.onCopyObject = null;
       delete (storage as unknown as Record<string, unknown>).inspectObject;
-      delete (storage as unknown as Record<string, unknown>)
-        .readObjectPrefix;
+      delete (storage as unknown as Record<string, unknown>).readObjectPrefix;
       delete (storage as unknown as Record<string, unknown>).copyObject;
     });
 
     it('verifies a valid upload, promotes it and transitions to PROCESSING', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Verify Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Verify Org');
       const stagingKey = await uploadUrlAndObject(
         token,
         organizationId,
@@ -1338,7 +1335,9 @@ describe('documents (e2e)', () => {
       expect(document.storageKey).not.toBeNull();
       expect(document.storageKey).not.toBe(stagingKey);
       expect(document.storageKey).toMatch(
-        new RegExp(`^organizations/${organizationId}/documents/${documentId}/verified/`),
+        new RegExp(
+          `^organizations/${organizationId}/documents/${documentId}/verified/`,
+        ),
       );
 
       const promoted = await storage.inspectObject(
@@ -1364,9 +1363,8 @@ describe('documents (e2e)', () => {
     });
 
     it('accepts a request with no body', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'No Body Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('No Body Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1384,9 +1382,8 @@ describe('documents (e2e)', () => {
     });
 
     it('keeps the verified bytes when a reused staging URL overwrites the staging object', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Reuse Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Reuse Org');
       const stagingKey = await uploadUrlAndObject(
         token,
         organizationId,
@@ -1400,7 +1397,11 @@ describe('documents (e2e)', () => {
       const verifiedKey = verified.storageKey as string;
       const verifiedSize = verified.sizeBytes;
 
-      storage.putObject(stagingKey, '%PDF-1.7 different bytes', 'application/pdf');
+      storage.putObject(
+        stagingKey,
+        '%PDF-1.7 different bytes',
+        'application/pdf',
+      );
 
       const reloaded = await loadDocument(documentId);
       expect(reloaded.storageKey).toBe(verifiedKey);
@@ -1416,9 +1417,8 @@ describe('documents (e2e)', () => {
     });
 
     it('rejects with 409 when the staging object changes mid-verification and promotes nothing', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Race Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Race Org');
       const stagingKey = await uploadUrlAndObject(
         token,
         organizationId,
@@ -1439,9 +1439,8 @@ describe('documents (e2e)', () => {
     });
 
     it('rejects with 409 without changing state when the object was never uploaded', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Absent Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Absent Org');
       await createUploadUrl(token, organizationId, documentId, {
         contentType: 'application/pdf',
       }).expect(200);
@@ -1454,9 +1453,8 @@ describe('documents (e2e)', () => {
     });
 
     it('rejects with 409 when no upload URL was ever requested', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Never Uploaded Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Never Uploaded Org');
 
       await completeUpload(token, organizationId, documentId).expect(409);
 
@@ -1466,9 +1464,8 @@ describe('documents (e2e)', () => {
     });
 
     it('fails the document for a zero-byte object with EMPTY_OBJECT', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Empty Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Empty Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1494,9 +1491,8 @@ describe('documents (e2e)', () => {
     });
 
     it('fails the document for an oversized object with SIZE_LIMIT_EXCEEDED', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Oversize Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Oversize Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1522,9 +1518,8 @@ describe('documents (e2e)', () => {
     });
 
     it('fails the document for a disallowed stored type with CONTENT_TYPE_NOT_ALLOWED', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Disallowed Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Disallowed Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1543,9 +1538,8 @@ describe('documents (e2e)', () => {
     });
 
     it('fails the document for a mismatched stored type with CONTENT_TYPE_MISMATCH', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Mismatch Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Mismatch Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1564,9 +1558,8 @@ describe('documents (e2e)', () => {
     });
 
     it('fails the document for bytes that do not match the signed type with SIGNATURE_MISMATCH', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Signature Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Signature Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1575,8 +1568,11 @@ describe('documents (e2e)', () => {
         'not actually a pdf',
       );
 
-      const response = await completeUpload(token, organizationId, documentId)
-        .expect(200);
+      const response = await completeUpload(
+        token,
+        organizationId,
+        documentId,
+      ).expect(200);
 
       expect(response.body.document.failureReason).toBe('SIGNATURE_MISMATCH');
       expect(response.body.document.failureKind).toBe('VERIFICATION');
@@ -1584,9 +1580,8 @@ describe('documents (e2e)', () => {
     });
 
     it('rejects with 409 when a newer upload URL superseded the staged one', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Superseded Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Superseded Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1606,9 +1601,8 @@ describe('documents (e2e)', () => {
     });
 
     it('lets one of two concurrent completions win and leaves the document PROCESSING', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Concurrent Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Concurrent Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1630,9 +1624,8 @@ describe('documents (e2e)', () => {
     });
 
     it('rolls back the transition and generation when the job insert fails', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Rollback Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Rollback Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1668,9 +1661,8 @@ describe('documents (e2e)', () => {
     });
 
     it('short-circuits a repeat completion after PROCESSING without touching storage', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Idempotent Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Idempotent Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1691,8 +1683,11 @@ describe('documents (e2e)', () => {
         throw new Error('completion must not copy for a PROCESSING document');
       };
 
-      const response = await completeUpload(token, organizationId, documentId)
-        .expect(200);
+      const response = await completeUpload(
+        token,
+        organizationId,
+        documentId,
+      ).expect(200);
 
       expect(response.body.document.status).toBe('PROCESSING');
       expect(response.body.document.updatedAt).toBe(
@@ -1703,9 +1698,8 @@ describe('documents (e2e)', () => {
     });
 
     it('retries a failed verification with a fresh upload and reaches PROCESSING', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Retry Complete Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Retry Complete Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1745,9 +1739,8 @@ describe('documents (e2e)', () => {
     });
 
     it('maps a transient storage failure to 503 without changing state', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Transient Org',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Transient Org');
       await uploadUrlAndObject(
         token,
         organizationId,
@@ -1806,11 +1799,9 @@ describe('documents (e2e)', () => {
         pdfBytes,
       );
 
-      await completeUpload(
-        outsider.token,
-        organizationId,
-        documentId,
-      ).expect(403);
+      await completeUpload(outsider.token, organizationId, documentId).expect(
+        403,
+      );
 
       const document = await loadDocument(documentId);
       expect(document.status).toBe('PENDING');
@@ -1820,8 +1811,14 @@ describe('documents (e2e)', () => {
     it('returns 404 for a document in another organization and leaves it untouched', async () => {
       const ownerA = await registerUser();
       const ownerB = await registerUser();
-      const organizationA = await createOrganization(ownerA.token, 'Complete A');
-      const organizationB = await createOrganization(ownerB.token, 'Complete B');
+      const organizationA = await createOrganization(
+        ownerA.token,
+        'Complete A',
+      );
+      const organizationB = await createOrganization(
+        ownerB.token,
+        'Complete B',
+      );
       const created = await createDocument(ownerA.token, organizationA, {
         title: 'Secret',
       }).expect(201);
@@ -1834,11 +1831,7 @@ describe('documents (e2e)', () => {
         pdfBytes,
       );
 
-      await completeUpload(
-        ownerB.token,
-        organizationB,
-        documentId,
-      ).expect(404);
+      await completeUpload(ownerB.token, organizationB, documentId).expect(404);
 
       const document = await loadDocument(documentId);
       expect(document.status).toBe('PENDING');
@@ -1852,18 +1845,16 @@ describe('documents (e2e)', () => {
     });
 
     it('rejects malformed organization and document ids with 400', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Malformed Complete',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Malformed Complete');
 
       await completeUpload(token, 'not-a-uuid', documentId).expect(400);
       await completeUpload(token, organizationId, 'not-a-uuid').expect(400);
     });
 
     it('rejects invalid and unexpected body fields with 400 and writes nothing', async () => {
-      const { token, organizationId, documentId } = await setupDocument(
-        'Invalid Complete',
-      );
+      const { token, organizationId, documentId } =
+        await setupDocument('Invalid Complete');
       await uploadUrlAndObject(
         token,
         organizationId,

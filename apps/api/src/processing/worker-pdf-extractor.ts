@@ -70,10 +70,9 @@ export class WorkerPdfExtractor implements PdfExtractor {
       worker.once('error', (error) => {
         finish(() => {
           reject(
-            new PdfExtractionUnavailableError(
-              'PDF extraction worker failed',
-              { cause: error },
-            ),
+            new PdfExtractionUnavailableError('PDF extraction worker failed', {
+              cause: error,
+            }),
           );
         });
       });

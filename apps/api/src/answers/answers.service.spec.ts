@@ -43,7 +43,13 @@ const USER_ID = 'user-1';
 const NO_USAGE: AnswerUsage = { inputTokens: null, outputTokens: null };
 
 function generation(draft: unknown, usage: AnswerUsage = NO_USAGE) {
-  return { draft: typeof draft === 'object' && draft !== null ? { missing: [], ...draft } : draft, usage };
+  return {
+    draft:
+      typeof draft === 'object' && draft !== null
+        ? { missing: [], ...draft }
+        : draft,
+    usage,
+  };
 }
 
 const CHUNK: RetrievedChunk = {
@@ -114,12 +120,16 @@ function createProvider(
   return { provider, generate, stream };
 }
 
-function answerStream(
-  deltas: string[],
-): AsyncGenerator<AnswerGenerationChunk> {
+function answerStream(deltas: string[]): AsyncGenerator<AnswerGenerationChunk> {
   async function* generate(): AsyncGenerator<AnswerGenerationChunk> {
     const complete = deltas.join('');
-    const amended = complete.endsWith('}') && !complete.includes('"missing"') ? [...deltas.slice(0, -1), deltas[deltas.length - 1]!.replace(/}$/, ',"missing":[]}')] : deltas;
+    const amended =
+      complete.endsWith('}') && !complete.includes('"missing"')
+        ? [
+            ...deltas.slice(0, -1),
+            deltas[deltas.length - 1]!.replace(/}$/, ',"missing":[]}'),
+          ]
+        : deltas;
     for (const text of amended) {
       yield { type: 'delta', text };
     }
@@ -147,7 +157,12 @@ async function collectStream(
 
 function createPrisma() {
   return {
-    $queryRaw: vi.fn(async (_query: { strings: string[]; values: unknown[] }): Promise<unknown[]> => []),
+    $queryRaw: vi.fn(
+      async (_query: {
+        strings: string[];
+        values: unknown[];
+      }): Promise<unknown[]> => [],
+    ),
     answer: {
       create: vi.fn(async (_args?: unknown) => ({})),
       findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
@@ -162,35 +177,37 @@ function createPrisma() {
       deleteMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
     conversation: {
-      findFirst: vi.fn(
-        async (): Promise<{ id: string } | null> => ({ id: 'conversation-1' }),
-      ),
+      findFirst: vi.fn(async (): Promise<{ id: string } | null> => ({
+        id: 'conversation-1',
+      })),
       updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
     document: {
-      findFirst: vi.fn(
-        async (): Promise<{ status: string } | null> => ({ status: 'READY' }),
-      ),
+      findFirst: vi.fn(async (): Promise<{ status: string } | null> => ({
+        status: 'READY',
+      })),
       findMany: vi.fn(async (_args?: unknown) => [] as unknown[]),
       count: vi.fn(async (_args?: unknown) => 0),
     },
   };
 }
 
-function createService(options: {
-  chunks?: RetrievedChunk[];
-  catalog?: CatalogDocumentRow[];
-  catalogTotal?: number;
-  retrievalImpl?: RetrievalService['search'];
-  providerImpl?: AnswerProvider['generate'];
-  streamImpl?: AnswerProvider['stream'];
-  configOverrides?: Partial<Record<string, unknown>>;
-  usageImpl?: () => Promise<void>;
-  factsEnabled?: boolean;
-  aggregateImpl?: AggregationService['contractTotals'];
-  rewriteImpl?: (question: string) => Promise<string>;
-  rerankImpl?: Reranker['rerank'];
-} = {}) {
+function createService(
+  options: {
+    chunks?: RetrievedChunk[];
+    catalog?: CatalogDocumentRow[];
+    catalogTotal?: number;
+    retrievalImpl?: RetrievalService['search'];
+    providerImpl?: AnswerProvider['generate'];
+    streamImpl?: AnswerProvider['stream'];
+    configOverrides?: Partial<Record<string, unknown>>;
+    usageImpl?: () => Promise<void>;
+    factsEnabled?: boolean;
+    aggregateImpl?: AggregationService['contractTotals'];
+    rewriteImpl?: (question: string) => Promise<string>;
+    rerankImpl?: Reranker['rerank'];
+  } = {},
+) {
   const { retrieval, search } = createRetrieval(
     options.retrievalImpl ?? (async () => options.chunks ?? [CHUNK]),
   );
@@ -218,7 +235,9 @@ function createService(options: {
   const factsConfig = {
     enabled: options.factsEnabled ?? false,
   } as unknown as FactsConfig;
-  const rewrite = vi.fn(options.rewriteImpl ?? (async (question: string) => question));
+  const rewrite = vi.fn(
+    options.rewriteImpl ?? (async (question: string) => question),
+  );
   const rerank = vi.fn(options.rerankImpl ?? (async () => []));
   const service = new AnswersService(
     provider,
@@ -291,7 +310,10 @@ describe('AnswersService', () => {
     const { service, rerank, search, generate } = createService({
       chunks: [CHUNK, second],
       configOverrides: { rerankEnabled: true, rerankCandidates: 30 },
-      rerankImpl: async () => [{ id: 'chunk-2', score: 3 }, { id: 'chunk-1', score: 0 }],
+      rerankImpl: async () => [
+        { id: 'chunk-2', score: 3 },
+        { id: 'chunk-1', score: 0 },
+      ],
     });
     await service.answer('org-1', USER_ID, 'question');
     expect(rerank).toHaveBeenCalled();
@@ -303,7 +325,9 @@ describe('AnswersService', () => {
   it('falls back to retrieval order when reranking fails', async () => {
     const { service, rerank, generate } = createService({
       configOverrides: { rerankEnabled: true, rerankCandidates: 30 },
-      rerankImpl: async () => { throw new Error('unavailable'); },
+      rerankImpl: async () => {
+        throw new Error('unavailable');
+      },
     });
     await service.answer('org-1', USER_ID, 'question');
     expect(rerank).toHaveBeenCalled();
@@ -358,7 +382,11 @@ describe('AnswersService', () => {
       aggregateImpl: async () => AGGREGATE_RESPONSE,
     });
 
-    await service.answer('org-1', USER_ID, 'What is the total of contract 1143?');
+    await service.answer(
+      'org-1',
+      USER_ID,
+      'What is the total of contract 1143?',
+    );
 
     expect(aggregation.contractTotals).not.toHaveBeenCalled();
     expect(search).toHaveBeenCalled();
@@ -369,9 +397,9 @@ describe('AnswersService', () => {
       configOverrides: { enabled: false },
     });
 
-    await expect(service.answer('org-1', USER_ID, 'What is alpha?')).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(search).not.toHaveBeenCalled();
     expect(generate).not.toHaveBeenCalled();
   });
@@ -392,9 +420,14 @@ describe('AnswersService', () => {
     const { service, prisma } = createService();
     await service.answer('org-1', USER_ID, 'What is alpha?');
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
-    const query = prisma.$queryRaw.mock.calls[0]![0] as { strings: string[]; values: unknown[] };
+    const query = prisma.$queryRaw.mock.calls[0]![0] as {
+      strings: string[];
+      values: unknown[];
+    };
     const sql = query.strings.join('?');
-    expect(sql).toContain('neighbor."documentGeneration" = hit."documentGeneration"');
+    expect(sql).toContain(
+      'neighbor."documentGeneration" = hit."documentGeneration"',
+    );
     expect(sql).toContain('neighbor."organizationId" = hit."organizationId"');
     expect(sql).toContain("d.status = 'READY'");
     expect(query.values).toContain('org-1');
@@ -403,7 +436,13 @@ describe('AnswersService', () => {
   it('scopes retrieval to the requested document when one is supplied', async () => {
     const { service, search, prisma } = createService();
 
-    await service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9');
+    await service.answer(
+      'org-1',
+      USER_ID,
+      'What is alpha?',
+      undefined,
+      'doc-9',
+    );
 
     expect(prisma.document.findFirst).toHaveBeenCalledWith({
       where: { id: 'doc-9', organizationId: 'org-1' },
@@ -419,14 +458,28 @@ describe('AnswersService', () => {
 
   it('uses whole-document sources without retrieval when they fit', async () => {
     const { service, search, prisma } = createService();
-    prisma.$queryRaw.mockResolvedValueOnce([{
-      chunkId: 'chunk-1', documentId: 'doc-9', documentTitle: 'Document',
-      pageNumber: 1, chunkIndex: 0, content: 'Complete page',
-    }]);
-    await service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9');
+    prisma.$queryRaw.mockResolvedValueOnce([
+      {
+        chunkId: 'chunk-1',
+        documentId: 'doc-9',
+        documentTitle: 'Document',
+        pageNumber: 1,
+        chunkIndex: 0,
+        content: 'Complete page',
+      },
+    ]);
+    await service.answer(
+      'org-1',
+      USER_ID,
+      'What is alpha?',
+      undefined,
+      'doc-9',
+    );
     expect(search).not.toHaveBeenCalled();
     const query = prisma.$queryRaw.mock.calls[0]![0];
-    expect(query.strings.join('?')).toContain('c."documentGeneration" = d.generation');
+    expect(query.strings.join('?')).toContain(
+      'c."documentGeneration" = d.generation',
+    );
     expect(query.values).toContain('org-1');
   });
 
@@ -461,7 +514,9 @@ describe('AnswersService', () => {
   it('returns a fixed refusal without calling the provider when retrieval is empty', async () => {
     const { service, generate } = createService({ chunks: [] });
 
-    await expect(service.answer('org-1', USER_ID, 'What is alpha?')).resolves.toEqual({
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).resolves.toEqual({
       status: 'insufficient_evidence',
       answer: null,
       citations: [],
@@ -470,17 +525,45 @@ describe('AnswersService', () => {
   });
 
   it('returns and persists a partial answer', async () => {
-    const { service, prisma } = createService({ providerImpl: async () => generation({ status: 'partial', claims: [{ text: 'Known.', source: 1 }], missing: ['Unknown date'] }) });
+    const { service, prisma } = createService({
+      providerImpl: async () =>
+        generation({
+          status: 'partial',
+          claims: [{ text: 'Known.', source: 1 }],
+          missing: ['Unknown date'],
+        }),
+    });
     const result = await service.answer('org-1', USER_ID, 'What is alpha?');
-    expect(result).toMatchObject({ status: 'partial', answer: 'Known [1].', missing: ['Unknown date'] });
-    expect(prisma.answer.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'partial', missing: ['Unknown date'] }) }));
+    expect(result).toMatchObject({
+      status: 'partial',
+      answer: 'Known [1].',
+      missing: ['Unknown date'],
+    });
+    expect(prisma.answer.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'partial',
+          missing: ['Unknown date'],
+        }),
+      }),
+    );
   });
 
   it('streams partial answers and missing items', async () => {
-    const { service } = createService({ streamImpl: () => answerStream(['{"status":"partial","claims":[{"text":"Known.","source":1}],"missing":["Unknown date"]}']) });
-    const events = await collectStream(service.answerStream('org-1', USER_ID, 'What is alpha?'));
+    const { service } = createService({
+      streamImpl: () =>
+        answerStream([
+          '{"status":"partial","claims":[{"text":"Known.","source":1}],"missing":["Unknown date"]}',
+        ]),
+    });
+    const events = await collectStream(
+      service.answerStream('org-1', USER_ID, 'What is alpha?'),
+    );
     expect(events).toContainEqual({ type: 'status', status: 'partial' });
-    expect(events).toContainEqual({ type: 'missing', missing: ['Unknown date'] });
+    expect(events).toContainEqual({
+      type: 'missing',
+      missing: ['Unknown date'],
+    });
   });
 
   it('streams validated claims as the provider produces them and then persists', async () => {
@@ -529,9 +612,7 @@ describe('AnswersService', () => {
   it('streams a refusal without emitting prose', async () => {
     const { service, prisma } = createService({
       streamImpl: () =>
-        answerStream([
-          '{"status":"insufficient_evidence","claims":null}',
-        ]),
+        answerStream(['{"status":"insufficient_evidence","claims":null}']),
     });
 
     await expect(
@@ -613,10 +694,11 @@ describe('AnswersService', () => {
         }),
     });
 
-    await expect(service.answer('org-1', USER_ID, 'Which documents do I have?')).resolves.toEqual({
+    await expect(
+      service.answer('org-1', USER_ID, 'Which documents do I have?'),
+    ).resolves.toEqual({
       status: 'answered',
-      answer:
-        'The organization has one document about local shipments [1].',
+      answer: 'The organization has one document about local shipments [1].',
       citations: [
         {
           marker: 1,
@@ -662,7 +744,13 @@ describe('AnswersService', () => {
   it('scopes the document catalog to the selected document', async () => {
     const { service, prisma } = createService({ catalog: [CATALOG_DOCUMENT] });
 
-    await service.answer('org-1', USER_ID, 'What is alpha?', undefined, 'doc-9');
+    await service.answer(
+      'org-1',
+      USER_ID,
+      'What is alpha?',
+      undefined,
+      'doc-9',
+    );
 
     expect(prisma.document.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -729,19 +817,31 @@ describe('AnswersService', () => {
   });
 
   it('rewrites only follow-ups for retrieval and preserves the answer question', async () => {
-    const { service, prisma, search, generate, rewrite } = createService({ rewriteImpl: async () => 'standalone query' });
+    const { service, prisma, search, generate, rewrite } = createService({
+      rewriteImpl: async () => 'standalone query',
+    });
     await service.answer('org-1', USER_ID, 'first');
     expect(rewrite).not.toHaveBeenCalled();
-    prisma.answer.findMany.mockResolvedValueOnce([{ question: 'first', answer: 'answer' }]);
+    prisma.answer.findMany.mockResolvedValueOnce([
+      { question: 'first', answer: 'answer' },
+    ]);
     await service.answer('org-1', USER_ID, 'follow up', 'conversation-1');
     expect(rewrite).toHaveBeenCalledOnce();
-    expect(JSON.stringify(search.mock.calls.at(-1))).toContain('standalone query');
+    expect(JSON.stringify(search.mock.calls.at(-1))).toContain(
+      'standalone query',
+    );
     expect(JSON.stringify(generate.mock.calls.at(-1))).toContain('follow up');
   });
 
   it('falls back to the original question when rewriting fails', async () => {
-    const { service, prisma, search } = createService({ rewriteImpl: async () => { throw new Error('unavailable'); } });
-    prisma.answer.findMany.mockResolvedValueOnce([{ question: 'first', answer: 'answer' }]);
+    const { service, prisma, search } = createService({
+      rewriteImpl: async () => {
+        throw new Error('unavailable');
+      },
+    });
+    prisma.answer.findMany.mockResolvedValueOnce([
+      { question: 'first', answer: 'answer' },
+    ]);
     await service.answer('org-1', USER_ID, 'follow up', 'conversation-1');
     expect(JSON.stringify(search.mock.calls.at(-1))).toContain('follow up');
   });
@@ -799,7 +899,11 @@ describe('AnswersService', () => {
   it('filters history by conversation when requested', async () => {
     const { service, prisma } = createService();
 
-    await service.list('org-1', USER_ID, { limit: 25, askedBy: 'organization', conversationId: 'conversation-1' });
+    await service.list('org-1', USER_ID, {
+      limit: 25,
+      askedBy: 'organization',
+      conversationId: 'conversation-1',
+    });
 
     expect(prisma.answer.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -812,7 +916,10 @@ describe('AnswersService', () => {
                 { conversationId: null },
                 {
                   conversation: {
-                    OR: [{ createdById: USER_ID }, { visibility: 'ORGANIZATION' }],
+                    OR: [
+                      { createdById: USER_ID },
+                      { visibility: 'ORGANIZATION' },
+                    ],
                   },
                 },
               ],
@@ -825,7 +932,10 @@ describe('AnswersService', () => {
 
   it('rejects with the quota error before generating when the tenant is over quota', async () => {
     const quotaError = new HttpException(
-      { statusCode: 429, message: 'The organization has reached its daily answer limit' },
+      {
+        statusCode: 429,
+        message: 'The organization has reached its daily answer limit',
+      },
       429,
     );
     const { service, generate } = createService({
@@ -845,7 +955,9 @@ describe('AnswersService', () => {
       chunks: [{ ...CHUNK, similarity: 0.1 }],
     });
 
-    await expect(service.answer('org-1', USER_ID, 'What is alpha?')).resolves.toEqual({
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).resolves.toEqual({
       status: 'insufficient_evidence',
       answer: null,
       citations: [],
@@ -856,7 +968,9 @@ describe('AnswersService', () => {
   it('answers from the assembled sources and derives citations on the server', async () => {
     const { service, generate } = createService();
 
-    await expect(service.answer('org-1', USER_ID, 'What is alpha?')).resolves.toEqual({
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).resolves.toEqual({
       status: 'answered',
       answer: 'Retries are bounded [1].',
       citations: [
@@ -872,7 +986,9 @@ describe('AnswersService', () => {
     });
 
     const [prompt, options] = generate.mock.calls[0]!;
-    expect(prompt.user).toContain('<source id="1" title="Architecture Notes" page="2">');
+    expect(prompt.user).toContain(
+      '<source id="1" title="Architecture Notes" page="2">',
+    );
     expect(prompt.user).toContain(CHUNK.content);
     expect(prompt.user).toContain('What is alpha?');
     expect(options).toEqual({ maxOutputTokens: 700 });
@@ -925,7 +1041,9 @@ describe('AnswersService', () => {
         generation({ status: 'insufficient_evidence', claims: null }),
     });
 
-    await expect(service.answer('org-1', USER_ID, 'What is alpha?')).resolves.toEqual({
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).resolves.toEqual({
       status: 'insufficient_evidence',
       answer: null,
       citations: [],
@@ -994,20 +1112,23 @@ describe('AnswersService', () => {
     ['a rejected credential', new AnswerRejectedError('nope', 'configuration')],
     ['a rejected request', new AnswerRejectedError('nope', 'request')],
     ['an unusable response', new AnswerResponseError('nope')],
-  ])('maps %s to 502 without leaking the provider message', async (_label, thrown) => {
-    const { service } = createService({
-      providerImpl: async () => {
-        throw thrown;
-      },
-    });
+  ])(
+    'maps %s to 502 without leaking the provider message',
+    async (_label, thrown) => {
+      const { service } = createService({
+        providerImpl: async () => {
+          throw thrown;
+        },
+      });
 
-    const error = await service
-      .answer('org-1', USER_ID, 'What is alpha?')
-      .catch((caught: unknown) => caught);
+      const error = await service
+        .answer('org-1', USER_ID, 'What is alpha?')
+        .catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(BadGatewayException);
-    expect(String((error as Error).message)).not.toContain('nope');
-  });
+      expect(error).toBeInstanceOf(BadGatewayException);
+      expect(String((error as Error).message)).not.toContain('nope');
+    },
+  );
 
   it('maps an unavailable query embedding to 503 before any completion', async () => {
     const { service, generate } = createService({
@@ -1046,9 +1167,9 @@ describe('AnswersService', () => {
       },
     });
 
-    await expect(service.answer('org-1', USER_ID, 'What is alpha?')).rejects.toBe(
-      failure,
-    );
+    await expect(
+      service.answer('org-1', USER_ID, 'What is alpha?'),
+    ).rejects.toBe(failure);
   });
 
   it('logs one structured line per answered request with usage and no content', async () => {
@@ -1241,7 +1362,10 @@ describe('AnswersService', () => {
     const { service, prisma } = createService();
     prisma.answer.findMany.mockResolvedValueOnce([row]);
 
-    const result = await service.list('org-1', USER_ID, { limit: 25, askedBy: 'organization' });
+    const result = await service.list('org-1', USER_ID, {
+      limit: 25,
+      askedBy: 'organization',
+    });
 
     expect(prisma.answer.findMany).toHaveBeenCalledWith({
       where: {
@@ -1252,7 +1376,10 @@ describe('AnswersService', () => {
               { conversationId: null },
               {
                 conversation: {
-                  OR: [{ createdById: USER_ID }, { visibility: 'ORGANIZATION' }],
+                  OR: [
+                    { createdById: USER_ID },
+                    { visibility: 'ORGANIZATION' },
+                  ],
                 },
               },
             ],
@@ -1290,7 +1417,11 @@ describe('AnswersService', () => {
     const { service, prisma } = createService();
 
     await expect(
-      service.list('org-1', USER_ID, { limit: 25, askedBy: 'organization', cursor: 'bad' }),
+      service.list('org-1', USER_ID, {
+        limit: 25,
+        askedBy: 'organization',
+        cursor: 'bad',
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(prisma.answer.findMany).not.toHaveBeenCalled();
@@ -1328,7 +1459,10 @@ describe('AnswersService', () => {
               { conversationId: null },
               {
                 conversation: {
-                  OR: [{ createdById: USER_ID }, { visibility: 'ORGANIZATION' }],
+                  OR: [
+                    { createdById: USER_ID },
+                    { visibility: 'ORGANIZATION' },
+                  ],
                 },
               },
             ],

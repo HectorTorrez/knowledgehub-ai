@@ -90,12 +90,14 @@ export class AggregationService {
 
     const coverage = {
       documents: documents.length,
-      extracted: documents.filter((document) => document.factsStatus === 'READY')
-        .length,
+      extracted: documents.filter(
+        (document) => document.factsStatus === 'READY',
+      ).length,
       failed: documents.filter((document) => document.factsStatus === 'FAILED')
         .length,
-      pending: documents.filter((document) => document.factsStatus === 'PENDING')
-        .length,
+      pending: documents.filter(
+        (document) => document.factsStatus === 'PENDING',
+      ).length,
     };
 
     const { unique, collapsed } = dedupeNewestFirst(rows);
@@ -106,7 +108,9 @@ export class AggregationService {
 
     return {
       status:
-        coverage.failed === 0 && coverage.pending === 0 ? 'complete' : 'partial',
+        coverage.failed === 0 && coverage.pending === 0
+          ? 'complete'
+          : 'partial',
       coverage,
       collapsedDuplicates: collapsed,
       totalFacts: unique.length,

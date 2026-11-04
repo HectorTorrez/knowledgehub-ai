@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './mock-api';
 
-test('landing shows the configured demo and opens its workspace', async ({ page }) => {
+test('landing shows the configured demo and opens its workspace', async ({
+  page,
+}) => {
   await mockApi(page, { authenticated: false, demo: true });
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();

@@ -8,13 +8,17 @@ describe('createDocumentSchema', () => {
   });
 
   it('trims surrounding whitespace', () => {
-    const parsed = createDocumentSchema.parse({ title: '  Quarterly report  ' });
+    const parsed = createDocumentSchema.parse({
+      title: '  Quarterly report  ',
+    });
     expect(parsed.title).toBe('Quarterly report');
   });
 
   it('rejects an empty or whitespace-only title', () => {
     expect(createDocumentSchema.safeParse({ title: '' }).success).toBe(false);
-    expect(createDocumentSchema.safeParse({ title: '   ' }).success).toBe(false);
+    expect(createDocumentSchema.safeParse({ title: '   ' }).success).toBe(
+      false,
+    );
   });
 
   it('rejects a title longer than 200 characters', () => {

@@ -11,11 +11,17 @@ const updatedAgo = (ms: number) => new Date(NOW - ms).toISOString();
 
 describe('document polling', () => {
   it('polls only while the tab is visible and a document is processing', () => {
-    const active = [{ status: 'PROCESSING' as const, updatedAt: updatedAgo(0) }];
+    const active = [
+      { status: 'PROCESSING' as const, updatedAt: updatedAgo(0) },
+    ];
     expect(pollingInterval(active, true, NOW)).toBe(POLL_INTERVAL_MS);
     expect(pollingInterval(active, false, NOW)).toBe(false);
     expect(
-      pollingInterval([{ status: 'READY', updatedAt: updatedAgo(0) }], true, NOW),
+      pollingInterval(
+        [{ status: 'READY', updatedAt: updatedAgo(0) }],
+        true,
+        NOW,
+      ),
     ).toBe(false);
   });
 
@@ -29,7 +35,12 @@ describe('document polling', () => {
     ).toBe(POLL_INTERVAL_MS);
     expect(
       pollingInterval(
-        [{ status: 'PENDING', updatedAt: updatedAgo(PENDING_UPLOAD_WINDOW_MS) }],
+        [
+          {
+            status: 'PENDING',
+            updatedAt: updatedAgo(PENDING_UPLOAD_WINDOW_MS),
+          },
+        ],
         true,
         NOW,
       ),

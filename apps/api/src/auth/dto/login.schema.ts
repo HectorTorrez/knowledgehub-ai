@@ -9,7 +9,10 @@ export const loginSchema = z
       .string()
       .trim()
       .min(1, 'email is required')
-      .max(EMAIL_MAX_LENGTH, `email must be at most ${EMAIL_MAX_LENGTH} characters`)
+      .max(
+        EMAIL_MAX_LENGTH,
+        `email must be at most ${EMAIL_MAX_LENGTH} characters`,
+      )
       .pipe(z.email('email must be a valid email address')),
     password: z
       .string()

@@ -71,7 +71,9 @@ describe('isSpanishQuestion', () => {
   });
 
   it('detects English', () => {
-    expect(isSpanishQuestion('what is the total of all contracts?')).toBe(false);
+    expect(isSpanishQuestion('what is the total of all contracts?')).toBe(
+      false,
+    );
   });
 });
 

@@ -1,4 +1,3 @@
-
 const BEARER_PREFIX = 'Bearer ';
 
 export function extractBearerToken(

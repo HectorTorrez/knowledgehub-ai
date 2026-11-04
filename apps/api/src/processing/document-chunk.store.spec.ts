@@ -76,7 +76,10 @@ function createStore(
   );
 
   const store = new DocumentChunkStore(
-    { $queryRaw: queryRaw, $transaction: transaction } as unknown as PrismaService,
+    {
+      $queryRaw: queryRaw,
+      $transaction: transaction,
+    } as unknown as PrismaService,
     { dimensions: DIMENSIONS } as EmbeddingConfig,
     embeddings,
   );
@@ -93,12 +96,23 @@ function createStore(
 
 describe('DocumentChunkStore', () => {
   it('embeds the chunk text and replaces that generation under the job lease', async () => {
-    const { store, embeddings, previewCalls, lockedCalls, executeCalls, transaction } =
-      createStore(async () => [vector(1), vector(2)]);
+    const {
+      store,
+      embeddings,
+      previewCalls,
+      lockedCalls,
+      executeCalls,
+      transaction,
+    } = createStore(async () => [vector(1), vector(2)]);
 
-    await expect(store.replaceForGeneration(OWNERSHIP, CHUNKS)).resolves.toBe(true);
+    await expect(store.replaceForGeneration(OWNERSHIP, CHUNKS)).resolves.toBe(
+      true,
+    );
 
-    expect(embeddings.embed).toHaveBeenCalledWith(['Document: Report\nPage: 1\n\nalpha', 'Document: Report\nPage: 2\n\nbeta']);
+    expect(embeddings.embed).toHaveBeenCalledWith([
+      'Document: Report\nPage: 1\n\nalpha',
+      'Document: Report\nPage: 2\n\nbeta',
+    ]);
     expect(transaction).toHaveBeenCalledTimes(1);
 
     const preview = sqlOf(previewCalls[0]!);
@@ -152,7 +166,9 @@ describe('DocumentChunkStore', () => {
   it('does not embed or write when the job no longer owns the document', async () => {
     const { store, embeddings, transaction } = createStore(async () => [], []);
 
-    await expect(store.replaceForGeneration(OWNERSHIP, CHUNKS)).resolves.toBe(false);
+    await expect(store.replaceForGeneration(OWNERSHIP, CHUNKS)).resolves.toBe(
+      false,
+    );
 
     expect(embeddings.embed).not.toHaveBeenCalled();
     expect(transaction).not.toHaveBeenCalled();
@@ -165,7 +181,9 @@ describe('DocumentChunkStore', () => {
       [],
     );
 
-    await expect(store.replaceForGeneration(OWNERSHIP, CHUNKS)).resolves.toBe(false);
+    await expect(store.replaceForGeneration(OWNERSHIP, CHUNKS)).resolves.toBe(
+      false,
+    );
 
     expect(embeddings.embed).toHaveBeenCalledOnce();
     expect(executeCalls).toHaveLength(0);
@@ -176,9 +194,9 @@ describe('DocumentChunkStore', () => {
       throw new EmbeddingResponseError('malformed');
     });
 
-    await expect(store.replaceForGeneration(OWNERSHIP, CHUNKS)).rejects.toBeInstanceOf(
-      EmbeddingResponseError,
-    );
+    await expect(
+      store.replaceForGeneration(OWNERSHIP, CHUNKS),
+    ).rejects.toBeInstanceOf(EmbeddingResponseError);
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -207,7 +225,10 @@ describe('DocumentChunkStore', () => {
       wrongDimension.store.replaceForGeneration(OWNERSHIP, CHUNKS),
     ).rejects.toBeInstanceOf(EmbeddingResponseError);
 
-    const nonFinite = createStore(async () => [[Number.NaN, 0, 0, 0], vector(2)]);
+    const nonFinite = createStore(async () => [
+      [Number.NaN, 0, 0, 0],
+      vector(2),
+    ]);
     await expect(
       nonFinite.store.replaceForGeneration(OWNERSHIP, CHUNKS),
     ).rejects.toBeInstanceOf(EmbeddingResponseError);

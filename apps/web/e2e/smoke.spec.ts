@@ -21,9 +21,7 @@ test('shows a toast when sign-in fails', async ({ page }) => {
 
   await page.goto('/login');
   await page.getByLabel('Email').fill(USER.email);
-  await page
-    .getByRole('textbox', { name: 'Password' })
-    .fill('wrong password');
+  await page.getByRole('textbox', { name: 'Password' }).fill('wrong password');
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   await expect(page).toHaveURL(/\/login/);
@@ -39,10 +37,14 @@ test('signs in and browses an organization', async ({ page }) => {
 
   await page.goto('/login');
   await page.getByLabel('Email').fill(USER.email);
-  await page.getByRole('textbox', { name: 'Password' }).fill('correct horse battery staple');
+  await page
+    .getByRole('textbox', { name: 'Password' })
+    .fill('correct horse battery staple');
   await page.getByRole('button', { name: 'Sign in' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Organizations' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Organizations' }),
+  ).toBeVisible();
   await expect(
     page.getByRole('list', { name: 'Notifications' }).getByText('Signed in'),
   ).toBeVisible();
@@ -51,11 +53,17 @@ test('signs in and browses an organization', async ({ page }) => {
   await page.getByRole('link', { name: /Acme/ }).first().click();
 
   await expect(page.getByRole('heading', { name: 'Acme' })).toBeVisible();
-  await expect(page.getByText('Daily answer usage', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Daily answer usage', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('2 of 100 answers')).toBeVisible();
   await expect(page.getByText('Ready documents')).toBeVisible();
-  await expect(page.getByText('Ready documents').locator('..')).toContainText('1');
-  await expect(page.getByText('Your role').locator('..')).toContainText('Owner');
+  await expect(page.getByText('Ready documents').locator('..')).toContainText(
+    '1',
+  );
+  await expect(page.getByText('Your role').locator('..')).toContainText(
+    'Owner',
+  );
   await expect(page.getByText('Created', { exact: true })).toBeVisible();
 
   if (test.info().project.name === 'mobile') {
@@ -70,10 +78,14 @@ test('signs in and browses an organization', async ({ page }) => {
 
   await page.getByLabel('Filter by status').click();
   await page.getByRole('option', { name: 'Failed' }).click();
-  await expect(page.getByRole('heading', { name: 'No matching documents' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'No matching documents' }),
+  ).toBeVisible();
 });
 
-test('asks a question and renders the streamed answer with its source', async ({ page }) => {
+test('asks a question and renders the streamed answer with its source', async ({
+  page,
+}) => {
   let asked = false;
   await mockApi(page, {
     authenticated: true,
@@ -83,7 +95,9 @@ test('asks a question and renders the streamed answer with its source', async ({
   });
 
   await page.goto('/organizations/org-1/ask');
-  await expect(page.getByRole('heading', { name: 'Ask a question' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Ask a question' }),
+  ).toBeVisible();
 
   await page.getByLabel('Your question').fill('How much leave do I get?');
   await page.getByRole('button', { name: 'Ask' }).click();
@@ -91,29 +105,41 @@ test('asks a question and renders the streamed answer with its source', async ({
   await expect.poll(() => asked).toBe(true);
   await expect(page.getByText('You get twenty days')).toBeVisible();
 
-  await page.getByRole('button', { name: /Sources/ }).first().click();
+  await page
+    .getByRole('button', { name: /Sources/ })
+    .first()
+    .click();
   const source = page.getByRole('link', { name: 'Handbook' });
   await expect(source).toBeVisible();
   await expect(source).toHaveAttribute('href', /page=3/);
   await source.click();
   await expect(page.getByText('Page 3 of 3')).toBeVisible();
   await expect(page.locator('[data-highlight="true"]')).toBeAttached();
-  await expect(page.getByRole('link', { name: 'Download original' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Download original' }),
+  ).toBeVisible();
 });
 
 test('owners see organization activity', async ({ page }) => {
   await mockApi(page, { authenticated: true });
   await page.goto('/organizations/org-1/settings');
-  await expect(page.getByText('Ada Lovelace uploaded document “Handbook”')).toBeVisible();
+  await expect(
+    page.getByText('Ada Lovelace uploaded document “Handbook”'),
+  ).toBeVisible();
 });
 
-
-test('viewers can browse documents without management actions', async ({ page }) => {
+test('viewers can browse documents without management actions', async ({
+  page,
+}) => {
   await mockApi(page, { authenticated: true, role: 'VIEWER' });
   await page.goto('/organizations/org-1/documents');
   await expect(page.getByRole('link', { name: 'Insights' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Upload document/i })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Actions for/ })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: /Upload document/i }),
+  ).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Actions for/ })).toHaveCount(
+    0,
+  );
   await page.goto('/organizations/org-1/documents/doc-1');
   await expect(page.getByRole('button', { name: 'Rename' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(0);

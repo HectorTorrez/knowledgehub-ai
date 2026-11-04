@@ -20,7 +20,9 @@ type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
 type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
 
 interface DocumentRecord {
-  collections: Array<{ collection: { id: string; name: string; color: string } }>;
+  collections: Array<{
+    collection: { id: string; name: string; color: string };
+  }>;
   id: string;
   organizationId: string;
   title: string;
@@ -148,18 +150,17 @@ function applyUpdate(
 
 function createHarness(options: HarnessOptions = {}) {
   const prisma = {
-    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(prisma)),
+    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback(prisma),
+    ),
     document: {
       create: vi.fn(
         async (_args: { data: Record<string, unknown> }) =>
           options.created ?? documentRecord(),
       ),
       findMany: vi.fn(async (_args: unknown) => options.rows ?? []),
-      findFirst: vi.fn(
-        async (_args: { where: unknown; select?: unknown }) =>
-          options.findFirst === undefined
-            ? documentRecord()
-            : options.findFirst,
+      findFirst: vi.fn(async (_args: { where: unknown; select?: unknown }) =>
+        options.findFirst === undefined ? documentRecord() : options.findFirst,
       ),
       update: vi.fn(
         async (_args: { where: unknown; data: Record<string, unknown> }) =>
@@ -190,12 +191,12 @@ function createCompletionHarness(
 
   const prisma = {
     document: {
-      findFirst: vi.fn(
-        async (): Promise<DocumentRecord | null> => ({ ...state }),
-      ),
-      findFirstOrThrow: vi.fn(
-        async (): Promise<DocumentRecord | null> => ({ ...state }),
-      ),
+      findFirst: vi.fn(async (): Promise<DocumentRecord | null> => ({
+        ...state,
+      })),
+      findFirstOrThrow: vi.fn(async (): Promise<DocumentRecord | null> => ({
+        ...state,
+      })),
       updateMany: vi.fn(async ({ where, data }: UpdateManyArgs) => {
         const matchesKey =
           where.uploadStorageKey === undefined ||
@@ -226,17 +227,15 @@ function createCompletionHarness(
     documentProcessingJob: {
       create: vi.fn(async (_args: { data: Record<string, unknown> }) => ({})),
     },
-    $transaction: vi.fn(
-      async (callback: (tx: unknown) => Promise<unknown>) => {
-        const snapshot: DocumentRecord = { ...state };
-        try {
-          return await callback(prisma);
-        } catch (error) {
-          Object.assign(state, snapshot);
-          throw error;
-        }
-      },
-    ),
+    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
+      const snapshot: DocumentRecord = { ...state };
+      try {
+        return await callback(prisma);
+      } catch (error) {
+        Object.assign(state, snapshot);
+        throw error;
+      }
+    }),
   };
 
   const activity = { record: vi.fn() };
@@ -353,7 +352,11 @@ describe('DocumentsService.list', () => {
     expect(prisma.document.findMany).toHaveBeenCalledWith({
       where: { organizationId: 'org-1' },
       select: {
-        collections: { select: { collection: { select: { id: true, name: true, color: true } } } },
+        collections: {
+          select: {
+            collection: { select: { id: true, name: true, color: true } },
+          },
+        },
         id: true,
         title: true,
         status: true,
@@ -366,7 +369,16 @@ describe('DocumentsService.list', () => {
         updatedAt: true,
         factsStatus: true,
         summaryStatus: true,
-        processingJobs: { orderBy: { createdAt: 'desc' }, take: 1, select: { state: true, attempt: true, maxAttempts: true, nextAttemptAt: true } },
+        processingJobs: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            state: true,
+            attempt: true,
+            maxAttempts: true,
+            nextAttemptAt: true,
+          },
+        },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 26,
@@ -376,7 +388,9 @@ describe('DocumentsService.list', () => {
   it('returns an empty list and a null cursor for a newly created organization', async () => {
     const { service } = createHarness({ rows: [] });
 
-    await expect(service.list('org-1', { limit: 25, order: 'createdAt_desc' })).resolves.toEqual({
+    await expect(
+      service.list('org-1', { limit: 25, order: 'createdAt_desc' }),
+    ).resolves.toEqual({
       documents: [],
       nextCursor: null,
     });
@@ -390,7 +404,10 @@ describe('DocumentsService.list', () => {
       ],
     });
 
-    const result = await service.list('org-1', { limit: 25, order: 'createdAt_desc' });
+    const result = await service.list('org-1', {
+      limit: 25,
+      order: 'createdAt_desc',
+    });
 
     expect(result.documents).toEqual([
       {
@@ -428,11 +445,20 @@ describe('DocumentsService.list', () => {
   });
 
   it('issues a cursor when more rows exist than the limit', async () => {
-    const first = documentRecord({ id: 'doc-1', createdAt: new Date('2026-01-01T00:00:00.000Z') });
-    const second = documentRecord({ id: 'doc-2', createdAt: new Date('2026-01-02T00:00:00.000Z') });
+    const first = documentRecord({
+      id: 'doc-1',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const second = documentRecord({
+      id: 'doc-2',
+      createdAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
     const { service } = createHarness({ rows: [second, first] });
 
-    const result = await service.list('org-1', { limit: 1, order: 'createdAt_desc' });
+    const result = await service.list('org-1', {
+      limit: 1,
+      order: 'createdAt_desc',
+    });
 
     expect(result.documents).toHaveLength(1);
     expect(result.documents[0].id).toBe('doc-2');
@@ -465,7 +491,11 @@ describe('DocumentsService.list', () => {
   it('filters by title query case-insensitively', async () => {
     const { service, prisma } = createHarness({ rows: [] });
 
-    await service.list('org-1', { limit: 25, order: 'createdAt_desc', q: 'handbook' });
+    await service.list('org-1', {
+      limit: 25,
+      order: 'createdAt_desc',
+      q: 'handbook',
+    });
 
     expect(prisma.document.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -480,7 +510,11 @@ describe('DocumentsService.list', () => {
   it('filters by status', async () => {
     const { service, prisma } = createHarness({ rows: [] });
 
-    await service.list('org-1', { limit: 25, order: 'createdAt_desc', status: 'READY' });
+    await service.list('org-1', {
+      limit: 25,
+      order: 'createdAt_desc',
+      status: 'READY',
+    });
 
     expect(prisma.document.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -518,7 +552,11 @@ describe('DocumentsService.list', () => {
     const { service, prisma } = createHarness({ rows: [] });
 
     await expect(
-      service.list('org-1', { limit: 25, order: 'createdAt_desc', cursor: 'not-a-cursor' }),
+      service.list('org-1', {
+        limit: 25,
+        order: 'createdAt_desc',
+        cursor: 'not-a-cursor',
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(prisma.document.findMany).not.toHaveBeenCalled();
@@ -529,7 +567,10 @@ describe('DocumentsService.list', () => {
       rows: [documentRecord({ id: 'doc-1' })],
     });
 
-    const result = await service.list('org-1', { limit: 25, order: 'createdAt_desc' });
+    const result = await service.list('org-1', {
+      limit: 25,
+      order: 'createdAt_desc',
+    });
 
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('storageKey');
@@ -699,13 +740,25 @@ describe('DocumentsService.rename', () => {
   it('renames the document scoped to its organization', async () => {
     const { service, prisma, activity } = createHarness();
 
-    await service.rename('org-1', 'doc-1', { title: 'New title' }, 'uploader-1');
+    await service.rename(
+      'org-1',
+      'doc-1',
+      { title: 'New title' },
+      'uploader-1',
+    );
 
     expect(prisma.document.updateMany).toHaveBeenCalledWith({
       where: { id: 'doc-1', organizationId: 'org-1' },
       data: { title: 'New title' },
     });
-    expect(activity.record).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'DOCUMENT_RENAMED', actorId: 'uploader-1', metadata: { from: 'Quarterly report', to: 'New title' } }));
+    expect(activity.record).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({
+        action: 'DOCUMENT_RENAMED',
+        actorId: 'uploader-1',
+        metadata: { from: 'Quarterly report', to: 'New title' },
+      }),
+    );
   });
 
   it('returns the renamed document', async () => {
@@ -713,9 +766,14 @@ describe('DocumentsService.rename', () => {
       findFirst: documentRecord({ title: 'New title' }),
     });
 
-    const result = await service.rename('org-1', 'doc-1', {
-      title: 'New title',
-    }, 'uploader-1');
+    const result = await service.rename(
+      'org-1',
+      'doc-1',
+      {
+        title: 'New title',
+      },
+      'uploader-1',
+    );
 
     expect(result.document.title).toBe('New title');
   });
@@ -732,12 +790,14 @@ describe('DocumentsService.rename', () => {
 
 describe('DocumentsService.delete', () => {
   it('returns 404 without deleting anything when the document is not found', async () => {
-    const { service, prisma, storage, activity } = createHarness({ findFirst: null });
+    const { service, prisma, storage, activity } = createHarness({
+      findFirst: null,
+    });
     const deleteObject = vi.spyOn(storage, 'deleteObject');
 
-    await expect(service.delete('org-1', 'doc-1', 'uploader-1')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.delete('org-1', 'doc-1', 'uploader-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
 
     expect(activity.record).not.toHaveBeenCalled();
     expect(prisma.document.deleteMany).not.toHaveBeenCalled();
@@ -752,7 +812,14 @@ describe('DocumentsService.delete', () => {
     expect(prisma.document.deleteMany).toHaveBeenCalledWith({
       where: { id: 'doc-1', organizationId: 'org-1' },
     });
-    expect(activity.record).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'DOCUMENT_DELETED', actorId: 'uploader-1', metadata: { title: 'Quarterly report' } }));
+    expect(activity.record).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({
+        action: 'DOCUMENT_DELETED',
+        actorId: 'uploader-1',
+        metadata: { title: 'Quarterly report' },
+      }),
+    );
   });
 
   it('deletes both the staging and verified objects', async () => {
@@ -786,7 +853,9 @@ describe('DocumentsService.delete', () => {
       new Error('storage down'),
     );
 
-    await expect(service.delete('org-1', 'doc-1', 'uploader-1')).resolves.toBeUndefined();
+    await expect(
+      service.delete('org-1', 'doc-1', 'uploader-1'),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -1001,12 +1070,22 @@ describe('DocumentsService.completeUpload', () => {
   it('looks the document up by both document id and organization id', async () => {
     const storage = new FakeObjectStorage();
     seedValidPdf(storage);
-    const { service, prisma, activity } = createCompletionHarness(documentRecord(), storage);
+    const { service, prisma, activity } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     await service.completeUpload(organizationContext(), 'doc-1', {});
     await service.completeUpload(organizationContext(), 'doc-1', {});
     expect(activity.record).toHaveBeenCalledTimes(1);
-    expect(activity.record).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'DOCUMENT_UPLOADED', actorId: 'uploader-1', metadata: { title: 'Quarterly report' } }));
+    expect(activity.record).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({
+        action: 'DOCUMENT_UPLOADED',
+        actorId: 'uploader-1',
+        metadata: { title: 'Quarterly report' },
+      }),
+    );
 
     expect(prisma.document.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1129,7 +1208,10 @@ describe('DocumentsService.completeUpload', () => {
       contentType: 'application/pdf',
       version: 'version-1',
     });
-    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     const result = await service.completeUpload(
       organizationContext(),
@@ -1151,7 +1233,10 @@ describe('DocumentsService.completeUpload', () => {
       contentType: 'image/png',
       version: 'version-1',
     });
-    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     const result = await service.completeUpload(
       organizationContext(),
@@ -1167,7 +1252,10 @@ describe('DocumentsService.completeUpload', () => {
   it('records CONTENT_TYPE_MISMATCH when the real type differs from the signed type', async () => {
     const storage = new FakeObjectStorage();
     storage.putObject(STAGING_KEY, 'plain text body', 'text/plain');
-    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     const result = await service.completeUpload(
       organizationContext(),
@@ -1183,7 +1271,10 @@ describe('DocumentsService.completeUpload', () => {
   it('records SIGNATURE_MISMATCH when the bytes do not match the signed type', async () => {
     const storage = new FakeObjectStorage();
     storage.putObject(STAGING_KEY, 'not actually a pdf', 'application/pdf');
-    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     const result = await service.completeUpload(
       organizationContext(),
@@ -1212,7 +1303,9 @@ describe('DocumentsService.completeUpload', () => {
 
     expect(state.status).toBe('PROCESSING');
     expect(state.contentType).toBe('application/pdf');
-    expect(state.sizeBytes).toBe(encoder.encode('%PDF-1.7\nverified body').byteLength);
+    expect(state.sizeBytes).toBe(
+      encoder.encode('%PDF-1.7\nverified body').byteLength,
+    );
     expect(state.failureReason).toBeNull();
     expect(state.failureKind).toBeNull();
     expect(state.storageKey).not.toBeNull();
@@ -1240,16 +1333,16 @@ describe('DocumentsService.completeUpload', () => {
 
     expect(state.generation).toBe(1);
     expect(prisma.documentProcessingJob.create).toHaveBeenCalledTimes(1);
-    expect(prisma.documentProcessingJob.create.mock.calls[0][0].data).toMatchObject(
-      {
-        documentId: 'doc-1',
-        organizationId: 'org-1',
-        documentGeneration: 1,
-        verifiedStorageKey: state.storageKey,
-        state: 'QUEUED',
-        attempt: 0,
-      },
-    );
+    expect(
+      prisma.documentProcessingJob.create.mock.calls[0][0].data,
+    ).toMatchObject({
+      documentId: 'doc-1',
+      organizationId: 'org-1',
+      documentGeneration: 1,
+      verifiedStorageKey: state.storageKey,
+      state: 'QUEUED',
+      attempt: 0,
+    });
   });
 
   it('enqueues the next generation after a verification failure', async () => {
@@ -1315,7 +1408,10 @@ describe('DocumentsService.completeUpload', () => {
   it('stores a declared original file name only when supplied', async () => {
     const storage = new FakeObjectStorage();
     seedValidPdf(storage);
-    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     await service.completeUpload(organizationContext(), 'doc-1', {
       originalFileName: 'report.pdf',
@@ -1327,7 +1423,10 @@ describe('DocumentsService.completeUpload', () => {
   it('leaves originalFileName untouched when the client does not declare one', async () => {
     const storage = new FakeObjectStorage();
     seedValidPdf(storage);
-    const { service, prisma } = createCompletionHarness(documentRecord(), storage);
+    const { service, prisma } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     await service.completeUpload(organizationContext(), 'doc-1', {});
 
@@ -1466,7 +1565,10 @@ describe('DocumentsService.completeUpload', () => {
   it('does not expose internal fields or a verified key in the response', async () => {
     const storage = new FakeObjectStorage();
     seedValidPdf(storage);
-    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
 
     const result = await service.completeUpload(
       organizationContext(),
@@ -1486,7 +1588,10 @@ describe('DocumentsService.completeUpload', () => {
   it('deletes the staging object after a successful promotion', async () => {
     const storage = new FakeObjectStorage();
     seedValidPdf(storage);
-    const { service, state } = createCompletionHarness(documentRecord(), storage);
+    const { service, state } = createCompletionHarness(
+      documentRecord(),
+      storage,
+    );
     const deleteObject = vi.spyOn(storage, 'deleteObject');
 
     await service.completeUpload(organizationContext(), 'doc-1', {});
@@ -1515,12 +1620,22 @@ describe('DocumentsService.reprocess', () => {
   it('requeues a failed document and bumps its generation', async () => {
     const storage = new FakeObjectStorage();
     storage.putObject(VERIFIED_KEY, 'plain text', 'application/pdf');
-    const { service, prisma, activity } = createCompletionHarness(failedRecord(), storage);
+    const { service, prisma, activity } = createCompletionHarness(
+      failedRecord(),
+      storage,
+    );
 
     const result = await service.reprocess('org-1', 'doc-1', 'uploader-1');
 
     expect(result.document.status).toBe('PROCESSING');
-    expect(activity.record).toHaveBeenCalledWith(prisma, expect.objectContaining({ action: 'DOCUMENT_REPROCESSED', actorId: 'uploader-1', metadata: { title: 'Quarterly report' } }));
+    expect(activity.record).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({
+        action: 'DOCUMENT_REPROCESSED',
+        actorId: 'uploader-1',
+        metadata: { title: 'Quarterly report' },
+      }),
+    );
     expect(prisma.document.updateMany).toHaveBeenCalledWith({
       where: {
         id: 'doc-1',
@@ -1561,9 +1676,9 @@ describe('DocumentsService.reprocess', () => {
       documentRecord({ status: 'READY', storageKey: VERIFIED_KEY }),
     );
 
-    await expect(service.reprocess('org-1', 'doc-1', 'uploader-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.reprocess('org-1', 'doc-1', 'uploader-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects a failed upload that never reached verified storage', async () => {
@@ -1576,16 +1691,16 @@ describe('DocumentsService.reprocess', () => {
       }),
     );
 
-    await expect(service.reprocess('org-1', 'doc-1', 'uploader-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.reprocess('org-1', 'doc-1', 'uploader-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects when the verified object is gone', async () => {
     const { service } = createCompletionHarness(failedRecord());
 
-    await expect(service.reprocess('org-1', 'doc-1', 'uploader-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.reprocess('org-1', 'doc-1', 'uploader-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

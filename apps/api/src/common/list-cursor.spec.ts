@@ -22,10 +22,14 @@ describe('list cursor', () => {
 
   it('returns null for a malformed token', () => {
     expect(decodeListCursor('not-a-token')).toBeNull();
-    expect(decodeListCursor(Buffer.from('{"id":"x"}').toString('base64url'))).toBeNull();
+    expect(
+      decodeListCursor(Buffer.from('{"id":"x"}').toString('base64url')),
+    ).toBeNull();
     expect(
       decodeListCursor(
-        Buffer.from('{"createdAt":"not-a-date","id":"x"}').toString('base64url'),
+        Buffer.from('{"createdAt":"not-a-date","id":"x"}').toString(
+          'base64url',
+        ),
       ),
     ).toBeNull();
   });

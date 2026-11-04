@@ -23,11 +23,10 @@ export class MetricsService {
   private readonly metrics = new Map<string, Metric>();
 
   constructor() {
-    this.counter(
-      'http_requests_total',
-      'Total number of HTTP requests.',
-      ['method', 'status_code'],
-    );
+    this.counter('http_requests_total', 'Total number of HTTP requests.', [
+      'method',
+      'status_code',
+    ]);
     this.summary(
       'http_request_duration_seconds',
       'HTTP request duration in seconds.',
@@ -65,11 +64,7 @@ export class MetricsService {
     metric.samples.set(key, (metric.samples.get(key) ?? 0) + by);
   }
 
-  observe(
-    name: string,
-    labels: Record<string, string> = {},
-    value = 0,
-  ): void {
+  observe(name: string, labels: Record<string, string> = {}, value = 0): void {
     const metric = this.metrics.get(name);
     if (!metric || metric.kind !== 'summary') {
       return;

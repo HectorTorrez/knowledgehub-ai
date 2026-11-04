@@ -14,7 +14,10 @@ interface Candidate {
 export class ReindexService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async run(options: { organizationId?: string; dryRun?: boolean }): Promise<number> {
+  async run(options: {
+    organizationId?: string;
+    dryRun?: boolean;
+  }): Promise<number> {
     let cursor = '00000000-0000-0000-0000-000000000000';
     let count = 0;
     for (;;) {
@@ -38,15 +41,32 @@ export class ReindexService {
         }
         const queued = await this.prisma.$transaction(async (tx) => {
           const updated = await tx.document.updateMany({
-            where: { id: document.id, organizationId: document.organizationId, generation: document.generation, status: 'READY', storageKey: document.storageKey },
-            data: { status: 'PROCESSING', generation: { increment: 1 }, failureReason: null, failureKind: null },
+            where: {
+              id: document.id,
+              organizationId: document.organizationId,
+              generation: document.generation,
+              status: 'READY',
+              storageKey: document.storageKey,
+            },
+            data: {
+              status: 'PROCESSING',
+              generation: { increment: 1 },
+              failureReason: null,
+              failureKind: null,
+            },
           });
           if (!updated.count) return false;
-          await tx.documentProcessingJob.create({ data: {
-            documentId: document.id, organizationId: document.organizationId,
-            documentGeneration: document.generation + 1, verifiedStorageKey: document.storageKey,
-            state: 'QUEUED', attempt: 0, maxAttempts: PROCESSING_MAX_ATTEMPTS,
-          } });
+          await tx.documentProcessingJob.create({
+            data: {
+              documentId: document.id,
+              organizationId: document.organizationId,
+              documentGeneration: document.generation + 1,
+              verifiedStorageKey: document.storageKey,
+              state: 'QUEUED',
+              attempt: 0,
+              maxAttempts: PROCESSING_MAX_ATTEMPTS,
+            },
+          });
           return true;
         });
         if (queued) count++;

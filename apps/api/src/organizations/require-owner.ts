@@ -25,7 +25,10 @@ export async function requireCapability(
   return actor.role;
 }
 
-
-export async function requireOwner(tx: Prisma.TransactionClient, context: Pick<OrganizationContext, 'userId' | 'organizationId'>, action: string): Promise<void> {
+export async function requireOwner(
+  tx: Prisma.TransactionClient,
+  context: Pick<OrganizationContext, 'userId' | 'organizationId'>,
+  action: string,
+): Promise<void> {
   await requireCapability(tx, context, 'owners.manage', action);
 }

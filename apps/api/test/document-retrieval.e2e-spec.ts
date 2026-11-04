@@ -98,7 +98,11 @@ describe('document retrieval (e2e)', () => {
     embedImpl = async () => [basis(0)];
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue(embeddings)
       .compile();
@@ -146,7 +150,10 @@ describe('document retrieval (e2e)', () => {
       embedding: basis(1),
     });
 
-    const results = await retrieval.search({ organizationId, text: 'anything' });
+    const results = await retrieval.search({
+      organizationId,
+      text: 'anything',
+    });
 
     expect(results.map((result) => result.content)).toEqual([
       'the closest passage',
@@ -189,10 +196,15 @@ describe('document retrieval (e2e)', () => {
       embedding: basis(0),
     });
 
-    const results = await retrieval.search({ organizationId: mine, text: 'anything' });
+    const results = await retrieval.search({
+      organizationId: mine,
+      text: 'anything',
+    });
 
     expect(results.map((result) => result.content)).toEqual(['my passage']);
-    expect(results.every((result) => result.documentId === myDocument)).toBe(true);
+    expect(results.every((result) => result.documentId === myDocument)).toBe(
+      true,
+    );
   });
 
   it('finds an identifier outside the vector candidates without leaking another tenant', async () => {
@@ -201,12 +213,44 @@ describe('document retrieval (e2e)', () => {
     const myDocument = await seedDocument(mine);
     const theirDocument = await seedDocument(theirs);
     for (let index = 0; index < 41; index += 1) {
-      await seedChunk({ documentId: myDocument, organizationId: mine, documentGeneration: 1, pageNumber: 1, chunkIndex: index, content: `ordinary ${index}`, embedding: basis(0) });
+      await seedChunk({
+        documentId: myDocument,
+        organizationId: mine,
+        documentGeneration: 1,
+        pageNumber: 1,
+        chunkIndex: index,
+        content: `ordinary ${index}`,
+        embedding: basis(0),
+      });
     }
-    await seedChunk({ documentId: myDocument, organizationId: mine, documentGeneration: 1, pageNumber: 1, chunkIndex: 41, content: 'Invoice INV-48213', embedding: basis(1) });
-    await seedChunk({ documentId: theirDocument, organizationId: theirs, documentGeneration: 1, pageNumber: 1, chunkIndex: 0, content: 'Secret INV-48213', embedding: basis(0) });
-    const results = await retrieval.search({ organizationId: mine, text: 'INV-48213', limit: 40 });
-    expect(results.some((item) => item.content === 'Invoice INV-48213' && item.matchedLexically)).toBe(true);
+    await seedChunk({
+      documentId: myDocument,
+      organizationId: mine,
+      documentGeneration: 1,
+      pageNumber: 1,
+      chunkIndex: 41,
+      content: 'Invoice INV-48213',
+      embedding: basis(1),
+    });
+    await seedChunk({
+      documentId: theirDocument,
+      organizationId: theirs,
+      documentGeneration: 1,
+      pageNumber: 1,
+      chunkIndex: 0,
+      content: 'Secret INV-48213',
+      embedding: basis(0),
+    });
+    const results = await retrieval.search({
+      organizationId: mine,
+      text: 'INV-48213',
+      limit: 40,
+    });
+    expect(
+      results.some(
+        (item) => item.content === 'Invoice INV-48213' && item.matchedLexically,
+      ),
+    ).toBe(true);
     expect(results.every((item) => item.documentId === myDocument)).toBe(true);
   });
 
@@ -233,16 +277,23 @@ describe('document retrieval (e2e)', () => {
       embedding: basis(1),
     });
 
-    const results = await retrieval.search({ organizationId, text: 'anything' });
+    const results = await retrieval.search({
+      organizationId,
+      text: 'anything',
+    });
 
-    expect(results.map((result) => result.content)).toEqual(['current passage']);
+    expect(results.map((result) => result.content)).toEqual([
+      'current passage',
+    ]);
   });
 
   it('never returns documents that are not READY', async () => {
     const organizationId = await seedOrganization();
     const ready = await seedDocument(organizationId, { status: 'READY' });
     const pending = await seedDocument(organizationId, { status: 'PENDING' });
-    const processing = await seedDocument(organizationId, { status: 'PROCESSING' });
+    const processing = await seedDocument(organizationId, {
+      status: 'PROCESSING',
+    });
     const failed = await seedDocument(organizationId, { status: 'FAILED' });
 
     for (const [documentId, content] of [
@@ -262,7 +313,10 @@ describe('document retrieval (e2e)', () => {
       });
     }
 
-    const results = await retrieval.search({ organizationId, text: 'anything' });
+    const results = await retrieval.search({
+      organizationId,
+      text: 'anything',
+    });
 
     expect(results.map((result) => result.content)).toEqual(['ready passage']);
   });

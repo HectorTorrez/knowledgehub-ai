@@ -96,10 +96,16 @@ describe('answers disabled (e2e)', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) })
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue({ embed } satisfies EmbeddingProvider)
-      .overrideProvider(RERANKER).useValue({ rerank: async () => [] }).overrideProvider(QUERY_REWRITER)
+      .overrideProvider(RERANKER)
+      .useValue({ rerank: async () => [] })
+      .overrideProvider(QUERY_REWRITER)
       .useValue({ rewrite: async (question: string) => question })
       .overrideProvider(ANSWER_PROVIDER)
       .useValue(answerProvider)

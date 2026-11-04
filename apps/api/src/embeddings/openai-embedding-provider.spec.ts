@@ -59,7 +59,11 @@ describe('parseEmbeddingResponse', () => {
 
   it('rejects a response with the wrong number of embeddings', () => {
     expect(() =>
-      parseEmbeddingResponse({ data: [{ index: 0, embedding: vector() }] }, 2, DIMENSIONS),
+      parseEmbeddingResponse(
+        { data: [{ index: 0, embedding: vector() }] },
+        2,
+        DIMENSIONS,
+      ),
     ).toThrow(EmbeddingResponseError);
   });
 
@@ -198,9 +202,9 @@ describe('OpenAiEmbeddingProvider', () => {
         response(status, { error: { message: 'busy' } }),
       );
 
-      await expect(createProvider(fetchImpl).embed(['x'])).rejects.toBeInstanceOf(
-        EmbeddingUnavailableError,
-      );
+      await expect(
+        createProvider(fetchImpl).embed(['x']),
+      ).rejects.toBeInstanceOf(EmbeddingUnavailableError);
     },
   );
 
@@ -211,9 +215,9 @@ describe('OpenAiEmbeddingProvider', () => {
         response(status, { error: { message: 'rejected' } }),
       );
 
-      await expect(createProvider(fetchImpl).embed(['x'])).rejects.toBeInstanceOf(
-        EmbeddingRejectedError,
-      );
+      await expect(
+        createProvider(fetchImpl).embed(['x']),
+      ).rejects.toBeInstanceOf(EmbeddingRejectedError);
     },
   );
 

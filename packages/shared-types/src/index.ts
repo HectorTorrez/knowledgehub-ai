@@ -121,7 +121,18 @@ export interface AuthSessionListResponse {
 
 /** A user's role within an organization. */
 export type OrganizationRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
-export type OrganizationCapability = 'documents.view' | 'documents.write' | 'documents.delete' | 'answers.ask' | 'search' | 'conversations.viewOwn' | 'members.manage' | 'owners.manage' | 'organization.manage' | 'organization.delete' | 'insights.view';
+export type OrganizationCapability =
+  | 'documents.view'
+  | 'documents.write'
+  | 'documents.delete'
+  | 'answers.ask'
+  | 'search'
+  | 'conversations.viewOwn'
+  | 'members.manage'
+  | 'owners.manage'
+  | 'organization.manage'
+  | 'organization.delete'
+  | 'insights.view';
 
 /**
  * Public view of an organization from the perspective of the requesting user,
@@ -301,7 +312,8 @@ export type DocumentFailureKind = 'VERIFICATION' | 'PROCESSING';
  * upload-verification failure or a processing failure. Neither carries internal
  * diagnostics.
  */
-export type DocumentProcessingStage = 'UPLOADING' | 'QUEUED' | 'PROCESSING' | 'READY' | 'FAILED';
+export type DocumentProcessingStage =
+  'UPLOADING' | 'QUEUED' | 'PROCESSING' | 'READY' | 'FAILED';
 
 export interface CollectionSummary {
   id: string;
@@ -670,9 +682,25 @@ export interface ContractTotalsResponse {
 }
 
 export interface KnowledgeInsightsResponse {
-  totals: { questionsAsked: number; answered: number; insufficientEvidence: number; helpfulFeedback: number; unhelpfulFeedback: number };
-  unansweredQuestions: Array<{ answerId: string; question: string; askedAt: string; conversationId: string | null }>;
-  negativeFeedback: Array<{ answerId: string; question: string; comment: string | null; createdAt: string }>;
+  totals: {
+    questionsAsked: number;
+    answered: number;
+    insufficientEvidence: number;
+    helpfulFeedback: number;
+    unhelpfulFeedback: number;
+  };
+  unansweredQuestions: Array<{
+    answerId: string;
+    question: string;
+    askedAt: string;
+    conversationId: string | null;
+  }>;
+  negativeFeedback: Array<{
+    answerId: string;
+    question: string;
+    comment: string | null;
+    createdAt: string;
+  }>;
 }
 
 export type OrganizationActivityAction =
@@ -697,7 +725,12 @@ export type OrganizationActivityAction =
 export interface OrganizationActivityItem {
   id: string;
   action: OrganizationActivityAction;
-  actor: { id: string; firstName: string; lastName: string; email: string } | null;
+  actor: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  } | null;
   targetType: string;
   targetId: string | null;
   metadata: Record<string, string>;

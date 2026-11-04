@@ -49,7 +49,9 @@ export class AuthConfig {
   }
 
   get refreshTtlMs(): number {
-    return this.config.getOrThrow<number>('REFRESH_TOKEN_TTL_DAYS') * MS_PER_DAY;
+    return (
+      this.config.getOrThrow<number>('REFRESH_TOKEN_TTL_DAYS') * MS_PER_DAY
+    );
   }
 
   get sessionTtlMs(): number {

@@ -44,4 +44,6 @@ export function resolveApiBaseUrl(raw: unknown): string {
   return url.origin;
 }
 
-export const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+export const API_BASE_URL = resolveApiBaseUrl(
+  import.meta.env.VITE_API_BASE_URL,
+);

@@ -1,8 +1,5 @@
 export type EvalKind =
-  | 'single_source'
-  | 'multi_source'
-  | 'distractor'
-  | 'unanswerable';
+  'single_source' | 'multi_source' | 'distractor' | 'unanswerable';
 
 export interface CitationRef {
   documentTitle: string;
@@ -17,7 +14,8 @@ export interface EvalQuestion {
   supporting: CitationRef[];
 }
 
-export type OutcomeStatus = 'answered' | 'partial' | 'insufficient_evidence' | 'error';
+export type OutcomeStatus =
+  'answered' | 'partial' | 'insufficient_evidence' | 'error';
 
 export interface QuestionOutcome {
   id: string;
@@ -73,7 +71,9 @@ function intersectionSize(left: Set<string>, right: Set<string>): number {
 }
 
 function sameSet(left: Set<string>, right: Set<string>): boolean {
-  return left.size === right.size && intersectionSize(left, right) === left.size;
+  return (
+    left.size === right.size && intersectionSize(left, right) === left.size
+  );
 }
 
 export interface OutcomeScore {
@@ -96,7 +96,10 @@ export function scoreOutcome(outcome: QuestionOutcome): OutcomeScore {
   };
 }
 
-export function percentile(values: number[], proportion: number): number | null {
+export function percentile(
+  values: number[],
+  proportion: number,
+): number | null {
   if (values.length === 0) {
     return null;
   }
@@ -119,7 +122,9 @@ function sumTokens(
 
 export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
   const answerable = outcomes.filter((outcome) => outcome.expected.length > 0);
-  const unanswerable = outcomes.filter((outcome) => outcome.expected.length === 0);
+  const unanswerable = outcomes.filter(
+    (outcome) => outcome.expected.length === 0,
+  );
   const answered = outcomes.filter((outcome) => outcome.status === 'answered');
   const answeredAnswerable = answered.filter(
     (outcome) => outcome.expected.length > 0,
@@ -184,7 +189,8 @@ export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
     errored: outcomes.filter((outcome) => outcome.status === 'error').length,
     citationPrecision: citedTotal === 0 ? null : citedHits / citedTotal,
     citationRecall: expectedTotal === 0 ? null : expectedHits / expectedTotal,
-    exactMatchRate: answerable.length === 0 ? null : exactMatches / answerable.length,
+    exactMatchRate:
+      answerable.length === 0 ? null : exactMatches / answerable.length,
     groundingHitRate:
       answeredAnswerable.length === 0
         ? null

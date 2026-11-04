@@ -18,16 +18,20 @@ export class UsageService {
     const periodStart = startOfUtcDay(new Date());
     const [row, documents, members] = await Promise.all([
       this.prisma.tenantUsage.findUnique({
-      where: {
-        organizationId_kind_periodStart: {
-          organizationId,
-          kind: ANSWER_USAGE_KIND,
-          periodStart,
+        where: {
+          organizationId_kind_periodStart: {
+            organizationId,
+            kind: ANSWER_USAGE_KIND,
+            periodStart,
+          },
         },
-      },
-      select: { count: true },
+        select: { count: true },
       }),
-      this.prisma.document.aggregate({ where: { organizationId }, _count: { _all: true }, _sum: { sizeBytes: true } }),
+      this.prisma.document.aggregate({
+        where: { organizationId },
+        _count: { _all: true },
+        _sum: { sizeBytes: true },
+      }),
       this.prisma.membership.count({ where: { organizationId } }),
     ]);
     const limit = this.config.answerQuotaDaily;
@@ -41,9 +45,7 @@ export class UsageService {
           used: Math.min(row?.count ?? 0, limit),
           limit,
           periodStart: periodStart.toISOString(),
-          resetsAt: new Date(
-            periodStart.getTime() + MS_PER_DAY,
-          ).toISOString(),
+          resetsAt: new Date(periodStart.getTime() + MS_PER_DAY).toISOString(),
         },
       },
     };

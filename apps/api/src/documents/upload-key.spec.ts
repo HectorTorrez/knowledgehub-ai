@@ -89,7 +89,11 @@ describe('isDocumentStagingKey', () => {
       ),
     ).toBe(false);
     expect(
-      isDocumentStagingKey('organizations/org-1/documents/doc-1/', 'org-1', 'doc-1'),
+      isDocumentStagingKey(
+        'organizations/org-1/documents/doc-1/',
+        'org-1',
+        'doc-1',
+      ),
     ).toBe(false);
     expect(isDocumentStagingKey('', 'org-1', 'doc-1')).toBe(false);
   });

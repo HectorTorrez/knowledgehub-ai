@@ -31,7 +31,11 @@ interface CommandClient {
   ): Promise<number>;
 }
 
-export function buildEmbeddingInput(title: string, pageNumber: number, content: string): string {
+export function buildEmbeddingInput(
+  title: string,
+  pageNumber: number,
+  content: string,
+): string {
   return `Document: ${title}\nPage: ${pageNumber}\n\n${content}`;
 }
 
@@ -52,7 +56,11 @@ export class DocumentChunkStore {
     ownership: ProcessingOwnership,
     chunks: DocumentChunkDraft[],
   ): Promise<boolean> {
-    const preview = await this.selectOwnedGeneration(this.prisma, ownership, false);
+    const preview = await this.selectOwnedGeneration(
+      this.prisma,
+      ownership,
+      false,
+    );
     if (!preview) {
       return false;
     }
@@ -62,7 +70,9 @@ export class DocumentChunkStore {
     }
 
     const vectors = await this.embeddings.embed(
-      chunks.map((chunk) => buildEmbeddingInput(preview.title, chunk.pageNumber, chunk.content)),
+      chunks.map((chunk) =>
+        buildEmbeddingInput(preview.title, chunk.pageNumber, chunk.content),
+      ),
     );
     this.assertStorableVectors(vectors, chunks.length);
 
@@ -77,7 +87,10 @@ export class DocumentChunkStore {
     });
   }
 
-  private assertStorableVectors(vectors: number[][], expectedCount: number): void {
+  private assertStorableVectors(
+    vectors: number[][],
+    expectedCount: number,
+  ): void {
     const dimensions = this.embeddingConfig.dimensions;
 
     if (vectors.length !== expectedCount) {

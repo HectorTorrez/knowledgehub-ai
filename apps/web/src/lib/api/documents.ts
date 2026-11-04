@@ -155,10 +155,14 @@ export async function uploadFileToDocument(
 ): Promise<DocumentDetailResponse> {
   const created = await documentsApi.create(organizationId, { title });
   const documentId = created.document.id;
-  const target = await documentsApi.createUploadUrl(organizationId, documentId, {
-    contentType: options.contentType,
-    sizeBytes: file.size,
-  });
+  const target = await documentsApi.createUploadUrl(
+    organizationId,
+    documentId,
+    {
+      contentType: options.contentType,
+      sizeBytes: file.size,
+    },
+  );
 
   await putFileWithProgress(target, file, options);
 

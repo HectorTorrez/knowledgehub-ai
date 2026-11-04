@@ -29,12 +29,14 @@ function fact(overrides: Record<string, unknown>) {
   };
 }
 
-function createService(options: {
-  enabled?: boolean;
-  documents?: Array<{ id: string; factsStatus: string }>;
-  document?: { status: string } | null;
-  facts?: Array<Record<string, unknown>>;
-} = {}) {
+function createService(
+  options: {
+    enabled?: boolean;
+    documents?: Array<{ id: string; factsStatus: string }>;
+    document?: { status: string } | null;
+    facts?: Array<Record<string, unknown>>;
+  } = {},
+) {
   const prisma = {
     document: {
       findMany: vi.fn(async () => options.documents ?? []),
@@ -48,10 +50,7 @@ function createService(options: {
   const config = { enabled: options.enabled ?? true } as unknown as FactsConfig;
 
   return {
-    service: new AggregationService(
-      prisma as unknown as PrismaService,
-      config,
-    ),
+    service: new AggregationService(prisma as unknown as PrismaService, config),
     prisma,
   };
 }

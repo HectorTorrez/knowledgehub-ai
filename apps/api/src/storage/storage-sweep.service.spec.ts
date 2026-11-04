@@ -20,13 +20,12 @@ function buildService(
   } = {},
 ) {
   const storage = {
-    listObjects: vi.fn(
-      (_prefix: string) =>
-        (async function* () {
-          for (const listed of options.objects ?? []) {
-            yield listed;
-          }
-        })(),
+    listObjects: vi.fn((_prefix: string) =>
+      (async function* () {
+        for (const listed of options.objects ?? []) {
+          yield listed;
+        }
+      })(),
     ),
     deleteObject: vi.fn(async () => undefined),
   } as unknown as ObjectStorage;
@@ -107,10 +106,7 @@ describe('StorageSweepService', () => {
   it('ignores keys outside the document object layout', async () => {
     const { service, deleteObject } = buildService({
       objects: [
-        object(
-          'organizations/org-1/exports/report.csv',
-          Date.now() - 120_000,
-        ),
+        object('organizations/org-1/exports/report.csv', Date.now() - 120_000),
       ],
     });
 

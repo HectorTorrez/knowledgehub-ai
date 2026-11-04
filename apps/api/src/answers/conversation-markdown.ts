@@ -43,8 +43,7 @@ function toSources(citations: unknown): ExportedSource[] {
           : index + 1,
       documentTitle: item.documentTitle,
       pageNumber:
-        typeof item.pageNumber === 'number' &&
-        Number.isFinite(item.pageNumber)
+        typeof item.pageNumber === 'number' && Number.isFinite(item.pageNumber)
           ? item.pageNumber
           : null,
     });
@@ -89,8 +88,16 @@ export function renderConversationMarkdown(
     }
     if (turn.answer) lines.push(neutralizeHtml(turn.answer), '');
     if (turn.status === 'partial' && Array.isArray(turn.missing)) {
-      const missing = turn.missing.filter((item): item is string => typeof item === 'string');
-      if (missing.length) lines.push('### Missing', '', ...missing.map((item) => `- ${escapePlainText(item)}`), '');
+      const missing = turn.missing.filter(
+        (item): item is string => typeof item === 'string',
+      );
+      if (missing.length)
+        lines.push(
+          '### Missing',
+          '',
+          ...missing.map((item) => `- ${escapePlainText(item)}`),
+          '',
+        );
     }
     const sources = toSources(turn.citations);
     if (sources.length > 0) {

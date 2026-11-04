@@ -122,9 +122,7 @@ export class S3ObjectStorage implements ObjectStorage {
       url,
       method: 'PUT',
       headers: { 'Content-Type': input.contentType },
-      expiresAt: new Date(
-        Date.now() + input.expiresInSeconds * MS_PER_SECOND,
-      ),
+      expiresAt: new Date(Date.now() + input.expiresInSeconds * MS_PER_SECOND),
     };
   }
 
@@ -142,9 +140,7 @@ export class S3ObjectStorage implements ObjectStorage {
 
     return {
       url,
-      expiresAt: new Date(
-        Date.now() + input.expiresInSeconds * MS_PER_SECOND,
-      ),
+      expiresAt: new Date(Date.now() + input.expiresInSeconds * MS_PER_SECOND),
     };
   }
 
@@ -266,7 +262,9 @@ export class S3ObjectStorage implements ObjectStorage {
         new ListObjectsV2Command({
           Bucket: this.config.bucket,
           Prefix: prefix,
-          ...(continuationToken ? { ContinuationToken: continuationToken } : {}),
+          ...(continuationToken
+            ? { ContinuationToken: continuationToken }
+            : {}),
         }),
       );
 
@@ -283,7 +281,9 @@ export class S3ObjectStorage implements ObjectStorage {
         };
       }
 
-      continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+      continuationToken = page.IsTruncated
+        ? page.NextContinuationToken
+        : undefined;
     } while (continuationToken);
   }
 }

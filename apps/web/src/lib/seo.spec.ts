@@ -51,7 +51,12 @@ describe('absoluteUrl', () => {
   });
 });
 
-type Meta = { title?: string; name?: string; property?: string; content?: string };
+type Meta = {
+  title?: string;
+  name?: string;
+  property?: string;
+  content?: string;
+};
 
 function findMeta(meta: Meta[], key: string): Meta | undefined {
   return meta.find((entry) => entry.name === key || entry.property === key);
@@ -80,9 +85,7 @@ describe('pageHead', () => {
     expect(findMeta(meta, 'og:image')?.content).toBe(
       'https://knowledgehub.ai/og-image.png',
     );
-    expect(findMeta(meta, 'twitter:card')?.content).toBe(
-      'summary_large_image',
-    );
+    expect(findMeta(meta, 'twitter:card')?.content).toBe('summary_large_image');
   });
 
   it('adds a canonical link for the page path', () => {

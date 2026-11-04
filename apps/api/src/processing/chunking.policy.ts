@@ -41,7 +41,7 @@ function normalizePageText(content: string): NormalizedPage {
     const value = line.trim().replace(/[ \t]+/g, ' ');
     if (!value && normalized.at(-1) === '') continue;
     if (normalized.length) length++;
-    if (value && (/\t| {2,}|\|/.test(line))) {
+    if (value && /\t| {2,}|\|/.test(line)) {
       tableRows.push({ start: length, end: length + value.length });
     }
     normalized.push(value);
@@ -51,18 +51,48 @@ function normalizePageText(content: string): NormalizedPage {
   const leading = joined.length - joined.trimStart().length;
   return {
     text: joined.trim(),
-    tableRows: tableRows.map((row) => ({ start: row.start - leading, end: row.end - leading })),
+    tableRows: tableRows.map((row) => ({
+      start: row.start - leading,
+      end: row.end - leading,
+    })),
   };
 }
 
-function chunkBoundary(text: string, start: number, windowEnd: number, rows: NormalizedPage['tableRows']): number {
+function chunkBoundary(
+  text: string,
+  start: number,
+  windowEnd: number,
+  rows: NormalizedPage['tableRows'],
+): number {
   if (windowEnd >= text.length) return text.length;
-  const row = rows.find((item) => item.start < windowEnd && item.end > windowEnd && item.end - item.start <= CHUNK_TARGET_CHARACTERS);
+  const row = rows.find(
+    (item) =>
+      item.start < windowEnd &&
+      item.end > windowEnd &&
+      item.end - item.start <= CHUNK_TARGET_CHARACTERS,
+  );
   const limit = row ? row.start : windowEnd;
   const window = text.slice(start, limit);
-  const candidates = [window.lastIndexOf('\n\n'), window.lastIndexOf('\n'), ...[...window.matchAll(/[.!?](?= )/g)].map((match) => match.index + 1).slice(-1), window.lastIndexOf(' ')];
+  const candidates = [
+    window.lastIndexOf('\n\n'),
+    window.lastIndexOf('\n'),
+    ...[...window.matchAll(/[.!?](?= )/g)]
+      .map((match) => match.index + 1)
+      .slice(-1),
+    window.lastIndexOf(' '),
+  ];
   for (const candidate of candidates) {
-    if (candidate !== undefined && candidate >= MIN_SNAPPABLE_CHUNK_CHARACTERS && !rows.some((item) => item.start < start + candidate && item.end > start + candidate && item.end - item.start <= CHUNK_TARGET_CHARACTERS)) return start + candidate;
+    if (
+      candidate !== undefined &&
+      candidate >= MIN_SNAPPABLE_CHUNK_CHARACTERS &&
+      !rows.some(
+        (item) =>
+          item.start < start + candidate &&
+          item.end > start + candidate &&
+          item.end - item.start <= CHUNK_TARGET_CHARACTERS,
+      )
+    )
+      return start + candidate;
   }
   return limit > start ? limit : windowEnd;
 }
@@ -97,7 +127,12 @@ export function chunkPages(pages: ChunkablePage[]): DocumentChunkDraft[] {
       }
 
       const next = Math.max(end - CHUNK_OVERLAP_CHARACTERS, start + 1);
-      const row = tableRows.find((item) => item.start < next && item.end > next && item.end - item.start <= CHUNK_TARGET_CHARACTERS);
+      const row = tableRows.find(
+        (item) =>
+          item.start < next &&
+          item.end > next &&
+          item.end - item.start <= CHUNK_TARGET_CHARACTERS,
+      );
       start = row ? (row.start > start ? row.start : row.end) : next;
     }
   }

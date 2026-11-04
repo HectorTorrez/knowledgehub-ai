@@ -1,4 +1,7 @@
-import type { AnswerCitation, AnswerResponse } from '@knowledgehub/shared-types';
+import type {
+  AnswerCitation,
+  AnswerResponse,
+} from '@knowledgehub/shared-types';
 
 export interface AnswerMarkdownInput {
   question: string;
@@ -27,7 +30,12 @@ export function buildAnswerMarkdown({
   }
 
   if (status === 'partial') {
-    parts.push('### Missing information', '', ...missing.map((item) => `- ${item}`), '');
+    parts.push(
+      '### Missing information',
+      '',
+      ...missing.map((item) => `- ${item}`),
+      '',
+    );
   }
 
   if (citations.length > 0) {

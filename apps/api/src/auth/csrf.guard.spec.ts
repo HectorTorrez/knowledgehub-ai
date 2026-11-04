@@ -62,11 +62,9 @@ function buildGuard(
     trustedOrigins: [TRUSTED_ORIGIN],
   } as unknown as AuthConfig;
 
-  return new CsrfGuard(
-    authConfig,
-    new Reflector(),
-    { record: () => undefined } as unknown as SecurityAuditService,
-  );
+  return new CsrfGuard(authConfig, new Reflector(), {
+    record: () => undefined,
+  } as unknown as SecurityAuditService);
 }
 
 function validCookieAuth(): { cookies: Record<string, string> } {
@@ -127,7 +125,10 @@ describe('CsrfGuard', () => {
           method: 'POST',
           headers: { origin: TRUSTED_ORIGIN, [CSRF_HEADER]: header },
           ...validCookieAuth(),
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: cookie,
+          },
         }),
       ),
     ).toBe(true);
@@ -141,8 +142,14 @@ describe('CsrfGuard', () => {
       guard.canActivate(
         context({
           method: 'POST',
-          headers: { referer: `${TRUSTED_ORIGIN}/register`, [CSRF_HEADER]: header },
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+          headers: {
+            referer: `${TRUSTED_ORIGIN}/register`,
+            [CSRF_HEADER]: header,
+          },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: cookie,
+          },
         }),
       ),
     ).toBe(true);
@@ -157,7 +164,10 @@ describe('CsrfGuard', () => {
         context({
           method: 'POST',
           headers: { [CSRF_HEADER]: header },
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: cookie,
+          },
         }),
       ),
     ).toThrow(ForbiddenException);
@@ -172,7 +182,10 @@ describe('CsrfGuard', () => {
         context({
           method: 'POST',
           headers: { origin: 'http://evil.test', [CSRF_HEADER]: header },
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: cookie,
+          },
         }),
       ),
     ).toThrow(ForbiddenException);
@@ -187,7 +200,10 @@ describe('CsrfGuard', () => {
         context({
           method: 'POST',
           headers: { origin: TRUSTED_ORIGIN },
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: cookie,
+          },
         }),
       ),
     ).toThrow(ForbiddenException);
@@ -203,7 +219,10 @@ describe('CsrfGuard', () => {
         context({
           method: 'POST',
           headers: { origin: TRUSTED_ORIGIN, [CSRF_HEADER]: other },
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: cookie,
+          },
         }),
       ),
     ).toThrow(ForbiddenException);
@@ -217,7 +236,10 @@ describe('CsrfGuard', () => {
         context({
           method: 'POST',
           headers: { origin: TRUSTED_ORIGIN, [CSRF_HEADER]: 'forged' },
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: 'forged' },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: 'forged',
+          },
         }),
       ),
     ).toThrow(ForbiddenException);
@@ -232,7 +254,10 @@ describe('CsrfGuard', () => {
         context({
           method: 'POST',
           headers: { origin: TRUSTED_ORIGIN, [CSRF_HEADER]: header },
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: cookie,
+          },
         }),
       ),
     ).toThrow(ForbiddenException);
@@ -274,8 +299,15 @@ describe('CsrfGuard', () => {
       guard.canActivate(
         context({
           method: 'POST',
-          headers: { authorization: 'Bearer ', origin: TRUSTED_ORIGIN, [CSRF_HEADER]: header },
-          cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+          headers: {
+            authorization: 'Bearer ',
+            origin: TRUSTED_ORIGIN,
+            [CSRF_HEADER]: header,
+          },
+          cookies: {
+            [ACCESS_TOKEN_COOKIE]: 'access-token',
+            [CSRF_COOKIE]: cookie,
+          },
         }),
       ),
     ).toBe(true);
@@ -288,7 +320,10 @@ describe('CsrfGuard', () => {
       guard.canActivate(
         context({
           method: 'POST',
-          headers: { authorization: 'Bearer access-token', origin: 'http://evil.test' },
+          headers: {
+            authorization: 'Bearer access-token',
+            origin: 'http://evil.test',
+          },
           ...validCookieAuth(),
         }),
       ),
@@ -357,7 +392,9 @@ describe('CsrfGuard disabled-browser-auth logout exemption', () => {
     const guard = buildGuard({ browserAuthEnabled: false });
 
     expect(
-      guard.canActivate(context(logoutRequest(), TestController.prototype.logout)),
+      guard.canActivate(
+        context(logoutRequest(), TestController.prototype.logout),
+      ),
     ).toBe(true);
   });
 
@@ -365,7 +402,9 @@ describe('CsrfGuard disabled-browser-auth logout exemption', () => {
     const guard = buildGuard({ browserAuthEnabled: false });
 
     expect(() =>
-      guard.canActivate(context(logoutRequest(), TestController.prototype.plain)),
+      guard.canActivate(
+        context(logoutRequest(), TestController.prototype.plain),
+      ),
     ).toThrow(ForbiddenException);
   });
 
@@ -392,7 +431,10 @@ describe('CsrfGuard disabled-browser-auth logout exemption', () => {
           {
             method: 'POST',
             headers: { origin: TRUSTED_ORIGIN },
-            cookies: { [ACCESS_TOKEN_COOKIE]: 'access-token', [CSRF_COOKIE]: cookie },
+            cookies: {
+              [ACCESS_TOKEN_COOKIE]: 'access-token',
+              [CSRF_COOKIE]: cookie,
+            },
           },
           TestController.prototype.logout,
         ),
@@ -406,7 +448,10 @@ describe('CsrfGuard disabled-browser-auth logout exemption', () => {
     expect(() =>
       guard.canActivate(
         context(
-          logoutRequest({ cookieToken: 'forged', headers: { [CSRF_HEADER]: 'forged' } }),
+          logoutRequest({
+            cookieToken: 'forged',
+            headers: { [CSRF_HEADER]: 'forged' },
+          }),
           TestController.prototype.logout,
         ),
       ),
@@ -430,7 +475,9 @@ describe('CsrfGuard disabled-browser-auth logout exemption', () => {
     const guard = buildGuard({ browserAuthEnabled: true });
 
     expect(
-      guard.canActivate(context(logoutRequest(), TestController.prototype.logout)),
+      guard.canActivate(
+        context(logoutRequest(), TestController.prototype.logout),
+      ),
     ).toBe(true);
   });
 });

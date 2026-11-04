@@ -177,6 +177,15 @@ pnpm test
 pnpm build
 ```
 
+Formatting is enforced by Prettier (`.prettierrc.json`), and CI runs
+`pnpm format:check`. Run `pnpm format` before committing. The repository-wide
+formatting commit is listed in `.git-blame-ignore-revs`, so run this once to
+keep `git blame` pointing at the real authors:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
 The Prisma client is generated into `apps/api/src/generated/prisma` (git-ignored)
 and is recreated automatically before `dev`, `build`, `check-types`, and `test`.
 

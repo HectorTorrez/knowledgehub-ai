@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { EMBEDDING_PROVIDER, type EmbeddingProvider } from '../src/embeddings/embedding-provider.port.js';
+import {
+  EMBEDDING_PROVIDER,
+  type EmbeddingProvider,
+} from '../src/embeddings/embedding-provider.port.js';
 import { EMBEDDING_VECTOR_DIMENSIONS } from '../src/embeddings/embedding-policy.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { allCorpusPages } from '../test/answers-eval/corpus.js';
@@ -16,9 +19,21 @@ export async function seedCorpus(
   const embeddings = app.get<EmbeddingProvider>(EMBEDDING_PROVIDER);
   const pages = [
     ...allCorpusPages(),
-    { documentTitle: 'Invoice 48213', pageNumber: 1, text: 'Invoice INV-48213 was approved by Marina and paid on October 12.' },
-    { documentTitle: 'Invoice 48218', pageNumber: 1, text: 'Invoice INV-48218 was approved by Marina and paid on October 13.' },
-    { documentTitle: 'Invoice 48219', pageNumber: 1, text: 'Invoice INV-48219 was approved by Marina and paid on October 14.' },
+    {
+      documentTitle: 'Invoice 48213',
+      pageNumber: 1,
+      text: 'Invoice INV-48213 was approved by Marina and paid on October 12.',
+    },
+    {
+      documentTitle: 'Invoice 48218',
+      pageNumber: 1,
+      text: 'Invoice INV-48218 was approved by Marina and paid on October 13.',
+    },
+    {
+      documentTitle: 'Invoice 48219',
+      pageNumber: 1,
+      text: 'Invoice INV-48219 was approved by Marina and paid on October 14.',
+    },
   ];
   const vectors = await embeddings.embed(pages.map((page) => page.text));
 
@@ -34,38 +49,38 @@ export async function seedCorpus(
   const documents = new Map<string, string>();
 
   try {
-  for (const [index, page] of pages.entries()) {
-    const vector = vectors[index];
+    for (const [index, page] of pages.entries()) {
+      const vector = vectors[index];
 
-    if (
-      !vector ||
-      vector.length !== EMBEDDING_VECTOR_DIMENSIONS ||
-      vector.some((value) => !Number.isFinite(value))
-    ) {
-      throw new Error(
-        `The embedding provider returned an unexpected vector for "${page.documentTitle}" page ${page.pageNumber}`,
-      );
-    }
+      if (
+        !vector ||
+        vector.length !== EMBEDDING_VECTOR_DIMENSIONS ||
+        vector.some((value) => !Number.isFinite(value))
+      ) {
+        throw new Error(
+          `The embedding provider returned an unexpected vector for "${page.documentTitle}" page ${page.pageNumber}`,
+        );
+      }
 
-    let documentId = documents.get(page.documentTitle);
+      let documentId = documents.get(page.documentTitle);
 
-    if (!documentId) {
-      const document = await prisma.document.create({
-        data: {
-          organizationId: organization.id,
-          title: page.documentTitle,
-          status: 'READY',
-          generation: 1,
-          contentType: 'text/plain',
-          sizeBytes: page.text.length,
-        },
-      });
+      if (!documentId) {
+        const document = await prisma.document.create({
+          data: {
+            organizationId: organization.id,
+            title: page.documentTitle,
+            status: 'READY',
+            generation: 1,
+            contentType: 'text/plain',
+            sizeBytes: page.text.length,
+          },
+        });
 
-      documentId = document.id;
-      documents.set(page.documentTitle, documentId);
-    }
+        documentId = document.id;
+        documents.set(page.documentTitle, documentId);
+      }
 
-    await prisma.$executeRaw`
+      await prisma.$executeRaw`
       INSERT INTO "DocumentChunk"
         ("id", "documentId", "organizationId", "documentGeneration",
          "pageNumber", "chunkIndex", "content", "characterCount",
@@ -84,12 +99,11 @@ export async function seedCorpus(
         now()
       )
     `;
-  }
+    }
 
-  return organization.id;
+    return organization.id;
   } catch (error) {
     await prisma.organization.deleteMany({ where: { id: organization.id } });
     throw error;
   }
 }
-

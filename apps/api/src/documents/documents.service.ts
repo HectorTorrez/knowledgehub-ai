@@ -55,7 +55,9 @@ import {
 } from './verification-policy.js';
 
 const DOCUMENT_PUBLIC_SELECT = {
-  collections: { select: { collection: { select: { id: true, name: true, color: true } } } },
+  collections: {
+    select: { collection: { select: { id: true, name: true, color: true } } },
+  },
   id: true,
   title: true,
   status: true,
@@ -68,13 +70,24 @@ const DOCUMENT_PUBLIC_SELECT = {
   updatedAt: true,
   factsStatus: true,
   summaryStatus: true,
-  processingJobs: { orderBy: { createdAt: 'desc' }, take: 1, select: { state: true, attempt: true, maxAttempts: true, nextAttemptAt: true } },
+  processingJobs: {
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    select: {
+      state: true,
+      attempt: true,
+      maxAttempts: true,
+      nextAttemptAt: true,
+    },
+  },
 } as const;
 
 const VERIFIABLE_STATUSES = ['PENDING', 'FAILED'] as const;
 
 interface DocumentProjection {
-  collections: Array<{ collection: { id: string; name: string; color: string } }>;
+  collections: Array<{
+    collection: { id: string; name: string; color: string };
+  }>;
   id: string;
   title: string;
   status: DocumentStatus;
@@ -87,7 +100,12 @@ interface DocumentProjection {
   updatedAt: Date;
   factsStatus: 'PENDING' | 'READY' | 'FAILED';
   summaryStatus: 'PENDING' | 'READY' | 'FAILED';
-  processingJobs: Array<{ state: 'QUEUED' | 'CLAIMED' | 'SUCCEEDED' | 'FAILED'; attempt: number; maxAttempts: number; nextAttemptAt: Date }>;
+  processingJobs: Array<{
+    state: 'QUEUED' | 'CLAIMED' | 'SUCCEEDED' | 'FAILED';
+    attempt: number;
+    maxAttempts: number;
+    nextAttemptAt: Date;
+  }>;
 }
 
 function toDocumentSummary(document: DocumentProjection): DocumentSummary {
@@ -151,14 +169,29 @@ export class DocumentsService {
       throw new BadRequestException('cursor is not valid');
     }
 
-    if (input.collectionId && !(await this.prisma.collection.findFirst({ where: { id: input.collectionId, organizationId }, select: { id: true } }))) throw new NotFoundException('Collection not found');
+    if (
+      input.collectionId &&
+      !(await this.prisma.collection.findFirst({
+        where: { id: input.collectionId, organizationId },
+        select: { id: true },
+      }))
+    )
+      throw new NotFoundException('Collection not found');
 
     const direction = input.order === 'createdAt_asc' ? 'asc' : 'desc';
     const documents = await this.prisma.document.findMany({
       where: {
         organizationId,
-        ...(input.collectionId ? { collections: { some: { organizationId, collectionId: input.collectionId } } } : {}),
-        ...(input.q ? { title: { contains: input.q, mode: 'insensitive' } } : {}),
+        ...(input.collectionId
+          ? {
+              collections: {
+                some: { organizationId, collectionId: input.collectionId },
+              },
+            }
+          : {}),
+        ...(input.q
+          ? { title: { contains: input.q, mode: 'insensitive' } }
+          : {}),
         ...(input.status ? { status: input.status } : {}),
         ...(cursor ? listCursorFilter(cursor, direction) : {}),
       },
@@ -190,7 +223,10 @@ export class DocumentsService {
     userId: string,
   ): Promise<DocumentDetailResponse> {
     await this.prisma.$transaction(async (tx) => {
-      const previous = await tx.document.findFirst({ where: { id: documentId, organizationId }, select: { title: true } });
+      const previous = await tx.document.findFirst({
+        where: { id: documentId, organizationId },
+        select: { title: true },
+      });
       if (!previous) throw new NotFoundException('Document not found');
       const updated = await tx.document.updateMany({
         where: { id: documentId, organizationId },
@@ -201,16 +237,32 @@ export class DocumentsService {
         throw new NotFoundException('Document not found');
       }
 
-      await this.activity.record(tx, { organizationId, actorId: userId, action: 'DOCUMENT_RENAMED', targetType: 'document', targetId: documentId, metadata: { from: previous.title, to: input.title } });
+      await this.activity.record(tx, {
+        organizationId,
+        actorId: userId,
+        action: 'DOCUMENT_RENAMED',
+        targetType: 'document',
+        targetId: documentId,
+        metadata: { from: previous.title, to: input.title },
+      });
     });
     return this.readDocument(organizationId, documentId);
   }
 
-  async delete(organizationId: string, documentId: string, userId: string): Promise<void> {
+  async delete(
+    organizationId: string,
+    documentId: string,
+    userId: string,
+  ): Promise<void> {
     const document = await this.prisma.$transaction(async (tx) => {
       const document = await tx.document.findFirst({
         where: { id: documentId, organizationId },
-        select: { id: true, title: true, uploadStorageKey: true, storageKey: true },
+        select: {
+          id: true,
+          title: true,
+          uploadStorageKey: true,
+          storageKey: true,
+        },
       });
 
       if (!document) {
@@ -221,8 +273,16 @@ export class DocumentsService {
         where: { id: documentId, organizationId },
       });
 
-      if (deleted.count === 0) throw new NotFoundException('Document not found');
-      await this.activity.record(tx, { organizationId, actorId: userId, action: 'DOCUMENT_DELETED', targetType: 'document', targetId: documentId, metadata: { title: document.title } });
+      if (deleted.count === 0)
+        throw new NotFoundException('Document not found');
+      await this.activity.record(tx, {
+        organizationId,
+        actorId: userId,
+        action: 'DOCUMENT_DELETED',
+        targetType: 'document',
+        targetId: documentId,
+        metadata: { title: document.title },
+      });
       return document;
     });
 
@@ -312,7 +372,14 @@ export class DocumentsService {
         },
       });
 
-      await this.activity.record(tx, { organizationId, actorId: userId, action: 'DOCUMENT_REPROCESSED', targetType: 'document', targetId: documentId, metadata: { title: document.title } });
+      await this.activity.record(tx, {
+        organizationId,
+        actorId: userId,
+        action: 'DOCUMENT_REPROCESSED',
+        targetType: 'document',
+        targetId: documentId,
+        metadata: { title: document.title },
+      });
 
       return true;
     });
@@ -588,7 +655,14 @@ export class DocumentsService {
         },
       });
 
-      await this.activity.record(tx, { organizationId, actorId: context.userId, action: 'DOCUMENT_UPLOADED', targetType: 'document', targetId: documentId, metadata: { title: transitioned.title } });
+      await this.activity.record(tx, {
+        organizationId,
+        actorId: context.userId,
+        action: 'DOCUMENT_UPLOADED',
+        targetType: 'document',
+        targetId: documentId,
+        metadata: { title: transitioned.title },
+      });
 
       return true;
     });
@@ -670,7 +744,9 @@ export class DocumentsService {
     await this.deleteObjectsBestEffort([previousKey]);
   }
 
-  private async deleteObjectsBestEffort(keys: (string | null)[]): Promise<void> {
+  private async deleteObjectsBestEffort(
+    keys: (string | null)[],
+  ): Promise<void> {
     const targets = keys.filter((key): key is string => key !== null);
 
     await Promise.all(

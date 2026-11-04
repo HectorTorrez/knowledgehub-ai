@@ -18,7 +18,9 @@ export class StorageConfig {
   }
 
   get forcePathStyle(): boolean {
-    return this.config.getOrThrow<string>('STORAGE_FORCE_PATH_STYLE') === 'true';
+    return (
+      this.config.getOrThrow<string>('STORAGE_FORCE_PATH_STYLE') === 'true'
+    );
   }
 
   get uploadTtlSeconds(): number {
@@ -46,6 +48,8 @@ export class StorageConfig {
   }
 
   get sweepGraceMs(): number {
-    return this.config.getOrThrow<number>('STORAGE_SWEEP_GRACE_MINUTES') * 60_000;
+    return (
+      this.config.getOrThrow<number>('STORAGE_SWEEP_GRACE_MINUTES') * 60_000
+    );
   }
 }

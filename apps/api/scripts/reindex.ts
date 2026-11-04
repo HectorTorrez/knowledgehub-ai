@@ -9,12 +9,20 @@ async function main(): Promise<void> {
   let dryRun = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dry-run') dryRun = true;
-    else if (args[i] === '--organization' && args[i + 1] && !args[i + 1]?.startsWith('--')) organizationId = args[++i];
+    else if (
+      args[i] === '--organization' &&
+      args[i + 1] &&
+      !args[i + 1]?.startsWith('--')
+    )
+      organizationId = args[++i];
     else throw new Error(`Invalid argument: ${args[i]}`);
   }
   const prisma = new PrismaService(new ConfigService());
   try {
-    const count = await new ReindexService(prisma).run({ organizationId, dryRun });
+    const count = await new ReindexService(prisma).run({
+      organizationId,
+      dryRun,
+    });
     console.log(count);
   } finally {
     await prisma.$disconnect();

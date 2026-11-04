@@ -32,8 +32,13 @@ export interface WebMcpRegisterOptions {
 }
 
 export interface ModelContext {
-  registerTool(tool: WebMcpTool, options?: WebMcpRegisterOptions): Promise<void>;
-  getTools(options?: { fromOrigins?: readonly string[] }): Promise<WebMcpTool[]>;
+  registerTool(
+    tool: WebMcpTool,
+    options?: WebMcpRegisterOptions,
+  ): Promise<void>;
+  getTools(options?: {
+    fromOrigins?: readonly string[];
+  }): Promise<WebMcpTool[]>;
   executeTool(
     tool: WebMcpTool | string,
     input?: unknown,

@@ -5,6 +5,12 @@
     "outDir": "./dist",
     "types": ["vitest/globals", "node"]
   },
-  "include": ["src/**/*.ts", "eval/**/*.ts", "test/**/*.ts", "prisma/**/*.ts", "vitest.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "eval/**/*.ts",
+    "test/**/*.ts",
+    "prisma/**/*.ts",
+    "vitest.config.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

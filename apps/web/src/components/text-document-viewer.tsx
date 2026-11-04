@@ -14,7 +14,8 @@ export function TextDocumentViewer({
     const controller = new AbortController();
     fetch(url, { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error(`Storage responded ${response.status}`);
+        if (!response.ok)
+          throw new Error(`Storage responded ${response.status}`);
         return response.text();
       })
       .then(setText)
@@ -41,7 +42,12 @@ export function TextDocumentViewer({
   const match = quote ? findPassage(text, quote) : undefined;
 
   return (
-    <div tabIndex={0} role="region" aria-label="Document preview" className="focus-visible:ring-2 focus-visible:ring-ring max-h-[75vh] overflow-auto rounded-lg border bg-card p-4">
+    <div
+      tabIndex={0}
+      role="region"
+      aria-label="Document preview"
+      className="focus-visible:ring-2 focus-visible:ring-ring max-h-[75vh] overflow-auto rounded-lg border bg-card p-4"
+    >
       <pre className="font-sans text-sm leading-relaxed break-words whitespace-pre-wrap">
         {match ? (
           <>

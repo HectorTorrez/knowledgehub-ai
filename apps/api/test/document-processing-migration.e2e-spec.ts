@@ -41,7 +41,12 @@ describe('add_document_processing_jobs migration (e2e)', () => {
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
+      .compile();
     prisma = moduleRef.get(PrismaService);
   });
 
@@ -111,7 +116,7 @@ describe('add_document_processing_jobs migration (e2e)', () => {
         'DocumentProcessingJob_documentId_key',
       );
       expect(partialUnique[0]?.indexdef).toContain(
-        "WHERE (state = ANY (ARRAY['QUEUED'::\"ProcessingJobState\", 'CLAIMED'::\"ProcessingJobState\"]))",
+        'WHERE (state = ANY (ARRAY[\'QUEUED\'::"ProcessingJobState", \'CLAIMED\'::"ProcessingJobState"]))',
       );
 
       await tx.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);

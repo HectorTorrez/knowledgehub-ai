@@ -73,8 +73,7 @@ function createHarness(options: HarnessOptions = {}) {
       updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
     $transaction: vi.fn(
-      async (callback: (client: typeof tx) => Promise<unknown>) =>
-        callback(tx),
+      async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
     ),
   };
 
@@ -373,8 +372,7 @@ function createRotationHarness(overrides: RotationOverrides = {}) {
       updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
     $transaction: vi.fn(
-      async (callback: (client: typeof tx) => Promise<unknown>) =>
-        callback(tx),
+      async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
     ),
   };
 

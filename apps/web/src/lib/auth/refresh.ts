@@ -36,8 +36,7 @@ type ProbeOutcome =
   | { kind: 'failure'; error: ApiError };
 
 type RequestResult =
-  | { kind: 'ok'; status: number }
-  | { kind: 'error'; error: ApiError };
+  { kind: 'ok'; status: number } | { kind: 'error'; error: ApiError };
 
 export function createRefreshCoordinator(): RefreshCoordinator {
   let inFlight: Promise<RefreshOutcome> | null = null;

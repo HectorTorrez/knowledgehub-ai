@@ -25,15 +25,16 @@ function context(request: FakeRequest): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-function buildGuard(options: {
-  session?: unknown;
-  verify?: () => Promise<unknown>;
-  browserAuthEnabled?: boolean;
-} = {}) {
+function buildGuard(
+  options: {
+    session?: unknown;
+    verify?: () => Promise<unknown>;
+    browserAuthEnabled?: boolean;
+  } = {},
+) {
   const tokens = {
     verifyAccessToken: vi.fn(
-      options.verify ??
-        (async () => ({ sub: 'user-1', sid: 'session-1' })),
+      options.verify ?? (async () => ({ sub: 'user-1', sid: 'session-1' })),
     ),
   } as unknown as TokenService;
 
@@ -91,9 +92,9 @@ describe('SessionGuard', () => {
       headers: {},
     };
 
-    await expect(
-      guard.canActivate(context(request)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context(request))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('rejects when the session no longer exists', async () => {
@@ -103,9 +104,9 @@ describe('SessionGuard', () => {
       headers: {},
     };
 
-    await expect(
-      guard.canActivate(context(request)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context(request))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('rejects a revoked session', async () => {
@@ -117,9 +118,9 @@ describe('SessionGuard', () => {
       headers: {},
     };
 
-    await expect(
-      guard.canActivate(context(request)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context(request))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('rejects an expired session', async () => {
@@ -131,9 +132,9 @@ describe('SessionGuard', () => {
       headers: {},
     };
 
-    await expect(
-      guard.canActivate(context(request)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context(request))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('rejects when the session does not belong to the token subject', async () => {
@@ -145,9 +146,9 @@ describe('SessionGuard', () => {
       headers: {},
     };
 
-    await expect(
-      guard.canActivate(context(request)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context(request))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('rejects a cookie token when browser authentication is disabled', async () => {
@@ -157,9 +158,9 @@ describe('SessionGuard', () => {
       headers: {},
     };
 
-    await expect(
-      guard.canActivate(context(request)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context(request))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('still accepts a bearer token when browser authentication is disabled', async () => {
@@ -200,9 +201,9 @@ describe('SessionGuard', () => {
       headers: { authorization: 'Bearer ' },
     };
 
-    await expect(
-      guard.canActivate(context(request)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context(request))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('rejects a malformed bearer credential when no cookie is present', async () => {
@@ -211,8 +212,8 @@ describe('SessionGuard', () => {
       headers: { authorization: 'Bearer' },
     };
 
-    await expect(
-      guard.canActivate(context(request)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context(request))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });

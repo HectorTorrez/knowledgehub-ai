@@ -96,7 +96,9 @@ export class OrganizationTenantController {
   }
 
   @Get(':organizationId/members')
-  listMembers(@Req() request: OrganizationRequest): Promise<MemberListResponse> {
+  listMembers(
+    @Req() request: OrganizationRequest,
+  ): Promise<MemberListResponse> {
     return this.organizations.listMembers(
       requireOrganizationContext(request).organizationId,
     );

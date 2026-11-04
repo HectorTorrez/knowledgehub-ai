@@ -18,7 +18,11 @@ const MAX_SCALE = 3;
 const SCALE_STEP = 0.25;
 const FIT_WIDTH_PADDING = 32;
 const MAX_FIT_SCALE = 1.5;
-const HIGHLIGHT_CLASSES = ['rounded-sm', 'bg-yellow-300/60', 'dark:bg-yellow-400/40'];
+const HIGHLIGHT_CLASSES = [
+  'rounded-sm',
+  'bg-yellow-300/60',
+  'dark:bg-yellow-400/40',
+];
 
 type PdfJs = typeof PdfJsModule;
 
@@ -148,7 +152,9 @@ export function PdfDocumentViewer({
         canvas: canvasElement,
         viewport: pageViewport,
         transform:
-          outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0],
+          outputScale === 1
+            ? undefined
+            : [outputScale, 0, 0, outputScale, 0, 0],
       });
       cancelRender = () => renderTask.cancel();
       await renderTask.promise;
@@ -166,8 +172,11 @@ export function PdfDocumentViewer({
       await layer.render();
       if (cancelled || !quote || page.pageNumber !== initialPage) return;
 
-      highlightPassage(layer.textDivs, layer.textContentItemsStr, quote)
-        ?.scrollIntoView({ block: 'center' });
+      highlightPassage(
+        layer.textDivs,
+        layer.textContentItemsStr,
+        quote,
+      )?.scrollIntoView({ block: 'center' });
     };
 
     Promise.all([pdf.getPage(pageNumber), loadPdfJs()])
@@ -242,7 +251,13 @@ export function PdfDocumentViewer({
           </Button>
         </div>
       </div>
-      <div ref={viewport} tabIndex={0} role="region" aria-label="Document preview" className="focus-visible:ring-2 focus-visible:ring-ring max-h-[75vh] overflow-auto bg-muted/40 p-4">
+      <div
+        ref={viewport}
+        tabIndex={0}
+        role="region"
+        aria-label="Document preview"
+        className="focus-visible:ring-2 focus-visible:ring-ring max-h-[75vh] overflow-auto bg-muted/40 p-4"
+      >
         {pdf ? null : (
           <Skeleton className="mx-auto aspect-[1/1.3] w-full max-w-2xl" />
         )}

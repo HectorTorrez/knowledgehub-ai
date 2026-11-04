@@ -41,7 +41,10 @@ const ANSWER_JSON_SCHEMA = {
   schema: {
     type: 'object',
     properties: {
-      status: { type: 'string', enum: ['answered', 'partial', 'insufficient_evidence'] },
+      status: {
+        type: 'string',
+        enum: ['answered', 'partial', 'insufficient_evidence'],
+      },
       missing: { type: 'array', items: { type: 'string' } },
       claims: {
         type: ['array', 'null'],
@@ -144,9 +147,7 @@ export function parseStreamContent(payload: unknown): string {
     return '';
   }
 
-  return typeof choice.delta.content === 'string'
-    ? choice.delta.content
-    : '';
+  return typeof choice.delta.content === 'string' ? choice.delta.content : '';
 }
 
 export class OpenAiAnswerProvider implements AnswerProvider {
@@ -192,10 +193,9 @@ export class OpenAiAnswerProvider implements AnswerProvider {
       };
     } catch (error) {
       if (controller.signal.aborted) {
-        throw new AnswerUnavailableError(
-          'The answer provider timed out',
-          { cause: error },
-        );
+        throw new AnswerUnavailableError('The answer provider timed out', {
+          cause: error,
+        });
       }
 
       if (
@@ -286,10 +286,7 @@ export class OpenAiAnswerProvider implements AnswerProvider {
         let newlineIndex = buffer.indexOf('\n');
 
         while (newlineIndex >= 0) {
-          const line = buffer
-            .slice(0, newlineIndex)
-            .replace(/\r$/, '')
-            .trim();
+          const line = buffer.slice(0, newlineIndex).replace(/\r$/, '').trim();
           buffer = buffer.slice(newlineIndex + 1);
           newlineIndex = buffer.indexOf('\n');
 
@@ -347,10 +344,9 @@ export class OpenAiAnswerProvider implements AnswerProvider {
         throw error;
       }
 
-      throw new AnswerUnavailableError(
-        'The answer provider stream failed',
-        { cause: error },
-      );
+      throw new AnswerUnavailableError('The answer provider stream failed', {
+        cause: error,
+      });
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', forwardAbort);

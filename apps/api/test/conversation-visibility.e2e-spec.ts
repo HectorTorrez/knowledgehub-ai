@@ -49,7 +49,12 @@ describe('conversation visibility (e2e)', () => {
     trackedEmails.add(email);
     const response = await http()
       .post('/auth/register')
-      .send({ email, password: PASSWORD, firstName: 'Ada', lastName: 'Lovelace' })
+      .send({
+        email,
+        password: PASSWORD,
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      })
       .expect(201);
     return {
       userId: response.body.user.id as string,
@@ -156,7 +161,9 @@ describe('conversation visibility (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(SUMMARIZER)
-      .useValue({ summarize: async () => ({ summary: 'test summary', keyTopics: [] }) })
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
       .overrideProvider(EMBEDDING_PROVIDER)
       .useValue({
         embed: async (texts: string[]) =>
@@ -203,7 +210,11 @@ describe('conversation visibility (e2e)', () => {
     const organizationId = await createOrganization(owner);
     const teammate = await addMember(organizationId, 'MEMBER');
     const conversationId = await startConversation(organizationId, owner);
-    const answerId = await seedAnswer(organizationId, conversationId, owner.userId);
+    const answerId = await seedAnswer(
+      organizationId,
+      conversationId,
+      owner.userId,
+    );
 
     const created = await http()
       .get(`/organizations/${organizationId}/conversations/${conversationId}`)
@@ -216,7 +227,13 @@ describe('conversation visibility (e2e)', () => {
       canShare: true,
     });
 
-    await expectReadable(organizationId, conversationId, answerId, teammate, 404);
+    await expectReadable(
+      organizationId,
+      conversationId,
+      answerId,
+      teammate,
+      404,
+    );
 
     const listed = await http()
       .get(`/organizations/${organizationId}/conversations`)
@@ -236,22 +253,44 @@ describe('conversation visibility (e2e)', () => {
     const organizationId = await createOrganization(owner);
     const teammate = await addMember(organizationId, 'ADMIN');
     const conversationId = await startConversation(organizationId, owner);
-    const answerId = await seedAnswer(organizationId, conversationId, owner.userId);
+    const answerId = await seedAnswer(
+      organizationId,
+      conversationId,
+      owner.userId,
+    );
 
-    const shared = await share(organizationId, conversationId, owner, 'ORGANIZATION').expect(200);
+    const shared = await share(
+      organizationId,
+      conversationId,
+      owner,
+      'ORGANIZATION',
+    ).expect(200);
     expect(shared.body.conversation.visibility).toBe('ORGANIZATION');
 
-    await expectReadable(organizationId, conversationId, answerId, teammate, 200);
+    await expectReadable(
+      organizationId,
+      conversationId,
+      answerId,
+      teammate,
+      200,
+    );
 
     const detail = await http()
       .get(`/organizations/${organizationId}/conversations/${conversationId}`)
       .set(bearer(teammate))
       .expect(200);
-    expect(detail.body.conversation).toMatchObject({ canEdit: false, canShare: false });
+    expect(detail.body.conversation).toMatchObject({
+      canEdit: false,
+      canShare: false,
+    });
 
-    await share(organizationId, conversationId, teammate, 'PRIVATE').expect(404);
+    await share(organizationId, conversationId, teammate, 'PRIVATE').expect(
+      404,
+    );
     await http()
-      .delete(`/organizations/${organizationId}/conversations/${conversationId}`)
+      .delete(
+        `/organizations/${organizationId}/conversations/${conversationId}`,
+      )
       .set(bearer(teammate))
       .expect(404);
     await http()
@@ -295,7 +334,9 @@ describe('conversation visibility (e2e)', () => {
         .query({ limit: 1, ...(cursor ? { cursor } : {}) })
         .set(bearer(teammate))
         .expect(200);
-      seen.push(...page.body.conversations.map((item: { id: string }) => item.id));
+      seen.push(
+        ...page.body.conversations.map((item: { id: string }) => item.id),
+      );
       cursor = page.body.nextCursor as string | null;
     } while (cursor);
 
@@ -315,14 +356,18 @@ describe('conversation visibility (e2e)', () => {
       .query({ scope: 'mine' })
       .set(bearer(teammate))
       .expect(200);
-    expect(mine.body.conversations.map((item: { id: string }) => item.id)).toEqual([own]);
+    expect(
+      mine.body.conversations.map((item: { id: string }) => item.id),
+    ).toEqual([own]);
 
     const shared = await http()
       .get(`/organizations/${organizationId}/conversations`)
       .query({ scope: 'shared' })
       .set(bearer(teammate))
       .expect(200);
-    expect(shared.body.conversations.map((item: { id: string }) => item.id)).toEqual([theirs]);
+    expect(
+      shared.body.conversations.map((item: { id: string }) => item.id),
+    ).toEqual([theirs]);
   });
 
   it('keeps legacy conversations open to every member and manageable by admins', async () => {
@@ -364,7 +409,9 @@ describe('conversation visibility (e2e)', () => {
     const viewer = await addMember(organizationId, 'VIEWER');
     const conversationId = await startConversation(organizationId, viewer);
 
-    await share(organizationId, conversationId, viewer, 'ORGANIZATION').expect(200);
+    await share(organizationId, conversationId, viewer, 'ORGANIZATION').expect(
+      200,
+    );
     await http()
       .get(`/organizations/${organizationId}/conversations/${conversationId}`)
       .set(bearer(owner))
@@ -376,12 +423,18 @@ describe('conversation visibility (e2e)', () => {
     const organizationId = await createOrganization(owner);
     const otherOrganizationId = await createOrganization(owner);
     const conversationId = await startConversation(organizationId, owner);
-    await share(organizationId, conversationId, owner, 'ORGANIZATION').expect(200);
+    await share(organizationId, conversationId, owner, 'ORGANIZATION').expect(
+      200,
+    );
 
     await http()
-      .get(`/organizations/${otherOrganizationId}/conversations/${conversationId}`)
+      .get(
+        `/organizations/${otherOrganizationId}/conversations/${conversationId}`,
+      )
       .set(bearer(owner))
       .expect(404);
-    await share(otherOrganizationId, conversationId, owner, 'PRIVATE').expect(404);
+    await share(otherOrganizationId, conversationId, owner, 'PRIVATE').expect(
+      404,
+    );
   });
 });

@@ -49,7 +49,10 @@ describe('organization membership lock contention (e2e)', () => {
 
   beforeAll(async () => {
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
-    service = new OrganizationsService(prisma as unknown as PrismaService, new ActivityService(prisma as unknown as PrismaService));
+    service = new OrganizationsService(
+      prisma as unknown as PrismaService,
+      new ActivityService(prisma as unknown as PrismaService),
+    );
 
     const suffix = randomUUID();
     const owner = await prisma.user.create({

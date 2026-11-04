@@ -46,9 +46,9 @@ describe('loginSchema', () => {
   });
 
   it('requires a non-empty password but does not enforce the registration minimum', () => {
-    expect(
-      loginSchema.safeParse({ ...validBody, password: '' }).success,
-    ).toBe(false);
+    expect(loginSchema.safeParse({ ...validBody, password: '' }).success).toBe(
+      false,
+    );
     expect(
       loginSchema.safeParse({ ...validBody, password: 'short' }).success,
     ).toBe(true);
@@ -72,8 +72,8 @@ describe('loginSchema', () => {
   });
 
   it('rejects unknown fields', () => {
-    expect(
-      loginSchema.safeParse({ ...validBody, isAdmin: true }).success,
-    ).toBe(false);
+    expect(loginSchema.safeParse({ ...validBody, isAdmin: true }).success).toBe(
+      false,
+    );
   });
 });

@@ -17,15 +17,15 @@ describe('InlinePdfExtractor', () => {
       totalPages: 2,
     });
 
-    await expect(
-      extractor.extractPdf(new Uint8Array([1, 2])),
-    ).resolves.toEqual({
-      pages: [
-        { pageNumber: 1, content: 'page one' },
-        { pageNumber: 2, content: 'page two' },
-      ],
-      pageCount: 2,
-    });
+    await expect(extractor.extractPdf(new Uint8Array([1, 2]))).resolves.toEqual(
+      {
+        pages: [
+          { pageNumber: 1, content: 'page one' },
+          { pageNumber: 2, content: 'page two' },
+        ],
+        pageCount: 2,
+      },
+    );
   });
 
   it('treats a single text result as one page', async () => {
@@ -34,9 +34,7 @@ describe('InlinePdfExtractor', () => {
       totalPages: 1,
     });
 
-    await expect(
-      extractor.extractPdf(new Uint8Array([1])),
-    ).resolves.toEqual({
+    await expect(extractor.extractPdf(new Uint8Array([1]))).resolves.toEqual({
       pages: [{ pageNumber: 1, content: 'single page' }],
       pageCount: 1,
     });

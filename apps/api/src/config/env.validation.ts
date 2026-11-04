@@ -92,16 +92,8 @@ const envObjectSchema = z.object({
     .optional(),
   STORAGE_REGION: z.string().min(1).default('auto'),
   STORAGE_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('false'),
-  STORAGE_UPLOAD_TTL_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(900),
-  STORAGE_DOWNLOAD_TTL_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(900),
+  STORAGE_UPLOAD_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+  STORAGE_DOWNLOAD_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   STORAGE_ACCESS_KEY_ID: z
     .string()
     .min(1, 'STORAGE_ACCESS_KEY_ID must not be empty')
@@ -120,11 +112,7 @@ const envObjectSchema = z.object({
   STORAGE_SWEEP_GRACE_MINUTES: z.coerce.number().int().positive().default(60),
 
   PROCESSING_WORKER_ENABLED: z.enum(['true', 'false']).default('false'),
-  PROCESSING_POLL_INTERVAL_MS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(2000),
+  PROCESSING_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
   PROCESSING_LEASE_RENEWAL_INTERVAL_MS: z.coerce
     .number()
     .int()
@@ -137,16 +125,8 @@ const envObjectSchema = z.object({
     .default(30000),
 
   PROCESSING_SANDBOX: z.enum(['inline', 'worker']).default('inline'),
-  PROCESSING_PDF_TIMEOUT_MS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(30000),
-  PROCESSING_PDF_MAX_MEMORY_MB: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(512),
+  PROCESSING_PDF_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  PROCESSING_PDF_MAX_MEMORY_MB: z.coerce.number().int().positive().default(512),
 
   OPENAI_API_KEY: z.string().min(1).optional(),
   OPENAI_BASE_URL: z.string().url().default(DEFAULT_OPENAI_BASE_URL),
@@ -213,7 +193,12 @@ const envObjectSchema = z.object({
 
   SUMMARIES_ENABLED: z.enum(['true', 'false']).default('true'),
   SUMMARY_MODEL: z.string().min(1).optional(),
-  SUMMARY_INPUT_MAX_CHARS: z.coerce.number().int().min(1000).max(100000).default(40000),
+  SUMMARY_INPUT_MAX_CHARS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(100000)
+    .default(40000),
   FACTS_ENABLED: z.enum(['true', 'false']).default('false'),
   FACTS_BACKFILL_ENABLED: z.enum(['true', 'false']).default('true'),
   FACTS_MODEL: z.string().min(1).default(DEFAULT_ANSWER_MODEL),
@@ -344,7 +329,8 @@ export const envSchema = envObjectSchema.superRefine((env, ctx) => {
     ctx.addIssue({
       code: 'custom',
       path: ['OPENAI_API_KEY'],
-      message: 'OPENAI_API_KEY is required when the processing worker is enabled',
+      message:
+        'OPENAI_API_KEY is required when the processing worker is enabled',
     });
   }
 

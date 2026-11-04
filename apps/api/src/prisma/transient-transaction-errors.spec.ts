@@ -2,10 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
 import { isTransientTransactionFailure } from './transient-transaction-errors.js';
 
-function knownError(
-  code: string,
-  meta?: Record<string, unknown>,
-): unknown {
+function knownError(code: string, meta?: Record<string, unknown>): unknown {
   return new Prisma.PrismaClientKnownRequestError('adapter error', {
     code,
     clientVersion: 'test',
@@ -115,9 +112,7 @@ describe('isTransientTransactionFailure', () => {
 
   it('does not classify a P2028 with only partial timeout metadata', () => {
     expect(
-      isTransientTransactionFailure(
-        knownError('P2028', { timeout: 2000 }),
-      ),
+      isTransientTransactionFailure(knownError('P2028', { timeout: 2000 })),
     ).toBe(false);
   });
 
@@ -125,7 +120,9 @@ describe('isTransientTransactionFailure', () => {
     expect(isTransientTransactionFailure(knownError('P2002'))).toBe(false);
     expect(
       isTransientTransactionFailure(
-        knownError('P2025', { driverAdapterError: { cause: { kind: 'postgres' } } }),
+        knownError('P2025', {
+          driverAdapterError: { cause: { kind: 'postgres' } },
+        }),
       ),
     ).toBe(false);
     expect(isTransientTransactionFailure(new Error('boom'))).toBe(false);

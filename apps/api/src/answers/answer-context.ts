@@ -47,7 +47,9 @@ export function assembleContext(
   const sources: AnswerSource[] = [];
   let usedChars = 0;
 
-  const candidates = expanded ?? chunks.map((hit) => ({ hit, content: hit.content, chunkIds: [] }));
+  const candidates =
+    expanded ??
+    chunks.map((hit) => ({ hit, content: hit.content, chunkIds: [] }));
   for (const expansion of candidates) {
     const chunk = expansion.hit;
     if (sources.length >= budget.maxSources) {

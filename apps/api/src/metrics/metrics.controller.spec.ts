@@ -35,7 +35,10 @@ describe('MetricsController', () => {
 
   it('streams Prometheus text when enabled', () => {
     const { controller, metrics } = buildController(true);
-    metrics.increment('http_requests_total', { method: 'GET', status_code: '200' });
+    metrics.increment('http_requests_total', {
+      method: 'GET',
+      status_code: '200',
+    });
     const response = fakeResponse();
 
     controller.index(response);

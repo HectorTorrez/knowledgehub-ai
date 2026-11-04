@@ -29,7 +29,12 @@ function row(overrides: Record<string, unknown> = {}) {
 }
 
 function buildService(
-  overrides: Partial<Record<'create' | 'findMany' | 'findFirst' | 'update' | 'deleteMany', (args?: unknown) => Promise<unknown>>> = {},
+  overrides: Partial<
+    Record<
+      'create' | 'findMany' | 'findFirst' | 'update' | 'deleteMany',
+      (args?: unknown) => Promise<unknown>
+    >
+  > = {},
 ) {
   const conversation = {
     create: vi.fn(overrides.create ?? (async () => row())),
@@ -109,7 +114,11 @@ describe('ConversationsService', () => {
   it('marks a teammate’s shared conversation as read-only', async () => {
     const { service } = buildService({
       findFirst: async () =>
-        row({ visibility: 'ORGANIZATION', createdById: 'user-2', createdBy: { ...CREATOR, id: 'user-2' } }),
+        row({
+          visibility: 'ORGANIZATION',
+          createdById: 'user-2',
+          createdBy: { ...CREATOR, id: 'user-2' },
+        }),
     });
 
     const { conversation } = await service.getDetail(scope, 'c1');
@@ -138,7 +147,10 @@ describe('ConversationsService', () => {
     );
     expect(activity.record).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ action: 'CONVERSATION_SHARED', targetId: 'c1' }),
+      expect.objectContaining({
+        action: 'CONVERSATION_SHARED',
+        targetId: 'c1',
+      }),
     );
     expect(result.conversation.visibility).toBe('ORGANIZATION');
   });
@@ -187,7 +199,9 @@ describe('ConversationsService', () => {
   });
 
   it('returns 404 when nothing was deleted', async () => {
-    const { service } = buildService({ deleteMany: async () => ({ count: 0 }) });
+    const { service } = buildService({
+      deleteMany: async () => ({ count: 0 }),
+    });
 
     await expect(service.delete(scope, 'c1')).rejects.toBeInstanceOf(
       NotFoundException,

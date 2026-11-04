@@ -245,7 +245,10 @@ function createHarness(options: HarnessOptions = {}) {
             calls.push('read-actor-membership');
             return options.actorMembership === undefined
               ? { role: 'OWNER', user: { email: 'owner@example.test' } }
-              : options.actorMembership && { ...options.actorMembership, user: { email: 'owner@example.test' } };
+              : options.actorMembership && {
+                  ...options.actorMembership,
+                  user: { email: 'owner@example.test' },
+                };
           }
           calls.push('read-target-membership');
           return options.targetMembership ?? null;
@@ -267,16 +270,16 @@ function createHarness(options: HarnessOptions = {}) {
       delete: vi.fn(async () => {
         calls.push('delete-membership');
         return (
-          options.targetMembership ?? targetMembershipRow('target-user', 'MEMBER')
+          options.targetMembership ??
+          targetMembershipRow('target-user', 'MEMBER')
         );
       }),
     },
     user: {
-      findUnique: vi.fn(
-        async () =>
-          options.targetUser === undefined
-            ? defaultTargetUser
-            : options.targetUser,
+      findUnique: vi.fn(async () =>
+        options.targetUser === undefined
+          ? defaultTargetUser
+          : options.targetUser,
       ),
     },
   };
@@ -308,7 +311,10 @@ function createHarness(options: HarnessOptions = {}) {
   };
 
   const activity = { record: vi.fn(async () => {}) };
-  const service = new OrganizationsService(prisma as unknown as PrismaService, activity as unknown as ActivityService);
+  const service = new OrganizationsService(
+    prisma as unknown as PrismaService,
+    activity as unknown as ActivityService,
+  );
 
   return { service, prisma, tx, organizations, memberships, calls, activity };
 }
@@ -409,9 +415,9 @@ describe('OrganizationsService.listForUser', () => {
 
     const result = await service.listForUser('user-1');
 
-    expect(result.organizations.map((organization) => organization.role)).toEqual(
-      ['OWNER', 'MEMBER'],
-    );
+    expect(
+      result.organizations.map((organization) => organization.role),
+    ).toEqual(['OWNER', 'MEMBER']);
   });
 
   it('returns an empty list when the user has no memberships', async () => {
@@ -439,7 +445,9 @@ describe('OrganizationsService.listForUser', () => {
 
   it('does not expose internal database fields', async () => {
     const { service } = createHarness({
-      memberships: [membershipRow(organizationRecord('org-1', 'Acme'), 'OWNER')],
+      memberships: [
+        membershipRow(organizationRecord('org-1', 'Acme'), 'OWNER'),
+      ],
     });
 
     const result = await service.listForUser('user-1');
@@ -632,7 +640,10 @@ describe('OrganizationsService.addMember', () => {
         createdAt: '2026-03-01T00:00:00.000Z',
       },
     });
-    expect(activity.record).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'MEMBER_ADDED' }));
+    expect(activity.record).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: 'MEMBER_ADDED' }),
+    );
   });
 
   it('always writes role MEMBER for the organization from the context', async () => {
@@ -689,10 +700,8 @@ describe('OrganizationsService.addMember', () => {
 
     expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
 
-    const [setConfigStrings, lockTimeout] = tx.$queryRaw.mock.calls[0] as unknown as [
-      TemplateStringsArray,
-      string,
-    ];
+    const [setConfigStrings, lockTimeout] = tx.$queryRaw.mock
+      .calls[0] as unknown as [TemplateStringsArray, string];
     expect(setConfigStrings.join('')).toContain('set_config');
     expect(setConfigStrings.join('')).toContain('lock_timeout');
     expect(lockTimeout).toBe('1000ms');
@@ -836,7 +845,10 @@ describe('isDuplicateMembershipViolation', () => {
         new Prisma.PrismaClientKnownRequestError('unique constraint failed', {
           code: 'P2002',
           clientVersion: 'test',
-          meta: { modelName: 'Membership', target: ['userId', 'organizationId'] },
+          meta: {
+            modelName: 'Membership',
+            target: ['userId', 'organizationId'],
+          },
         }),
       ),
     ).toBe(true);
@@ -923,7 +935,10 @@ describe('OrganizationsService.updateMemberRole', () => {
     });
     expect(tx.membership.update).toHaveBeenCalledTimes(1);
     expect(tx.membership.count).not.toHaveBeenCalled();
-    expect(activity.record).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'MEMBER_ROLE_CHANGED' }));
+    expect(activity.record).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'MEMBER_ROLE_CHANGED' }),
+    );
   });
 
   it('scopes the update to the context organization and route user, not request input', async () => {
@@ -1192,7 +1207,10 @@ describe('OrganizationsService.removeMember', () => {
       },
     });
     expect(tx.membership.count).not.toHaveBeenCalled();
-    expect(activity.record).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'MEMBER_REMOVED' }));
+    expect(activity.record).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'MEMBER_REMOVED' }),
+    );
   });
 
   it('acquires the organization lock before reading the actor and the target', async () => {
@@ -1361,10 +1379,7 @@ describe('OrganizationsService.removeMember', () => {
   });
 });
 
-function adapterError(
-  code: string,
-  meta?: Record<string, unknown>,
-): unknown {
+function adapterError(code: string, meta?: Record<string, unknown>): unknown {
   return new Prisma.PrismaClientKnownRequestError('adapter error', {
     code,
     clientVersion: 'test',
@@ -1412,7 +1427,9 @@ describe('OrganizationsService transient transaction mapping', () => {
     const { service } = createHarness({ transactionError: lockTimeoutError() });
 
     const error = await service
-      .updateMemberRole(organizationContext(), TARGET_USER_ID, { role: 'OWNER' })
+      .updateMemberRole(organizationContext(), TARGET_USER_ID, {
+        role: 'OWNER',
+      })
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(ServiceUnavailableException);
@@ -1433,7 +1450,9 @@ describe('OrganizationsService transient transaction mapping', () => {
     const { service } = createHarness({ transactionError: original });
 
     const error = await service
-      .updateMemberRole(organizationContext(), TARGET_USER_ID, { role: 'OWNER' })
+      .updateMemberRole(organizationContext(), TARGET_USER_ID, {
+        role: 'OWNER',
+      })
       .catch((caught: unknown) => caught);
 
     expect(error).toBe(original);
@@ -1490,9 +1509,13 @@ describe('OrganizationsService lock wait bounding', () => {
     const update = createHarness({
       targetMembership: targetMembershipRow(TARGET_USER_ID, 'MEMBER'),
     });
-    await update.service.updateMemberRole(organizationContext(), TARGET_USER_ID, {
-      role: 'OWNER',
-    });
+    await update.service.updateMemberRole(
+      organizationContext(),
+      TARGET_USER_ID,
+      {
+        role: 'OWNER',
+      },
+    );
     expectLockWaitBounded(update.tx);
 
     const remove = createHarness({
@@ -1520,11 +1543,16 @@ describe('OrganizationsService.updateName', () => {
       name: 'Renamed',
       role: 'OWNER',
     });
-    expect(activity.record).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'ORGANIZATION_RENAMED' }));
+    expect(activity.record).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'ORGANIZATION_RENAMED' }),
+    );
   });
 
   it('rejects a rename from a member', async () => {
-    const { service, tx, activity } = createHarness({ actorMembership: { role: 'MEMBER' } });
+    const { service, tx, activity } = createHarness({
+      actorMembership: { role: 'MEMBER' },
+    });
 
     await expect(
       service.updateName(organizationContext('MEMBER'), { name: 'Nope' }),
@@ -1548,7 +1576,9 @@ describe('OrganizationsService.deleteOrganization', () => {
 
 describe('OrganizationsService.leave', () => {
   it('removes the caller membership', async () => {
-    const { service, tx, activity } = createHarness({ actorMembership: { role: 'MEMBER' } });
+    const { service, tx, activity } = createHarness({
+      actorMembership: { role: 'MEMBER' },
+    });
 
     await service.leave(organizationContext('MEMBER'));
 
@@ -1560,7 +1590,10 @@ describe('OrganizationsService.leave', () => {
         },
       },
     });
-    expect(activity.record).toHaveBeenCalledWith(tx, expect.objectContaining({ action: 'MEMBER_LEFT' }));
+    expect(activity.record).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ action: 'MEMBER_LEFT' }),
+    );
   });
 
   it('blocks the last owner from leaving', async () => {

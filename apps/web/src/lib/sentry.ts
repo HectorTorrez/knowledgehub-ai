@@ -41,6 +41,11 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
 let initialized = false;
 export function initializeSentry(dsn: string | undefined) {
   if (!dsn || initialized || typeof window === 'undefined') return;
-  Sentry.init({ dsn, sendDefaultPii: false, defaultIntegrations: false, beforeSend: scrubEvent });
+  Sentry.init({
+    dsn,
+    sendDefaultPii: false,
+    defaultIntegrations: false,
+    beforeSend: scrubEvent,
+  });
   initialized = true;
 }

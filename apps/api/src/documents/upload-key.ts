@@ -1,9 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-function documentPrefix(
-  organizationId: string,
-  documentId: string,
-): string {
+function documentPrefix(organizationId: string, documentId: string): string {
   return `organizations/${organizationId}/documents/${documentId}`;
 }
 

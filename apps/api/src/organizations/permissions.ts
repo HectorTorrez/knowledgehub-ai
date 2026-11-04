@@ -1,4 +1,9 @@
-export const organizationRoles = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'] as const;
+export const organizationRoles = [
+  'OWNER',
+  'ADMIN',
+  'MEMBER',
+  'VIEWER',
+] as const;
 export type PolicyRole = (typeof organizationRoles)[number];
 
 export const capabilities = [

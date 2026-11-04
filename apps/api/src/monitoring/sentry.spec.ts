@@ -13,12 +13,28 @@ describe('Sentry privacy', () => {
   });
 
   it('drops sensitive event data', () => {
-    const event = scrubEvent({ type: undefined, message: 'question', user: { email: 'private@example.com' }, request: { data: 'document', cookies: { session: 'secret' }, headers: { Authorization: 'secret' } }, exception: { values: [{ type: 'Error', value: 'document content' }] }, tags: { organizationId: '123e4567-e89b-12d3-a456-426614174000', other: 'private' } });
+    const event = scrubEvent({
+      type: undefined,
+      message: 'question',
+      user: { email: 'private@example.com' },
+      request: {
+        data: 'document',
+        cookies: { session: 'secret' },
+        headers: { Authorization: 'secret' },
+      },
+      exception: { values: [{ type: 'Error', value: 'document content' }] },
+      tags: {
+        organizationId: '123e4567-e89b-12d3-a456-426614174000',
+        other: 'private',
+      },
+    });
     expect(event).not.toHaveProperty('message');
     expect(event).not.toHaveProperty('user');
     expect(event).not.toHaveProperty('request');
     expect(event.exception?.values?.[0]).not.toHaveProperty('value');
-    expect(event.tags).toEqual({ organizationId: '123e4567-e89b-12d3-a456-426614174000' });
+    expect(event.tags).toEqual({
+      organizationId: '123e4567-e89b-12d3-a456-426614174000',
+    });
   });
 
   it('keeps code locations so errors can be traced', () => {
@@ -47,7 +63,9 @@ describe('Sentry privacy', () => {
       },
     });
     expect(event.environment).toBe('staging');
-    expect(event.exception?.values?.[0]?.type).toBe('PrismaClientKnownRequestError');
+    expect(event.exception?.values?.[0]?.type).toBe(
+      'PrismaClientKnownRequestError',
+    );
     expect(event.exception?.values?.[0]).not.toHaveProperty('value');
     expect(event.exception?.values?.[0]?.stacktrace?.frames?.[0]).toEqual({
       filename: '/app/dist/answers/answers.service.js',

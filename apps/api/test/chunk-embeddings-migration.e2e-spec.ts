@@ -53,7 +53,12 @@ describe('add_chunk_embeddings migration (e2e)', () => {
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).overrideProvider(SUMMARIZER).useValue({ summarize: async () => ({ summary: "test summary", keyTopics: [] }) }).compile();
+    })
+      .overrideProvider(SUMMARIZER)
+      .useValue({
+        summarize: async () => ({ summary: 'test summary', keyTopics: [] }),
+      })
+      .compile();
     prisma = moduleRef.get(PrismaService);
   });
 
@@ -68,7 +73,9 @@ describe('add_chunk_embeddings migration (e2e)', () => {
 
     await prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
-      await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}", public`);
+      await tx.$executeRawUnsafe(
+        `SET LOCAL search_path TO "${schema}", public`,
+      );
       await tx.$executeRawUnsafe(
         'CREATE TABLE "Document" ("id" UUID PRIMARY KEY, "status" TEXT)',
       );

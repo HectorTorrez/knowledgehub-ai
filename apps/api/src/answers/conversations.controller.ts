@@ -129,6 +129,9 @@ export class ConversationsController {
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
     @Req() request: OrganizationRequest,
   ): Promise<void> {
-    return this.conversations.delete(conversationScope(request), conversationId);
+    return this.conversations.delete(
+      conversationScope(request),
+      conversationId,
+    );
   }
 }

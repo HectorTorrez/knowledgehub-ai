@@ -16,10 +16,11 @@ export const invitationsApi = {
     organizationId: string,
     input: CreateInvitationRequest,
   ): Promise<CreateInvitationResponse> {
-    return apiFetch<CreateInvitationResponse>(
-      invitationsPath(organizationId),
-      { method: 'POST', body: input, authRecovery: true },
-    );
+    return apiFetch<CreateInvitationResponse>(invitationsPath(organizationId), {
+      method: 'POST',
+      body: input,
+      authRecovery: true,
+    });
   },
 
   list(organizationId: string): Promise<InvitationListResponse> {

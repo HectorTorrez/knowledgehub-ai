@@ -4,7 +4,11 @@ import { AnswerStreamParser } from './answer-claim-stream.js';
 describe('AnswerStreamParser', () => {
   it('parses partial status and grounded claims', () => {
     const parser = new AnswerStreamParser();
-    expect(parser.push('{"status":"partial","claims":[{"text":"Known.","source":1}]}')).toEqual([{ text: 'Known.', source: 1 }]);
+    expect(
+      parser.push(
+        '{"status":"partial","claims":[{"text":"Known.","source":1}]}',
+      ),
+    ).toEqual([{ text: 'Known.', source: 1 }]);
     expect(parser.answerStatus).toBe('partial');
   });
 
@@ -79,8 +83,6 @@ describe('AnswerStreamParser', () => {
     parser.push('{"status":"answered",');
     parser.push('"claims":null}');
 
-    expect(parser.draft).toBe(
-      '{"status":"answered","claims":null}',
-    );
+    expect(parser.draft).toBe('{"status":"answered","claims":null}');
   });
 });

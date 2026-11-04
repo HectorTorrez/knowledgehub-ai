@@ -32,7 +32,13 @@ const FACT_EXTRACTION_JSON_SCHEMA = {
             currency: { type: 'string' },
             evidenceText: { type: 'string' },
           },
-          required: ['contractId', 'label', 'amountText', 'currency', 'evidenceText'],
+          required: [
+            'contractId',
+            'label',
+            'amountText',
+            'currency',
+            'evidenceText',
+          ],
           additionalProperties: false,
         },
       },
@@ -51,8 +57,7 @@ export function buildFactExtractionPrompt(
   page: FactExtractionPage,
   hint?: string,
 ): FactExtractionPrompt {
-  const hintSection =
-    hint === undefined ? '' : `\n\nCorrection hint: ${hint}`;
+  const hintSection = hint === undefined ? '' : `\n\nCorrection hint: ${hint}`;
 
   return {
     system: FACT_EXTRACTION_SYSTEM_PROMPT,

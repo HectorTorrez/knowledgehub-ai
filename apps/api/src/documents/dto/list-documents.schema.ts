@@ -32,7 +32,9 @@ export const listDocumentsSchema = z
       .optional(),
     collectionId: z.uuid().optional(),
     status: z.enum(DOCUMENT_STATUSES).optional(),
-    order: z.enum(['createdAt_desc', 'createdAt_asc']).default('createdAt_desc'),
+    order: z
+      .enum(['createdAt_desc', 'createdAt_asc'])
+      .default('createdAt_desc'),
   })
   .strict();
 

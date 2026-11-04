@@ -97,7 +97,13 @@ describe('RetrievalService', () => {
 
   it('applies document and date filters alongside tenant scope in both legs', async () => {
     const { service, calls } = createService([]);
-    await service.search({ organizationId: 'org-1', text: 'alpha', documentIds: ['doc-1', 'doc-2'], createdAfter: '2026-01-01', createdBefore: '2026-01-31' });
+    await service.search({
+      organizationId: 'org-1',
+      text: 'alpha',
+      documentIds: ['doc-1', 'doc-2'],
+      createdAfter: '2026-01-01',
+      createdBefore: '2026-01-31',
+    });
     expect(calls).toHaveLength(2);
     for (const call of calls) {
       expect(sqlOf(call)).toContain('c."organizationId" = ?::uuid');
@@ -189,9 +195,7 @@ describe('RetrievalService', () => {
       wrongDimension.service.search({ organizationId: 'org-1', text: 'alpha' }),
     ).rejects.toBeInstanceOf(EmbeddingResponseError);
 
-    const nonFinite = createService([], async () => [
-      [Number.NaN, 0, 0, 0],
-    ]);
+    const nonFinite = createService([], async () => [[Number.NaN, 0, 0, 0]]);
     await expect(
       nonFinite.service.search({ organizationId: 'org-1', text: 'alpha' }),
     ).rejects.toBeInstanceOf(EmbeddingResponseError);

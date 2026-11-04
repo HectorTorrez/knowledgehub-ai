@@ -46,8 +46,17 @@ const GENEROUS_BUDGET: ContextBudget = {
 
 describe('assembleContext', () => {
   it('retains lexical matches below the similarity threshold', () => {
-    const chunks = [retrievedChunk({ similarity: 0.1, matchedLexically: true }), retrievedChunk({ chunkId: 'weak', similarity: 0.1 })];
-    expect(assembleContext(chunks, { maxSources: 2, maxChars: 10000, minSimilarity: 0.5 }).map((source) => source.chunkId)).toEqual([chunks[0]!.chunkId]);
+    const chunks = [
+      retrievedChunk({ similarity: 0.1, matchedLexically: true }),
+      retrievedChunk({ chunkId: 'weak', similarity: 0.1 }),
+    ];
+    expect(
+      assembleContext(chunks, {
+        maxSources: 2,
+        maxChars: 10000,
+        minSimilarity: 0.5,
+      }).map((source) => source.chunkId),
+    ).toEqual([chunks[0]!.chunkId]);
   });
 
   it('preserves retrieval order and numbers sources from one', () => {
@@ -105,10 +114,10 @@ describe('assembleContext', () => {
   });
 
   it('keeps a chunk whose similarity equals the floor', () => {
-    const sources = assembleContext(
-      [retrievedChunk({ similarity: 0.2 })],
-      { ...GENEROUS_BUDGET, minSimilarity: 0.2 },
-    );
+    const sources = assembleContext([retrievedChunk({ similarity: 0.2 })], {
+      ...GENEROUS_BUDGET,
+      minSimilarity: 0.2,
+    });
 
     expect(sources).toHaveLength(1);
   });

@@ -5,6 +5,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
     "test": "turbo run test",
@@ -32,6 +34,7 @@
     "pnpm": ">=11 <12"
   },
   "devDependencies": {
+    "prettier": "^3.9.10",
     "turbo": "^2.11.7"
   }
 }

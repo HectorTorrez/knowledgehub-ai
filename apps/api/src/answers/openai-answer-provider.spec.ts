@@ -102,9 +102,9 @@ describe('parseAnswerResponse', () => {
       claims: [{ text: 'Alpha.', source: 1 }],
     };
 
-    expect(
-      parseAnswerResponse(completion(JSON.stringify(draft))),
-    ).toEqual(draft);
+    expect(parseAnswerResponse(completion(JSON.stringify(draft)))).toEqual(
+      draft,
+    );
   });
 
   it('rejects a payload without completion choices', () => {
@@ -125,9 +125,9 @@ describe('parseAnswerResponse', () => {
   });
 
   it('rejects assistant content that is not JSON', () => {
-    expect(() =>
-      parseAnswerResponse(completion('I do not know.')),
-    ).toThrow(AnswerResponseError);
+    expect(() => parseAnswerResponse(completion('I do not know.'))).toThrow(
+      AnswerResponseError,
+    );
   });
 });
 
@@ -147,7 +147,9 @@ describe('parseAnswerUsage', () => {
       outputTokens: null,
     });
     expect(
-      parseAnswerUsage({ usage: { prompt_tokens: 'many', completion_tokens: -1 } }),
+      parseAnswerUsage({
+        usage: { prompt_tokens: 'many', completion_tokens: -1 },
+      }),
     ).toEqual({ inputTokens: null, outputTokens: null });
   });
 });
@@ -192,7 +194,10 @@ describe('OpenAiAnswerProvider', () => {
     expect(responseFormat.json_schema.schema).toEqual({
       type: 'object',
       properties: {
-        status: { type: 'string', enum: ['answered', 'partial', 'insufficient_evidence'] },
+        status: {
+          type: 'string',
+          enum: ['answered', 'partial', 'insufficient_evidence'],
+        },
         missing: { type: 'array', items: { type: 'string' } },
         claims: {
           type: ['array', 'null'],
@@ -351,9 +356,9 @@ describe('OpenAiAnswerProvider', () => {
 
     expect(error).toBeInstanceOf(AnswerRejectedError);
     expect(error.message).not.toContain(API_KEY);
-    expect(JSON.stringify(error, Object.getOwnPropertyNames(error))).not.toContain(
-      API_KEY,
-    );
+    expect(
+      JSON.stringify(error, Object.getOwnPropertyNames(error)),
+    ).not.toContain(API_KEY);
     expect(String(error.cause ?? '')).not.toContain(API_KEY);
   });
 });

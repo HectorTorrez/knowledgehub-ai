@@ -63,7 +63,9 @@ export function FileDropzone({
       className={cn(
         'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-8 text-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-6',
         disabled && 'cursor-not-allowed opacity-60',
-        dragging ? 'border-brand bg-brand/5' : 'border-input hover:bg-accent/40',
+        dragging
+          ? 'border-brand bg-brand/5'
+          : 'border-input hover:bg-accent/40',
       )}
     >
       <input
@@ -82,7 +84,10 @@ export function FileDropzone({
       {files.length > 0 ? (
         <>
           <FileText
-            className={cn('size-8', dragging ? 'text-brand' : 'text-muted-foreground')}
+            className={cn(
+              'size-8',
+              dragging ? 'text-brand' : 'text-muted-foreground',
+            )}
           />
           <p className="text-sm font-medium">
             {dragging
@@ -97,7 +102,10 @@ export function FileDropzone({
       ) : (
         <>
           <UploadCloud
-            className={cn('size-8', dragging ? 'text-brand' : 'text-muted-foreground')}
+            className={cn(
+              'size-8',
+              dragging ? 'text-brand' : 'text-muted-foreground',
+            )}
           />
           <p className="text-sm font-medium">
             {dragging ? 'Drop files to upload' : 'Choose files to upload'}

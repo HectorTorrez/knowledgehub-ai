@@ -25,7 +25,10 @@ function fakeContext() {
 }
 
 function install(context: ModelContext | undefined): void {
-  vi.stubGlobal('document', context === undefined ? {} : { modelContext: context });
+  vi.stubGlobal(
+    'document',
+    context === undefined ? {} : { modelContext: context },
+  );
   vi.stubGlobal('navigator', {});
 }
 

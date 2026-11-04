@@ -59,7 +59,14 @@ function transactionHarness(counts: {
     $transaction: transaction,
   } as unknown as PrismaService);
 
-  return { service, transaction, executeRaw, executeCalls, queryRaw, queryCalls };
+  return {
+    service,
+    transaction,
+    executeRaw,
+    executeCalls,
+    queryRaw,
+    queryCalls,
+  };
 }
 
 const OWNERSHIP = {
@@ -211,7 +218,9 @@ describe('ProcessingJobService', () => {
       expect(insert!.values).toContain(OWNERSHIP.leaseId);
       expect(sqlOf(complete!)).toContain("state = 'SUCCEEDED'");
       expect(sqlOf(ready!)).toContain("status = 'READY'");
-      expect(sqlOf(ready!)).toContain('d."generation" = j."documentGeneration"');
+      expect(sqlOf(ready!)).toContain(
+        'd."generation" = j."documentGeneration"',
+      );
     });
 
     it('discards the result when no lease-matching row is written', async () => {

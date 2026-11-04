@@ -1,8 +1,5 @@
 import { Module } from '@nestjs/common';
-import {
-  FACT_EXTRACTOR,
-  type FactExtractor,
-} from './fact-extractor.port.js';
+import { FACT_EXTRACTOR, type FactExtractor } from './fact-extractor.port.js';
 import { FactsBackfillService } from './facts-backfill.service.js';
 import { FactsConfig } from './facts.config.js';
 import { FactsService } from './facts.service.js';

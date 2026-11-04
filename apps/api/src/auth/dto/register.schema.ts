@@ -11,7 +11,10 @@ export const registerSchema = z
       .string()
       .trim()
       .min(1, 'email is required')
-      .max(EMAIL_MAX_LENGTH, `email must be at most ${EMAIL_MAX_LENGTH} characters`)
+      .max(
+        EMAIL_MAX_LENGTH,
+        `email must be at most ${EMAIL_MAX_LENGTH} characters`,
+      )
       .pipe(z.email('email must be a valid email address')),
     password: z
       .string()
@@ -27,12 +30,18 @@ export const registerSchema = z
       .string()
       .trim()
       .min(1, 'firstName is required')
-      .max(NAME_MAX_LENGTH, `firstName must be at most ${NAME_MAX_LENGTH} characters`),
+      .max(
+        NAME_MAX_LENGTH,
+        `firstName must be at most ${NAME_MAX_LENGTH} characters`,
+      ),
     lastName: z
       .string()
       .trim()
       .min(1, 'lastName is required')
-      .max(NAME_MAX_LENGTH, `lastName must be at most ${NAME_MAX_LENGTH} characters`),
+      .max(
+        NAME_MAX_LENGTH,
+        `lastName must be at most ${NAME_MAX_LENGTH} characters`,
+      ),
   })
   .strict();
 

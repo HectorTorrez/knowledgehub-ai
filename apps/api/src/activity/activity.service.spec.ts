@@ -6,10 +6,16 @@ import { ActivityService, toActivityDto } from './activity.service.js';
 describe('ActivityService', () => {
   it('writes the entry using the supplied transaction client', async () => {
     const create = vi.fn().mockResolvedValue({});
-    const client = { organizationActivity: { create } } as unknown as Prisma.TransactionClient;
+    const client = {
+      organizationActivity: { create },
+    } as unknown as Prisma.TransactionClient;
     const entry = {
-      organizationId: 'org', actorId: 'actor', action: 'MEMBER_ADDED' as const,
-      targetType: 'member', targetId: 'member', metadata: { role: 'MEMBER' },
+      organizationId: 'org',
+      actorId: 'actor',
+      action: 'MEMBER_ADDED' as const,
+      targetType: 'member',
+      targetId: 'member',
+      metadata: { role: 'MEMBER' },
     };
     await new ActivityService({} as PrismaService).record(client, entry);
     expect(create).toHaveBeenCalledWith({ data: entry });
@@ -19,14 +25,29 @@ describe('ActivityService', () => {
 describe('toActivityDto', () => {
   it('maps public actor fields and string metadata', () => {
     const row = {
-      id: 'event', organizationId: 'org', actorId: 'actor', action: 'MEMBER_ADDED' as const,
-      actor: { id: 'actor', firstName: 'A', lastName: 'B', email: 'a@example.com' },
-      targetType: 'member', targetId: 'member', metadata: { role: 'MEMBER', count: 1 },
+      id: 'event',
+      organizationId: 'org',
+      actorId: 'actor',
+      action: 'MEMBER_ADDED' as const,
+      actor: {
+        id: 'actor',
+        firstName: 'A',
+        lastName: 'B',
+        email: 'a@example.com',
+      },
+      targetType: 'member',
+      targetId: 'member',
+      metadata: { role: 'MEMBER', count: 1 },
       createdAt: new Date('2026-01-01T00:00:00Z'),
     };
     expect(toActivityDto(row)).toEqual({
-      id: 'event', action: 'MEMBER_ADDED', actor: row.actor, targetType: 'member',
-      targetId: 'member', metadata: { role: 'MEMBER' }, createdAt: '2026-01-01T00:00:00.000Z',
+      id: 'event',
+      action: 'MEMBER_ADDED',
+      actor: row.actor,
+      targetType: 'member',
+      targetId: 'member',
+      metadata: { role: 'MEMBER' },
+      createdAt: '2026-01-01T00:00:00.000Z',
     });
   });
 });
@@ -38,11 +59,25 @@ describe('ActivityService.list', () => {
       organizationActivity: { findMany: vi.fn().mockResolvedValue([]) },
     };
     const service = new ActivityService(prisma as unknown as PrismaService);
-    const context = { userId: 'user', organizationId: 'org', role: 'OWNER' as const, organization: { id: 'org', name: 'Org', createdAt: new Date(), updatedAt: new Date() } };
+    const context = {
+      userId: 'user',
+      organizationId: 'org',
+      role: 'OWNER' as const,
+      organization: {
+        id: 'org',
+        name: 'Org',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    };
     await service.list(context, { limit: 50 });
-    expect(prisma.organizationActivity.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: 'org' } }));
+    expect(prisma.organizationActivity.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { organizationId: 'org' } }),
+    );
     prisma.membership.findUnique.mockResolvedValue({ role: 'MEMBER' });
-    await expect(service.list(context, { limit: 50 })).rejects.toThrow('You cannot view activity');
+    await expect(service.list(context, { limit: 50 })).rejects.toThrow(
+      'You cannot view activity',
+    );
     expect(prisma.organizationActivity.findMany).toHaveBeenCalledTimes(1);
   });
   it('applies all filters within the organization scope', async () => {
@@ -50,13 +85,39 @@ describe('ActivityService.list', () => {
       membership: { findUnique: vi.fn().mockResolvedValue({ role: 'ADMIN' }) },
       organizationActivity: { findMany: vi.fn().mockResolvedValue([]) },
     };
-    const context = { userId: 'user', organizationId: 'org', role: 'ADMIN' as const, organization: { id: 'org', name: 'Org', createdAt: new Date(), updatedAt: new Date() } };
-    await new ActivityService(prisma as unknown as PrismaService).list(context, {
-      limit: 10, action: ['DOCUMENT_DELETED'], actorId: 'actor', from: '2026-01-01T00:00:00Z', to: '2026-02-01T00:00:00Z',
-    });
-    expect(prisma.organizationActivity.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { organizationId: 'org', action: { in: ['DOCUMENT_DELETED'] }, actorId: 'actor', createdAt: { gte: new Date('2026-01-01T00:00:00Z'), lte: new Date('2026-02-01T00:00:00Z') } },
-    }));
+    const context = {
+      userId: 'user',
+      organizationId: 'org',
+      role: 'ADMIN' as const,
+      organization: {
+        id: 'org',
+        name: 'Org',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    };
+    await new ActivityService(prisma as unknown as PrismaService).list(
+      context,
+      {
+        limit: 10,
+        action: ['DOCUMENT_DELETED'],
+        actorId: 'actor',
+        from: '2026-01-01T00:00:00Z',
+        to: '2026-02-01T00:00:00Z',
+      },
+    );
+    expect(prisma.organizationActivity.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: 'org',
+          action: { in: ['DOCUMENT_DELETED'] },
+          actorId: 'actor',
+          createdAt: {
+            gte: new Date('2026-01-01T00:00:00Z'),
+            lte: new Date('2026-02-01T00:00:00Z'),
+          },
+        },
+      }),
+    );
   });
-
 });

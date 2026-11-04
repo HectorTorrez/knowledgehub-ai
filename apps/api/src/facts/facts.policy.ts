@@ -1,9 +1,5 @@
 import { createHash } from 'node:crypto';
-import {
-  AmountParseError,
-  currencyScale,
-  parseAmountText,
-} from './amount.js';
+import { AmountParseError, currencyScale, parseAmountText } from './amount.js';
 
 export const MAX_FACT_EVIDENCE_CHARS = 500;
 
@@ -174,7 +170,8 @@ export function validateFactDraft(
   }
 
   const rawCurrency = draft.currency.trim().toUpperCase();
-  const currency = rawCurrency.length > 0 ? rawCurrency : inferCurrency(evidence);
+  const currency =
+    rawCurrency.length > 0 ? rawCurrency : inferCurrency(evidence);
 
   if (!currency || !currencies.has(currency)) {
     return { ok: false, reason: 'UNSUPPORTED_CURRENCY' };

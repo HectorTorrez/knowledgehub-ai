@@ -14,7 +14,10 @@ import {
   RetrievalService,
   type RetrievedChunk,
 } from '../retrieval/retrieval.service.js';
-import { MAX_RETRIEVAL_LIMIT, RetrievalQueryError } from '../retrieval/retrieval-policy.js';
+import {
+  MAX_RETRIEVAL_LIMIT,
+  RetrievalQueryError,
+} from '../retrieval/retrieval-policy.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { resolveCollectionScope } from '../collections/resolve-collection-scope.js';
 import { groupSearchResults } from './search-results.js';
@@ -27,13 +30,23 @@ function withCause<T extends Error>(exception: T, cause: unknown): T {
 
 @Injectable()
 export class SearchService {
-  constructor(private readonly retrieval: RetrievalService, private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly retrieval: RetrievalService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async search(
     organizationId: string,
     input: SearchInput,
   ): Promise<SearchResponse> {
-    const documentIds = input.collectionIds ? await resolveCollectionScope(this.prisma, organizationId, input.collectionIds, input.documentIds) : input.documentIds;
+    const documentIds = input.collectionIds
+      ? await resolveCollectionScope(
+          this.prisma,
+          organizationId,
+          input.collectionIds,
+          input.documentIds,
+        )
+      : input.documentIds;
     if (documentIds && documentIds.length === 0) return { results: [] };
     let chunks: RetrievedChunk[];
 
@@ -62,7 +75,9 @@ function mapSearchError(error: unknown): Error {
 
   if (error instanceof EmbeddingUnavailableError) {
     return withCause(
-      new ServiceUnavailableException('The search service is temporarily unavailable'),
+      new ServiceUnavailableException(
+        'The search service is temporarily unavailable',
+      ),
       error,
     );
   }

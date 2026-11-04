@@ -59,13 +59,15 @@ function budgetFor(name: RateLimitBudgetName): {
   }
 }
 
-function createGuard(options: {
-  budgets?: RateLimitBudgetName[];
-  hitImpl?: (
-    key: string,
-    windowMs: number,
-  ) => Promise<{ count: number; resetAtMs: number }>;
-} = {}) {
+function createGuard(
+  options: {
+    budgets?: RateLimitBudgetName[];
+    hitImpl?: (
+      key: string,
+      windowMs: number,
+    ) => Promise<{ count: number; resetAtMs: number }>;
+  } = {},
+) {
   const reflector = {
     getAllAndOverride: vi.fn(() => options.budgets ?? undefined),
   } as unknown as Reflector;
@@ -127,9 +129,7 @@ describe('RateLimitGuard', () => {
 
     await guard.canActivate(context);
 
-    const hash = createHash('sha256')
-      .update('user@example.com')
-      .digest('hex');
+    const hash = createHash('sha256').update('user@example.com').digest('hex');
     expect(store.hit).toHaveBeenCalledWith(`account:${hash}`, 60_000);
   });
 

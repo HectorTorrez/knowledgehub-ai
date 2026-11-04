@@ -29,9 +29,7 @@ describe('AnswersModule wiring', () => {
       ],
     }).compile();
 
-    expect(moduleRef.get(ANSWER_PROVIDER)).toBeInstanceOf(
-      OpenAiAnswerProvider,
-    );
+    expect(moduleRef.get(ANSWER_PROVIDER)).toBeInstanceOf(OpenAiAnswerProvider);
     expect(moduleRef.get(AnswerConfig).model).toBe('gpt-4.1-mini');
   });
 });

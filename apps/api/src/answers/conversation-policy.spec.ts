@@ -8,9 +8,18 @@ import {
   type ConversationActor,
 } from './conversation-policy.js';
 
-const creator: ConversationActor = { userId: 'creator', canManageMembers: false };
-const teammate: ConversationActor = { userId: 'teammate', canManageMembers: false };
-const manager: ConversationActor = { userId: 'manager', canManageMembers: true };
+const creator: ConversationActor = {
+  userId: 'creator',
+  canManageMembers: false,
+};
+const teammate: ConversationActor = {
+  userId: 'teammate',
+  canManageMembers: false,
+};
+const manager: ConversationActor = {
+  userId: 'manager',
+  canManageMembers: true,
+};
 
 const privateConversation: ConversationAccess = {
   createdById: 'creator',
@@ -27,13 +36,43 @@ const legacyConversation: ConversationAccess = {
 
 describe('conversation access', () => {
   it.each([
-    ['creator, private', privateConversation, creator, [true, true, true, true]],
-    ['teammate, private', privateConversation, teammate, [false, false, false, false]],
-    ['manager, private', privateConversation, manager, [false, false, false, false]],
+    [
+      'creator, private',
+      privateConversation,
+      creator,
+      [true, true, true, true],
+    ],
+    [
+      'teammate, private',
+      privateConversation,
+      teammate,
+      [false, false, false, false],
+    ],
+    [
+      'manager, private',
+      privateConversation,
+      manager,
+      [false, false, false, false],
+    ],
     ['creator, shared', sharedConversation, creator, [true, true, true, true]],
-    ['teammate, shared', sharedConversation, teammate, [true, false, false, false]],
-    ['manager, shared', sharedConversation, manager, [true, false, false, false]],
-    ['teammate, legacy', legacyConversation, teammate, [true, true, false, false]],
+    [
+      'teammate, shared',
+      sharedConversation,
+      teammate,
+      [true, false, false, false],
+    ],
+    [
+      'manager, shared',
+      sharedConversation,
+      manager,
+      [true, false, false, false],
+    ],
+    [
+      'teammate, legacy',
+      legacyConversation,
+      teammate,
+      [true, true, false, false],
+    ],
     ['manager, legacy', legacyConversation, manager, [true, true, true, false]],
   ] as const)(
     '%s → read, continue, manage, share',

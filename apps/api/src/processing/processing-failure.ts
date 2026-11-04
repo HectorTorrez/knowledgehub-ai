@@ -72,7 +72,10 @@ export function classifyProcessingFailure(error: unknown): ProcessingFailure {
   }
 
   if (error instanceof ArchiveLimitError) {
-    return permanent('ARCHIVE_LIMIT_EXCEEDED', `${error.name}: ${error.message}`);
+    return permanent(
+      'ARCHIVE_LIMIT_EXCEEDED',
+      `${error.name}: ${error.message}`,
+    );
   }
 
   if (error instanceof UnsupportedDocumentTypeError) {

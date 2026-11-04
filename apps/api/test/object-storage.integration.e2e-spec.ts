@@ -82,9 +82,13 @@ describe.runIf(runIntegration)(
 
       const inspected = await storage.inspectObject(sourceKey);
       expect(inspected).not.toBeNull();
-      expect(inspected?.sizeBytes).toBe(new TextEncoder().encode(source).byteLength);
+      expect(inspected?.sizeBytes).toBe(
+        new TextEncoder().encode(source).byteLength,
+      );
       expect(inspected?.contentType).toBe('application/pdf');
-      expect(normalizeVersion(inspected?.version ?? '')).toBe(contentEtag(source));
+      expect(normalizeVersion(inspected?.version ?? '')).toBe(
+        contentEtag(source),
+      );
 
       const prefix = await storage.readObjectPrefix({
         key: sourceKey,

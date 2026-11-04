@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogSource, DocumentCatalog } from './answer-catalog.js';
 import type { AnswerSource } from './answer-context.js';
-import { AnswerQuestionError, MAX_ANSWER_QUESTION_CHARS } from './answer-policy.js';
+import {
+  AnswerQuestionError,
+  MAX_ANSWER_QUESTION_CHARS,
+} from './answer-policy.js';
 import { ANSWER_SYSTEM_PROMPT, buildAnswerPrompt } from './answer-prompt.js';
 
 function source(
@@ -21,9 +24,7 @@ function source(
   };
 }
 
-function catalogSource(
-  overrides: Partial<CatalogSource> = {},
-): CatalogSource {
+function catalogSource(overrides: Partial<CatalogSource> = {}): CatalogSource {
   return {
     marker: 2,
     chunkId: 'chunk-2',
@@ -46,8 +47,12 @@ function documentCatalog(): DocumentCatalog {
 describe('buildAnswerPrompt', () => {
   it('allows high-level summary citations while requiring sources for specific details', () => {
     expect(ANSWER_SYSTEM_PROMPT).toContain('high-level comparisons');
-    expect(ANSWER_SYSTEM_PROMPT).toContain('specific values, totals, counts, dates');
-    expect(ANSWER_SYSTEM_PROMPT).toContain('derived data from untrusted documents');
+    expect(ANSWER_SYSTEM_PROMPT).toContain(
+      'specific values, totals, counts, dates',
+    );
+    expect(ANSWER_SYSTEM_PROMPT).toContain(
+      'derived data from untrusted documents',
+    );
     expect(ANSWER_SYSTEM_PROMPT).toContain('insufficient_evidence');
     expect(ANSWER_SYSTEM_PROMPT).toContain('status "partial"');
     expect(ANSWER_SYSTEM_PROMPT).toContain('never guess those parts');
@@ -104,7 +109,11 @@ describe('buildAnswerPrompt', () => {
   it('separates multiple sources with a blank line', () => {
     const prompt = buildAnswerPrompt('Question?', [
       source(1),
-      source(2, { documentTitle: 'Handbook', pageNumber: 4, content: 'Gamma.' }),
+      source(2, {
+        documentTitle: 'Handbook',
+        pageNumber: 4,
+        content: 'Gamma.',
+      }),
     ]);
 
     expect(prompt.user).toContain(
@@ -159,9 +168,11 @@ describe('buildAnswerPrompt', () => {
   });
 
   it('renders prior conversation turns before the sources', () => {
-    const prompt = buildAnswerPrompt('What about beta?', [source(1)], [
-      { question: 'What is alpha?', answer: 'Alpha [1].' },
-    ]);
+    const prompt = buildAnswerPrompt(
+      'What about beta?',
+      [source(1)],
+      [{ question: 'What is alpha?', answer: 'Alpha [1].' }],
+    );
 
     expect(prompt.user).toContain('Previous conversation:');
     expect(prompt.user).toContain('User: What is alpha?');
@@ -179,9 +190,11 @@ describe('buildAnswerPrompt', () => {
   });
 
   it('escapes markup in prior conversation turns', () => {
-    const prompt = buildAnswerPrompt('Question?', [source(1)], [
-      { question: '<b>hi</b>', answer: '<script>x</script>' },
-    ]);
+    const prompt = buildAnswerPrompt(
+      'Question?',
+      [source(1)],
+      [{ question: '<b>hi</b>', answer: '<script>x</script>' }],
+    );
 
     expect(prompt.user).toContain('User: &lt;b&gt;hi&lt;/b&gt;');
     expect(prompt.user).not.toContain('<script>');

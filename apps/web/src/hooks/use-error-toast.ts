@@ -49,10 +49,7 @@ export function useReportError(): (
   );
 }
 
-export function useQueryErrorToast(
-  error: unknown,
-  onRetry?: () => void,
-): void {
+export function useQueryErrorToast(error: unknown, onRetry?: () => void): void {
   const { toast } = useToast();
   const reported = useRef<unknown>(null);
   const retry = useRef(onRetry);

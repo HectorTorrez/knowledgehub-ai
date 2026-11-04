@@ -98,9 +98,9 @@ describe('validateEnv', () => {
   });
 
   it('rejects a malformed JWT_ACCESS_TTL', () => {
-    expect(() =>
-      validateEnv({ ...validEnv, JWT_ACCESS_TTL: '15x' }),
-    ).toThrow(/JWT_ACCESS_TTL/);
+    expect(() => validateEnv({ ...validEnv, JWT_ACCESS_TTL: '15x' })).toThrow(
+      /JWT_ACCESS_TTL/,
+    );
   });
 
   it('rejects an invalid refresh-token lifetime', () => {
@@ -125,7 +125,9 @@ describe('validateEnv', () => {
 
   it('defaults proxy trust off and accepts an explicit hop count', () => {
     expect(validateEnv({ ...validEnv }).TRUST_PROXY).toBe('false');
-    expect(validateEnv({ ...validEnv, TRUST_PROXY: '2' }).TRUST_PROXY).toBe('2');
+    expect(validateEnv({ ...validEnv, TRUST_PROXY: '2' }).TRUST_PROXY).toBe(
+      '2',
+    );
   });
 
   it('rejects unsafe proxy trust values', () => {
@@ -200,9 +202,9 @@ describe('validateEnv', () => {
   });
 
   it('requires the storage block in production', () => {
-    expect(() =>
-      validateEnv({ ...validEnv, NODE_ENV: 'production' }),
-    ).toThrow(/STORAGE_BUCKET/);
+    expect(() => validateEnv({ ...validEnv, NODE_ENV: 'production' })).toThrow(
+      /STORAGE_BUCKET/,
+    );
   });
 
   it('accepts a complete storage block in production', () => {
@@ -225,7 +227,8 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({
         ...validProductionEnv,
-        JWT_ACCESS_SECRET: 'replace-me-with-a-random-secret-of-at-least-32-chars',
+        JWT_ACCESS_SECRET:
+          'replace-me-with-a-random-secret-of-at-least-32-chars',
       }),
     ).toThrow(/JWT_ACCESS_SECRET/);
 
@@ -383,9 +386,9 @@ describe('validateEnv', () => {
       validateEnv({ ...validEnv, ANSWERS_ENABLED: 'false' }).OPENAI_API_KEY,
     ).toBeUndefined();
 
-    expect(() =>
-      validateEnv({ ...validEnv, ANSWERS_ENABLED: 'true' }),
-    ).toThrow(/OPENAI_API_KEY/);
+    expect(() => validateEnv({ ...validEnv, ANSWERS_ENABLED: 'true' })).toThrow(
+      /OPENAI_API_KEY/,
+    );
 
     expect(
       validateEnv({
@@ -413,27 +416,27 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...validEnv, ANSWER_MAX_SOURCES: '0' })).toThrow(
       /ANSWER_MAX_SOURCES/,
     );
-    expect(() => validateEnv({ ...validEnv, ANSWER_MAX_SOURCES: '21' })).toThrow(
-      /ANSWER_MAX_SOURCES/,
-    );
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWER_MAX_SOURCES: '21' }),
+    ).toThrow(/ANSWER_MAX_SOURCES/);
     expect(() =>
       validateEnv({ ...validEnv, ANSWER_CONTEXT_MAX_CHARS: '999' }),
     ).toThrow(/ANSWER_CONTEXT_MAX_CHARS/);
     expect(() =>
       validateEnv({ ...validEnv, ANSWER_CONTEXT_MAX_CHARS: '100001' }),
     ).toThrow(/ANSWER_CONTEXT_MAX_CHARS/);
-    expect(() => validateEnv({ ...validEnv, ANSWER_MIN_SIMILARITY: '-0.1' })).toThrow(
-      /ANSWER_MIN_SIMILARITY/,
-    );
-    expect(() => validateEnv({ ...validEnv, ANSWER_MIN_SIMILARITY: '1.1' })).toThrow(
-      /ANSWER_MIN_SIMILARITY/,
-    );
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWER_MIN_SIMILARITY: '-0.1' }),
+    ).toThrow(/ANSWER_MIN_SIMILARITY/);
+    expect(() =>
+      validateEnv({ ...validEnv, ANSWER_MIN_SIMILARITY: '1.1' }),
+    ).toThrow(/ANSWER_MIN_SIMILARITY/);
   });
 
   it('rejects a non-boolean answers enabled flag', () => {
-    expect(() =>
-      validateEnv({ ...validEnv, ANSWERS_ENABLED: 'yes' }),
-    ).toThrow(/ANSWERS_ENABLED/);
+    expect(() => validateEnv({ ...validEnv, ANSWERS_ENABLED: 'yes' })).toThrow(
+      /ANSWERS_ENABLED/,
+    );
   });
 
   it('rejects a malformed OpenAI base URL', () => {

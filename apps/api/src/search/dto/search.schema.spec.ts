@@ -26,9 +26,12 @@ describe('searchSchema', () => {
   });
 
   it('rejects a limit outside the bounds', () => {
-    expect(searchSchema.safeParse({ q: 'hello', limit: 0 }).success).toBe(false);
+    expect(searchSchema.safeParse({ q: 'hello', limit: 0 }).success).toBe(
+      false,
+    );
     expect(
-      searchSchema.safeParse({ q: 'hello', limit: SEARCH_MAX_LIMIT + 1 }).success,
+      searchSchema.safeParse({ q: 'hello', limit: SEARCH_MAX_LIMIT + 1 })
+        .success,
     ).toBe(false);
   });
 
@@ -50,10 +53,23 @@ describe('searchSchema', () => {
 
   it('validates document and date filters', () => {
     const id = '00000000-0000-4000-8000-000000000001';
-    expect(searchSchema.parse({ q: 'hello', documentIds: id, createdAfter: '2026-01-01' }).documentIds).toEqual([id]);
-    expect(searchSchema.safeParse({ q: 'hello', documentIds: Array(21).fill(id) }).success).toBe(false);
-    expect(searchSchema.safeParse({ q: 'hello', documentIds: ['bad'] }).success).toBe(false);
-    expect(searchSchema.safeParse({ q: 'hello', createdBefore: 'invalid' }).success).toBe(false);
+    expect(
+      searchSchema.parse({
+        q: 'hello',
+        documentIds: id,
+        createdAfter: '2026-01-01',
+      }).documentIds,
+    ).toEqual([id]);
+    expect(
+      searchSchema.safeParse({ q: 'hello', documentIds: Array(21).fill(id) })
+        .success,
+    ).toBe(false);
+    expect(
+      searchSchema.safeParse({ q: 'hello', documentIds: ['bad'] }).success,
+    ).toBe(false);
+    expect(
+      searchSchema.safeParse({ q: 'hello', createdBefore: 'invalid' }).success,
+    ).toBe(false);
   });
 
   it('rejects unknown properties', () => {
