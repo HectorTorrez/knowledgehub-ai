@@ -7,6 +7,7 @@ import { SecurityAuditModule } from './audit/security-audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { validateEnv } from './config/env.validation.js';
 import { DocumentsModule } from './documents/documents.module.js';
+import { EmailModule } from './email/email.module.js';
 import { EmbeddingsModule } from './embeddings/embeddings.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MetricsModule } from './metrics/metrics.module.js';
@@ -29,6 +30,7 @@ import { SearchModule } from './search/search.module.js';
     CollectionsModule,
     ProcessingModule,
     RateLimitModule,
+    EmailModule,
     EmbeddingsModule,
     RetrievalModule,
     SearchModule,
