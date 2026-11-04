@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Translator } from '~/lib/i18n/translate';
 
 const EMAIL_MAX_LENGTH = 254;
 const NAME_MAX_LENGTH = 100;
@@ -22,150 +23,172 @@ export function isAllowedUploadContentType(value: string): boolean {
   return (ALLOWED_UPLOAD_CONTENT_TYPES as readonly string[]).includes(value);
 }
 
-const email = z
-  .string()
-  .trim()
-  .min(1, 'Email is required.')
-  .max(
-    EMAIL_MAX_LENGTH,
-    `Email must be at most ${EMAIL_MAX_LENGTH} characters.`,
-  )
-  .pipe(z.email('Enter a valid email address.'));
-
-export const loginFormSchema = z.object({
-  email,
-  password: z
+function emailField(t: Translator) {
+  return z
     .string()
-    .min(1, 'Password is required.')
-    .max(
-      PASSWORD_MAX_LENGTH,
-      `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`,
-    ),
-});
-
-export const registerFormSchema = z.object({
-  email,
-  password: z
-    .string()
+    .trim()
     .min(
-      PASSWORD_MIN_LENGTH,
-      `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`,
+      1,
+      t('validation.required', { field: t('validation.fieldNames.email') }),
     )
     .max(
-      PASSWORD_MAX_LENGTH,
-      `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`,
-    ),
-  firstName: z
-    .string()
-    .trim()
-    .min(1, 'First name is required.')
-    .max(
-      NAME_MAX_LENGTH,
-      `First name must be at most ${NAME_MAX_LENGTH} characters.`,
-    ),
-  lastName: z
-    .string()
-    .trim()
-    .min(1, 'Last name is required.')
-    .max(
-      NAME_MAX_LENGTH,
-      `Last name must be at most ${NAME_MAX_LENGTH} characters.`,
-    ),
-});
+      EMAIL_MAX_LENGTH,
+      t('validation.tooLong', {
+        field: t('validation.fieldNames.email'),
+        max: EMAIL_MAX_LENGTH,
+      }),
+    )
+    .pipe(z.email(t('validation.emailInvalid')));
+}
 
-export const profileFormSchema = z.object({
-  firstName: z
+function nameField(
+  t: Translator,
+  field: 'firstName' | 'lastName' | 'organizationName',
+) {
+  return z
     .string()
     .trim()
-    .min(1, 'First name is required.')
+    .min(
+      1,
+      t('validation.required', { field: t(`validation.fieldNames.${field}`) }),
+    )
     .max(
       NAME_MAX_LENGTH,
-      `First name must be at most ${NAME_MAX_LENGTH} characters.`,
-    ),
-  lastName: z
-    .string()
-    .trim()
-    .min(1, 'Last name is required.')
-    .max(
-      NAME_MAX_LENGTH,
-      `Last name must be at most ${NAME_MAX_LENGTH} characters.`,
-    ),
-});
+      t('validation.tooLong', {
+        field: t(`validation.fieldNames.${field}`),
+        max: NAME_MAX_LENGTH,
+      }),
+    );
+}
 
-export const changePasswordFormSchema = z
-  .object({
-    currentPassword: z.string().min(1, 'Enter your current password.'),
-    newPassword: z
+export const loginFormSchema = (t: Translator) =>
+  z.object({
+    email: emailField(t),
+    password: z
       .string()
       .min(
-        PASSWORD_MIN_LENGTH,
-        `Use at least ${PASSWORD_MIN_LENGTH} characters.`,
+        1,
+        t('validation.required', {
+          field: t('validation.fieldNames.password'),
+        }),
       )
       .max(
         PASSWORD_MAX_LENGTH,
-        `Use at most ${PASSWORD_MAX_LENGTH} characters.`,
+        t('validation.passwordTooLong', { max: PASSWORD_MAX_LENGTH }),
       ),
-    confirmPassword: z.string().min(1, 'Confirm your new password.'),
-  })
-  .refine((value) => value.newPassword === value.confirmPassword, {
-    message: 'The passwords do not match.',
-    path: ['confirmPassword'],
-  })
-  .refine((value) => value.newPassword !== value.currentPassword, {
-    message: 'Choose a password different from your current one.',
-    path: ['newPassword'],
   });
 
-export const organizationNameSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'Organization name is required.')
-    .max(
-      NAME_MAX_LENGTH,
-      `Organization name must be at most ${NAME_MAX_LENGTH} characters.`,
-    ),
-});
+export const registerFormSchema = (t: Translator) =>
+  z.object({
+    email: emailField(t),
+    password: z
+      .string()
+      .min(
+        PASSWORD_MIN_LENGTH,
+        t('validation.passwordTooShort', { min: PASSWORD_MIN_LENGTH }),
+      )
+      .max(
+        PASSWORD_MAX_LENGTH,
+        t('validation.passwordTooLong', { max: PASSWORD_MAX_LENGTH }),
+      ),
+    firstName: nameField(t, 'firstName'),
+    lastName: nameField(t, 'lastName'),
+  });
 
-export const memberEmailSchema = z.object({
-  email,
-});
+export const profileFormSchema = (t: Translator) =>
+  z.object({
+    firstName: nameField(t, 'firstName'),
+    lastName: nameField(t, 'lastName'),
+  });
 
-export const questionSchema = z.object({
-  question: z
-    .string()
-    .trim()
-    .min(1, 'Enter a question.')
-    .max(
-      QUESTION_MAX_LENGTH,
-      `Questions must be at most ${QUESTION_MAX_LENGTH} characters.`,
-    ),
-});
+export const changePasswordFormSchema = (t: Translator) =>
+  z
+    .object({
+      currentPassword: z
+        .string()
+        .min(1, t('validation.currentPasswordRequired')),
+      newPassword: z
+        .string()
+        .min(
+          PASSWORD_MIN_LENGTH,
+          t('validation.newPasswordTooShort', { min: PASSWORD_MIN_LENGTH }),
+        )
+        .max(
+          PASSWORD_MAX_LENGTH,
+          t('validation.newPasswordTooLong', { max: PASSWORD_MAX_LENGTH }),
+        ),
+      confirmPassword: z
+        .string()
+        .min(1, t('validation.confirmPasswordRequired')),
+    })
+    .refine((value) => value.newPassword === value.confirmPassword, {
+      message: t('validation.passwordsMismatch'),
+      path: ['confirmPassword'],
+    })
+    .refine((value) => value.newPassword !== value.currentPassword, {
+      message: t('validation.passwordUnchanged'),
+      path: ['newPassword'],
+    });
 
-export const documentTitleSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(1, 'A title is required.')
-    .max(
-      DOCUMENT_TITLE_MAX_LENGTH,
-      `Title must be at most ${DOCUMENT_TITLE_MAX_LENGTH} characters.`,
-    ),
-});
+export const organizationNameSchema = (t: Translator) =>
+  z.object({
+    name: nameField(t, 'organizationName'),
+  });
 
-export const searchQuerySchema = z.object({
-  q: z
-    .string()
-    .trim()
-    .min(1, 'Enter a search query.')
-    .max(
-      SEARCH_QUERY_MAX_LENGTH,
-      `Search queries must be at most ${SEARCH_QUERY_MAX_LENGTH} characters.`,
-    ),
-});
+export const memberEmailSchema = (t: Translator) =>
+  z.object({
+    email: emailField(t),
+  });
 
-export type LoginForm = z.infer<typeof loginFormSchema>;
-export type RegisterForm = z.infer<typeof registerFormSchema>;
-export type OrganizationNameForm = z.infer<typeof organizationNameSchema>;
-export type MemberEmailForm = z.infer<typeof memberEmailSchema>;
-export type QuestionForm = z.infer<typeof questionSchema>;
+export const questionSchema = (t: Translator) =>
+  z.object({
+    question: z
+      .string()
+      .trim()
+      .min(1, t('validation.questionRequired'))
+      .max(
+        QUESTION_MAX_LENGTH,
+        t('validation.tooLong', {
+          field: t('validation.fieldNames.question'),
+          max: QUESTION_MAX_LENGTH,
+        }),
+      ),
+  });
+
+export const documentTitleSchema = (t: Translator) =>
+  z.object({
+    title: z
+      .string()
+      .trim()
+      .min(1, t('validation.titleRequired'))
+      .max(
+        DOCUMENT_TITLE_MAX_LENGTH,
+        t('validation.tooLong', {
+          field: t('validation.fieldNames.title'),
+          max: DOCUMENT_TITLE_MAX_LENGTH,
+        }),
+      ),
+  });
+
+export const searchQuerySchema = (t: Translator) =>
+  z.object({
+    q: z
+      .string()
+      .trim()
+      .min(1, t('validation.searchRequired'))
+      .max(
+        SEARCH_QUERY_MAX_LENGTH,
+        t('validation.tooLong', {
+          field: t('validation.fieldNames.searchQuery'),
+          max: SEARCH_QUERY_MAX_LENGTH,
+        }),
+      ),
+  });
+
+export type LoginForm = z.infer<ReturnType<typeof loginFormSchema>>;
+export type RegisterForm = z.infer<ReturnType<typeof registerFormSchema>>;
+export type OrganizationNameForm = z.infer<
+  ReturnType<typeof organizationNameSchema>
+>;
+export type MemberEmailForm = z.infer<ReturnType<typeof memberEmailSchema>>;
+export type QuestionForm = z.infer<ReturnType<typeof questionSchema>>;
