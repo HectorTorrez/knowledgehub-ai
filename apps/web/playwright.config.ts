@@ -4,7 +4,8 @@ const port = process.env.PLAYWRIGHT_PORT ?? '3100';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: false,
+  fullyParallel: true,
+  workers: process.env.CI ? 4 : undefined,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: {
@@ -32,6 +33,7 @@ export default defineConfig({
     },
     {
       name: 'mobile',
+      testMatch: /(mobile|a11y|smoke|states|conversation-sharing)\.spec\.ts/,
       use: {
         browserName: 'chromium',
         viewport: { width: 390, height: 844 },
