@@ -1,14 +1,9 @@
 import { usageProgress } from '~/lib/usage';
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { History, LogOut, Settings, Trash2 } from 'lucide-react';
+import { LogOut, Settings, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { EmptyState } from '~/components/empty-state';
+import { OrganizationActivity } from '~/components/organization-activity';
 import { OrganizationMembers } from '~/components/organization-members';
 import { RouteError } from '~/components/route-states';
 import { PageHeader } from '~/components/page-header';
@@ -36,8 +31,6 @@ import { Progress } from '~/components/ui/progress';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
-import { activityApi } from '~/lib/api/activity';
-import { formatActivity } from '~/lib/activity-format';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime, formatRole } from '~/lib/format';
@@ -91,15 +84,6 @@ function OrganizationSettingsPage() {
     enabled: canManage,
   });
   useQueryErrorToast(usage.error, () => void usage.refetch());
-  const activity = useInfiniteQuery({
-    queryKey: ['organizations', organizationId, 'activity'],
-    queryFn: ({ pageParam }) =>
-      activityApi.list(organizationId, { cursor: pageParam }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
-    enabled: canManage,
-  });
-  useQueryErrorToast(activity.error, () => void activity.refetch());
   const currentName = organization.data?.organization.name ?? '';
   const nameDraft = name ?? currentName;
   const dirty = name !== null && name !== currentName;
@@ -316,52 +300,7 @@ function OrganizationSettingsPage() {
       ) : null}
 
       {canManage ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('orgSettings.activity')}</CardTitle>
-            <CardDescription>
-              {t('orgSettings.activityDescription')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {activity.isPending ? (
-              <Skeleton className="h-24 w-full" />
-            ) : activity.isError ? (
-              <RouteError
-                title={t('orgSettings.activityLoadError')}
-                onRetry={() => void activity.refetch()}
-              />
-            ) : activity.data?.pages.every(
-                (page) => page.activities.length === 0,
-              ) ? (
-              <EmptyState icon={History} title={t('orgSettings.noActivity')} />
-            ) : (
-              <ul className="space-y-4">
-                {activity.data?.pages
-                  .flatMap((page) => page.activities)
-                  .map((item) => (
-                    <li key={item.id} className="text-sm">
-                      <p>{formatActivity(item, t)}</p>
-                      <p className="text-muted-foreground">
-                        {formatDateTime(item.createdAt, locale)}
-                      </p>
-                    </li>
-                  ))}
-              </ul>
-            )}
-            {activity.hasNextPage ? (
-              <Button
-                variant="outline"
-                disabled={activity.isFetchingNextPage}
-                onClick={() => void activity.fetchNextPage()}
-              >
-                {activity.isFetchingNextPage
-                  ? t('orgSettings.loading')
-                  : t('orgSettings.loadMore')}
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
+        <OrganizationActivity organizationId={organizationId} />
       ) : null}
 
       <Card className="border-destructive/40">
