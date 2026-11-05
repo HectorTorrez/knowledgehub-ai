@@ -89,9 +89,14 @@ and offers a button that fills the form for you:
 | `demo@knowledgehub.ai` | `DemoKnowledge2026!` |
 
 `pnpm db:seed` creates that user with an owner membership in the
-`Northwind Labs` organization. The seed is idempotent: running it again refreshes
-the password and profile, and it only creates the organization when the demo user
-owns none. The credentials live in `apps/api/prisma/seed.ts` and
+`Northwind Labs` organization, three fictional teammates, and three sample
+documents. Teammates have random passwords and cannot be used as shared demo
+logins. Sample documents are uploaded to the configured object storage and
+queued for normal processing; the processing worker and an OpenAI API key are
+needed to make them searchable. If storage is not configured, the seed skips
+the documents and reports that fact. Running it again refreshes the demo user's
+password and profile without duplicating the seeded members or documents. The
+credentials live in `apps/api/prisma/seed.ts` and
 `apps/web/src/lib/demo-account.ts`; keep both in sync if you change them.
 
 ## Local object storage (MinIO via Docker Compose)
