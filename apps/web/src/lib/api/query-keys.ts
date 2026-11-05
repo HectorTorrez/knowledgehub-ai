@@ -27,6 +27,8 @@ function documentsListKey(
 }
 
 export const queryKeys = {
+  invitationPreview: (token: string) =>
+    ['invitations', 'preview', token] as const,
   organizations: {
     all: ['organizations'] as const,
     list: () => ['organizations', 'list'] as const,

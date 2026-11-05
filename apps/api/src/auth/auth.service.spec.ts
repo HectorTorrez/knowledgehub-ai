@@ -41,6 +41,10 @@ function createHarness(options: HarnessOptions = {}) {
       updateMany: vi.fn(async (_args?: unknown) => ({ count: 1 })),
     },
     user: {
+      create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+        ...storedUser,
+        ...data,
+      })),
       update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
         ...storedUser,
         ...data,
@@ -101,17 +105,59 @@ function createHarness(options: HarnessOptions = {}) {
     accessTtlMs: ACCESS_TTL_MS,
   } as unknown as AuthConfig;
 
+  const verification = { sendWelcome: vi.fn() };
+
   const service = new AuthService(
     prisma as unknown as PrismaService,
     passwords as unknown as PasswordService,
     tokens as unknown as TokenService,
     authConfig,
     { record: vi.fn() } as unknown as SecurityAuditService,
-    { sendWelcome: vi.fn() } as unknown as EmailVerificationService,
+    verification as unknown as EmailVerificationService,
   );
 
-  return { service, prisma, passwords, tokens, tx };
+  return { service, prisma, passwords, tokens, tx, verification };
 }
+
+describe('AuthService.registerInvited', () => {
+  const invitedAccount = {
+    email: ' Invitee@Example.com ',
+    password: 'a-strong-password',
+    firstName: 'Grace',
+    lastName: 'Hopper',
+  };
+
+  it('creates a verified account and provisions it in the same transaction', async () => {
+    const { service, prisma, tx, verification } = createHarness();
+    const provision = vi.fn(async (_tx: unknown, _userId: string) => {});
+
+    const result = await service.registerInvited(invitedAccount, provision);
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        email: 'invitee@example.com',
+        emailVerifiedAt: expect.any(Date),
+      }),
+    });
+    expect(provision).toHaveBeenCalledWith(tx, 'user-1');
+    expect(result.user.emailVerified).toBe(true);
+    expect(result.accessToken).toBe('access-token-value');
+    expect(verification.sendWelcome).not.toHaveBeenCalled();
+  });
+
+  it('opens no session when provisioning fails', async () => {
+    const { service, tx, tokens } = createHarness();
+
+    await expect(
+      service.registerInvited(invitedAccount, async () => {
+        throw new Error('invitation already claimed');
+      }),
+    ).rejects.toThrow('invitation already claimed');
+    expect(tx.authSession.create).not.toHaveBeenCalled();
+    expect(tokens.signAccessToken).not.toHaveBeenCalled();
+  });
+});
 
 describe('AuthService.login', () => {
   it('authenticates a valid credential and returns only the public user', async () => {

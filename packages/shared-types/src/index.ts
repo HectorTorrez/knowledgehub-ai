@@ -311,6 +311,44 @@ export interface AcceptInvitationResponse {
 }
 
 /**
+ * Request body of `POST /invitations/preview`. Public: the token itself is the
+ * credential. Unknown, expired or used tokens are refused with 404.
+ */
+export interface InvitationPreviewRequest {
+  token: string;
+}
+
+/**
+ * Response body of `POST /invitations/preview`. `accountExists` tells the
+ * invitee whether to sign in or let the invitation create their account.
+ */
+export interface InvitationPreviewResponse {
+  email: string;
+  role: OrganizationRole;
+  organizationName: string;
+  accountExists: boolean;
+}
+
+/**
+ * Request body of `POST /invitations/accept-new-account`. Creates an account
+ * for the invited email, already verified because the token proves inbox
+ * ownership, joins the organization and signs the browser in. Refused with 409
+ * when the email already has an account and with 404 for an invalid token.
+ */
+export interface AcceptInvitationWithNewAccountRequest {
+  token: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+}
+
+/** Response body of `POST /invitations/accept-new-account`. */
+export interface AcceptInvitationWithNewAccountResponse {
+  user: PublicUser;
+  organizationId: string;
+}
+
+/**
  * Processing lifecycle of a document. `PENDING` means registered but not yet
  * verified; `PROCESSING` means the uploaded bytes are verified and promoted to
  * server-controlled storage and a durable processing job exists; `READY` means

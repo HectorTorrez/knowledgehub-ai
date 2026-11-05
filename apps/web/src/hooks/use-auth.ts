@@ -1,9 +1,19 @@
-import type { LoginRequest, RegisterRequest } from '@knowledgehub/shared-types';
+import type {
+  AcceptInvitationWithNewAccountRequest,
+  LoginRequest,
+  RegisterRequest,
+} from '@knowledgehub/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '~/components/ui/toast';
 import { useReportError } from '~/hooks/use-error-toast';
 import { accountApi } from '~/lib/api/account';
-import { login, logout, register, sessionQuery } from '~/lib/auth/session';
+import {
+  acceptInvitationWithNewAccount,
+  login,
+  logout,
+  register,
+  sessionQuery,
+} from '~/lib/auth/session';
 import { useLocale, useT } from '~/lib/i18n/hooks';
 
 export function useSession() {
@@ -23,6 +33,15 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: (input: RegisterRequest) => register(client, input),
+  });
+}
+
+export function useAcceptInvitationWithNewAccount() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: AcceptInvitationWithNewAccountRequest) =>
+      acceptInvitationWithNewAccount(client, input),
   });
 }
 

@@ -10,11 +10,18 @@ import type {
   EmailLocale,
   CreateInvitationResponse,
   InvitationListResponse,
+  InvitationPreviewResponse,
   OrganizationInvitationSummary,
   OrganizationRole,
 } from '@knowledgehub/shared-types';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
+import {
+  AuthService,
+  type AuthOptions,
+  type AuthResult,
+} from '../auth/auth.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { ActivityService } from '../activity/activity.service.js';
 import { EMAIL_SENDER, type EmailSender } from '../email/email-sender.port.js';
 import { invitationEmail } from '../email/templates.js';
@@ -22,6 +29,7 @@ import { canManageRole } from './permissions.js';
 import { requireCapability } from './require-owner.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { normalizeEmail } from '../users/email.js';
+import type { AcceptInvitationWithNewAccountInput } from './dto/accept-invitation.schema.js';
 import type { OrganizationContext } from './organization-context.js';
 
 const INVITATION_TOKEN_BYTES = 32;
@@ -33,6 +41,17 @@ interface InvitationProjection {
   role: OrganizationRole;
   expiresAt: Date;
   createdAt: Date;
+}
+
+interface PendingInvitation {
+  id: string;
+  organizationId: string;
+  email: string;
+  role: OrganizationRole;
+}
+
+function invalidInvitation(): NotFoundException {
+  return new NotFoundException('Invitation is not valid');
 }
 
 function hashToken(token: string): string {
@@ -60,6 +79,7 @@ export class InvitationsService {
     private readonly config: ConfigService,
     private readonly activity: ActivityService,
     @Inject(EMAIL_SENDER) private readonly email: EmailSender,
+    private readonly auth: AuthService,
   ) {}
 
   async create(
@@ -169,21 +189,32 @@ export class InvitationsService {
     });
   }
 
+  async preview(token: string): Promise<InvitationPreviewResponse> {
+    const invitation = await this.findPending(token);
+    const [organization, account] = await Promise.all([
+      this.prisma.organization.findUniqueOrThrow({
+        where: { id: invitation.organizationId },
+        select: { name: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { email: invitation.email },
+        select: { id: true },
+      }),
+    ]);
+
+    return {
+      email: invitation.email,
+      role: invitation.role,
+      organizationName: organization.name,
+      accountExists: account !== null,
+    };
+  }
+
   async accept(
     userId: string,
     token: string,
   ): Promise<AcceptInvitationResponse> {
-    const invitation = await this.prisma.organizationInvitation.findUnique({
-      where: { tokenHash: hashToken(token) },
-    });
-
-    if (
-      !invitation ||
-      invitation.acceptedAt !== null ||
-      invitation.expiresAt.getTime() <= Date.now()
-    ) {
-      throw new NotFoundException('Invitation is not valid');
-    }
+    const invitation = await this.findPending(token);
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -202,37 +233,93 @@ export class InvitationsService {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.membership.upsert({
-        where: {
-          userId_organizationId: {
-            userId,
-            organizationId: invitation.organizationId,
-          },
-        },
-        create: {
-          userId,
-          organizationId: invitation.organizationId,
-          role: invitation.role,
-        },
-        update: {},
-      });
-
-      await tx.organizationInvitation.update({
-        where: { id: invitation.id },
-        data: { acceptedAt: new Date() },
-      });
-      await this.activity.record(tx, {
-        organizationId: invitation.organizationId,
-        actorId: userId,
-        action: 'INVITATION_ACCEPTED',
-        targetType: 'invitation',
-        targetId: invitation.id,
-        metadata: { email: invitation.email },
-      });
-    });
+    await this.prisma.$transaction((tx) => this.join(tx, invitation, userId));
 
     return { organizationId: invitation.organizationId };
+  }
+
+  async acceptWithNewAccount(
+    input: AcceptInvitationWithNewAccountInput,
+    options: AuthOptions = {},
+  ): Promise<AuthResult & { organizationId: string }> {
+    const invitation = await this.findPending(input.token);
+
+    const result = await this.auth.registerInvited(
+      {
+        email: invitation.email,
+        password: input.password,
+        firstName: input.firstName,
+        lastName: input.lastName,
+      },
+      (tx, userId) => this.join(tx, invitation, userId),
+      options,
+    );
+
+    return { ...result, organizationId: invitation.organizationId };
+  }
+
+  private async findPending(token: string): Promise<PendingInvitation> {
+    const invitation = await this.prisma.organizationInvitation.findUnique({
+      where: { tokenHash: hashToken(token) },
+      select: {
+        id: true,
+        organizationId: true,
+        email: true,
+        role: true,
+        expiresAt: true,
+        acceptedAt: true,
+      },
+    });
+
+    if (
+      !invitation ||
+      invitation.acceptedAt !== null ||
+      invitation.expiresAt.getTime() <= Date.now()
+    ) {
+      throw invalidInvitation();
+    }
+
+    return invitation;
+  }
+
+  private async join(
+    tx: Prisma.TransactionClient,
+    invitation: PendingInvitation,
+    userId: string,
+  ): Promise<void> {
+    const now = new Date();
+    const claimed = await tx.organizationInvitation.updateMany({
+      where: { id: invitation.id, acceptedAt: null, expiresAt: { gt: now } },
+      data: { acceptedAt: now },
+    });
+
+    if (claimed.count === 0) {
+      throw invalidInvitation();
+    }
+
+    await tx.membership.upsert({
+      where: {
+        userId_organizationId: {
+          userId,
+          organizationId: invitation.organizationId,
+        },
+      },
+      create: {
+        userId,
+        organizationId: invitation.organizationId,
+        role: invitation.role,
+      },
+      update: {},
+    });
+
+    await this.activity.record(tx, {
+      organizationId: invitation.organizationId,
+      actorId: userId,
+      action: 'INVITATION_ACCEPTED',
+      targetType: 'invitation',
+      targetId: invitation.id,
+      metadata: { email: invitation.email },
+    });
   }
 
   private async sendInvitationEmail(
@@ -253,7 +340,7 @@ export class InvitationsService {
     ]);
 
     const acceptUrl = new URL(
-      '/invitations/accept',
+      '/invite',
       this.config.getOrThrow<string>('APP_URL'),
     );
     acceptUrl.searchParams.set('token', token);

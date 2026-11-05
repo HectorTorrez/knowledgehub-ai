@@ -237,6 +237,38 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === '/invitations/preview') {
+      const { token } = route.request().postDataJSON() as { token: string };
+      const accountExists = { 'new-invite': false, 'existing-invite': true }[
+        token
+      ];
+      await route.fulfill(
+        accountExists === undefined
+          ? json({ statusCode: 404, message: 'Invitation is not valid' }, 404)
+          : json({
+              email: 'grace@example.test',
+              role: 'MEMBER',
+              organizationName: 'Acme',
+              accountExists,
+            }),
+      );
+      return;
+    }
+
+    if (path === '/invitations/accept-new-account') {
+      authenticated = true;
+      await route.fulfill(
+        json(
+          {
+            user: { ...USER, email: 'grace@example.test' },
+            organizationId: 'org-1',
+          },
+          201,
+        ),
+      );
+      return;
+    }
+
     if (path === '/auth/verify-email/resend') {
       await route.fulfill({ status: 204 });
       return;

@@ -1,4 +1,6 @@
 import type {
+  AcceptInvitationWithNewAccountRequest,
+  AcceptInvitationWithNewAccountResponse,
   LoginRequest,
   LoginResponse,
   PublicUser,
@@ -21,6 +23,7 @@ const SESSION_PATH = '/auth/session';
 const LOGIN_PATH = '/auth/login';
 const REGISTER_PATH = '/auth/register';
 const LOGOUT_PATH = '/auth/logout';
+const INVITATION_SIGNUP_PATH = '/invitations/accept-new-account';
 const SESSION_STALE_TIME_MS = 60_000;
 const SERVER_ERROR_STATUS = 500;
 
@@ -62,6 +65,20 @@ export async function register(
   establishSession(client, user);
 
   return user;
+}
+
+export async function acceptInvitationWithNewAccount(
+  client: QueryClient,
+  input: AcceptInvitationWithNewAccountRequest,
+): Promise<AcceptInvitationWithNewAccountResponse> {
+  const response = await apiFetch<AcceptInvitationWithNewAccountResponse>(
+    INVITATION_SIGNUP_PATH,
+    { method: 'POST', body: input },
+  );
+
+  establishSession(client, response.user);
+
+  return response;
 }
 
 export async function logout(client: QueryClient): Promise<void> {

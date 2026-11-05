@@ -581,6 +581,28 @@ export const en = {
     verifyFirst: 'Confirm your email first',
     verifyFirstDescription:
       'To join an organization, confirm {email} with the link we emailed you. Then come back to this page.',
+    signup: {
+      pageTitle: 'Join your team · KnowledgeHub AI',
+      title: 'Join {organization}',
+      description: 'You were invited to join {organization} as {role}.',
+      autoAccountTitle: 'We will create your account automatically',
+      autoAccountDescription:
+        'There is no KnowledgeHub account for {email} yet. When you accept, we create it for you, confirm your email and take you straight to {organization}.',
+      emailHint: 'This invitation is for this email address.',
+      passwordLabel: 'Choose a password',
+      submit: 'Create my account and join',
+      submitting: 'Creating your account…',
+      created: 'Your account is ready',
+      createdDescription: 'Welcome to {organization}.',
+      existingTitle: 'Sign in to join {organization}',
+      existingDescription:
+        'You already have an account with {email}. Sign in to accept the invitation.',
+      signIn: 'Sign in to accept',
+      invalidTitle: 'This invitation no longer works',
+      invalidDescription:
+        'Invitations expire and can only be used once. Ask an organization owner for a new link.',
+      haveAccount: 'Already have an account?',
+    },
   },
   verifyEmail: {
     pageTitle: 'Confirm email · KnowledgeHub AI',
