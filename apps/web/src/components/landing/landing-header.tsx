@@ -1,19 +1,23 @@
 import { Link } from '@tanstack/react-router';
 import { Menu } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Brand } from '~/components/brand';
 import { LanguageSwitcher } from '~/components/language-switcher';
+import { primaryAction } from '~/components/landing/frame';
 import { ThemeToggle } from '~/components/theme-toggle';
 import { Button } from '~/components/ui/button';
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '~/components/ui/sheet';
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '~/components/ui/drawer';
 import { useT } from '~/lib/i18n/hooks';
+import { cn } from '~/lib/utils';
 
 const sectionLinks = [
   { href: '/#features', key: 'features' },
@@ -26,23 +30,20 @@ const sectionLinks = [
 export function LandingHeader() {
   const t = useT();
   return (
-    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-lg">
+    <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-md">
       <nav
         aria-label={t('common.mainNavigation')}
-        className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5"
+        className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 border-x px-5 sm:px-8 lg:px-10"
       >
-        <Link
-          to="/"
-          className="rounded-md focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <Link to="/" className="focus-visible:ring-2 focus-visible:ring-ring">
           <Brand compact className="whitespace-nowrap" />
         </Link>
-        <div className="hidden items-center gap-1 text-sm lg:flex">
+        <div className="hidden items-center gap-6 text-sm lg:flex">
           {sectionLinks.map(({ href, key }) => (
             <a
               key={key}
               href={href}
-              className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="py-2 text-muted-foreground underline-offset-[6px] transition-colors hover:text-foreground hover:underline"
             >
               {t(`landing.nav.${key}`)}
             </a>
@@ -54,7 +55,10 @@ export function LandingHeader() {
           <Button asChild variant="ghost" className="hidden sm:inline-flex">
             <Link to="/login">{t('landing.nav.logIn')}</Link>
           </Button>
-          <Button asChild className="hidden sm:inline-flex">
+          <Button
+            asChild
+            className={cn('hidden sm:inline-flex', primaryAction)}
+          >
             <Link to="/register">{t('landing.nav.getStarted')}</Link>
           </Button>
           <MobileMenu />
@@ -64,11 +68,26 @@ export function LandingHeader() {
   );
 }
 
+const DESKTOP_NAV_QUERY = '(min-width: 64rem)';
+
+function useCloseOnDesktopNav(setOpen: (open: boolean) => void) {
+  useEffect(() => {
+    const desktopNav = window.matchMedia(DESKTOP_NAV_QUERY);
+    const closeWhenDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) setOpen(false);
+    };
+    desktopNav.addEventListener('change', closeWhenDesktop);
+    return () => desktopNav.removeEventListener('change', closeWhenDesktop);
+  }, [setOpen]);
+}
+
 function MobileMenu() {
   const t = useT();
+  const [open, setOpen] = useState(false);
+  useCloseOnDesktopNav(setOpen);
   return (
-    <Sheet>
-      <SheetTrigger asChild>
+    <Drawer direction="right" open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
@@ -77,37 +96,37 @@ function MobileMenu() {
         >
           <Menu />
         </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="marketing gap-0">
-        <SheetHeader>
-          <SheetTitle>
+      </DrawerTrigger>
+      <DrawerContent className="marketing gap-0">
+        <DrawerHeader>
+          <DrawerTitle>
             <Brand />
-          </SheetTitle>
-          <SheetDescription className="sr-only">
+          </DrawerTitle>
+          <DrawerDescription className="sr-only">
             {t('landing.nav.menu')}
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-1 px-4">
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="flex flex-col border-t px-4">
           {sectionLinks.map(({ href, key }) => (
-            <SheetClose asChild key={key}>
+            <DrawerClose asChild key={key}>
               <a
                 href={href}
-                className="rounded-md px-3 py-2.5 text-base font-medium hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                className="border-b px-3 py-3.5 text-lg font-medium tracking-tight hover:text-brand focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t(`landing.nav.${key}`)}
               </a>
-            </SheetClose>
+            </DrawerClose>
           ))}
         </div>
-        <div className="mt-auto flex flex-col gap-2 border-t p-4">
+        <DrawerFooter className="border-t">
           <Button asChild variant="outline">
             <Link to="/login">{t('landing.nav.logIn')}</Link>
           </Button>
-          <Button asChild>
+          <Button asChild className={primaryAction}>
             <Link to="/register">{t('landing.nav.getStarted')}</Link>
           </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   );
 }

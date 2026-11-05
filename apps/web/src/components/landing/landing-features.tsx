@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Check, FileText, Folder, Search } from 'lucide-react';
+import { FrameSection } from '~/components/landing/frame';
 import { SectionHeading } from '~/components/landing/section-heading';
 import { useInView } from '~/hooks/use-in-view';
 import { useT } from '~/lib/i18n/hooks';
@@ -32,17 +33,20 @@ function FeatureCard({
   return (
     <article
       className={cn(
-        'flex flex-col overflow-hidden rounded-xl border bg-card',
+        'group flex flex-col border-r border-b transition-colors duration-300 hover:bg-card',
         className,
       )}
     >
-      <div className="p-6 pb-0">
-        <h3 className="font-semibold tracking-tight">{title}</h3>
-        <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+      <div className="px-5 pt-7 sm:px-8 lg:px-10 lg:pt-9">
+        <h3 className="text-xl font-semibold tracking-[-0.02em]">{title}</h3>
+        <p className="mt-2 max-w-md text-[0.95rem] leading-relaxed text-muted-foreground">
           {text}
         </p>
       </div>
-      <div className="mt-6 flex-1 p-6 pt-0" aria-hidden="true">
+      <div
+        className="mt-8 flex-1 px-5 pb-7 sm:px-8 lg:px-10 lg:pb-9"
+        aria-hidden="true"
+      >
         {children}
       </div>
     </article>
@@ -55,7 +59,7 @@ function UploadVisual() {
   return (
     <div ref={ref} className="rounded-lg border bg-background p-4">
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-8 shrink-0 items-end justify-center rounded-[4px] border bg-muted pb-1 font-geist-mono text-[0.55rem] font-semibold">
+        <span className="flex h-10 w-8 shrink-0 items-end justify-center border bg-muted pb-1 font-geist-mono text-[0.55rem] font-semibold">
           PDF
         </span>
         <div className="min-w-0 flex-1">
@@ -68,7 +72,7 @@ function UploadVisual() {
       <ol className="mt-4 grid grid-cols-4 gap-2">
         {UPLOAD_STEPS.map((step, index) => (
           <li key={step}>
-            <span className="block h-1 overflow-hidden rounded-full bg-border">
+            <span className="block h-0.5 overflow-hidden bg-border">
               {index < 3 && (
                 <span
                   className={cn('block h-full bg-brand', inView && 'kh-grow')}
@@ -188,12 +192,9 @@ function InsightsVisual() {
             </dt>
             <dd className="font-semibold tabular-nums">{stat.value}</dd>
           </div>
-          <span className="mt-1.5 block h-1 rounded-full bg-muted">
+          <span className="mt-1.5 block h-0.5 bg-border">
             <span
-              className={cn(
-                'block h-full rounded-full bg-brand',
-                inView && 'kh-grow',
-              )}
+              className={cn('block h-full bg-brand', inView && 'kh-grow')}
               style={{
                 width: `${stat.width}%`,
                 animationDelay: `${index * 140}ms`,
@@ -213,7 +214,7 @@ function RolesVisual() {
     <ul className="divide-y rounded-lg border bg-background text-sm">
       {ROLES.map((role, index) => (
         <li key={role} className="flex items-center gap-2.5 px-3 py-2">
-          <span className="flex size-6 items-center justify-center rounded-full bg-muted text-[0.62rem] font-semibold">
+          <span className="flex size-6 items-center justify-center border bg-muted text-[0.62rem] font-semibold">
             {people[index]}
           </span>
           <span className="flex-1 text-muted-foreground">
@@ -258,43 +259,47 @@ function AuditVisual() {
 export function LandingFormats() {
   const t = useT();
   return (
-    <section className="border-y bg-muted/40">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-5 px-5 py-8 md:flex-row md:justify-between">
-        <p className="text-sm text-muted-foreground">
-          {t('landing.formats.title')}
-        </p>
-        <ul className="flex flex-wrap items-center justify-center gap-2">
+    <FrameSection>
+      <div className="overflow-hidden">
+        <div className="-mr-px -mb-px grid grid-cols-2 md:grid-cols-6">
+          <div className="col-span-2 flex flex-col justify-between gap-3 border-r border-b px-5 py-6 sm:px-8 lg:px-10">
+            <p className="text-sm font-medium">{t('landing.formats.title')}</p>
+            <p className="text-sm text-muted-foreground">
+              {t('landing.formats.limit')}
+            </p>
+          </div>
           {FILE_FORMATS.map((format) => (
-            <li
+            <div
               key={format.label}
-              className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium"
+              className="flex items-end justify-between gap-2 border-r border-b px-5 py-6 sm:px-6"
             >
-              <FileText className="size-4 text-brand" />
-              {format.label}
-              <span className="font-geist-mono text-[0.7rem] text-muted-foreground">
+              <span className="text-2xl font-semibold tracking-[-0.03em]">
+                {format.label}
+              </span>
+              <span className="font-geist-mono text-xs text-muted-foreground">
                 {format.extension}
               </span>
-            </li>
+            </div>
           ))}
-          <li className="px-2 text-sm text-muted-foreground">
-            {t('landing.formats.limit')}
-          </li>
-        </ul>
+        </div>
       </div>
-    </section>
+    </FrameSection>
   );
 }
 
 export function LandingFeatures() {
   const t = useT();
   return (
-    <section id="features" className="scroll-mt-20">
-      <div className="mx-auto max-w-7xl px-5 py-24 lg:py-28">
+    <FrameSection id="features">
+      <div className="px-5 pt-20 pb-14 sm:px-8 lg:px-10 lg:pt-28 lg:pb-16">
         <SectionHeading
+          align="start"
           title={t('landing.features.title')}
           description={t('landing.features.description')}
         />
-        <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      </div>
+      <div className="overflow-hidden border-t">
+        <div className="-mr-px -mb-px grid md:grid-cols-2 lg:grid-cols-3">
           <FeatureCard
             className="md:col-span-2"
             title={t('landing.features.upload.title')}
@@ -336,6 +341,6 @@ export function LandingFeatures() {
           </FeatureCard>
         </div>
       </div>
-    </section>
+    </FrameSection>
   );
 }
