@@ -23,24 +23,12 @@ import type {
 import type { Request, Response } from 'express';
 import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import { AuthConfig } from './auth.config.js';
-import { AuthService, type AuthResult } from './auth.service.js';
+import { AuthService } from './auth.service.js';
 import { EmailVerificationService } from './email-verification.service.js';
 import { PersonalDataService } from './personal-data.service.js';
-import {
-  ACCESS_TOKEN_COOKIE,
-  REFRESH_TOKEN_COOKIE,
-  buildAccessCookieOptions,
-  buildClearAccessCookieOptions,
-  buildClearRefreshCookieOptions,
-  buildRefreshCookieOptions,
-} from './cookies.js';
+import { clearAuthCookies, issueAuthCookies } from './auth-cookies.js';
+import { REFRESH_TOKEN_COOKIE } from './cookies.js';
 import { EnforceCsrfWhenBrowserAuthDisabled, SkipCsrf } from './csrf.guard.js';
-import {
-  CSRF_COOKIE,
-  buildClearCsrfCookieOptions,
-  buildCsrfCookieOptions,
-  generateCsrfToken,
-} from './csrf.js';
 import {
   deleteAccountSchema,
   type DeleteAccountInput,
@@ -88,7 +76,7 @@ export class AuthController {
       ipAddress: request.ip,
     });
 
-    this.issueAuthCookies(response, result);
+    issueAuthCookies(response, this.authConfig, result);
 
     return { user: result.user };
   }
@@ -108,7 +96,7 @@ export class AuthController {
       ipAddress: request.ip,
     });
 
-    this.issueAuthCookies(response, result);
+    issueAuthCookies(response, this.authConfig, result);
 
     return { user: result.user };
   }
@@ -168,7 +156,7 @@ export class AuthController {
       throw new UnauthorizedException('Authentication required');
     }
     await this.auth.deleteAccount(request.auth.userId, body.password);
-    this.clearAuthCookies(response);
+    clearAuthCookies(response, this.authConfig);
   }
 
   @Patch('profile')
@@ -267,7 +255,7 @@ export class AuthController {
       readCookie(request, REFRESH_TOKEN_COOKIE),
     );
 
-    this.issueAuthCookies(response, result);
+    issueAuthCookies(response, this.authConfig, result);
 
     return { user: result.user };
   }
@@ -286,45 +274,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
     await this.auth.logout(readCookie(request, REFRESH_TOKEN_COOKIE));
-    this.clearAuthCookies(response);
-  }
-
-  private issueAuthCookies(response: Response, result: AuthResult): void {
-    const policy = this.authConfig.cookiePolicy;
-    response.cookie(
-      ACCESS_TOKEN_COOKIE,
-      result.accessToken,
-      buildAccessCookieOptions(policy, this.authConfig.accessTtlMs),
-    );
-    response.cookie(
-      REFRESH_TOKEN_COOKIE,
-      result.refreshToken,
-      buildRefreshCookieOptions(
-        policy,
-        result.refreshTokenMaxAgeMs ?? this.authConfig.refreshTtlMs,
-      ),
-    );
-
-    if (this.authConfig.browserAuthEnabled) {
-      response.cookie(
-        CSRF_COOKIE,
-        generateCsrfToken(this.authConfig.csrfSecret),
-        buildCsrfCookieOptions(policy, this.authConfig.sessionTtlMs),
-      );
-    }
-  }
-
-  private clearAuthCookies(response: Response): void {
-    const policy = this.authConfig.cookiePolicy;
-    response.clearCookie(
-      ACCESS_TOKEN_COOKIE,
-      buildClearAccessCookieOptions(policy),
-    );
-    response.clearCookie(
-      REFRESH_TOKEN_COOKIE,
-      buildClearRefreshCookieOptions(policy),
-    );
-    response.clearCookie(CSRF_COOKIE, buildClearCsrfCookieOptions(policy));
+    clearAuthCookies(response, this.authConfig);
   }
 }
 

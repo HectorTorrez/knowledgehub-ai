@@ -105,7 +105,7 @@ export function invitationEmail(input: InvitationEmailInput): EmailMessage {
           heading: `Te invitaron a ${input.organizationName}`,
           paragraphs: [
             `${input.inviterName} te invitó a unirte a ${input.organizationName} en ${PRODUCT_NAME} como ${role}.`,
-            `Inicia sesión o crea una cuenta con ${input.to} para aceptar la invitación.`,
+            `¿Aún no tienes cuenta? La crearemos automáticamente con ${input.to} al aceptar: solo eliges tu nombre y una contraseña.`,
           ],
           action: 'Aceptar invitación',
           url: input.acceptUrl,
@@ -116,7 +116,7 @@ export function invitationEmail(input: InvitationEmailInput): EmailMessage {
           heading: `You're invited to ${input.organizationName}`,
           paragraphs: [
             `${input.inviterName} invited you to join ${input.organizationName} on ${PRODUCT_NAME} as ${role}.`,
-            `Sign in or create an account with ${input.to} to accept the invitation.`,
+            `No account yet? We'll create one for ${input.to} automatically when you accept: you just pick your name and a password.`,
           ],
           action: 'Accept invitation',
           url: input.acceptUrl,

@@ -186,6 +186,9 @@ export const searchQuerySchema = (t: Translator) =>
   });
 
 export type LoginForm = z.infer<ReturnType<typeof loginFormSchema>>;
+export const inviteSignupFormSchema = (t: Translator) =>
+  registerFormSchema(t).omit({ email: true });
+
 export type RegisterForm = z.infer<ReturnType<typeof registerFormSchema>>;
 export type OrganizationNameForm = z.infer<
   ReturnType<typeof organizationNameSchema>

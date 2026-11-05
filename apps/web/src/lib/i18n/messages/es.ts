@@ -593,6 +593,28 @@ export const es: Messages = {
     verifyFirst: 'Primero confirma tu email',
     verifyFirstDescription:
       'Para unirte a una organización, confirma {email} con el enlace que te enviamos. Después vuelve a esta página.',
+    signup: {
+      pageTitle: 'Únete a tu equipo · KnowledgeHub AI',
+      title: 'Únete a {organization}',
+      description: 'Te invitaron a unirte a {organization} como {role}.',
+      autoAccountTitle: 'Crearemos tu cuenta automáticamente',
+      autoAccountDescription:
+        'Todavía no hay una cuenta de KnowledgeHub para {email}. Al aceptar, la creamos por ti, confirmamos tu email y entras directo a {organization}.',
+      emailHint: 'La invitación es para este email.',
+      passwordLabel: 'Elige una contraseña',
+      submit: 'Crear mi cuenta y unirme',
+      submitting: 'Creando tu cuenta…',
+      created: 'Tu cuenta está lista',
+      createdDescription: 'Te damos la bienvenida a {organization}.',
+      existingTitle: 'Inicia sesión para unirte a {organization}',
+      existingDescription:
+        'Ya tienes una cuenta con {email}. Inicia sesión para aceptar la invitación.',
+      signIn: 'Iniciar sesión y aceptar',
+      invalidTitle: 'Esta invitación ya no funciona',
+      invalidDescription:
+        'Las invitaciones caducan y solo se pueden usar una vez. Pide a un propietario de la organización un enlace nuevo.',
+      haveAccount: '¿Ya tienes una cuenta?',
+    },
   },
   verifyEmail: {
     pageTitle: 'Confirmar email · KnowledgeHub AI',

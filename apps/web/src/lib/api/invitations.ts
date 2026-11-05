@@ -4,6 +4,8 @@ import type {
   CreateInvitationRequest,
   CreateInvitationResponse,
   InvitationListResponse,
+  InvitationPreviewRequest,
+  InvitationPreviewResponse,
 } from '@knowledgehub/shared-types';
 import { apiFetch } from './client';
 
@@ -43,6 +45,15 @@ export const invitationsApi = {
       method: 'POST',
       body,
       authRecovery: true,
+    });
+  },
+
+  preview(token: string): Promise<InvitationPreviewResponse> {
+    const body: InvitationPreviewRequest = { token };
+
+    return apiFetch<InvitationPreviewResponse>('/invitations/preview', {
+      method: 'POST',
+      body,
     });
   },
 };

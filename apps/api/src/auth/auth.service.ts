@@ -56,6 +56,22 @@ interface PersistedUser {
   updatedAt: Date;
 }
 
+export interface InvitedAccountInput {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+export type AccountProvisioner = (
+  tx: Prisma.TransactionClient,
+  userId: string,
+) => Promise<void>;
+
+interface NewAccount extends InvitedAccountInput {
+  emailVerifiedAt: Date | null;
+}
+
 const DUMMY_PASSWORD = 'knowledgehub-dummy-password-verification';
 
 @Injectable()
@@ -75,64 +91,28 @@ export class AuthService {
     input: RegisterInput,
     options: AuthOptions = {},
   ): Promise<AuthResult> {
-    const email = normalizeEmail(input.email);
-    const passwordHash = await this.passwords.hash(input.password);
-    const refreshToken = this.tokens.generateRefreshToken();
-
-    let user: PersistedUser;
-    let sessionId: string;
-
-    try {
-      const created = await this.prisma.$transaction(async (tx) => {
-        const createdUser = await tx.user.create({
-          data: {
-            email,
-            passwordHash,
-            firstName: input.firstName,
-            lastName: input.lastName,
-          },
-        });
-
-        const sessionId = await this.persistSession(
-          tx,
-          createdUser.id,
-          refreshToken,
-          options,
-        );
-
-        return { user: createdUser, sessionId };
-      });
-
-      user = created.user;
-      sessionId = created.sessionId;
-    } catch (error) {
-      if (isUniqueEmailViolation(error)) {
-        this.audit.record('auth.register.rejected', {
-          reason: 'email_in_use',
-          emailHash: hashEmail(email),
-          ipAddress: options.ipAddress,
-        });
-        throw new ConflictException(
-          'An account with this email address already exists',
-        );
-      }
-      throw error;
-    }
-
-    this.audit.record('auth.register.succeeded', {
-      userId: user.id,
-      ipAddress: options.ipAddress,
-    });
+    const { user, result } = await this.createAccount(
+      { ...input, emailVerifiedAt: null },
+      options,
+    );
 
     await this.verification.sendWelcome(user, input.locale);
 
-    const accessToken = await this.tokens.signAccessToken(user.id, sessionId);
+    return result;
+  }
 
-    return {
-      user: toPublicUser(user),
-      accessToken,
-      refreshToken: refreshToken.token,
-    };
+  async registerInvited(
+    input: InvitedAccountInput,
+    joinOrganization: AccountProvisioner,
+    options: AuthOptions = {},
+  ): Promise<AuthResult> {
+    const { result } = await this.createAccount(
+      { ...input, emailVerifiedAt: new Date() },
+      options,
+      joinOrganization,
+    );
+
+    return result;
   }
 
   async login(
@@ -492,6 +472,75 @@ export class AuthService {
     });
 
     this.audit.record('auth.logout', { sessionId: token.sessionId });
+  }
+
+  private async createAccount(
+    account: NewAccount,
+    options: AuthOptions,
+    provision?: AccountProvisioner,
+  ): Promise<{ user: PersistedUser; result: AuthResult }> {
+    const email = normalizeEmail(account.email);
+    const passwordHash = await this.passwords.hash(account.password);
+    const refreshToken = this.tokens.generateRefreshToken();
+
+    let user: PersistedUser;
+    let sessionId: string;
+
+    try {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            email,
+            passwordHash,
+            firstName: account.firstName,
+            lastName: account.lastName,
+            emailVerifiedAt: account.emailVerifiedAt,
+          },
+        });
+
+        await provision?.(tx, createdUser.id);
+
+        const sessionId = await this.persistSession(
+          tx,
+          createdUser.id,
+          refreshToken,
+          options,
+        );
+
+        return { user: createdUser, sessionId };
+      });
+
+      user = created.user;
+      sessionId = created.sessionId;
+    } catch (error) {
+      if (isUniqueEmailViolation(error)) {
+        this.audit.record('auth.register.rejected', {
+          reason: 'email_in_use',
+          emailHash: hashEmail(email),
+          ipAddress: options.ipAddress,
+        });
+        throw new ConflictException(
+          'An account with this email address already exists',
+        );
+      }
+      throw error;
+    }
+
+    this.audit.record('auth.register.succeeded', {
+      userId: user.id,
+      ipAddress: options.ipAddress,
+    });
+
+    const accessToken = await this.tokens.signAccessToken(user.id, sessionId);
+
+    return {
+      user,
+      result: {
+        user: toPublicUser(user),
+        accessToken,
+        refreshToken: refreshToken.token,
+      },
+    };
   }
 
   private async persistSession(

@@ -814,5 +814,5 @@ function ConfirmDialog({
 }
 
 function inviteLink(token: string): string {
-  return `${window.location.origin}/invitations/accept?token=${encodeURIComponent(token)}`;
+  return `${window.location.origin}/invite?token=${encodeURIComponent(token)}`;
 }

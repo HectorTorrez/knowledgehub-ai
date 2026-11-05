@@ -193,7 +193,7 @@ describe('Email flows (e2e)', () => {
 
     const invitationEmail = lastEmailTo(inviteeEmail);
     expect(invitationEmail?.subject).toContain('Ada Lovelace');
-    const invitationToken = linkToken(invitationEmail, '/invitations/accept');
+    const invitationToken = linkToken(invitationEmail, '/invite');
     expect(invitationToken).toBe(invited.body.invitation.token);
 
     trackedEmails.add(inviteeEmail);
@@ -225,5 +225,104 @@ describe('Email flows (e2e)', () => {
       token: invitationToken,
     }).expect(200);
     expect(accepted.body).toEqual({ organizationId });
+  });
+
+  async function inviteToNewOrganization(inviteeEmail: string) {
+    const owner = await register();
+    const created = await post(owner, '/organizations', {
+      name: `Invite signup ${randomUUID()}`,
+    }).expect(201);
+    const organizationId = created.body.organization.id as string;
+    trackedOrganizations.add(organizationId);
+
+    const invited = await post(
+      owner,
+      `/organizations/${organizationId}/invitations`,
+      { email: inviteeEmail, role: 'MEMBER' },
+    ).expect(201);
+
+    return {
+      organizationId,
+      organizationName: created.body.organization.name as string,
+      token: invited.body.invitation.token as string,
+    };
+  }
+
+  function anonymousPost(path: string, body: object) {
+    return request(app.getHttpServer()).post(path).send(body);
+  }
+
+  it('creates a verified account automatically for an invitee without one', async () => {
+    const inviteeEmail = `user-${randomUUID()}@example.test`;
+    trackedEmails.add(inviteeEmail);
+    const { organizationId, organizationName, token } =
+      await inviteToNewOrganization(inviteeEmail);
+
+    const preview = await anonymousPost('/invitations/preview', {
+      token,
+    }).expect(200);
+    expect(preview.body).toEqual({
+      email: inviteeEmail,
+      role: 'MEMBER',
+      organizationName,
+      accountExists: false,
+    });
+
+    const accepted = await anonymousPost('/invitations/accept-new-account', {
+      token,
+      firstName: 'Grace',
+      lastName: 'Hopper',
+      password: PASSWORD,
+    }).expect(201);
+    expect(accepted.body.organizationId).toBe(organizationId);
+    expect(accepted.body.user).toMatchObject({
+      email: inviteeEmail,
+      emailVerified: true,
+    });
+
+    const invitee = toAccount(inviteeEmail, accepted);
+    await request(app.getHttpServer())
+      .get(`/organizations/${organizationId}`)
+      .set('Authorization', `Bearer ${invitee.accessToken}`)
+      .expect(200);
+
+    await anonymousPost('/invitations/preview', { token }).expect(404);
+    await anonymousPost('/invitations/accept-new-account', {
+      token,
+      firstName: 'Mallory',
+      lastName: 'Replay',
+      password: PASSWORD,
+    }).expect(404);
+  });
+
+  it('asks an invitee who already has an account to sign in instead', async () => {
+    const invitee = await register();
+    const { token } = await inviteToNewOrganization(invitee.email);
+
+    const preview = await anonymousPost('/invitations/preview', {
+      token,
+    }).expect(200);
+    expect(preview.body.accountExists).toBe(true);
+
+    await anonymousPost('/invitations/accept-new-account', {
+      token,
+      firstName: 'Grace',
+      lastName: 'Hopper',
+      password: PASSWORD,
+    }).expect(409);
+
+    await post(invitee, '/invitations/accept', { token }).expect(403);
+  });
+
+  it('rejects unknown invitation tokens without creating an account', async () => {
+    await anonymousPost('/invitations/preview', {
+      token: 'not-a-real-token',
+    }).expect(404);
+    await anonymousPost('/invitations/accept-new-account', {
+      token: 'not-a-real-token',
+      firstName: 'Grace',
+      lastName: 'Hopper',
+      password: PASSWORD,
+    }).expect(404);
   });
 });
