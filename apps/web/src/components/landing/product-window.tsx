@@ -82,7 +82,7 @@ function CitationButton({
       onClick={() => onSelect(number)}
       style={delay(appearAt)}
       className={cn(
-        'kh-pop mx-0.5 inline-flex size-5 cursor-pointer items-center justify-center rounded-[5px] align-text-top font-geist-mono text-[0.68rem] font-medium transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+        'kh-pop mx-0.5 inline-flex size-5 cursor-pointer items-center justify-center align-text-top font-geist-mono text-[0.68rem] font-medium transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
         active
           ? 'bg-primary text-primary-foreground'
           : 'bg-muted text-foreground ring-1 ring-border hover:bg-accent',
@@ -152,10 +152,10 @@ export function ProductWindow() {
   return (
     <figure
       aria-label={t('landing.sample.label')}
-      className="overflow-hidden rounded-xl border bg-card text-left shadow-[0_1px_2px_oklch(0_0_0/0.04),0_24px_64px_-24px_oklch(0_0_0/0.22)]"
+      className="overflow-hidden border border-foreground/20 bg-card text-left shadow-[0_32px_80px_-40px_oklch(0_0_0/0.45)]"
     >
       <div className="flex h-11 items-center gap-3 border-b bg-muted/50 px-4 text-xs text-muted-foreground">
-        <span className="flex size-5 items-center justify-center rounded bg-brand font-semibold text-brand-foreground">
+        <span className="flex size-5 items-center justify-center bg-brand font-semibold text-brand-foreground">
           N
         </span>
         <span className="font-medium text-foreground">
@@ -304,7 +304,7 @@ export function ProductWindow() {
         <div className="flex min-w-0 flex-col p-4 sm:p-5">
           <p
             key={question}
-            className="kh-rise ml-auto max-w-[90%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2.5 text-[0.85rem] text-primary-foreground"
+            className="kh-rise ml-auto max-w-[90%] bg-primary px-3.5 py-2.5 text-[0.85rem] text-primary-foreground"
           >
             {t(`${base}.question`)}
           </p>
@@ -384,7 +384,7 @@ export function ProductWindow() {
                   >
                     <span
                       className={cn(
-                        'flex size-5 shrink-0 items-center justify-center rounded-[5px] font-geist-mono text-[0.68rem] transition-colors duration-200',
+                        'flex size-5 shrink-0 items-center justify-center font-geist-mono text-[0.68rem] transition-colors duration-200',
                         activeNote === number
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted ring-1 ring-border',
@@ -415,13 +415,13 @@ export function ProductWindow() {
                 type="button"
                 disabled={searching}
                 onClick={() => chooseQuestion(key)}
-                className="rounded-full border px-3 py-1 text-left text-xs transition-[background-color,transform] duration-150 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.97] disabled:cursor-wait disabled:opacity-60"
+                className="border px-3 py-1 text-left text-xs transition-[background-color,transform] duration-150 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.97] disabled:cursor-wait disabled:opacity-60"
               >
                 {t(`landing.sample.questions.${key}.question`)}
               </button>
             ))}
           </div>
-          <div className="mt-5 flex items-center gap-2 rounded-xl border bg-background py-1.5 pr-1.5 pl-3.5 text-[0.8rem] text-muted-foreground lg:mt-auto">
+          <div className="mt-5 flex items-center gap-2 border bg-background py-1.5 pr-1.5 pl-3.5 text-[0.8rem] text-muted-foreground lg:mt-auto">
             <span className="flex-1 truncate">
               {t('landing.sample.placeholder')}
             </span>

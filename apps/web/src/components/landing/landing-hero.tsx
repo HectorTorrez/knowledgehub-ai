@@ -1,6 +1,13 @@
 import { Link, useRouter } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { DocumentField } from '~/components/landing/document-field';
+import {
+  Crosshair,
+  FrameCorners,
+  primaryAction,
+  secondaryAction,
+} from '~/components/landing/frame';
 import { ProductWindow } from '~/components/landing/product-window';
 import { Button } from '~/components/ui/button';
 import { useLogin } from '~/hooks/use-auth';
@@ -42,59 +49,92 @@ function useOpenDemo() {
   return { openDemo, isOpening };
 }
 
+const FIELD_FILES = ['contract', 'handbook', 'onboarding', 'kickoff'] as const;
+
+function useFieldDocuments() {
+  const t = useT();
+  return useMemo(
+    () => FIELD_FILES.map((file) => t(`landing.sample.files.${file}`)),
+    [t],
+  );
+}
+
 export function LandingHero() {
   const t = useT();
   const { openDemo, isOpening } = useOpenDemo();
   const demoEnabled = import.meta.env.VITE_DEMO_ENABLED === 'true';
+  const fieldDocuments = useFieldDocuments();
 
   return (
-    <section className="relative overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 -z-10 h-[38rem] bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_75%)] bg-[size:48px_48px] opacity-60"
-      />
-      <div className="mx-auto max-w-7xl px-5 pt-16 pb-20 sm:pt-24 lg:pb-28">
-        <div className="landing-rise mx-auto max-w-4xl text-center">
-          <h1 className="text-[2.5rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance sm:text-[3.5rem] lg:text-[4rem]">
-            {t('landing.hero.titleLead')}
-            <span className="block text-brand">
-              {t('landing.hero.titleTail')}
-            </span>
+    <section>
+      <div className="relative mx-auto max-w-7xl border-x">
+        <div className="landing-rise px-5 pt-12 pb-10 sm:px-8 sm:pt-16 lg:px-10 lg:pt-20 lg:pb-14">
+          <h1 className="max-w-[20ch] text-[2.6rem] leading-[0.98] font-semibold tracking-[-0.04em] text-balance sm:text-6xl lg:text-[4.5rem]">
+            {t('landing.hero.titleLead')}{' '}
+            <span className="text-brand">{t('landing.hero.titleTail')}</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-pretty text-muted-foreground">
-            {t('landing.hero.description')}
-          </p>
-          <div className="mt-9 flex flex-wrap justify-center gap-3">
-            {demoEnabled && (
+        </div>
+
+        <div className="relative grid border-t lg:grid-cols-12">
+          <Crosshair className="-top-[7px] -left-[7px]" />
+          <Crosshair className="-top-[7px] -right-[7px]" />
+          <div className="flex flex-col gap-10 px-5 py-10 sm:px-8 lg:col-span-5 lg:border-r lg:px-10 lg:py-12">
+            <p className="max-w-md text-lg leading-relaxed text-pretty text-muted-foreground">
+              {t('landing.hero.description')}
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              {demoEnabled && (
+                <Button
+                  size="lg"
+                  className={primaryAction}
+                  onClick={() => void openDemo()}
+                  disabled={isOpening}
+                >
+                  {isOpening
+                    ? t('landing.hero.openingDemo')
+                    : t('landing.hero.tryDemo')}
+                  <ArrowRight />
+                </Button>
+              )}
               <Button
+                asChild
                 size="lg"
-                onClick={() => void openDemo()}
-                disabled={isOpening}
+                variant={demoEnabled ? 'outline' : 'default'}
+                className={demoEnabled ? secondaryAction : primaryAction}
               >
-                {isOpening
-                  ? t('landing.hero.openingDemo')
-                  : t('landing.hero.tryDemo')}
-                <ArrowRight />
+                <Link to="/register">
+                  {t('landing.hero.createFreeAccount')}
+                  {!demoEnabled && <ArrowRight />}
+                </Link>
               </Button>
-            )}
-            <Button
-              asChild
-              size="lg"
-              variant={demoEnabled ? 'outline' : 'default'}
-            >
-              <Link to="/register">
-                {t('landing.hero.createFreeAccount')}
-                {!demoEnabled && <ArrowRight />}
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="#how-it-works">{t('landing.hero.seeHow')}</a>
-            </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="ghost"
+                className="hover:bg-transparent hover:underline hover:underline-offset-4"
+              >
+                <a href="#how-it-works">{t('landing.hero.seeHow')}</a>
+              </Button>
+            </div>
+          </div>
+          <div className="relative min-h-[22rem] border-t sm:min-h-[26rem] lg:col-span-7 lg:border-t-0">
+            <DocumentField
+              documents={fieldDocuments}
+              answerLabel={t('landing.sample.answer')}
+              groundedLabel={t('landing.sample.grounded')}
+              className="absolute inset-0 size-full"
+            />
           </div>
         </div>
-        <div className="landing-rise mt-16 [animation-delay:150ms] sm:mt-20">
-          <ProductWindow />
-          <p className="mt-4 text-center text-xs text-muted-foreground">
+      </div>
+
+      <div className="border-t">
+        <div className="marketing-rules relative mx-auto max-w-7xl border-x px-3 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+          <FrameCorners />
+          <div className="landing-rise [animation-delay:150ms]">
+            <ProductWindow />
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
             {t('landing.hero.sampleNote')}
           </p>
         </div>
