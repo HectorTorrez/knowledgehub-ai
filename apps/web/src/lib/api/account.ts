@@ -2,7 +2,9 @@ import type {
   AuthSessionListResponse,
   ChangePasswordRequest,
   EmailLocale,
+  RequestPasswordResetRequest,
   ResendVerificationRequest,
+  ResetPasswordRequest,
   UpdateProfileRequest,
   UpdateProfileResponse,
   VerifyEmailRequest,
@@ -21,6 +23,20 @@ export const accountApi = {
       method: 'POST',
       body,
       authRecovery: true,
+    });
+  },
+
+  requestPasswordReset(input: RequestPasswordResetRequest): Promise<void> {
+    return apiFetch<void>('/auth/password-reset/request', {
+      method: 'POST',
+      body: input,
+    });
+  },
+
+  resetPassword(input: ResetPasswordRequest): Promise<void> {
+    return apiFetch<void>('/auth/password-reset/confirm', {
+      method: 'POST',
+      body: input,
     });
   },
 

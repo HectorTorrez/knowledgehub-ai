@@ -25,6 +25,7 @@ import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard.js';
 import { AuthConfig } from './auth.config.js';
 import { AuthService } from './auth.service.js';
 import { EmailVerificationService } from './email-verification.service.js';
+import { PasswordResetService } from './password-reset.service.js';
 import { PersonalDataService } from './personal-data.service.js';
 import { clearAuthCookies, issueAuthCookies } from './auth-cookies.js';
 import { REFRESH_TOKEN_COOKIE } from './cookies.js';
@@ -34,6 +35,12 @@ import {
   type DeleteAccountInput,
 } from './dto/delete-account.schema.js';
 import { loginSchema, type LoginInput } from './dto/login.schema.js';
+import {
+  requestPasswordResetSchema,
+  resetPasswordSchema,
+  type RequestPasswordResetInput,
+  type ResetPasswordInput,
+} from './dto/password-reset.schema.js';
 import { registerSchema, type RegisterInput } from './dto/register.schema.js';
 import {
   resendVerificationSchema,
@@ -58,6 +65,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly personalData: PersonalDataService,
     private readonly verification: EmailVerificationService,
+    private readonly passwordReset: PasswordResetService,
     private readonly authConfig: AuthConfig,
   ) {}
 
@@ -110,6 +118,29 @@ export class AuthController {
     @Body(new ZodValidationPipe(verifyEmailSchema)) body: VerifyEmailInput,
   ): Promise<void> {
     await this.verification.verify(body.token);
+  }
+
+  @Post('password-reset/request')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipCsrf()
+  @UseGuards(RateLimitGuard)
+  @RateLimit('login', 'passwordResetAccount')
+  async requestPasswordReset(
+    @Body(new ZodValidationPipe(requestPasswordResetSchema))
+    body: RequestPasswordResetInput,
+  ): Promise<void> {
+    await this.passwordReset.request(body.email, body.locale);
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipCsrf()
+  @UseGuards(RateLimitGuard)
+  @RateLimit('login')
+  async resetPassword(
+    @Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordInput,
+  ): Promise<void> {
+    await this.passwordReset.reset(body.token, body.password);
   }
 
   @Post('verify-email/resend')

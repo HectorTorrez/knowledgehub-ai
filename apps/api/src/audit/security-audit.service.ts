@@ -12,7 +12,9 @@ export type SecurityEvent =
   | 'auth.password.changed'
   | 'auth.session.revoked'
   | 'auth.account.deleted'
-  | 'auth.email.verified';
+  | 'auth.email.verified'
+  | 'auth.password.reset_requested'
+  | 'auth.password.reset';
 
 export type SecurityEventFields = Record<string, unknown>;
 

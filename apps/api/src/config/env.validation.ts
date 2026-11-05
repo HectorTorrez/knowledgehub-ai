@@ -63,6 +63,12 @@ const envObjectSchema = z.object({
     .positive()
     .max(720)
     .default(48),
+  PASSWORD_RESET_TTL_MINUTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(1440)
+    .default(60),
 
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
@@ -293,6 +299,11 @@ const envObjectSchema = z.object({
     .positive()
     .default(20),
   RATE_LIMIT_VERIFICATION_EMAIL_USER_PER_HOUR: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3),
+  RATE_LIMIT_PASSWORD_RESET_ACCOUNT_PER_HOUR: z.coerce
     .number()
     .int()
     .positive()

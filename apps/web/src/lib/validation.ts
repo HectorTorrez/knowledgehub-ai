@@ -95,6 +95,33 @@ export const registerFormSchema = (t: Translator) =>
     lastName: nameField(t, 'lastName'),
   });
 
+export const forgotPasswordFormSchema = (t: Translator) =>
+  z.object({
+    email: emailField(t),
+  });
+
+export const resetPasswordFormSchema = (t: Translator) =>
+  z
+    .object({
+      password: z
+        .string()
+        .min(
+          PASSWORD_MIN_LENGTH,
+          t('validation.passwordTooShort', { min: PASSWORD_MIN_LENGTH }),
+        )
+        .max(
+          PASSWORD_MAX_LENGTH,
+          t('validation.passwordTooLong', { max: PASSWORD_MAX_LENGTH }),
+        ),
+      confirmPassword: z
+        .string()
+        .min(1, t('validation.confirmPasswordRequired')),
+    })
+    .refine((value) => value.password === value.confirmPassword, {
+      message: t('validation.passwordsMismatch'),
+      path: ['confirmPassword'],
+    });
+
 export const profileFormSchema = (t: Translator) =>
   z.object({
     firstName: nameField(t, 'firstName'),

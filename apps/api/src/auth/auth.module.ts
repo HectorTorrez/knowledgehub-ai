@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { CsrfGuard } from './csrf.guard.js';
 import { EmailVerificationService } from './email-verification.service.js';
+import { PasswordResetService } from './password-reset.service.js';
 import { PersonalDataService } from './personal-data.service.js';
 import { PasswordService } from './password.service.js';
 import { SessionGuard } from './session.guard.js';
@@ -19,6 +20,7 @@ import { TokenService } from './token.service.js';
     AuthConfig,
     AuthService,
     EmailVerificationService,
+    PasswordResetService,
     PersonalDataService,
     PasswordService,
     TokenService,

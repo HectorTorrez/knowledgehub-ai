@@ -160,7 +160,15 @@ function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t('fields.password')}</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="password">{t('fields.password')}</Label>
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  {t('auth.login.forgotPassword')}
+                </Link>
+              </div>
               <PasswordInput
                 readOnly={!isHydrated}
                 id="password"

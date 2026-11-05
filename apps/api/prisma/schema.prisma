@@ -38,6 +38,7 @@ model User {
 
   sessions                AuthSession[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
   memberships             Membership[]
   documents               Document[]
   answers                 Answer[]
@@ -48,6 +49,20 @@ model User {
 
 /// A one-time email verification link, stored as the SHA-256 hash of its token.
 model EmailVerificationToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String   @unique
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
   id String @id @default(uuid()) @db.Uuid
 
   userId String @db.Uuid

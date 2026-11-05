@@ -23,6 +23,14 @@ export interface InvitationEmailInput {
   locale: EmailLocale;
 }
 
+export interface PasswordResetEmailInput {
+  to: string;
+  firstName: string;
+  resetUrl: string;
+  expiresInMinutes: number;
+  locale: EmailLocale;
+}
+
 const ROLE_NAMES: Record<EmailLocale, Record<OrganizationRole, string>> = {
   en: { OWNER: 'owner', ADMIN: 'admin', MEMBER: 'member', VIEWER: 'viewer' },
   es: {
@@ -121,6 +129,37 @@ export function invitationEmail(input: InvitationEmailInput): EmailMessage {
           action: 'Accept invitation',
           url: input.acceptUrl,
           footnote: `The invitation expires in ${input.expiresInDays} days. If you were not expecting it, you can ignore this message.`,
+        };
+
+  return render(input.to, copy);
+}
+
+export function passwordResetEmail(
+  input: PasswordResetEmailInput,
+): EmailMessage {
+  const copy: EmailCopy =
+    input.locale === 'es'
+      ? {
+          subject: `Restablece tu contraseña de ${PRODUCT_NAME}`,
+          heading: `Hola ${input.firstName}, restablece tu contraseña`,
+          paragraphs: [
+            'Recibimos una solicitud para restablecer la contraseña de tu cuenta. Usa el botón de abajo para elegir una nueva.',
+            'Al cambiarla, cerraremos la sesión en todos tus dispositivos.',
+          ],
+          action: 'Restablecer contraseña',
+          url: input.resetUrl,
+          footnote: `El enlace caduca en ${input.expiresInMinutes} minutos y solo se puede usar una vez. Si no lo pediste, ignora este mensaje: tu contraseña no cambiará.`,
+        }
+      : {
+          subject: `Reset your ${PRODUCT_NAME} password`,
+          heading: `Hi ${input.firstName}, reset your password`,
+          paragraphs: [
+            'We received a request to reset the password for your account. Use the button below to choose a new one.',
+            'Once you change it, we will sign you out on every device.',
+          ],
+          action: 'Reset password',
+          url: input.resetUrl,
+          footnote: `The link expires in ${input.expiresInMinutes} minutes and works only once. If you did not ask for it, you can ignore this message: your password will not change.`,
         };
 
   return render(input.to, copy);
