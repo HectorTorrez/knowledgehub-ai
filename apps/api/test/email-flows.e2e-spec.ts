@@ -325,4 +325,74 @@ describe('Email flows (e2e)', () => {
       password: PASSWORD,
     }).expect(404);
   });
+
+  const NEW_PASSWORD = 'a brand new passphrase';
+
+  function login(email: string, password: string) {
+    return anonymousPost('/auth/login', { email, password });
+  }
+
+  it('resets a forgotten password with the emailed link, once', async () => {
+    const account = await register();
+
+    await anonymousPost('/auth/password-reset/request', {
+      email: account.email.toUpperCase(),
+      locale: 'es',
+    }).expect(204);
+    const message = lastEmailTo(account.email);
+    expect(message?.subject).toContain('Restablece tu contraseña');
+    const token = linkToken(message, '/reset-password');
+
+    await anonymousPost('/auth/password-reset/confirm', {
+      token,
+      password: NEW_PASSWORD,
+    }).expect(204);
+    await anonymousPost('/auth/password-reset/confirm', {
+      token,
+      password: NEW_PASSWORD,
+    }).expect(404);
+
+    await login(account.email, PASSWORD).expect(401);
+    await login(account.email, NEW_PASSWORD).expect(200);
+    await request(app.getHttpServer())
+      .get('/auth/session')
+      .set('Cookie', account.cookies)
+      .expect(401);
+  });
+
+  it('answers the same for unknown emails and sends nothing', async () => {
+    const email = `nobody-${randomUUID()}@example.test`;
+
+    await anonymousPost('/auth/password-reset/request', { email }).expect(204);
+
+    expect(lastEmailTo(email)).toBeUndefined();
+  });
+
+  it('rejects expired and superseded reset links', async () => {
+    const account = await register();
+    await anonymousPost('/auth/password-reset/request', {
+      email: account.email,
+    }).expect(204);
+    const first = linkToken(lastEmailTo(account.email), '/reset-password');
+    await anonymousPost('/auth/password-reset/request', {
+      email: account.email,
+    }).expect(204);
+    const second = linkToken(lastEmailTo(account.email), '/reset-password');
+
+    await anonymousPost('/auth/password-reset/confirm', {
+      token: first,
+      password: NEW_PASSWORD,
+    }).expect(404);
+
+    await prisma.passwordResetToken.updateMany({
+      where: { user: { email: account.email } },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+    await anonymousPost('/auth/password-reset/confirm', {
+      token: second,
+      password: NEW_PASSWORD,
+    }).expect(404);
+
+    await login(account.email, PASSWORD).expect(200);
+  });
 });

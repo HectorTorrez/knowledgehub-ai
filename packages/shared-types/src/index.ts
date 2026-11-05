@@ -59,6 +59,24 @@ export interface ResendVerificationRequest {
 }
 
 /**
+ * Request body of `POST /auth/password-reset/request`. The endpoint answers
+ * 204 whether or not an account exists for `email`.
+ */
+export interface RequestPasswordResetRequest {
+  email: string;
+  locale?: EmailLocale;
+}
+
+/**
+ * Request body of `POST /auth/password-reset/confirm`. On success every
+ * session of the account is signed out.
+ */
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+}
+
+/**
  * Response body of `POST /auth/register`.
  *
  * Access and refresh tokens are delivered as HttpOnly cookies, never in the

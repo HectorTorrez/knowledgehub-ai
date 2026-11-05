@@ -64,6 +64,11 @@ const BUDGETS = {
     envKey: 'RATE_LIMIT_VERIFICATION_EMAIL_USER_PER_HOUR',
     windowMs: ONE_HOUR_MS,
   },
+  passwordResetAccount: {
+    scope: 'account',
+    envKey: 'RATE_LIMIT_PASSWORD_RESET_ACCOUNT_PER_HOUR',
+    windowMs: ONE_HOUR_MS,
+  },
   invitationUser: {
     scope: 'user',
     envKey: 'RATE_LIMIT_INVITATION_USER_PER_HOUR',

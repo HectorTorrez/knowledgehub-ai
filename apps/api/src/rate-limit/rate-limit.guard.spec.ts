@@ -66,6 +66,8 @@ function budgetFor(name: RateLimitBudgetName): {
       return { scope: 'user', limit: 3, windowMs: 86_400_000 };
     case 'verificationEmailUser':
       return { scope: 'user', limit: 3, windowMs: 3_600_000 };
+    case 'passwordResetAccount':
+      return { scope: 'account', limit: 3, windowMs: 3_600_000 };
     case 'invitationUser':
       return { scope: 'user', limit: 20, windowMs: 3_600_000 };
   }

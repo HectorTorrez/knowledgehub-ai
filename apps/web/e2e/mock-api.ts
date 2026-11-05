@@ -269,6 +269,24 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === '/auth/password-reset/request') {
+      await route.fulfill({ status: 204 });
+      return;
+    }
+
+    if (path === '/auth/password-reset/confirm') {
+      const { token } = route.request().postDataJSON() as { token: string };
+      await route.fulfill(
+        token === 'valid-token'
+          ? { status: 204 }
+          : json(
+              { statusCode: 404, message: 'Password reset link is not valid' },
+              404,
+            ),
+      );
+      return;
+    }
+
     if (path === '/auth/verify-email/resend') {
       await route.fulfill({ status: 204 });
       return;

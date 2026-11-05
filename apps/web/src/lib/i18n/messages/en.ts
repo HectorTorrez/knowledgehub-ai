@@ -55,6 +55,7 @@ export const en = {
       noAccount: 'No account?',
       createOne: 'Create one',
       signedIn: 'Signed in',
+      forgotPassword: 'Forgot password?',
     },
     register: {
       pageTitle: 'Create account · KnowledgeHub AI',
@@ -603,6 +604,36 @@ export const en = {
         'Invitations expire and can only be used once. Ask an organization owner for a new link.',
       haveAccount: 'Already have an account?',
     },
+  },
+  forgotPassword: {
+    pageTitle: 'Forgot password · KnowledgeHub AI',
+    title: 'Reset your password',
+    description:
+      'Enter the email of your account and we will send you a link to choose a new password.',
+    submit: 'Send reset link',
+    submitting: 'Sending…',
+    sentTitle: 'Check your inbox',
+    sentDescription:
+      'If an account exists for {email}, we sent it a link to reset the password.',
+    tryAnotherEmail: 'Use a different email',
+    backToLogin: 'Back to sign in',
+  },
+  resetPassword: {
+    pageTitle: 'Choose a new password · KnowledgeHub AI',
+    title: 'Choose a new password',
+    description: 'You will be signed out on every device once it is changed.',
+    newPassword: 'New password',
+    confirmPassword: 'Confirm new password',
+    submit: 'Change password',
+    submitting: 'Changing password…',
+    doneTitle: 'Password changed',
+    doneDescription: 'Sign in with your new password.',
+    signIn: 'Sign in',
+    invalid: 'This link no longer works',
+    invalidDescription:
+      'Reset links expire and can only be used once. Request a new one.',
+    missingToken: 'This reset link is missing its token.',
+    requestNew: 'Request a new link',
   },
   verifyEmail: {
     pageTitle: 'Confirm email · KnowledgeHub AI',

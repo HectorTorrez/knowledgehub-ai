@@ -58,6 +58,7 @@ export const es: Messages = {
       noAccount: '¿No tienes cuenta?',
       createOne: 'Crea una',
       signedIn: 'Sesión iniciada',
+      forgotPassword: '¿Olvidaste tu contraseña?',
     },
     register: {
       pageTitle: 'Crear cuenta · KnowledgeHub AI',
@@ -615,6 +616,37 @@ export const es: Messages = {
         'Las invitaciones caducan y solo se pueden usar una vez. Pide a un propietario de la organización un enlace nuevo.',
       haveAccount: '¿Ya tienes una cuenta?',
     },
+  },
+  forgotPassword: {
+    pageTitle: 'Contraseña olvidada · KnowledgeHub AI',
+    title: 'Restablece tu contraseña',
+    description:
+      'Escribe el email de tu cuenta y te enviaremos un enlace para elegir una contraseña nueva.',
+    submit: 'Enviar enlace',
+    submitting: 'Enviando…',
+    sentTitle: 'Revisa tu bandeja de entrada',
+    sentDescription:
+      'Si existe una cuenta para {email}, le enviamos un enlace para restablecer la contraseña.',
+    tryAnotherEmail: 'Usar otro email',
+    backToLogin: 'Volver a iniciar sesión',
+  },
+  resetPassword: {
+    pageTitle: 'Elige una contraseña nueva · KnowledgeHub AI',
+    title: 'Elige una contraseña nueva',
+    description:
+      'Al cambiarla, cerraremos la sesión en todos tus dispositivos.',
+    newPassword: 'Contraseña nueva',
+    confirmPassword: 'Confirma la contraseña nueva',
+    submit: 'Cambiar contraseña',
+    submitting: 'Cambiando contraseña…',
+    doneTitle: 'Contraseña cambiada',
+    doneDescription: 'Inicia sesión con tu contraseña nueva.',
+    signIn: 'Iniciar sesión',
+    invalid: 'Este enlace ya no funciona',
+    invalidDescription:
+      'Los enlaces para restablecer caducan y solo se pueden usar una vez. Pide uno nuevo.',
+    missingToken: 'A este enlace le falta su token.',
+    requestNew: 'Pedir un enlace nuevo',
   },
   verifyEmail: {
     pageTitle: 'Confirmar email · KnowledgeHub AI',
