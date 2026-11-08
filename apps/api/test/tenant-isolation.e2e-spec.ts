@@ -175,4 +175,33 @@ describe('tenant isolation (e2e)', () => {
       for (const value of [...ids, 'Private']) expect(JSON.stringify(response.body)).not.toContain(value);
     }
   });
+  it('keeps list pages and foreign cursors isolated', async () => {
+    for (let org = 0; org < 2; org++) {
+      for (let i = 0; i < 3; i++) {
+        const document = await prisma.document.create({ data: { organizationId: organizations[org], title: 'Private', status: 'READY', generation: 1 } });
+        const conversation = await prisma.conversation.create({ data: { organizationId: organizations[org], createdById: users[org] } });
+        const answer = await prisma.answer.create({ data: { organizationId: organizations[org], conversationId: conversation.id, question: 'Private?', status: 'insufficient_evidence', citations: [] } });
+        const activity = await prisma.organizationActivity.create({ data: { organizationId: organizations[org], actorId: users[org], action: 'DOCUMENT_UPLOADED', targetType: 'document', targetId: document.id } });
+        if (org === 0) ids.push(document.id, conversation.id, answer.id, activity.id);
+      }
+    }
+    for (const path of ['documents', 'conversations', 'answers', 'activity', 'search']) {
+      const query = path === 'search' ? { q: 'private', limit: 1 } : { limit: 1 };
+      const firstA = await request(app.getHttpServer()).get(`/organizations/${organizations[0]}/${path}`).set('Authorization', authA).query(query).expect(200);
+      let cursor: string | null = null;
+      const seen = new Set<string>();
+      do {
+        const response = await request(app.getHttpServer()).get(`/organizations/${organizations[1]}/${path}`).set('Authorization', authB).query({ ...query, ...(cursor ? { cursor } : {}) }).expect(200);
+        for (const id of ids) expect(JSON.stringify(response.body)).not.toContain(id);
+        cursor = response.body.nextCursor ?? null;
+        if (cursor) { expect(seen.has(cursor)).toBe(false); seen.add(cursor); }
+      } while (cursor);
+      if (path !== 'search') {
+        expect(firstA.body.nextCursor).toBeTruthy();
+        const response = await request(app.getHttpServer()).get(`/organizations/${organizations[1]}/${path}`).set('Authorization', authB).query({ ...query, cursor: firstA.body.nextCursor }).expect(200);
+        for (const id of ids) expect(JSON.stringify(response.body)).not.toContain(id);
+      }
+    }
+  });
+
 });
