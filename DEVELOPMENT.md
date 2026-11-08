@@ -1262,3 +1262,5 @@ Run `pnpm --filter @knowledgehub/api reindex:chunks --dry-run` to count READY do
 ### Error monitoring
 
 Sentry is disabled by default. Set `SENTRY_DSN` to enable API error reporting, optionally set `SENTRY_ENVIRONMENT`, and set `SENTRY_TRACES_SAMPLE_RATE` between 0 and 1 (default 0). Set `VITE_SENTRY_DSN` at web build time to enable browser error reporting. Events omit request data and exception messages.
+
+Scanned PDFs can use OCR when `OCR_ENABLED=true` and an OpenAI API key is configured. `OCR_MODEL` selects the vision model (default `gpt-4o-mini`), and `OCR_MAX_PAGES` limits the pages rendered per document (default 20). OCR is disabled by default.
