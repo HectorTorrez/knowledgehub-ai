@@ -124,6 +124,9 @@ const envObjectSchema = z.object({
     .default(3600000),
   STORAGE_SWEEP_GRACE_MINUTES: z.coerce.number().int().positive().default(60),
 
+  OCR_ENABLED: z.enum(['true', 'false']).default('false'),
+  OCR_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  OCR_MAX_PAGES: z.coerce.number().int().positive().default(20),
   PROCESSING_WORKER_ENABLED: z.enum(['true', 'false']).default('false'),
   PROCESSING_POLL_INTERVAL_MS: z.coerce
     .number()

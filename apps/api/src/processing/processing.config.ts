@@ -5,6 +5,18 @@ import { ConfigService } from '@nestjs/config';
 export class ProcessingConfig {
   constructor(private readonly config: ConfigService) {}
 
+  get ocrEnabled(): boolean {
+    return this.config.getOrThrow<string>('OCR_ENABLED') === 'true';
+  }
+
+  get ocrModel(): string {
+    return this.config.getOrThrow<string>('OCR_MODEL');
+  }
+
+  get ocrMaxPages(): number {
+    return this.config.getOrThrow<number>('OCR_MAX_PAGES');
+  }
+
   get workerEnabled(): boolean {
     return (
       this.config.getOrThrow<string>('PROCESSING_WORKER_ENABLED') === 'true'
