@@ -1,3 +1,4 @@
+import { fetchDocumentUrl } from './url-fetcher.js';
 import type { ActivityService } from '../activity/activity.service.js';
 import type { ConfigService } from '@nestjs/config';
 import {
@@ -181,6 +182,7 @@ function createHarness(options: HarnessOptions = {}) {
     storageConfig(options.uploadTtlSeconds, options.downloadTtlSeconds),
     activity as unknown as ActivityService,
     usage as unknown as UsageService,
+    fetchDocumentUrl,
   );
 
   return { service, prisma, storage, activity, usage };
@@ -249,6 +251,7 @@ function createCompletionHarness(
     storageConfig(),
     activity as unknown as ActivityService,
     usage as unknown as UsageService,
+    fetchDocumentUrl,
   );
 
   return {

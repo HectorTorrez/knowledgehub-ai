@@ -50,6 +50,10 @@ export class FakeObjectStorage implements ObjectStorage {
   onDeleteObject: ((key: string) => void) | null = null;
   private readonly objects = new Map<string, StoredObject>();
 
+  async writeObject(input: { key: string; contentType: string; bytes: Uint8Array }): Promise<void> {
+    this.putObject(input.key, input.bytes, input.contentType);
+  }
+
   putObject(
     key: string,
     bytes: Uint8Array | string,

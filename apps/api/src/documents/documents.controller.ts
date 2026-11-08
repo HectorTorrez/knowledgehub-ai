@@ -49,6 +49,7 @@ import {
   updateDocumentSchema,
   type UpdateDocumentInput,
 } from './dto/update-document.schema.js';
+import { importUrlSchema, type ImportUrlInput } from './dto/import-url.schema.js';
 import { DocumentsService } from './documents.service.js';
 
 function requireDocumentCapability(
@@ -75,6 +76,18 @@ export class DocumentsController {
   ): Promise<DocumentDetailResponse> {
     requireDocumentCapability(request, 'documents.write');
     return this.documents.create(requireOrganizationContext(request), body);
+  }
+
+  @Post('import-url')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('documentWriteUser')
+  importUrl(
+    @Body(new ZodValidationPipe(importUrlSchema)) body: ImportUrlInput,
+    @Req() request: OrganizationRequest,
+  ): Promise<DocumentDetailResponse> {
+    requireDocumentCapability(request, 'documents.write');
+    return this.documents.importFromUrl(requireOrganizationContext(request), body);
   }
 
   @Get()
