@@ -8,7 +8,11 @@ import { AppModule } from '../src/app.module.js';
 import { ACCESS_TOKEN_COOKIE } from '../src/auth/cookies.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { OBJECT_STORAGE } from '../src/storage/object-storage.port.js';
-import { MAX_UPLOAD_BYTES } from '../src/documents/upload-policy.js';
+import {
+  MAX_UPLOAD_BYTES,
+  PPTX_CONTENT_TYPE,
+} from '../src/documents/upload-policy.js';
+import { createMinimalDocx } from './support/minimal-docx.js';
 import { PROCESSING_MAX_ATTEMPTS } from '../src/documents/processing-policy.js';
 import { FakeObjectStorage } from './support/fake-object-storage.js';
 
@@ -1577,6 +1581,30 @@ describe('documents (e2e)', () => {
       expect(response.body.document.failureReason).toBe('SIGNATURE_MISMATCH');
       expect(response.body.document.failureKind).toBe('VERIFICATION');
       expect(JSON.stringify(response.body)).not.toContain('organizations/');
+    });
+
+    it('fails verification when PPTX bytes are a DOCX archive', async () => {
+      const { token, organizationId, documentId } = await setupDocument(
+        'PowerPoint Signature Org',
+      );
+      await uploadUrlAndObject(
+        token,
+        organizationId,
+        documentId,
+        PPTX_CONTENT_TYPE,
+        await createMinimalDocx({ heading: 'Title', body: 'Word content' }),
+      );
+
+      const response = await completeUpload(
+        token,
+        organizationId,
+        documentId,
+      ).expect(200);
+      expect(response.body.document.status).toBe('FAILED');
+      expect(response.body.document.failureReason).toBe('SIGNATURE_MISMATCH');
+      expect(response.body.document.failureKind).toBe('VERIFICATION');
+      expect((await loadDocument(documentId)).storageKey).toBeNull();
+      expect(await loadJobs(documentId)).toHaveLength(0);
     });
 
     it('rejects with 409 when a newer upload URL superseded the staged one', async () => {
