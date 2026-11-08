@@ -494,7 +494,7 @@ describe('answers (e2e)', () => {
       'other passage',
       { embedding: basis(1) },
     );
-    await prisma.document.updateMany({
+    await prisma.unscoped.document.updateMany({
       where: { id: { in: [documentId, otherDocumentId] } },
       data: { summaryStatus: 'READY' },
     });
