@@ -5,7 +5,6 @@ import { PrismaClient } from '../generated/prisma/client.js';
 import { hasTenantScope } from './tenant-scope.js';
 
 const tenantModels = new Set([
-  'Membership',
   'Document',
   'Collection',
   'DocumentCollection',

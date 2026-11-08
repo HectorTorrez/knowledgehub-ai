@@ -106,10 +106,10 @@ describe('document processing worker (e2e)', () => {
     prisma.document.findUniqueOrThrow({ where: { id: documentId } });
 
   const loadExtractions = (documentId: string) =>
-    prisma.documentExtraction.findMany({ where: { documentId } });
+    prisma.unscoped.documentExtraction.findMany({ where: { documentId } });
 
   const loadChunks = (documentId: string) =>
-    prisma.documentChunk.findMany({
+    prisma.unscoped.documentChunk.findMany({
       where: { documentId },
       orderBy: { chunkIndex: 'asc' },
     });
@@ -257,7 +257,7 @@ describe('document processing worker (e2e)', () => {
     const second = await seedJob();
     await worker.runOnce();
     await worker.runOnce();
-    await prisma.documentExtraction.updateMany({
+    await prisma.unscoped.documentExtraction.updateMany({
       where: { documentId: { in: [first.document.id, second.document.id] } },
       data: { chunkingVersion: 1 },
     });

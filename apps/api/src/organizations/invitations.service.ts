@@ -289,7 +289,7 @@ export class InvitationsService {
   ): Promise<void> {
     const now = new Date();
     const claimed = await tx.organizationInvitation.updateMany({
-      where: { id: invitation.id, acceptedAt: null, expiresAt: { gt: now } },
+      where: { id: invitation.id, organizationId: invitation.organizationId, acceptedAt: null, expiresAt: { gt: now } },
       data: { acceptedAt: now },
     });
 
