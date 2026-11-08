@@ -8,6 +8,7 @@ import {
 } from '../embeddings/embedding-provider.port.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { type DocumentChunkDraft } from './chunking.policy.js';
+import { detectLanguage } from './language.policy.js';
 import type { ProcessingOwnership } from './processing-job.service.js';
 
 interface OwnedGeneration {
@@ -163,6 +164,13 @@ export class DocumentChunkStore {
     chunks: DocumentChunkDraft[],
     vectors: number[][],
   ): Promise<void> {
+    const language = detectLanguage(
+      chunks.map((chunk) => chunk.content).join(' '),
+    );
+    await client.$executeRaw`
+      UPDATE "Document" SET "language" = ${language}
+      WHERE id = ${owned.documentId}::uuid AND "organizationId" = ${owned.organizationId}::uuid
+    `;
     await client.$executeRaw`
       DELETE FROM "DocumentChunk"
       WHERE "documentId" = ${owned.documentId}::uuid
@@ -174,7 +182,7 @@ export class DocumentChunkStore {
       await client.$executeRaw`
         INSERT INTO "DocumentChunk"
           ("id", "documentId", "organizationId", "documentGeneration",
-           "pageNumber", "chunkIndex", "content", "characterCount",
+           "pageNumber", "chunkIndex", "content", "language", "characterCount",
            "embedding", "createdAt", "updatedAt")
         VALUES (
           gen_random_uuid(),
@@ -184,6 +192,7 @@ export class DocumentChunkStore {
           ${chunk.pageNumber},
           ${chunk.chunkIndex},
           ${chunk.content},
+          ${language},
           ${chunk.characterCount},
           ${vectorLiteral(vectors[index]!)}::vector,
           now(),
