@@ -27,13 +27,11 @@ test('notifies about an uploaded document on another page and stops polling', as
   });
   await page.goto('/organizations/org-1/documents');
   await page.getByRole('button', { name: /Upload document/ }).click();
-  await page
-    .locator('input[type=file]')
-    .setInputFiles({
-      name: 'policy.pdf',
-      mimeType: 'application/pdf',
-      buffer: Buffer.from('%PDF-1.4 policy'),
-    });
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'policy.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4 policy'),
+  });
   await page.getByRole('button', { name: 'Upload 1 file' }).click();
   await expect(page.getByText('1 document uploaded')).toBeVisible();
   await page.goto('/organizations/org-1');
