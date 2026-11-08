@@ -8,6 +8,8 @@ import { DocumentChunkStore } from './document-chunk.store.js';
 import { DocumentTextExtractor } from './document-text-extractor.js';
 import { InlinePdfExtractor } from './inline-pdf-extractor.js';
 import { PDF_EXTRACTOR, type PdfExtractor } from './pdf-extractor.js';
+import { PDF_PAGE_RENDERER } from './pdf-page-renderer.port.js';
+import { PdfJsPageRenderer } from './pdf-page-renderer.js';
 import { OCR_PROVIDER } from './ocr-provider.port.js';
 import { OpenAiOcrProvider } from './openai-ocr-provider.js';
 import { ProcessingConfig } from './processing.config.js';
@@ -19,6 +21,7 @@ import { WorkerPdfExtractor } from './worker-pdf-extractor.js';
   imports: [StorageModule, EmbeddingsModule, FactsModule, SummariesModule],
   providers: [
     ProcessingConfig,
+    { provide: PDF_PAGE_RENDERER, useClass: PdfJsPageRenderer },
     {
       provide: OCR_PROVIDER,
       inject: [ConfigService, ProcessingConfig],
