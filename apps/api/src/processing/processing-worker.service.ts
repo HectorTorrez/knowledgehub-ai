@@ -24,7 +24,9 @@ import {
   classifyProcessingFailure,
   ProcessingFailureError,
 } from './processing-failure.js';
-import { MAX_EXTRACTABLE_BYTES } from './processing-limits.policy.js';
+import { OCR_PROVIDER, type OcrProvider } from './ocr-provider.port.js';
+import { PDF_PAGE_RENDERER, type PdfPageRenderer } from './pdf-page-renderer.port.js';
+import { MAX_EXTRACTABLE_BYTES, MAX_EXTRACTED_CHARACTERS } from './processing-limits.policy.js';
 import {
   ProcessingJobService,
   type ClaimedProcessingJob,
@@ -65,6 +67,8 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
     private readonly facts: FactsService,
     private readonly summaries: SummariesService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+    @Inject(PDF_PAGE_RENDERER) private readonly renderer: PdfPageRenderer,
+    @Inject(OCR_PROVIDER) private readonly ocr: OcrProvider,
   ) {}
 
   onModuleInit(): void {
@@ -238,7 +242,16 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
 
-    return this.extractor.extract({ contentType: job.contentType, bytes });
+    const extracted = await this.extractor.extract({ contentType: job.contentType, bytes });
+    if (job.contentType !== 'application/pdf' || hasMeaningfulPdfText(extracted.pages) || !this.config.ocrEnabled) return extracted;
+    const images = await this.renderer.render(Buffer.from(bytes), this.config.ocrMaxPages);
+    if (lease.lost) return null;
+    const recognized = await this.ocr.recognize(images);
+    if (lease.lost) return null;
+    const pages = recognized.map(({ pageNumber, text }) => ({ pageNumber, content: text }));
+    const characterCount = pages.reduce((sum, page) => sum + page.content.length, 0);
+    if (characterCount > MAX_EXTRACTED_CHARACTERS) throw new DocumentResourceLimitError('The document exceeds the extraction character limit');
+    return { ...extracted, pages, characterCount };
   }
 
   private startLeaseRenewal(job: ClaimedProcessingJob): LeaseGuard {
