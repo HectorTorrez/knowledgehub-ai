@@ -25,8 +25,14 @@ import {
   ProcessingFailureError,
 } from './processing-failure.js';
 import { OCR_PROVIDER, type OcrProvider } from './ocr-provider.port.js';
-import { PDF_PAGE_RENDERER, type PdfPageRenderer } from './pdf-page-renderer.port.js';
-import { MAX_EXTRACTABLE_BYTES, MAX_EXTRACTED_CHARACTERS } from './processing-limits.policy.js';
+import {
+  PDF_PAGE_RENDERER,
+  type PdfPageRenderer,
+} from './pdf-page-renderer.port.js';
+import {
+  MAX_EXTRACTABLE_BYTES,
+  MAX_EXTRACTED_CHARACTERS,
+} from './processing-limits.policy.js';
 import {
   ProcessingJobService,
   type ClaimedProcessingJob,
@@ -242,15 +248,35 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
 
-    const extracted = await this.extractor.extract({ contentType: job.contentType, bytes });
-    if (job.contentType !== 'application/pdf' || hasMeaningfulPdfText(extracted.pages) || !this.config.ocrEnabled) return extracted;
-    const images = await this.renderer.render(Buffer.from(bytes), this.config.ocrMaxPages);
+    const extracted = await this.extractor.extract({
+      contentType: job.contentType,
+      bytes,
+    });
+    if (
+      job.contentType !== 'application/pdf' ||
+      hasMeaningfulPdfText(extracted.pages) ||
+      !this.config.ocrEnabled
+    )
+      return extracted;
+    const images = await this.renderer.render(
+      Buffer.from(bytes),
+      this.config.ocrMaxPages,
+    );
     if (lease.lost) return null;
     const recognized = await this.ocr.recognize(images);
     if (lease.lost) return null;
-    const pages = recognized.map(({ pageNumber, text }) => ({ pageNumber, content: text }));
-    const characterCount = pages.reduce((sum, page) => sum + page.content.length, 0);
-    if (characterCount > MAX_EXTRACTED_CHARACTERS) throw new DocumentResourceLimitError('The document exceeds the extraction character limit');
+    const pages = recognized.map(({ pageNumber, text }) => ({
+      pageNumber,
+      content: text,
+    }));
+    const characterCount = pages.reduce(
+      (sum, page) => sum + page.content.length,
+      0,
+    );
+    if (characterCount > MAX_EXTRACTED_CHARACTERS)
+      throw new DocumentResourceLimitError(
+        'The document exceeds the extraction character limit',
+      );
     return { ...extracted, pages, characterCount };
   }
 

@@ -76,8 +76,12 @@ function createWorker(overrides?: {
   };
 
   const summaries = { summarize: vi.fn(async () => undefined) };
-  const renderer = { render: vi.fn(async () => [{ pageNumber: 1, image: Buffer.from('png') }]) };
-  const ocr = { recognize: vi.fn(async () => [{ pageNumber: 1, text: 'Recognized text' }]) };
+  const renderer = {
+    render: vi.fn(async () => [{ pageNumber: 1, image: Buffer.from('png') }]),
+  };
+  const ocr = {
+    recognize: vi.fn(async () => [{ pageNumber: 1, text: 'Recognized text' }]),
+  };
   const worker = new ProcessingWorkerService(
     jobs as unknown as ProcessingJobService,
     extractor as unknown as DocumentTextExtractor,
@@ -90,7 +94,17 @@ function createWorker(overrides?: {
     ocr,
   );
 
-  return { worker, jobs, extractor, chunks, config, storage, summaries, renderer, ocr };
+  return {
+    worker,
+    jobs,
+    extractor,
+    chunks,
+    config,
+    storage,
+    summaries,
+    renderer,
+    ocr,
+  };
 }
 
 const OWNED_CHUNKS = [
@@ -106,17 +120,33 @@ const OWNERSHIP = {
 };
 
 describe('ProcessingWorkerService', () => {
-  it.each(['disabled', 'empty', 'recognized'])('handles OCR %s', async (mode) => {
-    const { worker, extractor, config, renderer, ocr, chunks, jobs } = createWorker();
-    config.ocrEnabled = mode !== 'disabled';
-    extractor.extract.mockResolvedValue({ pages: [{ pageNumber: 1, content: '' }], pageCount: 1, characterCount: 0 });
-    if (mode === 'empty') ocr.recognize.mockResolvedValue([{ pageNumber: 1, text: '' }]);
-    await worker.processJob({ ...JOB, contentType: 'application/pdf' });
-    expect(renderer.render).toHaveBeenCalledTimes(mode === 'disabled' ? 0 : 1);
-    expect(ocr.recognize).toHaveBeenCalledTimes(mode === 'disabled' ? 0 : 1);
-    if (mode === 'recognized') expect(chunks.replaceForGeneration).toHaveBeenCalled();
-    else expect(jobs.recordFailure).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ reason: 'NO_EXTRACTABLE_TEXT' }));
-  });
+  it.each(['disabled', 'empty', 'recognized'])(
+    'handles OCR %s',
+    async (mode) => {
+      const { worker, extractor, config, renderer, ocr, chunks, jobs } =
+        createWorker();
+      config.ocrEnabled = mode !== 'disabled';
+      extractor.extract.mockResolvedValue({
+        pages: [{ pageNumber: 1, content: '' }],
+        pageCount: 1,
+        characterCount: 0,
+      });
+      if (mode === 'empty')
+        ocr.recognize.mockResolvedValue([{ pageNumber: 1, text: '' }]);
+      await worker.processJob({ ...JOB, contentType: 'application/pdf' });
+      expect(renderer.render).toHaveBeenCalledTimes(
+        mode === 'disabled' ? 0 : 1,
+      );
+      expect(ocr.recognize).toHaveBeenCalledTimes(mode === 'disabled' ? 0 : 1);
+      if (mode === 'recognized')
+        expect(chunks.replaceForGeneration).toHaveBeenCalled();
+      else
+        expect(jobs.recordFailure).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ reason: 'NO_EXTRACTABLE_TEXT' }),
+        );
+    },
+  );
 
   describe('runOnce', () => {
     it('recovers expired leases and reports an idle queue', async () => {

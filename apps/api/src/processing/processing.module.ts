@@ -25,12 +25,13 @@ import { WorkerPdfExtractor } from './worker-pdf-extractor.js';
     {
       provide: OCR_PROVIDER,
       inject: [ConfigService, ProcessingConfig],
-      useFactory: (env: ConfigService, config: ProcessingConfig) => new OpenAiOcrProvider({
-        apiKey: env.get<string>('OPENAI_API_KEY') ?? '',
-        baseUrl: env.getOrThrow<string>('OPENAI_BASE_URL'),
-        model: config.ocrModel,
-        timeoutMs: config.pdfTimeoutMs,
-      }),
+      useFactory: (env: ConfigService, config: ProcessingConfig) =>
+        new OpenAiOcrProvider({
+          apiKey: env.get<string>('OPENAI_API_KEY') ?? '',
+          baseUrl: env.getOrThrow<string>('OPENAI_BASE_URL'),
+          model: config.ocrModel,
+          timeoutMs: config.pdfTimeoutMs,
+        }),
     },
     ProcessingJobService,
     DocumentTextExtractor,

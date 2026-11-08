@@ -8,11 +8,21 @@ export class PdfJsPageRenderer implements PdfPageRenderer {
     const document = await loading.promise;
     try {
       const pages: { pageNumber: number; image: Buffer }[] = [];
-      for (let pageNumber = 1; pageNumber <= Math.min(document.numPages, maxPages); pageNumber++) {
+      for (
+        let pageNumber = 1;
+        pageNumber <= Math.min(document.numPages, maxPages);
+        pageNumber++
+      ) {
         const page = await document.getPage(pageNumber);
         const viewport = page.getViewport({ scale: 1.5 });
-        const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-        await page.render({ canvas: canvas as unknown as HTMLCanvasElement, viewport }).promise;
+        const canvas = createCanvas(
+          Math.ceil(viewport.width),
+          Math.ceil(viewport.height),
+        );
+        await page.render({
+          canvas: canvas as unknown as HTMLCanvasElement,
+          viewport,
+        }).promise;
         pages.push({ pageNumber, image: canvas.toBuffer('image/png') });
         page.cleanup();
       }
