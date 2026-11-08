@@ -415,7 +415,8 @@ function DocumentsPage() {
 
   async function handleImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isValidImportUrl(importUrl)) {
+    const url = importUrl.trim();
+    if (!isValidImportUrl(url)) {
       setImportError(t('documents.urlInvalid'));
       return;
     }
@@ -432,7 +433,7 @@ function DocumentsPage() {
     setImportError('');
     try {
       const result = await documentsApi.importFromUrl(organizationId, {
-        url: importUrl,
+        url,
         ...(importTitle.trim() ? { title: importTitle.trim() } : {}),
       });
       trackDocument(result.document.id);
