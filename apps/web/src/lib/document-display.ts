@@ -8,7 +8,11 @@ import {
 
 export type FailureAction = 'reprocess' | 'replace' | 'delete';
 
-const FAILURE_REASON_KEYS = ['INVALID_DOCX', 'ARCHIVE_LIMIT_EXCEEDED'] as const;
+const FAILURE_REASON_KEYS = [
+  'INVALID_DOCX',
+  'ARCHIVE_LIMIT_EXCEEDED',
+  'STORAGE_WRITE_FAILED',
+] as const;
 
 const CONTENT_TYPE_KEYS: Record<
   string,

@@ -1031,6 +1031,8 @@ export const es: Messages = {
     },
   },
   failureReasons: {
+    STORAGE_WRITE_FAILED:
+      'No se pudo guardar el documento importado. Intenta importarlo de nuevo.',
     INVALID_DOCX:
       'Este documento de Word no es válido o está dañado. Sube un archivo .docx válido.',
     ARCHIVE_LIMIT_EXCEEDED:
@@ -1058,6 +1060,20 @@ export const es: Messages = {
     untitled: 'Documento sin título',
   },
   documents: {
+    importUrl: 'Importar desde URL',
+    uploadFile: 'Subir archivos',
+    urlLabel: 'URL',
+    urlTitle: 'Título (opcional)',
+    urlInvalid:
+      'Introduce una URL HTTP o HTTPS válida de hasta 2048 caracteres.',
+    urlNotAllowed: 'Esta URL no está permitida.',
+    urlFetchFailed: 'No se pudo obtener el documento desde esta URL.',
+    urlUnsupportedType: 'La URL apunta a un tipo de archivo no compatible.',
+    urlTooLarge: 'El documento de esta URL es demasiado grande.',
+    urlImportFailed: 'No se pudo importar el documento. Inténtalo de nuevo.',
+    urlImportSuccess: 'Documento importado',
+    urlImporting: 'Importando…',
+    importedFrom: 'Importado de {hostname}',
     pageTitle: 'Documentos · KnowledgeHub AI',
     pageDescription:
       'Sube y administra los documentos que sustentan las respuestas de tu organización.',

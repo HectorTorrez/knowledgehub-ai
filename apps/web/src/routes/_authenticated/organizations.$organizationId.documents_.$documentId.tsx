@@ -382,6 +382,18 @@ function DocumentDetailPage() {
           />
         ) : null}
       </div>
+      {entry.sourceUrl ? (
+        <a
+          href={entry.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-muted-foreground underline"
+        >
+          {t('documents.importedFrom', {
+            hostname: new URL(entry.sourceUrl).hostname,
+          })}
+        </a>
+      ) : null}
       <PageHeader
         title={entry.title}
         description={t('documentDetail.description')}
