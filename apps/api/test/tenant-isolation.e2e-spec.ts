@@ -204,4 +204,16 @@ describe('tenant isolation (e2e)', () => {
     }
   });
 
+  it('covers every organization route registered by Nest', () => {
+    const normalize = (path: string) => path.split('?')[0].replace(/:[^/]+/g, ':id').replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, ':id');
+    const table = new Set(routes.map(([method, path]) => `${method} ${normalize(`/organizations/:organizationId${path}`)}`));
+    const server = app.getHttpAdapter().getInstance();
+    const registered = server.router.stack.flatMap((layer: { route?: { path: string; methods: Record<string, boolean> } }) => {
+      if (!layer.route?.path.startsWith('/organizations/:organizationId')) return [];
+      return Object.keys(layer.route.methods).map((method) => `${method} ${normalize(layer.route!.path)}`);
+    });
+    expect(registered.length).toBeGreaterThan(0);
+    expect(registered.filter((route: string) => !table.has(route))).toEqual([]);
+  });
+
 });
