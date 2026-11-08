@@ -50,6 +50,27 @@ describe('DocumentTextExtractor', () => {
     ).rejects.toBeInstanceOf(DocumentExtractionError);
   });
 
+  it('extracts readable text from HTML as a single page', async () => {
+    const bytes = encoder.encode(
+      '<html><body><nav>Menu</nav><h1>Policy</h1><p>Refunds apply.</p></body></html>',
+    );
+
+    const result = await extractor.extract({ contentType: 'text/html', bytes });
+
+    expect(result.pages).toEqual([
+      { pageNumber: 1, content: '# Policy\n\nRefunds apply.' },
+    ]);
+  });
+
+  it('rejects HTML that is not valid UTF-8', async () => {
+    await expect(
+      extractor.extract({
+        contentType: 'text/html',
+        bytes: Uint8Array.of(0x3c, 0x70, 0x3e, 0xff),
+      }),
+    ).rejects.toBeInstanceOf(DocumentExtractionError);
+  });
+
   it('rejects a content type it cannot extract', async () => {
     await expect(
       extractor.extract({
