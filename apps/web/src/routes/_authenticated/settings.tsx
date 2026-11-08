@@ -30,7 +30,7 @@ import { useToast } from '~/components/ui/toast';
 import {
   browserNotificationsEnabled,
   setBrowserNotificationsEnabled,
-} from '~/hooks/use-document-notifications';
+} from '~/lib/document-notifications';
 import { useSession } from '~/hooks/use-auth';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { isApiError } from '~/lib/api/errors';

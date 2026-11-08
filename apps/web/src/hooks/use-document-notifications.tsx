@@ -1,44 +1,17 @@
-import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { useNavigate } from '@tanstack/react-router';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useToast } from '~/components/ui/toast';
 import { documentsApi } from '~/lib/api/documents';
+import { isNotFound } from '~/lib/api/errors';
+import {
+  TrackingContext,
+  browserNotificationsEnabled,
+  readTrackedDocuments,
+  writeTrackedDocuments,
+} from '~/lib/document-notifications';
 import { remainingTrackedDocuments } from '~/lib/document-polling';
 import { documentFailureMessage } from '~/lib/document-display';
 import { useT } from '~/lib/i18n/hooks';
-
-const TrackingContext = createContext<(id: string) => void>(() => {});
-const preferenceKey = 'document-browser-notifications';
-
-export function browserNotificationsEnabled(): boolean {
-  try {
-    return localStorage.getItem(preferenceKey) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function setBrowserNotificationsEnabled(enabled: boolean): void {
-  try {
-    localStorage.setItem(preferenceKey, String(enabled));
-  } catch {
-    return;
-  }
-}
-
-export function splitCompleted(documents: DocumentSummary[]) {
-  return {
-    ready: documents.filter((item) => item.status === 'READY'),
-    failed: documents.filter((item) => item.status === 'FAILED'),
-  };
-}
 
 export function DocumentNotificationsProvider({
   organizationId,
@@ -47,7 +20,9 @@ export function DocumentNotificationsProvider({
   organizationId: string;
   children: ReactNode;
 }) {
-  const [pending, setPending] = useState<string[]>([]);
+  const [pending, setPending] = useState<string[]>(() =>
+    readTrackedDocuments(organizationId),
+  );
   const [delay, setDelay] = useState(2500);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -57,6 +32,10 @@ export function DocumentNotificationsProvider({
       setPending((items) => (items.includes(id) ? items : [...items, id])),
     [],
   );
+
+  useEffect(() => {
+    writeTrackedDocuments(organizationId, pending);
+  }, [organizationId, pending]);
 
   useEffect(() => {
     if (pending.length === 0) return;
@@ -69,8 +48,14 @@ export function DocumentNotificationsProvider({
       const documents = results.flatMap((result) =>
         result.status === 'fulfilled' ? [result.value.document] : [],
       );
-      const { ready, failed } = splitCompleted(documents);
-      const completed = [...ready, ...failed];
+      const ready = documents.filter((item) => item.status === 'READY');
+      const failed = documents.filter((item) => item.status === 'FAILED');
+      const deleted = results.flatMap((result, index) =>
+        result.status === 'rejected' && isNotFound(result.reason)
+          ? [{ id: pending[index] }]
+          : [],
+      );
+      const completed = [...ready, ...failed, ...deleted];
       if (ready.length > 0) {
         const first = ready[0];
         const title =
@@ -139,8 +124,4 @@ function notifyBrowser(title: string, body?: string) {
   ) {
     new Notification(title, { body });
   }
-}
-
-export function useTrackDocument() {
-  return useContext(TrackingContext);
 }

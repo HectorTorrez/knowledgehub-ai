@@ -78,7 +78,7 @@ import { Spinner } from '~/components/ui/spinner';
 import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { pollingInterval } from '~/lib/document-polling';
-import { useTrackDocument } from '~/hooks/use-document-notifications';
+import { useTrackDocument } from '~/lib/document-notifications';
 import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { organizationsApi } from '~/lib/api/organizations';
