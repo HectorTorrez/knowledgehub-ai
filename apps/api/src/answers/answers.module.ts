@@ -1,3 +1,9 @@
+import {
+  EmbeddingsModule,
+  QUERY_CACHE,
+} from '../embeddings/embeddings.module.js';
+import type { QueryCache } from '../embeddings/query-cache.js';
+import { CachedQueryRewriter } from './cached-query-rewriter.js';
 import { Module } from '@nestjs/common';
 import { ActivityModule } from '../activity/activity.module.js';
 import { AggregationModule } from '../aggregation/aggregation.module.js';
@@ -26,6 +32,7 @@ import { OpenAiAnswerProvider } from './openai-answer-provider.js';
     AuthModule,
     OrganizationsModule,
     RetrievalModule,
+    EmbeddingsModule,
     AggregationModule,
     FactsModule,
   ],
@@ -45,14 +52,18 @@ import { OpenAiAnswerProvider } from './openai-answer-provider.js';
     },
     {
       provide: QUERY_REWRITER,
-      inject: [AnswerConfig],
-      useFactory: (config: AnswerConfig) =>
-        new OpenAiQueryRewriter({
-          apiKey: config.apiKey,
-          model: config.queryRewriteModel,
-          timeoutMs: config.timeoutMs,
-          baseUrl: config.baseUrl,
-        }),
+      inject: [AnswerConfig, QUERY_CACHE],
+      useFactory: (config: AnswerConfig, cache: QueryCache) =>
+        new CachedQueryRewriter(
+          new OpenAiQueryRewriter({
+            apiKey: config.apiKey,
+            model: config.queryRewriteModel,
+            timeoutMs: config.timeoutMs,
+            baseUrl: config.baseUrl,
+          }),
+          cache,
+          config.queryRewriteModel,
+        ),
     },
     AnswersService,
     ConversationsService,
