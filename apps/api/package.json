@@ -35,7 +35,9 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "eval:retrieval": "vitest run --config ./vitest.config.retrieval-eval.ts",
-    "reindex:chunks": "tsx scripts/reindex.ts"
+    "reindex:chunks": "tsx scripts/reindex.ts",
+    "eval:compare": "tsx eval/compare-cli.ts",
+    "eval:baseline": "tsx eval/compare-cli.ts --update"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

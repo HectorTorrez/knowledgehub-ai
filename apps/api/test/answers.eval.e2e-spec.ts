@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { RERANKER } from '../src/answers/reranker.port.js';
 import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
@@ -405,6 +406,17 @@ describe('answers evaluation (real providers)', () => {
         metrics: computeMetrics(outcomes),
       });
     }
+
+    writeFileSync(
+      'eval/answers-results.json',
+      JSON.stringify(
+        Object.fromEntries(
+          runs.map(({ threshold, metrics }) => [threshold, metrics]),
+        ),
+        null,
+        2,
+      ) + '\n',
+    );
 
     console.log(
       formatSweepReport(runs, {
