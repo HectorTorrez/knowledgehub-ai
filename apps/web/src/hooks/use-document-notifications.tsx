@@ -12,6 +12,8 @@ import {
 import { documentFailureMessage } from '~/lib/document-display';
 import { useT } from '~/lib/i18n/hooks';
 
+const initialPollDelay = 2500;
+
 export function DocumentNotificationsProvider({
   organizationId,
   children,
@@ -22,13 +24,17 @@ export function DocumentNotificationsProvider({
   const [pending, setPending] = useState<string[]>(() =>
     readTrackedDocuments(organizationId),
   );
-  const [delay, setDelay] = useState(2500);
+  const [delay, setDelay] = useState(initialPollDelay);
   const navigate = useNavigate();
   const { toast } = useToast();
   const t = useT();
   const track = useCallback(
     (id: string) =>
-      setPending((items) => (items.includes(id) ? items : [...items, id])),
+      setPending((items) => {
+        if (items.includes(id)) return items;
+        setDelay(initialPollDelay);
+        return [...items, id];
+      }),
     [],
   );
 
