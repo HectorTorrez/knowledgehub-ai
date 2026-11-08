@@ -254,6 +254,70 @@ describe('document retrieval (e2e)', () => {
     expect(results.every((item) => item.documentId === myDocument)).toBe(true);
   });
 
+  it.each([
+    ['La factura del proveedor', 'facturas'],
+    ['información confidencial', 'informacion'],
+    ['informacion', 'información'],
+    ['The invoice was paid', 'invoices'],
+  ])('matches "%s" lexically with "%s"', async (content, text) => {
+    const organizationId = await seedOrganization();
+    const documentId = await seedDocument(organizationId);
+    await seedChunk({
+      documentId,
+      organizationId,
+      documentGeneration: 1,
+      pageNumber: 1,
+      chunkIndex: 0,
+      content,
+      embedding: basis(1),
+    });
+
+    const results = await retrieval.search({ organizationId, text });
+
+    expect(results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          documentId,
+          content,
+          matchedLexically: true,
+        }),
+      ]),
+    );
+  });
+
+  it('isolates lexical matches between organizations', async () => {
+    const mine = await seedOrganization();
+    const theirs = await seedOrganization();
+    const myDocument = await seedDocument(mine);
+    const theirDocument = await seedDocument(theirs);
+    for (const [organizationId, documentId] of [
+      [mine, myDocument],
+      [theirs, theirDocument],
+    ]) {
+      await seedChunk({
+        documentId: documentId!,
+        organizationId: organizationId!,
+        documentGeneration: 1,
+        pageNumber: 1,
+        chunkIndex: 0,
+        content: 'La factura del proveedor',
+        embedding: basis(1),
+      });
+    }
+
+    const results = await retrieval.search({
+      organizationId: mine,
+      text: 'facturas',
+    });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        documentId: myDocument,
+        matchedLexically: true,
+      }),
+    ]);
+  });
+
   it('never returns an obsolete generation', async () => {
     const organizationId = await seedOrganization();
     const documentId = await seedDocument(organizationId, { generation: 2 });
