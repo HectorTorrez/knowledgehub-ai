@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '~/lib/i18n/translate';
-import { documentFailureGuidance } from './document-display';
+import {
+  documentContentTypeIcon,
+  documentContentTypeLabel,
+  documentFailureGuidance,
+} from './document-display';
 
 const t = createTranslator('en');
 
@@ -28,5 +32,24 @@ describe('documentFailureGuidance', () => {
     expect(
       documentFailureGuidance('NO_EXTRACTABLE_TEXT', t).description,
     ).toContain('scanned');
+  });
+});
+
+describe('document formats', () => {
+  it.each([
+    [
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'PowerPoint',
+      'Presentation',
+    ],
+    [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Excel',
+      'Sheet',
+    ],
+    ['text/html', 'HTML', 'Globe'],
+  ])('displays %s', (type, label, icon) => {
+    expect(documentContentTypeLabel(type, t)).toBe(label);
+    expect(documentContentTypeIcon(type).displayName).toBe(icon);
   });
 });

@@ -2,7 +2,12 @@ import type { Locale } from '~/lib/i18n/locale';
 import type { Translator } from '~/lib/i18n/translate';
 import { formatBytes } from './format';
 import { DOCUMENT_TITLE_MAX_LENGTH } from './validation';
-import { DOCX_CONTENT_TYPE, isAllowedUploadContentType } from './validation';
+import {
+  DOCX_CONTENT_TYPE,
+  PPTX_CONTENT_TYPE,
+  XLSX_CONTENT_TYPE,
+  isAllowedUploadContentType,
+} from './validation';
 
 export const SIGNATURE_PREFIX_BYTES = 1024;
 export const MAX_PROCESSABLE_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -13,6 +18,10 @@ const NUL_BYTE = 0x00;
 const EXTENSION_CONTENT_TYPES: Record<string, string> = {
   pdf: 'application/pdf',
   docx: DOCX_CONTENT_TYPE,
+  pptx: PPTX_CONTENT_TYPE,
+  xlsx: XLSX_CONTENT_TYPE,
+  html: 'text/html',
+  htm: 'text/html',
   txt: 'text/plain',
   text: 'text/plain',
   md: 'text/markdown',
@@ -92,7 +101,12 @@ function hasZipLocalFileHeader(prefix: Uint8Array): boolean {
 
 function hasValidSignature(contentType: string, prefix: Uint8Array): boolean {
   if (contentType === 'application/pdf') return containsPdfMagic(prefix);
-  if (contentType === DOCX_CONTENT_TYPE) return hasZipLocalFileHeader(prefix);
+  if (
+    [DOCX_CONTENT_TYPE, PPTX_CONTENT_TYPE, XLSX_CONTENT_TYPE].includes(
+      contentType,
+    )
+  )
+    return hasZipLocalFileHeader(prefix);
   return isStrictUtf8Text(prefix);
 }
 

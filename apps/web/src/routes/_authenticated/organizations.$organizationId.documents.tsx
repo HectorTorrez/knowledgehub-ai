@@ -1,4 +1,7 @@
-import { documentFailureMessage } from '~/lib/document-display';
+import {
+  documentContentTypeIcon,
+  documentFailureMessage,
+} from '~/lib/document-display';
 import type {
   DocumentStatus,
   DocumentSummary,
@@ -727,104 +730,111 @@ function DocumentsPage() {
               <Card>
                 <CardContent className="p-0">
                   <ul className="divide-y">
-                    {rows.map((document) => (
-                      <li
-                        key={document.id}
-                        className="flex items-start gap-2 px-4 py-4 sm:items-center sm:gap-4 sm:px-6"
-                      >
-                        <Link
-                          to="/organizations/$organizationId/documents/$documentId"
-                          params={{ organizationId, documentId: document.id }}
-                          className="flex min-w-0 flex-1 items-start gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:items-center sm:gap-4"
+                    {rows.map((document) => {
+                      const DocumentIcon = documentContentTypeIcon(
+                        document.contentType,
+                      );
+                      return (
+                        <li
+                          key={document.id}
+                          className="flex items-start gap-2 px-4 py-4 sm:items-center sm:gap-4 sm:px-6"
                         >
-                          <span
-                            className={cn(
-                              'flex size-10 shrink-0 items-center justify-center rounded-md',
-                              document.status === 'READY'
-                                ? 'bg-brand/10 text-brand'
-                                : 'bg-muted text-muted-foreground',
-                            )}
+                          <Link
+                            to="/organizations/$organizationId/documents/$documentId"
+                            params={{ organizationId, documentId: document.id }}
+                            className="flex min-w-0 flex-1 items-start gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:items-center sm:gap-4"
                           >
-                            <FileText className="size-5" />
-                          </span>
-                          <div className="min-w-0 flex-1">
                             <span
-                              className="block text-sm font-medium break-words line-clamp-2 sm:line-clamp-1"
-                              title={document.title}
+                              className={cn(
+                                'flex size-10 shrink-0 items-center justify-center rounded-md',
+                                document.status === 'READY'
+                                  ? 'bg-brand/10 text-brand'
+                                  : 'bg-muted text-muted-foreground',
+                              )}
                             >
-                              {document.title}
+                              <DocumentIcon className="size-5" />
                             </span>
-                            <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                              <DocumentStatusBadge status={document.status} />
+                            <div className="min-w-0 flex-1">
                               <span
-                                className="min-w-0 truncate text-xs text-muted-foreground"
-                                title={document.originalFileName ?? undefined}
+                                className="block text-sm font-medium break-words line-clamp-2 sm:line-clamp-1"
+                                title={document.title}
                               >
-                                {document.originalFileName ??
-                                  t('documents.uploadPending')}
-                                {document.sizeBytes !== null
-                                  ? ` · ${formatBytes(document.sizeBytes, locale)}`
-                                  : ''}
-                                {` · ${formatDate(document.createdAt, locale)}`}
+                                {document.title}
                               </span>
-                            </span>
-                            <CollectionBadges
-                              collections={document.collections ?? []}
-                            />
-                            <DocumentProgress document={document} />
-                            {document.status === 'FAILED' ? (
-                              <span className="mt-1 block text-xs break-words text-destructive">
-                                {document.failureKind === 'VERIFICATION'
-                                  ? t('documents.verificationFailed')
-                                  : t('documents.processingFailed')}
-                                {document.failureReason
-                                  ? `: ${documentFailureMessage(document.failureReason, t)}`
-                                  : ''}
-                              </span>
-                            ) : null}
-                          </div>
-                        </Link>
-                        {canWrite ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label={t('documents.actionsFor', {
-                                  title: document.title,
-                                })}
-                              >
-                                <MoreHorizontal />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {document.status === 'FAILED' ? (
-                                <DropdownMenuItem
-                                  onSelect={() => reprocess.mutate(document.id)}
-                                  disabled={reprocess.isPending}
+                              <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                                <DocumentStatusBadge status={document.status} />
+                                <span
+                                  className="min-w-0 truncate text-xs text-muted-foreground"
+                                  title={document.originalFileName ?? undefined}
                                 >
-                                  <RotateCcw />
-                                  {t('documents.retryProcessing')}
-                                </DropdownMenuItem>
+                                  {document.originalFileName ??
+                                    t('documents.uploadPending')}
+                                  {document.sizeBytes !== null
+                                    ? ` · ${formatBytes(document.sizeBytes, locale)}`
+                                    : ''}
+                                  {` · ${formatDate(document.createdAt, locale)}`}
+                                </span>
+                              </span>
+                              <CollectionBadges
+                                collections={document.collections ?? []}
+                              />
+                              <DocumentProgress document={document} />
+                              {document.status === 'FAILED' ? (
+                                <span className="mt-1 block text-xs break-words text-destructive">
+                                  {document.failureKind === 'VERIFICATION'
+                                    ? t('documents.verificationFailed')
+                                    : t('documents.processingFailed')}
+                                  {document.failureReason
+                                    ? `: ${documentFailureMessage(document.failureReason, t)}`
+                                    : ''}
+                                </span>
                               ) : null}
-                              <DropdownMenuItem
-                                onSelect={() => openRename(document)}
-                              >
-                                <Pencil />
-                                {t('documents.rename')}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={() => setDeleteTarget(document)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 />
-                                {t('documents.delete')}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : null}
-                      </li>
-                    ))}
+                            </div>
+                          </Link>
+                          {canWrite ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={t('documents.actionsFor', {
+                                    title: document.title,
+                                  })}
+                                >
+                                  <MoreHorizontal />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {document.status === 'FAILED' ? (
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      reprocess.mutate(document.id)
+                                    }
+                                    disabled={reprocess.isPending}
+                                  >
+                                    <RotateCcw />
+                                    {t('documents.retryProcessing')}
+                                  </DropdownMenuItem>
+                                ) : null}
+                                <DropdownMenuItem
+                                  onSelect={() => openRename(document)}
+                                >
+                                  <Pencil />
+                                  {t('documents.rename')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => setDeleteTarget(document)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 />
+                                  {t('documents.delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </CardContent>
               </Card>
@@ -856,7 +866,19 @@ function DocumentsPage() {
           </DialogHeader>
           <form onSubmit={handleUpload} className="space-y-4" noValidate>
             <FileDropzone
-              accept={ALLOWED_UPLOAD_CONTENT_TYPES.join(',')}
+              accept={[
+                ...ALLOWED_UPLOAD_CONTENT_TYPES,
+                '.pdf',
+                '.docx',
+                '.pptx',
+                '.xlsx',
+                '.html',
+                '.htm',
+                '.txt',
+                '.text',
+                '.md',
+                '.markdown',
+              ].join(',')}
               files={uploadItems.map((item) => item.file)}
               disabled={uploading || !canWrite}
               onFilesAdd={(files) => void addFiles(files)}

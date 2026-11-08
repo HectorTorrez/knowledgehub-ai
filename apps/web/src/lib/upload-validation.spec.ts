@@ -10,6 +10,8 @@ import {
   validateUploadFile,
 } from './upload-validation';
 
+import { PPTX_CONTENT_TYPE, XLSX_CONTENT_TYPE } from './validation';
+
 const encoder = new TextEncoder();
 
 function makeFile(
@@ -221,5 +223,37 @@ describe('titleFromFileName', () => {
     expect(
       titleFromFileName(`${'a'.repeat(300)}.txt`, 'Untitled document'),
     ).toHaveLength(200);
+  });
+});
+
+describe('new document formats', () => {
+  it.each([
+    ['slides.pptx', PPTX_CONTENT_TYPE],
+    ['sheet.xlsx', XLSX_CONTENT_TYPE],
+    ['page.html', 'text/html'],
+    ['page.htm', 'text/html'],
+  ])('resolves %s with a generic browser type', (name, type) => {
+    expect(
+      resolveUploadContentType(makeFile('', name, 'application/octet-stream')),
+    ).toBe(type);
+  });
+  it.each([PPTX_CONTENT_TYPE, XLSX_CONTENT_TYPE])(
+    'validates ZIP signatures for %s',
+    (type) => {
+      expect(
+        evaluateUploadSignature(type, Uint8Array.of(0x50, 0x4b, 0x03, 0x04)),
+      ).toBeNull();
+      expect(evaluateUploadSignature(type, encoder.encode('invalid'))).toBe(
+        'SIGNATURE_MISMATCH',
+      );
+    },
+  );
+  it('validates HTML as UTF-8 text', async () => {
+    expect(
+      await validateUploadFile(makeFile('<p>Hello</p>', 'page.htm', '')),
+    ).toEqual({ ok: true, contentType: 'text/html' });
+    expect(evaluateUploadSignature('text/html', Uint8Array.of(0xff))).toBe(
+      'SIGNATURE_MISMATCH',
+    );
   });
 });

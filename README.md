@@ -6,7 +6,7 @@ KnowledgeHub AI is a shared workspace for turning documents into searchable know
 
 ## From documents to answers
 
-1. **Bring your knowledge together.** Upload PDFs, Word documents, text, and Markdown to an organization workspace.
+1. **Bring your knowledge together.** Upload PDFs, Word documents, PowerPoint presentations, Excel spreadsheets, HTML, text, and Markdown to an organization workspace.
 2. **Find what matters.** Search your documents or ask a question across your workspace or within a specific document.
 3. **Follow the sources.** Review cited passages and page references as you explore an answer. When there isn't enough evidence, KnowledgeHub can say so.
 4. **Work as a team.** Invite teammates, manage membership and roles, and keep each organization's documents scoped to its members.
