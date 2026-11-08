@@ -1,9 +1,9 @@
+import { QUERY_EMBEDDING_PROVIDER } from '../embeddings/embeddings.module.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { fuseRanks } from './rank-fusion.js';
 import { EmbeddingConfig } from '../embeddings/embedding.config.js';
 import {
-  EMBEDDING_PROVIDER,
   EmbeddingResponseError,
   type EmbeddingProvider,
 } from '../embeddings/embedding-provider.port.js';
@@ -54,7 +54,7 @@ export class RetrievalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly embeddingConfig: EmbeddingConfig,
-    @Inject(EMBEDDING_PROVIDER)
+    @Inject(QUERY_EMBEDDING_PROVIDER)
     private readonly embeddings: EmbeddingProvider,
   ) {}
 

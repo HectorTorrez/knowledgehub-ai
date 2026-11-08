@@ -150,6 +150,8 @@ const envObjectSchema = z.object({
 
   OPENAI_API_KEY: z.string().min(1).optional(),
   OPENAI_BASE_URL: z.string().url().default(DEFAULT_OPENAI_BASE_URL),
+  EMBEDDING_CACHE_MAX_ENTRIES: z.coerce.number().int().min(0).default(1000),
+  EMBEDDING_CACHE_TTL_SECONDS: z.coerce.number().int().min(0).default(86400),
   EMBEDDING_MODEL: z.string().min(1).default(DEFAULT_EMBEDDING_MODEL),
   EMBEDDING_DIMENSIONS: z.coerce
     .number()
