@@ -1008,6 +1008,8 @@ export const en = {
     },
   },
   failureReasons: {
+    STORAGE_WRITE_FAILED:
+      'The imported document could not be saved. Please try importing it again.',
     INVALID_DOCX:
       'This Word document is invalid or damaged. Upload a valid .docx file.',
     ARCHIVE_LIMIT_EXCEEDED:
@@ -1035,6 +1037,19 @@ export const en = {
     untitled: 'Untitled document',
   },
   documents: {
+    importUrl: 'Import from URL',
+    uploadFile: 'Upload files',
+    urlLabel: 'URL',
+    urlTitle: 'Title (optional)',
+    urlInvalid: 'Enter a valid HTTP or HTTPS URL of at most 2048 characters.',
+    urlNotAllowed: 'This URL is not allowed.',
+    urlFetchFailed: 'Unable to fetch the document from this URL.',
+    urlUnsupportedType: 'This URL points to an unsupported file type.',
+    urlTooLarge: 'The document at this URL is too large.',
+    urlImportFailed: 'Unable to import the document. Please try again.',
+    urlImportSuccess: 'Document imported',
+    urlImporting: 'Importing…',
+    importedFrom: 'Imported from {hostname}',
     pageTitle: 'Documents · KnowledgeHub AI',
     pageDescription:
       "Upload and manage the documents used to ground your organization's answers.",

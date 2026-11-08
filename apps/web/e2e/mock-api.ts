@@ -61,6 +61,7 @@ const ANSWER = {
 
 interface ApiOptions {
   authenticated: boolean;
+  urlImportError?: boolean;
   deletionBlocked?: boolean;
   auditPages?: boolean;
   role?: 'OWNER' | 'VIEWER';
@@ -93,6 +94,7 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
     ]);
   let authenticated = options.authenticated;
   let documentRequests = 0;
+  let importedDocument: typeof DOCUMENT | undefined;
   let collections: Array<{
     id: string;
     name: string;
@@ -536,6 +538,23 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (
+      path === '/organizations/org-1/documents/import-url' &&
+      method === 'POST'
+    ) {
+      if (options.urlImportError) {
+        await route.fulfill(json({ code: 'URL_NOT_ALLOWED' }, 400));
+      } else {
+        importedDocument = {
+          ...DOCUMENT,
+          id: 'doc-imported',
+          title: request.postDataJSON().title ?? 'Imported document',
+        };
+        await route.fulfill(json({ document: importedDocument }, 201));
+      }
+      return;
+    }
+
     if (path === '/organizations/org-1/documents') {
       if (method === 'POST') {
         await route.fulfill(
@@ -569,7 +588,10 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
             (url.searchParams.has('collectionId') &&
               !assigned.includes(url.searchParams.get('collectionId')!))
               ? []
-              : [currentDocument()],
+              : [
+                  currentDocument(),
+                  ...(importedDocument ? [importedDocument] : []),
+                ],
           nextCursor: null,
         }),
       );
