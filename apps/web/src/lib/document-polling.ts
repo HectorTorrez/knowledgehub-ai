@@ -1,7 +1,4 @@
-import type {
-  DocumentStatus,
-  DocumentSummary,
-} from '@knowledgehub/shared-types';
+import type { DocumentSummary } from '@knowledgehub/shared-types';
 
 export const POLL_INTERVAL_MS = 2500;
 export const PENDING_UPLOAD_WINDOW_MS = 15 * 60 * 1000;
@@ -25,12 +22,4 @@ export function pollingInterval(
   return visible && documents.some((document) => isProcessing(document, now))
     ? POLL_INTERVAL_MS
     : false;
-}
-
-export function terminalTransition(
-  previous: DocumentStatus | undefined,
-  current: DocumentStatus,
-): 'READY' | 'FAILED' | undefined {
-  if (previous !== 'PENDING' && previous !== 'PROCESSING') return undefined;
-  return current === 'READY' || current === 'FAILED' ? current : undefined;
 }

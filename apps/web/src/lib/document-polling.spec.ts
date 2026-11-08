@@ -3,7 +3,6 @@ import {
   PENDING_UPLOAD_WINDOW_MS,
   POLL_INTERVAL_MS,
   pollingInterval,
-  terminalTransition,
 } from './document-polling';
 
 const NOW = Date.parse('2026-11-03T12:00:00.000Z');
@@ -45,12 +44,5 @@ describe('document polling', () => {
         NOW,
       ),
     ).toBe(false);
-  });
-
-  it('detects only transitions from active to terminal', () => {
-    expect(terminalTransition('PROCESSING', 'READY')).toBe('READY');
-    expect(terminalTransition('PENDING', 'FAILED')).toBe('FAILED');
-    expect(terminalTransition(undefined, 'READY')).toBeUndefined();
-    expect(terminalTransition('READY', 'READY')).toBeUndefined();
   });
 });

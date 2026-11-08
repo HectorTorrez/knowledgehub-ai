@@ -1427,6 +1427,9 @@ export const en = {
     scopeLabel: 'Conversation scope',
   },
   notifications: {
+    readyMany: '{count} documents are ready',
+    browserToggle: 'Browser notifications for document processing',
+
     ready: '{title} is ready',
     failed: '{title} failed',
     view: 'View',
