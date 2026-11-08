@@ -132,7 +132,7 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
       ) {
         throw new ProcessingFailureError(
           'NO_EXTRACTABLE_TEXT',
-          `Processing job ${job.id} produced no meaningful PDF text`,
+          `Processing job ${job.id} produced no extractable text`,
         );
       }
 
