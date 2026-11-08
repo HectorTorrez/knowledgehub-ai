@@ -18,6 +18,7 @@ import {
 } from './document-text-extractor.js';
 import { DocumentChunkStore } from './document-chunk.store.js';
 import { chunkPages } from './chunking.policy.js';
+import { hasMeaningfulPdfText } from './meaningful-pdf-text.policy.js';
 import { ProcessingConfig } from './processing.config.js';
 import {
   classifyProcessingFailure,
@@ -113,6 +114,16 @@ export class ProcessingWorkerService implements OnModuleInit, OnModuleDestroy {
       const extracted = await this.extract(job, lease);
       if (!extracted || lease.lost) {
         return;
+      }
+
+      if (
+        job.contentType === 'application/pdf' &&
+        !hasMeaningfulPdfText(extracted.pages)
+      ) {
+        throw new ProcessingFailureError(
+          'NO_EXTRACTABLE_TEXT',
+          `Processing job ${job.id} produced no meaningful PDF text`,
+        );
       }
 
       const ownership = ownershipOf(job);

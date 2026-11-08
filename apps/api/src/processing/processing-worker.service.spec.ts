@@ -191,6 +191,26 @@ describe('ProcessingWorkerService', () => {
       });
     });
 
+    it('fails a PDF containing only incidental text', async () => {
+      const { worker, jobs, extractor, chunks } = createWorker();
+      extractor.extract.mockResolvedValueOnce({
+        pages: [{ pageNumber: 1, content: '1' }],
+        pageCount: 1,
+        characterCount: 1,
+      });
+
+      await worker.processJob({ ...JOB, contentType: 'application/pdf' });
+
+      expect(chunks.replaceForGeneration).not.toHaveBeenCalled();
+      expect(jobs.recordFailure).toHaveBeenCalledWith(
+        OWNERSHIP,
+        expect.objectContaining({
+          category: 'permanent',
+          reason: 'NO_EXTRACTABLE_TEXT',
+        }),
+      );
+    });
+
     it('still embeds a document when only some pages are blank', async () => {
       const { worker, jobs, extractor, chunks } = createWorker();
       extractor.extract.mockResolvedValueOnce({
