@@ -1,5 +1,6 @@
 import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { randomUUID } from 'node:crypto';
+import JSZip from 'jszip';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
@@ -24,7 +25,11 @@ import {
 } from './support/fake-embedding-provider.js';
 import { createMinimalPdf } from './support/minimal-pdf.js';
 import { createMinimalDocx, createPlainZip } from './support/minimal-docx.js';
-import { DOCX_CONTENT_TYPE } from '../src/documents/upload-policy.js';
+import {
+  DOCX_CONTENT_TYPE,
+  PPTX_CONTENT_TYPE,
+  XLSX_CONTENT_TYPE,
+} from '../src/documents/upload-policy.js';
 
 const encoder = new TextEncoder();
 
@@ -235,6 +240,98 @@ describe('document processing worker (e2e)', () => {
 
     const updatedDocument = await loadDocument(document.id);
     expect(updatedDocument.status).toBe('READY');
+  });
+
+  it('extracts PowerPoint slides into pages and readies the document', async () => {
+    const zip = new JSZip();
+    zip.file('ppt/presentation.xml', '<p:presentation/>');
+    zip.file(
+      'ppt/slides/slide1.xml',
+      '<a:p><a:r><a:t>First slide</a:t></a:r></a:p>',
+    );
+    zip.file(
+      'ppt/slides/slide2.xml',
+      '<a:p><a:r><a:t>Second slide</a:t></a:r></a:p>',
+    );
+    const { document } = await seedJob({
+      contentType: PPTX_CONTENT_TYPE,
+      bytes: await zip.generateAsync({ type: 'uint8array' }),
+    });
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    const [extraction] = await loadExtractions(document.id);
+    expect(pagesOf(extraction!)).toEqual([
+      { pageNumber: 1, content: 'First slide' },
+      { pageNumber: 2, content: 'Second slide' },
+    ]);
+    const chunks = await loadChunks(document.id);
+    expect(chunks.map((chunk) => chunk.content).join('\n')).toContain(
+      'First slide',
+    );
+    expect(chunks.map((chunk) => chunk.content).join('\n')).toContain(
+      'Second slide',
+    );
+    expect((await loadDocument(document.id)).status).toBe('READY');
+  });
+
+  it('extracts an Excel sheet into a Markdown table and readies the document', async () => {
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', '<Types/>');
+    zip.file(
+      'xl/workbook.xml',
+      '<workbook xmlns:r="urn:rels"><sheets><sheet name="Sales" r:id="r1"/></sheets></workbook>',
+    );
+    zip.file(
+      'xl/_rels/workbook.xml.rels',
+      '<Relationships><Relationship Id="r1" Target="worksheets/sheet1.xml"/></Relationships>',
+    );
+    zip.file(
+      'xl/worksheets/sheet1.xml',
+      '<worksheet><sheetData><row><c r="A1" t="inlineStr"><is><t>Product</t></is></c><c r="B1" t="inlineStr"><is><t>Revenue</t></is></c></row><row><c r="A2" t="inlineStr"><is><t>Books</t></is></c><c r="B2"><v>42</v></c></row></sheetData></worksheet>',
+    );
+    const { document } = await seedJob({
+      contentType: XLSX_CONTENT_TYPE,
+      bytes: await zip.generateAsync({ type: 'uint8array' }),
+    });
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    const [extraction] = await loadExtractions(document.id);
+    const pages = pagesOf(extraction!);
+    expect(pages).toHaveLength(1);
+    expect(pages[0]?.pageNumber).toBe(1);
+    expect(pages[0]?.content).toContain('| Product | Revenue |');
+    expect(pages[0]?.content).toContain('| Books | 42 |');
+    expect(
+      (await loadChunks(document.id)).map((chunk) => chunk.content).join('\n'),
+    ).toContain('Books');
+    expect((await loadDocument(document.id)).status).toBe('READY');
+  });
+
+  it('extracts HTML without script content and readies the document', async () => {
+    const { document } = await seedJob({
+      contentType: 'text/html',
+      bytes: encoder.encode(
+        '<html><body><h1>Policy</h1><p>Refunds apply.</p><script>secretScript()</script></body></html>',
+      ),
+    });
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    const [extraction] = await loadExtractions(document.id);
+    const pages = pagesOf(extraction!);
+    expect(pages).toHaveLength(1);
+    expect(pages[0]?.pageNumber).toBe(1);
+    expect(pages[0]?.content).toContain('Policy');
+    expect(pages[0]?.content).toContain('Refunds apply.');
+    expect(pages[0]?.content).not.toContain('secretScript');
+    const chunks = (await loadChunks(document.id))
+      .map((chunk) => chunk.content)
+      .join('\n');
+    expect(chunks).toContain('Refunds apply.');
+    expect(chunks).not.toContain('secretScript');
+    expect((await loadDocument(document.id)).status).toBe('READY');
   });
 
   it('fails a ZIP that is not a Word document with a sanitized reason', async () => {

@@ -1,6 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DOCX_CONTENT_TYPE } from '../documents/upload-policy.js';
+import {
+  DOCX_CONTENT_TYPE,
+  PPTX_CONTENT_TYPE,
+  XLSX_CONTENT_TYPE,
+} from '../documents/upload-policy.js';
 import { extractDocx } from './docx-extractor.js';
+import { extractHtml } from './html-extractor.js';
+import { extractPptx } from './pptx-extractor.js';
+import { extractXlsx } from './xlsx-extractor.js';
 import { PDF_EXTRACTOR, type PdfExtractor } from './pdf-extractor.js';
 import {
   MAX_EXTRACTABLE_BYTES,
@@ -25,6 +32,7 @@ export interface ExtractedText {
 }
 
 const PLAIN_TEXT_CONTENT_TYPES = ['text/plain', 'text/markdown'] as const;
+const HTML_CONTENT_TYPE = 'text/html';
 
 export class UnsupportedDocumentTypeError extends Error {
   constructor(contentType: string) {
@@ -87,6 +95,12 @@ export class DocumentTextExtractor {
     if (contentType === DOCX_CONTENT_TYPE) {
       return [{ pageNumber: 1, content: await extractDocx(bytes) }];
     }
+    if (contentType === PPTX_CONTENT_TYPE) return extractPptx(bytes);
+    if (contentType === XLSX_CONTENT_TYPE) return extractXlsx(bytes);
+    if (contentType === HTML_CONTENT_TYPE) {
+      decodeUtf8(bytes);
+      return [{ pageNumber: 1, content: await extractHtml(bytes) }];
+    }
     return this.extractPlainTextPages(contentType, bytes);
   }
 
@@ -110,13 +124,16 @@ export class DocumentTextExtractor {
       throw new UnsupportedDocumentTypeError(contentType);
     }
 
-    try {
-      const content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      return [{ pageNumber: 1, content }];
-    } catch (error) {
-      throw new DocumentExtractionError('The document is not valid UTF-8', {
-        cause: error,
-      });
-    }
+    return [{ pageNumber: 1, content: decodeUtf8(bytes) }];
+  }
+}
+
+function decodeUtf8(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch (error) {
+    throw new DocumentExtractionError('The document is not valid UTF-8', {
+      cause: error,
+    });
   }
 }

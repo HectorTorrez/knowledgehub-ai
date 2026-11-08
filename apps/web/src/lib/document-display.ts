@@ -1,17 +1,27 @@
+import { FileText, Globe, Presentation, Sheet } from 'lucide-react';
 import type { Translator } from '~/lib/i18n/translate';
-import { DOCX_CONTENT_TYPE } from './validation';
+import {
+  DOCX_CONTENT_TYPE,
+  PPTX_CONTENT_TYPE,
+  XLSX_CONTENT_TYPE,
+} from './validation';
 
 export type FailureAction = 'reprocess' | 'replace' | 'delete';
 
 const FAILURE_REASON_KEYS = ['INVALID_DOCX', 'ARCHIVE_LIMIT_EXCEEDED'] as const;
 
-const CONTENT_TYPE_KEYS: Record<string, 'pdf' | 'docx' | 'text' | 'markdown'> =
-  {
-    'application/pdf': 'pdf',
-    [DOCX_CONTENT_TYPE]: 'docx',
-    'text/plain': 'text',
-    'text/markdown': 'markdown',
-  };
+const CONTENT_TYPE_KEYS: Record<
+  string,
+  'pdf' | 'docx' | 'pptx' | 'xlsx' | 'html' | 'text' | 'markdown'
+> = {
+  'application/pdf': 'pdf',
+  [DOCX_CONTENT_TYPE]: 'docx',
+  [PPTX_CONTENT_TYPE]: 'pptx',
+  [XLSX_CONTENT_TYPE]: 'xlsx',
+  'text/html': 'html',
+  'text/plain': 'text',
+  'text/markdown': 'markdown',
+};
 
 export function documentFailureMessage(
   reason: string | null,
@@ -79,4 +89,11 @@ export function documentFailureGuidance(
     description: t(`documentFailure.${known}.description`),
     action: REPLACE_REASONS.has(known) ? 'replace' : 'reprocess',
   };
+}
+
+export function documentContentTypeIcon(contentType: string | null) {
+  if (contentType === PPTX_CONTENT_TYPE) return Presentation;
+  if (contentType === XLSX_CONTENT_TYPE) return Sheet;
+  if (contentType === 'text/html') return Globe;
+  return FileText;
 }

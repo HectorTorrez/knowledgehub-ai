@@ -77,7 +77,8 @@ export const es: Messages = {
     },
     layout: {
       title: 'Respuestas fundamentadas en los documentos de tu equipo',
-      upload: 'Sube archivos PDF, Word, de texto y Markdown',
+      upload:
+        'Sube archivos PDF, Word, PowerPoint, Excel, HTML, de texto y Markdown',
       ask: 'Haz preguntas y obtén respuestas con citas',
       isolation: 'Mantén separados los datos de cada organización',
     },
@@ -313,7 +314,7 @@ export const es: Messages = {
         'Ponle nombre a tu organización e invita a quienes deben tener acceso.',
       uploadTitle: 'Sube documentos',
       uploadText:
-        'Agrega archivos PDF, Word, Markdown o de texto. Se indexan en segundo plano.',
+        'Agrega archivos PDF, Word, PowerPoint, Excel, HTML, Markdown o de texto. Se indexan en segundo plano.',
       askTitle: 'Pregunta y comprueba',
       askText:
         'Pregunta en lenguaje natural y abre cualquier cita para leer el pasaje original.',
@@ -360,7 +361,7 @@ export const es: Messages = {
       formats: {
         question: '¿Qué archivos puedo subir?',
         answer:
-          'Archivos PDF, Word (.docx), Markdown y texto plano de hasta 10 MB. KnowledgeHub los prepara para la búsqueda en cuanto se suben.',
+          'Archivos PDF, Word (.docx), PowerPoint, Excel, HTML, Markdown y texto plano de hasta 10 MB. KnowledgeHub los prepara para la búsqueda en cuanto se suben.',
       },
       citations: {
         question: '¿Cómo sé que una respuesta es correcta?',
@@ -894,7 +895,7 @@ export const es: Messages = {
     recentDocumentsLoadError: 'No se pudieron cargar los documentos',
     noRecentDocuments: 'Aún no hay documentos',
     noRecentDocumentsDescription:
-      'Sube un archivo PDF, Word o Markdown para empezar a hacer preguntas.',
+      'Sube un archivo PDF, Word, PowerPoint, Excel, HTML, de texto o Markdown para empezar a hacer preguntas.',
     viewAllDocuments: 'Ver todos los documentos',
   },
   members: {
@@ -1037,6 +1038,9 @@ export const es: Messages = {
   },
   contentTypes: {
     pdf: 'PDF',
+    pptx: 'PowerPoint',
+    xlsx: 'Excel',
+    html: 'HTML',
     docx: 'Documento de Word (.docx)',
     text: 'Texto plano',
     markdown: 'Markdown',
@@ -1046,9 +1050,9 @@ export const es: Messages = {
       EMPTY_FILE: 'Este archivo está vacío.',
       SIZE_LIMIT_EXCEEDED: 'Los archivos deben pesar {size} o menos.',
       CONTENT_TYPE_NOT_ALLOWED:
-        'Tipo de archivo no compatible. Sube un archivo PDF, Word, de texto plano o Markdown.',
+        'Tipo de archivo no compatible. Sube un archivo PDF, Word, PowerPoint, Excel, HTML, de texto plano o Markdown.',
       SIGNATURE_MISMATCH:
-        'El contenido del archivo no coincide con su tipo. Elige un archivo PDF, Word, de texto plano o Markdown válido.',
+        'El contenido del archivo no coincide con su tipo. Elige un archivo PDF, Word, PowerPoint, Excel, HTML, de texto plano o Markdown válido.',
       UNREADABLE_FILE: 'No se pudo leer el archivo. Vuelve a elegirlo.',
     },
     untitled: 'Documento sin título',
@@ -1089,7 +1093,7 @@ export const es: Messages = {
     delete: 'Eliminar',
     uploadTitle: 'Subir documentos',
     uploadDescription:
-      'Agrega archivos PDF, Word, de texto plano o Markdown de hasta {size} cada uno. Los títulos se toman de los nombres de archivo y se pueden cambiar después.',
+      'Agrega archivos PDF, Word, PowerPoint, Excel, HTML, de texto plano o Markdown de hasta {size} cada uno. Los títulos se toman de los nombres de archivo y se pueden cambiar después.',
     uploadCollections: 'Agregar a colecciones',
     uploadNoCollection: 'Sin colección',
     removeFile: 'Quitar {name}',
@@ -1142,7 +1146,8 @@ export const es: Messages = {
     filesReady_one: '{count} archivo listo',
     filesReady_other: '{count} archivos listos',
     chooseMore: 'elige más',
-    accepted: 'PDF, Word, texto plano o Markdown · hasta {size} cada uno',
+    accepted:
+      'PDF, Word, PowerPoint, Excel, HTML, texto plano o Markdown · hasta {size} cada uno',
   },
   viewer: {
     preview: 'Vista previa del documento',

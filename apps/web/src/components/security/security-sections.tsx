@@ -306,16 +306,24 @@ export function SecurityFiles() {
         ))}
       </ol>
       <ul className="mt-10 flex flex-wrap gap-2">
-        {['PDF', 'DOCX', 'Markdown', 'TXT', '≤ 10 MB', '15 min'].map(
-          (label) => (
-            <li
-              key={label}
-              className="rounded-full border bg-card px-3 py-1 text-xs font-medium tabular-nums"
-            >
-              {label}
-            </li>
-          ),
-        )}
+        {[
+          'PDF',
+          'DOCX',
+          'PPTX',
+          'XLSX',
+          'HTML',
+          'Markdown',
+          'TXT',
+          '≤ 10 MB',
+          '15 min',
+        ].map((label) => (
+          <li
+            key={label}
+            className="rounded-full border bg-card px-3 py-1 text-xs font-medium tabular-nums"
+          >
+            {label}
+          </li>
+        ))}
       </ul>
     </SecuritySection>
   );

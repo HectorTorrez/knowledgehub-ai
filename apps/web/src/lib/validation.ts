@@ -12,9 +12,17 @@ const PASSWORD_MAX_LENGTH = 128;
 export const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
+export const PPTX_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+export const XLSX_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
 export const ALLOWED_UPLOAD_CONTENT_TYPES = [
   'application/pdf',
   DOCX_CONTENT_TYPE,
+  PPTX_CONTENT_TYPE,
+  XLSX_CONTENT_TYPE,
+  'text/html',
   'text/plain',
   'text/markdown',
 ] as const;

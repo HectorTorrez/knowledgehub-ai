@@ -53,6 +53,7 @@ import {
 import {
   evaluateUploadMetadata,
   evaluateUploadSignature,
+  evaluateOfficeArchive,
 } from './verification-policy.js';
 
 const DOCUMENT_PUBLIC_SELECT = {
@@ -585,6 +586,32 @@ export class DocumentsService {
         documentId,
         stagingKey,
         signatureFailure,
+      );
+    }
+
+    const isOfficeArchive = [
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ].includes(expectedContentType);
+    const archiveBytes = isOfficeArchive
+      ? await this.runStorage(() =>
+          this.storage.readObjectPrefix({
+            key: stagingKey,
+            maxBytes: inspected.sizeBytes,
+            version: inspected.version,
+          }),
+        )
+      : prefix;
+    const archiveFailure = await evaluateOfficeArchive(
+      expectedContentType,
+      archiveBytes,
+    );
+    if (archiveFailure) {
+      return this.recordVerificationFailure(
+        organizationId,
+        documentId,
+        stagingKey,
+        archiveFailure,
       );
     }
 

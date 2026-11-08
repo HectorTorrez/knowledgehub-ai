@@ -1,7 +1,10 @@
+import { fromBuffer } from 'yauzl';
 import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
   DOCX_CONTENT_TYPE,
   MAX_UPLOAD_BYTES,
+  PPTX_CONTENT_TYPE,
+  XLSX_CONTENT_TYPE,
   SIGNATURE_PREFIX_BYTES,
   type AllowedUploadContentType,
   type UploadFailureReason,
@@ -60,7 +63,12 @@ function hasZipLocalFileHeader(prefix: Uint8Array): boolean {
 
 function hasValidSignature(contentType: string, prefix: Uint8Array): boolean {
   if (contentType === 'application/pdf') return containsPdfMagic(prefix);
-  if (contentType === DOCX_CONTENT_TYPE) return hasZipLocalFileHeader(prefix);
+  if (
+    [DOCX_CONTENT_TYPE, PPTX_CONTENT_TYPE, XLSX_CONTENT_TYPE].includes(
+      contentType,
+    )
+  )
+    return hasZipLocalFileHeader(prefix);
   return isStrictUtf8Text(prefix);
 }
 
@@ -96,4 +104,30 @@ function isStrictUtf8Text(bytes: Uint8Array): boolean {
   } catch {
     return false;
   }
+}
+
+export async function evaluateOfficeArchive(
+  contentType: string,
+  bytes: Uint8Array,
+): Promise<UploadFailureReason | null> {
+  const required =
+    contentType === PPTX_CONTENT_TYPE
+      ? 'ppt/presentation.xml'
+      : contentType === XLSX_CONTENT_TYPE
+        ? 'xl/workbook.xml'
+        : null;
+  if (!required) return null;
+  return new Promise((resolve) => {
+    fromBuffer(Buffer.from(bytes), { lazyEntries: true }, (error, zip) => {
+      if (error || !zip) return resolve('SIGNATURE_MISMATCH');
+      let found = false;
+      zip.on('error', () => resolve('SIGNATURE_MISMATCH'));
+      zip.on('entry', (entry) => {
+        if (entry.fileName === required) found = true;
+        zip.readEntry();
+      });
+      zip.on('end', () => resolve(found ? null : 'SIGNATURE_MISMATCH'));
+      zip.readEntry();
+    });
+  });
 }

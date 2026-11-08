@@ -524,7 +524,7 @@ that exists only in another organization — or does not exist — returns `404`
 Body `{ "contentType": string, "sizeBytes"?: number }`:
 
 - `contentType` must be one of `application/pdf`, `text/plain`, or
-  `text/markdown`, or `application/vnd.openxmlformats-officedocument.wordprocessingml.document`; anything else returns `400`.
+  `text/markdown`, `text/html`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `application/vnd.openxmlformats-officedocument.presentationml.presentation`, or `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`; anything else returns `400`.
 - `sizeBytes` is optional, must be a positive integer, and must not exceed
   `2_000_000_000` (the policy cap). A value above the cap returns `413 Payload
   Too Large`; a non-integer, zero, or negative value returns `400`.
@@ -666,7 +666,8 @@ Each iteration the worker recovers expired leases, claims one due job atomically
 verified object bound to its inspected version, and extracts text:
 
 - DOCX archives are validated with entry count, size, and compression ratio limits, then converted to Markdown as one page;
-- `text/plain` and `text/markdown` decode as strict UTF-8;
+- PowerPoint and Excel archives are extracted into text;
+- `text/plain`, `text/markdown`, and `text/html` decode as strict UTF-8;
 - `application/pdf` extracts embedded text with `unpdf`, preserving the page each
   passage came from.
 

@@ -9,6 +9,9 @@ import { cn } from '~/lib/utils';
 const FILE_FORMATS = [
   { label: 'PDF', extension: '.pdf' },
   { label: 'Word', extension: '.docx' },
+  { label: 'PowerPoint', extension: '.pptx' },
+  { label: 'Excel', extension: '.xlsx' },
+  { label: 'HTML', extension: '.html' },
   { label: 'Markdown', extension: '.md' },
   { label: 'Text', extension: '.txt' },
 ] as const;

@@ -74,7 +74,7 @@ export const en = {
     },
     layout: {
       title: "Answers grounded in your team's documents",
-      upload: 'Upload PDFs, Word, text, and Markdown',
+      upload: 'Upload PDFs, Word, PowerPoint, Excel, HTML, text, and Markdown',
       ask: 'Ask questions and get cited answers',
       isolation: "Keep every organization's data separate",
     },
@@ -306,7 +306,7 @@ export const en = {
         'Name your organization and invite the people who should have access.',
       uploadTitle: 'Upload documents',
       uploadText:
-        'Add PDF, Word, Markdown, or text files. They are indexed in the background.',
+        'Add PDF, Word, PowerPoint, Excel, HTML, Markdown, or text files. They are indexed in the background.',
       askTitle: 'Ask, then check',
       askText:
         'Ask in plain language and open any citation to read the original passage.',
@@ -350,7 +350,7 @@ export const en = {
       formats: {
         question: 'Which files can I upload?',
         answer:
-          'PDF, Word (.docx), Markdown, and plain text files up to 10 MB. KnowledgeHub prepares them for search as soon as they are uploaded.',
+          'PDF, Word (.docx), PowerPoint, Excel, HTML, Markdown, and plain text files up to 10 MB. KnowledgeHub prepares them for search as soon as they are uploaded.',
       },
       citations: {
         question: 'How do I know an answer is correct?',
@@ -874,7 +874,7 @@ export const en = {
     recentDocumentsLoadError: 'Unable to load documents',
     noRecentDocuments: 'No documents yet',
     noRecentDocumentsDescription:
-      'Upload a PDF, Word, or Markdown file to start asking questions.',
+      'Upload a PDF, Word, PowerPoint, Excel, HTML, text, or Markdown file to start asking questions.',
     viewAllDocuments: 'View all documents',
   },
   members: {
@@ -1015,6 +1015,9 @@ export const en = {
   },
   contentTypes: {
     pdf: 'PDF',
+    pptx: 'PowerPoint',
+    xlsx: 'Excel',
+    html: 'HTML',
     docx: 'Word document (.docx)',
     text: 'Plain text',
     markdown: 'Markdown',
@@ -1024,9 +1027,9 @@ export const en = {
       EMPTY_FILE: 'This file is empty.',
       SIZE_LIMIT_EXCEEDED: 'Files must be {size} or smaller.',
       CONTENT_TYPE_NOT_ALLOWED:
-        'Unsupported file type. Upload a PDF, Word, plain text, or Markdown file.',
+        'Unsupported file type. Upload a PDF, Word, PowerPoint, Excel, HTML, plain text, or Markdown file.',
       SIGNATURE_MISMATCH:
-        'The file contents do not match its type. Choose a valid PDF, Word, plain text, or Markdown file.',
+        'The file contents do not match its type. Choose a valid PDF, Word, PowerPoint, Excel, HTML, plain text, or Markdown file.',
       UNREADABLE_FILE: 'The file could not be read. Try choosing it again.',
     },
     untitled: 'Untitled document',
@@ -1068,7 +1071,7 @@ export const en = {
     delete: 'Delete',
     uploadTitle: 'Upload documents',
     uploadDescription:
-      'Add PDF, Word, plain text, or Markdown files up to {size} each. Titles are taken from file names and can be changed later.',
+      'Add PDF, Word, PowerPoint, Excel, HTML, plain text, or Markdown files up to {size} each. Titles are taken from file names and can be changed later.',
     uploadCollections: 'Add to collections',
     uploadNoCollection: 'No collection',
     removeFile: 'Remove {name}',
@@ -1119,7 +1122,8 @@ export const en = {
     filesReady_one: '{count} file ready',
     filesReady_other: '{count} files ready',
     chooseMore: 'choose more',
-    accepted: 'PDF, Word, plain text, or Markdown · up to {size} each',
+    accepted:
+      'PDF, Word, PowerPoint, Excel, HTML, plain text, or Markdown · up to {size} each',
   },
   viewer: {
     preview: 'Document preview',
