@@ -11,6 +11,9 @@ import { URL_FETCHER } from './url-fetcher.token.js';
 @Module({
   imports: [ActivityModule, AuthModule, OrganizationsModule, StorageModule],
   controllers: [DocumentsController],
-  providers: [DocumentsService, { provide: URL_FETCHER, useValue: fetchDocumentUrl }],
+  providers: [
+    DocumentsService,
+    { provide: URL_FETCHER, useValue: fetchDocumentUrl },
+  ],
 })
 export class DocumentsModule {}

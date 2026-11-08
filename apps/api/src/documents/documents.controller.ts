@@ -49,7 +49,10 @@ import {
   updateDocumentSchema,
   type UpdateDocumentInput,
 } from './dto/update-document.schema.js';
-import { importUrlSchema, type ImportUrlInput } from './dto/import-url.schema.js';
+import {
+  importUrlSchema,
+  type ImportUrlInput,
+} from './dto/import-url.schema.js';
 import { DocumentsService } from './documents.service.js';
 
 function requireDocumentCapability(
@@ -87,7 +90,10 @@ export class DocumentsController {
     @Req() request: OrganizationRequest,
   ): Promise<DocumentDetailResponse> {
     requireDocumentCapability(request, 'documents.write');
-    return this.documents.importFromUrl(requireOrganizationContext(request), body);
+    return this.documents.importFromUrl(
+      requireOrganizationContext(request),
+      body,
+    );
   }
 
   @Get()

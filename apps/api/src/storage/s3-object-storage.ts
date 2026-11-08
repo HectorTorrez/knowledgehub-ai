@@ -104,8 +104,19 @@ export class S3ObjectStorage implements ObjectStorage {
     private readonly config: StorageConfig,
   ) {}
 
-  async writeObject(input: { key: string; contentType: string; bytes: Uint8Array }): Promise<void> {
-    await this.client.send(new PutObjectCommand({ Bucket: this.config.bucket, Key: input.key, ContentType: input.contentType, Body: input.bytes }));
+  async writeObject(input: {
+    key: string;
+    contentType: string;
+    bytes: Uint8Array;
+  }): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.config.bucket,
+        Key: input.key,
+        ContentType: input.contentType,
+        Body: input.bytes,
+      }),
+    );
   }
 
   async createPresignedUpload(
