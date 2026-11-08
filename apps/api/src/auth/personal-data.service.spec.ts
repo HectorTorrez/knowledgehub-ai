@@ -7,8 +7,10 @@ describe('PersonalDataService', () => {
     const prisma = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'user' }) },
       membership: { findMany: vi.fn().mockResolvedValue([]) },
-      conversation: { findMany: vi.fn().mockResolvedValue([]) },
-      answer: { findMany: vi.fn().mockResolvedValue([]) },
+      unscoped: {
+        conversation: { findMany: vi.fn().mockResolvedValue([]) },
+        answer: { findMany: vi.fn().mockResolvedValue([]) },
+      },
       answerFeedback: { findMany: vi.fn().mockResolvedValue([]) },
     };
     const service = new PersonalDataService(prisma as unknown as PrismaService);
@@ -18,10 +20,10 @@ describe('PersonalDataService', () => {
         select: expect.not.objectContaining({ passwordHash: true }),
       }),
     );
-    expect(prisma.conversation.findMany).toHaveBeenCalledWith(
+    expect(prisma.unscoped.conversation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { createdById: 'user' } }),
     );
-    expect(prisma.answer.findMany).toHaveBeenCalledWith(
+    expect(prisma.unscoped.answer.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { askedById: 'user', conversationId: null },
       }),

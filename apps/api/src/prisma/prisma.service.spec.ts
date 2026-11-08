@@ -5,7 +5,9 @@ import { PrismaService } from './prisma.service.js';
 describe('PrismaService', () => {
   it('retains lifecycle and unscoped access on the injected client', async () => {
     const service = new PrismaService(
-      new ConfigService({ DATABASE_URL: 'postgresql://user:pass@localhost:5432/test' }),
+      new ConfigService({
+        DATABASE_URL: 'postgresql://user:pass@localhost:5432/test',
+      }),
     );
 
     expect(service.unscoped).toBeDefined();

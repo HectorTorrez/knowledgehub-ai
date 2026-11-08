@@ -270,7 +270,9 @@ describe('document chunk embeddings (e2e)', () => {
     );
 
     expect(
-      await prisma.unscoped.documentChunk.count({ where: { documentId: document.id } }),
+      await prisma.unscoped.documentChunk.count({
+        where: { documentId: document.id },
+      }),
     ).toBe(0);
   });
 

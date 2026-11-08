@@ -131,7 +131,9 @@ describe('DocumentChunk embedding constraints (e2e)', () => {
     expect(unchanged.failureReason).toBeNull();
     expect(unchanged.failureKind).toBeNull();
     expect(
-      await prisma.unscoped.documentChunk.count({ where: { documentId: document.id } }),
+      await prisma.unscoped.documentChunk.count({
+        where: { documentId: document.id },
+      }),
     ).toBe(0);
   });
 });
