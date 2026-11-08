@@ -80,6 +80,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
+import { isValidImportUrl, urlImportErrorMessage } from '~/lib/url-import';
 import { pollingInterval } from '~/lib/document-polling';
 import { useTrackDocument } from '~/lib/document-notifications';
 import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
@@ -144,6 +145,11 @@ function DocumentsPage() {
   const client = useQueryClient();
   const { toast } = useToast();
   const reportError = useReportError();
+  const [importMode, setImportMode] = useState(false);
+  const [importUrl, setImportUrl] = useState('');
+  const [importTitle, setImportTitle] = useState('');
+  const [importError, setImportError] = useState('');
+  const [importing, setImporting] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const hash = useRouterState({ select: (state) => state.location.hash });
   const navigate = Route.useNavigate();
@@ -407,8 +413,45 @@ function DocumentsPage() {
     await startUpload();
   }
 
+  async function handleImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const url = importUrl.trim();
+    if (!isValidImportUrl(url)) {
+      setImportError(t('documents.urlInvalid'));
+      return;
+    }
+    if (importTitle.trim()) {
+      const result = documentTitleSchema(t).safeParse({ title: importTitle });
+      if (!result.success) {
+        setImportError(
+          result.error.issues[0]?.message ?? t('documents.urlImportFailed'),
+        );
+        return;
+      }
+    }
+    setImporting(true);
+    setImportError('');
+    try {
+      const result = await documentsApi.importFromUrl(organizationId, {
+        url,
+        ...(importTitle.trim() ? { title: importTitle.trim() } : {}),
+      });
+      trackDocument(result.document.id);
+      await client.invalidateQueries({
+        queryKey: queryKeys.organizations.documents.list(organizationId),
+      });
+      toast({ variant: 'success', title: t('documents.urlImportSuccess') });
+      setImporting(false);
+      handleUploadOpenChange(false);
+    } catch (error) {
+      setImportError(urlImportErrorMessage(error, t));
+    } finally {
+      setImporting(false);
+    }
+  }
+
   function handleUploadOpenChange(open: boolean) {
-    if (uploading && !open) {
+    if ((uploading || importing) && !open) {
       return;
     }
 
@@ -421,6 +464,10 @@ function DocumentsPage() {
 
     setUploadItems([]);
     setUploadCollectionIds([]);
+    setImportMode(false);
+    setImportUrl('');
+    setImportTitle('');
+    setImportError('');
   }
 
   const rename = useMutation({
@@ -864,155 +911,223 @@ function DocumentsPage() {
               })}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUpload} className="space-y-4" noValidate>
-            <FileDropzone
-              accept={[
-                ...ALLOWED_UPLOAD_CONTENT_TYPES,
-                '.pdf',
-                '.docx',
-                '.pptx',
-                '.xlsx',
-                '.html',
-                '.htm',
-                '.txt',
-                '.text',
-                '.md',
-                '.markdown',
-              ].join(',')}
-              files={uploadItems.map((item) => item.file)}
-              disabled={uploading || !canWrite}
-              onFilesAdd={(files) => void addFiles(files)}
-            />
-
-            <DocumentMultiSelect
-              disabled={uploading}
-              label={t('documents.uploadCollections')}
-              emptyLabel={t('documents.uploadNoCollection')}
-              documents={(collections.data ?? []).map((collection) => ({
-                id: collection.id,
-                title: collection.name,
-              }))}
-              selectedIds={uploadCollectionIds}
-              onChange={setUploadCollectionIds}
-            />
-
-            {uploadItems.length > 0 ? (
-              <ul className="max-h-40 space-y-2 overflow-y-auto sm:max-h-56">
-                {uploadItems.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-md border px-3 py-2 text-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="min-w-0 flex-1 truncate"
-                        title={item.file.name}
-                      >
-                        {item.file.name}
-                      </span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatBytes(item.file.size, locale)}
-                      </span>
-                      {item.status === 'completed' ? (
-                        <CircleCheck className="size-4 shrink-0 text-success" />
-                      ) : null}
-                      {item.status === 'failed' ? (
-                        <TriangleAlert className="size-4 shrink-0 text-destructive" />
-                      ) : null}
-                      {item.status !== 'uploading' ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-10 sm:size-7"
-                          aria-label={t('documents.removeFile', {
-                            name: item.file.name,
-                          })}
-                          onClick={() =>
-                            setUploadItems((items) =>
-                              items.filter((entry) => entry.id !== item.id),
-                            )
-                          }
-                        >
-                          <X className="size-3.5" />
-                        </Button>
-                      ) : null}
-                    </div>
-
-                    {item.status === 'uploading' ? (
-                      <div className="mt-2 space-y-1">
-                        <Progress
-                          value={Math.round(item.progress * 100)}
-                          className="h-1.5"
-                          aria-label={t('documents.uploadingFile', {
-                            name: item.file.name,
-                          })}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          {t('documents.uploadingPercent', {
-                            percent: Math.round(item.progress * 100),
-                          })}
-                        </p>
-                      </div>
-                    ) : null}
-
-                    {item.status === 'queued' ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {t('documents.queued')}
-                      </p>
-                    ) : null}
-
-                    {item.status === 'failed' && item.error ? (
-                      <p className="mt-1 text-xs text-destructive">
-                        {item.error}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            <DialogFooter>
-              {uploading ? (
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={importMode ? 'outline' : 'default'}
+              disabled={uploading || importing}
+              onClick={() => setImportMode(false)}
+            >
+              {t('documents.uploadFile')}
+            </Button>
+            <Button
+              type="button"
+              variant={importMode ? 'default' : 'outline'}
+              disabled={uploading || importing}
+              onClick={() => setImportMode(true)}
+            >
+              {t('documents.importUrl')}
+            </Button>
+          </div>
+          {importMode ? (
+            <form onSubmit={handleImport} className="space-y-4" noValidate>
+              <div className="space-y-2">
+                <Label htmlFor="import-url">{t('documents.urlLabel')}</Label>
+                <Input
+                  id="import-url"
+                  type="url"
+                  value={importUrl}
+                  onChange={(event) => setImportUrl(event.target.value)}
+                  disabled={importing}
+                  aria-invalid={!!importError}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="import-title">{t('documents.urlTitle')}</Label>
+                <Input
+                  id="import-title"
+                  value={importTitle}
+                  onChange={(event) => setImportTitle(event.target.value)}
+                  disabled={importing}
+                />
+              </div>
+              {importError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {importError}
+                </p>
+              ) : null}
+              <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => uploadAbortRef.current?.abort()}
-                >
-                  {t('documents.cancelUpload')}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
+                  disabled={importing}
                   onClick={() => handleUploadOpenChange(false)}
                 >
                   {t('documents.close')}
                 </Button>
-              )}
-              <Button
-                type="submit"
-                disabled={
-                  uploading ||
-                  uploadItems.filter(
-                    (item) =>
-                      item.status === 'queued' || item.status === 'failed',
-                  ).length === 0
-                }
-              >
+                <Button type="submit" disabled={importing || !canWrite}>
+                  {importing ? (
+                    <>
+                      <Spinner />
+                      {t('documents.urlImporting')}
+                    </>
+                  ) : (
+                    t('documents.importUrl')
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <form onSubmit={handleUpload} className="space-y-4" noValidate>
+              <FileDropzone
+                accept={[
+                  ...ALLOWED_UPLOAD_CONTENT_TYPES,
+                  '.pdf',
+                  '.docx',
+                  '.pptx',
+                  '.xlsx',
+                  '.html',
+                  '.htm',
+                  '.txt',
+                  '.text',
+                  '.md',
+                  '.markdown',
+                ].join(',')}
+                files={uploadItems.map((item) => item.file)}
+                disabled={uploading || !canWrite}
+                onFilesAdd={(files) => void addFiles(files)}
+              />
+
+              <DocumentMultiSelect
+                disabled={uploading}
+                label={t('documents.uploadCollections')}
+                emptyLabel={t('documents.uploadNoCollection')}
+                documents={(collections.data ?? []).map((collection) => ({
+                  id: collection.id,
+                  title: collection.name,
+                }))}
+                selectedIds={uploadCollectionIds}
+                onChange={setUploadCollectionIds}
+              />
+
+              {uploadItems.length > 0 ? (
+                <ul className="max-h-40 space-y-2 overflow-y-auto sm:max-h-56">
+                  {uploadItems.map((item) => (
+                    <li
+                      key={item.id}
+                      className="rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="min-w-0 flex-1 truncate"
+                          title={item.file.name}
+                        >
+                          {item.file.name}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {formatBytes(item.file.size, locale)}
+                        </span>
+                        {item.status === 'completed' ? (
+                          <CircleCheck className="size-4 shrink-0 text-success" />
+                        ) : null}
+                        {item.status === 'failed' ? (
+                          <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                        ) : null}
+                        {item.status !== 'uploading' ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-10 sm:size-7"
+                            aria-label={t('documents.removeFile', {
+                              name: item.file.name,
+                            })}
+                            onClick={() =>
+                              setUploadItems((items) =>
+                                items.filter((entry) => entry.id !== item.id),
+                              )
+                            }
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      {item.status === 'uploading' ? (
+                        <div className="mt-2 space-y-1">
+                          <Progress
+                            value={Math.round(item.progress * 100)}
+                            className="h-1.5"
+                            aria-label={t('documents.uploadingFile', {
+                              name: item.file.name,
+                            })}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {t('documents.uploadingPercent', {
+                              percent: Math.round(item.progress * 100),
+                            })}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {item.status === 'queued' ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t('documents.queued')}
+                        </p>
+                      ) : null}
+
+                      {item.status === 'failed' && item.error ? (
+                        <p className="mt-1 text-xs text-destructive">
+                          {item.error}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              <DialogFooter>
                 {uploading ? (
-                  <>
-                    <Spinner />
-                    {t('documents.uploading')}
-                  </>
-                ) : uploadItems.some((item) => item.status === 'failed') ? (
-                  t('documents.retryFailed')
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => uploadAbortRef.current?.abort()}
+                  >
+                    {t('documents.cancelUpload')}
+                  </Button>
                 ) : (
-                  t('documents.uploadCount', { count: uploadItems.length })
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleUploadOpenChange(false)}
+                  >
+                    {t('documents.close')}
+                  </Button>
                 )}
-              </Button>
-            </DialogFooter>
-          </form>
+                <Button
+                  type="submit"
+                  disabled={
+                    uploading ||
+                    uploadItems.filter(
+                      (item) =>
+                        item.status === 'queued' || item.status === 'failed',
+                    ).length === 0
+                  }
+                >
+                  {uploading ? (
+                    <>
+                      <Spinner />
+                      {t('documents.uploading')}
+                    </>
+                  ) : uploadItems.some((item) => item.status === 'failed') ? (
+                    t('documents.retryFailed')
+                  ) : (
+                    t('documents.uploadCount', { count: uploadItems.length })
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

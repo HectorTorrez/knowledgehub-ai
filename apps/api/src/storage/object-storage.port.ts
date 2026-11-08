@@ -82,6 +82,11 @@ export class ObjectStorageIntegrityError extends Error {
 }
 
 export interface ObjectStorage {
+  writeObject(input: {
+    key: string;
+    contentType: string;
+    bytes: Uint8Array;
+  }): Promise<void>;
   createPresignedUpload(input: PresignedUploadInput): Promise<PresignedUpload>;
   createPresignedDownload(
     input: PresignedDownloadInput,

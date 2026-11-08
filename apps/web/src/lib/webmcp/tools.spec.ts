@@ -48,6 +48,7 @@ function document(id: string): DocumentSummary {
     id,
     title: `Document ${id}`,
     status: 'READY',
+    sourceUrl: null,
     originalFileName: 'handbook.pdf',
     contentType: 'application/pdf',
     sizeBytes: 1024,

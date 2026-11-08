@@ -1,3 +1,4 @@
+import { fetchDocumentUrl, UrlFetchError } from './url-fetcher.js';
 import type { ActivityService } from '../activity/activity.service.js';
 import type { ConfigService } from '@nestjs/config';
 import {
@@ -181,6 +182,7 @@ function createHarness(options: HarnessOptions = {}) {
     storageConfig(options.uploadTtlSeconds, options.downloadTtlSeconds),
     activity as unknown as ActivityService,
     usage as unknown as UsageService,
+    fetchDocumentUrl,
   );
 
   return { service, prisma, storage, activity, usage };
@@ -189,6 +191,7 @@ function createHarness(options: HarnessOptions = {}) {
 function createCompletionHarness(
   record: DocumentRecord = documentRecord(),
   storage: FakeObjectStorage = new FakeObjectStorage(),
+  fetcher: typeof fetchDocumentUrl = fetchDocumentUrl,
 ) {
   const state: DocumentRecord = { ...record };
 
@@ -249,6 +252,7 @@ function createCompletionHarness(
     storageConfig(),
     activity as unknown as ActivityService,
     usage as unknown as UsageService,
+    fetcher,
   );
 
   return {
@@ -271,6 +275,7 @@ const PUBLIC_DOCUMENT_FIELDS = [
   'processingStage',
   'retry',
   'sizeBytes',
+  'sourceUrl',
   'status',
   'title',
   'updatedAt',
@@ -381,6 +386,7 @@ describe('DocumentsService.list', () => {
         originalFileName: true,
         contentType: true,
         sizeBytes: true,
+        sourceUrl: true,
         failureReason: true,
         failureKind: true,
         createdAt: true,
@@ -1720,5 +1726,88 @@ describe('DocumentsService.reprocess', () => {
     await expect(
       service.reprocess('org-1', 'doc-1', 'uploader-1'),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('DocumentsService.importFromUrl', () => {
+  it.each([
+    [
+      'explicit',
+      '<title>Ignored</title>',
+      'https://example.com/file',
+      'explicit',
+    ],
+    [
+      '',
+      '<title>Fish &amp; Chips</title>',
+      'https://example.com/file',
+      'Fish & Chips',
+    ],
+    ['', '', 'https://example.com/a%20file/', 'a file'],
+    ['', '', 'https://example.com/', 'example.com'],
+  ])('derives title from %s and %s', async (title, html, url, expected) => {
+    const fetcher = vi.fn(async () => ({
+      bytes: Buffer.from(html || 'content'),
+      contentType: 'text/html' as const,
+      url,
+    }));
+    const harness = createCompletionHarness(
+      documentRecord({ expectedContentType: 'text/html' }),
+      new FakeObjectStorage(),
+      fetcher,
+    );
+    harness.prisma.document.create.mockResolvedValueOnce({
+      id: 'doc-1',
+    } as never);
+    await harness.service.importFromUrl(organizationContext(), { url, title });
+    expect(harness.prisma.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ title: expected, sourceUrl: url }),
+      }),
+    );
+    expect(harness.prisma.documentProcessingJob.create).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['URL_NOT_ALLOWED', 400],
+    ['URL_FETCH_FAILED', 422],
+    ['URL_TOO_LARGE', 422],
+    ['URL_UNSUPPORTED_TYPE', 422],
+  ] as const)('maps %s to %s', async (code, status) => {
+    const fetcher = vi.fn(async () => {
+      throw new UrlFetchError(code);
+    });
+    const harness = createCompletionHarness(
+      documentRecord(),
+      new FakeObjectStorage(),
+      fetcher,
+    );
+    await expect(
+      harness.service.importFromUrl(organizationContext(), {
+        url: 'https://example.com',
+      }),
+    ).rejects.toMatchObject({ status, response: { code } });
+  });
+
+  it('marks a failed storage write as failed', async () => {
+    const storage = new FakeObjectStorage();
+    vi.spyOn(storage, 'writeObject').mockRejectedValueOnce(
+      new Error('storage'),
+    );
+    const fetcher = vi.fn(async () => ({
+      bytes: Buffer.from('content'),
+      contentType: 'text/plain' as const,
+      url: 'https://example.com/',
+    }));
+    const harness = createCompletionHarness(documentRecord(), storage, fetcher);
+    harness.prisma.document.create.mockResolvedValueOnce({
+      id: 'doc-1',
+    } as never);
+    await expect(
+      harness.service.importFromUrl(organizationContext(), {
+        url: 'https://example.com/',
+      }),
+    ).rejects.toThrow('storage');
+    expect(harness.state.status).toBe('FAILED');
   });
 });

@@ -16,6 +16,7 @@ function document(
     id: overrides.id,
     title: overrides.title ?? 'Report',
     status: overrides.status ?? 'READY',
+    sourceUrl: null,
     originalFileName: null,
     contentType: null,
     sizeBytes: null,

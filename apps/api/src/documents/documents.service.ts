@@ -7,6 +7,7 @@ import {
   NotFoundException,
   PayloadTooLargeException,
   ServiceUnavailableException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type {
   DocumentDetailResponse,
@@ -17,6 +18,11 @@ import type {
   DocumentSummary,
   DocumentUploadUrlResponse,
 } from '@knowledgehub/shared-types';
+import { parse } from 'node-html-parser';
+import { URL_FETCHER } from './url-fetcher.token.js';
+import { UrlFetchError, type fetchDocumentUrl } from './url-fetcher.js';
+import { DOCUMENT_TITLE_MAX_LENGTH } from './dto/document-title.schema.js';
+import type { ImportUrlInput } from './dto/import-url.schema.js';
 import { ActivityService } from '../activity/activity.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsageService } from '../rate-limit/usage.service.js';
@@ -63,6 +69,7 @@ const DOCUMENT_PUBLIC_SELECT = {
   id: true,
   title: true,
   status: true,
+  sourceUrl: true,
   originalFileName: true,
   contentType: true,
   sizeBytes: true,
@@ -93,6 +100,7 @@ interface DocumentProjection {
   id: string;
   title: string;
   status: DocumentStatus;
+  sourceUrl: string | null;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;
@@ -117,6 +125,7 @@ function toDocumentSummary(document: DocumentProjection): DocumentSummary {
     title: document.title,
     status: document.status,
     ...deriveProcessingProgress(document),
+    sourceUrl: document.sourceUrl,
     originalFileName: document.originalFileName,
     contentType: document.contentType,
     sizeBytes: document.sizeBytes,
@@ -145,6 +154,7 @@ export class DocumentsService {
     private readonly storageConfig: StorageConfig,
     private readonly activity: ActivityService,
     private readonly usage: UsageService,
+    @Inject(URL_FETCHER) private readonly urlFetcher: typeof fetchDocumentUrl,
   ) {}
 
   async create(
@@ -162,6 +172,85 @@ export class DocumentsService {
     });
 
     return { document: toDocumentSummary(document) };
+  }
+
+  async importFromUrl(
+    context: OrganizationContext,
+    body: ImportUrlInput,
+  ): Promise<DocumentDetailResponse> {
+    let fetched: Awaited<ReturnType<typeof fetchDocumentUrl>>;
+    try {
+      fetched = await this.urlFetcher(body.url);
+    } catch (error) {
+      if (error instanceof UrlFetchError) {
+        const Exception =
+          error.code === 'URL_NOT_ALLOWED'
+            ? BadRequestException
+            : UnprocessableEntityException;
+        throw new Exception({ code: error.code });
+      }
+      throw error;
+    }
+    const url = new URL(fetched.url);
+    const htmlTitle =
+      fetched.contentType === 'text/html'
+        ? parse(fetched.bytes.subarray(0, 65536).toString('utf8'))
+            .querySelector('title')
+            ?.text.trim() || ''
+        : '';
+    const segment = url.pathname.split('/').filter(Boolean).at(-1);
+    let pathTitle = '';
+    if (segment) {
+      try {
+        pathTitle = decodeURIComponent(segment).trim();
+      } catch {
+        pathTitle = segment;
+      }
+    }
+    const title = (
+      body.title?.trim() ||
+      htmlTitle ||
+      pathTitle ||
+      url.hostname
+    ).slice(0, DOCUMENT_TITLE_MAX_LENGTH);
+    await this.usage.assertDocumentCapacity(context.organizationId);
+    const document = await this.prisma.document.create({
+      data: {
+        organizationId: context.organizationId,
+        uploadedById: context.userId,
+        title,
+        sourceUrl: fetched.url,
+        expectedContentType: fetched.contentType,
+      },
+      select: { id: true },
+    });
+    const key = createDocumentStorageKey(context.organizationId, document.id);
+    await this.prisma.document.updateMany({
+      where: { id: document.id, organizationId: context.organizationId },
+      data: { uploadStorageKey: key },
+    });
+    try {
+      await this.storage.writeObject({
+        key,
+        contentType: fetched.contentType,
+        bytes: fetched.bytes,
+      });
+    } catch (error) {
+      await this.prisma.document.updateMany({
+        where: {
+          id: document.id,
+          organizationId: context.organizationId,
+          uploadStorageKey: key,
+        },
+        data: {
+          status: 'FAILED',
+          failureReason: 'STORAGE_WRITE_FAILED',
+          failureKind: 'VERIFICATION',
+        },
+      });
+      throw error;
+    }
+    return this.finishUpload(context, document.id, {});
   }
 
   async list(
@@ -505,6 +594,14 @@ export class DocumentsService {
   }
 
   async completeUpload(
+    context: OrganizationContext,
+    documentId: string,
+    input: CompleteUploadInput,
+  ): Promise<DocumentDetailResponse> {
+    return this.finishUpload(context, documentId, input);
+  }
+
+  private async finishUpload(
     context: OrganizationContext,
     documentId: string,
     input: CompleteUploadInput,

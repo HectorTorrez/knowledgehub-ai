@@ -71,6 +71,16 @@ export const documentsApi = {
     });
   },
 
+  importFromUrl(
+    organizationId: string,
+    body: { url: string; title?: string },
+  ): Promise<DocumentDetailResponse> {
+    return apiFetch<DocumentDetailResponse>(
+      `${documentsPath(organizationId)}/import-url`,
+      { method: 'POST', body, authRecovery: true },
+    );
+  },
+
   detail(
     organizationId: string,
     documentId: string,
