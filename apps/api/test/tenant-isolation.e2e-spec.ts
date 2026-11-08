@@ -38,7 +38,12 @@ describe('tenant isolation (e2e)', () => {
     await app.close();
   });
 
-  it('rejects a nonmember across tenant routes', async () => {
+  let authA: string;
+  let authB: string;
+  let ids: string[];
+  let routes: Array<['get' | 'post' | 'patch' | 'put' | 'delete', string]>;
+
+  beforeAll(async () => {
     async function register() {
       const response = await request(app.getHttpServer())
         .post('/auth/register')
@@ -55,8 +60,8 @@ describe('tenant isolation (e2e)', () => {
       ).find((value) => value.startsWith(`${ACCESS_TOKEN_COOKIE}=`))!;
       return `Bearer ${cookie.slice(ACCESS_TOKEN_COOKIE.length + 1).split(';')[0]}`;
     }
-    const authA = await register();
-    const authB = await register();
+    authA = await register();
+    authB = await register();
     for (const auth of [authA, authB]) {
       const response = await request(app.getHttpServer())
         .post('/organizations')
@@ -88,15 +93,21 @@ describe('tenant isolation (e2e)', () => {
         citations: [],
       },
     });
-    const ids = [
+    const invitation = await prisma.organizationInvitation.create({
+      data: { organizationId: organizations[0], email: `${randomUUID()}@example.test`, tokenHash: randomUUID(), expiresAt: new Date(Date.now() + 86400000) },
+    });
+    const vector = `[${Array(1536).fill(0).join(",")}]`;
+    await prisma.$executeRaw`INSERT INTO "DocumentChunk" ("id", "documentId", "organizationId", "documentGeneration", "pageNumber", "chunkIndex", "content", "characterCount", "embedding", "createdAt", "updatedAt") VALUES (gen_random_uuid(), ${document.id}::uuid, ${organizations[0]}::uuid, 1, 1, 0, 'Private', 7, ${vector}::vector, now(), now())`;
+    ids = [
       organizations[0],
       users[0],
       document.id,
       collection.id,
       conversation.id,
       answer.id,
+      invitation.id,
     ];
-    const routes: Array<['get' | 'post' | 'patch' | 'put' | 'delete', string]> =
+    routes =
       [
         ['get', ''],
         ['patch', ''],
@@ -139,8 +150,11 @@ describe('tenant isolation (e2e)', () => {
         ['delete', `/answers/${answer.id}`],
         ['post', '/invitations'],
         ['get', '/invitations'],
-        ['delete', `/invitations/${randomUUID()}`],
+        ['delete', `/invitations/${invitation.id}`],
       ];
+  });
+
+  it('rejects a nonmember across tenant routes', async () => {
     for (const [method, path] of routes) {
       const client = request(app.getHttpServer());
       const response = await client[method](
@@ -151,6 +165,14 @@ describe('tenant isolation (e2e)', () => {
       expect([403, 404], `${method} ${path}`).toContain(response.status);
       for (const id of ids)
         expect(JSON.stringify(response.body)).not.toContain(id);
+    }
+  });
+  it('rejects foreign resources within a member organization', async () => {
+    for (const [method, path] of routes.filter(([, path]) => ids.some((id) => path.includes(id)))) {
+      const response = await request(app.getHttpServer())[method](`/organizations/${organizations[1]}${path}`)
+        .set('Authorization', authB).send({});
+      expect([403, 404], `${method} ${path}`).toContain(response.status);
+      for (const value of [...ids, 'Private']) expect(JSON.stringify(response.body)).not.toContain(value);
     }
   });
 });
