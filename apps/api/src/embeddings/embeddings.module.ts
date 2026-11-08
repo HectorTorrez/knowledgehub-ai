@@ -1,7 +1,10 @@
+import { MetricsModule } from '../metrics/metrics.module.js';
+import { MetricsService } from '../metrics/metrics.service.js';
 import { ConfigService } from '@nestjs/config';
 import { CachedQueryEmbedding } from './cached-query-embedding.js';
 import {
   MemoryQueryCache,
+  MeteredQueryCache,
   RedisQueryCache,
   type QueryCache,
 } from './query-cache.js';
@@ -17,18 +20,25 @@ export const QUERY_CACHE = Symbol('QUERY_CACHE');
 export const QUERY_EMBEDDING_PROVIDER = Symbol('QUERY_EMBEDDING_PROVIDER');
 
 @Module({
+  imports: [MetricsModule],
   providers: [
     EmbeddingConfig,
     {
       provide: QUERY_CACHE,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService): QueryCache => {
+      inject: [ConfigService, MetricsService],
+      useFactory: (
+        config: ConfigService,
+        metrics: MetricsService,
+      ): QueryCache => {
         const max = config.get<number>('EMBEDDING_CACHE_MAX_ENTRIES') ?? 1000;
         const ttl = config.get<number>('EMBEDDING_CACHE_TTL_SECONDS') ?? 86400;
         const url = config.get<string>('RATE_LIMIT_REDIS_URL');
-        return url && max && ttl
-          ? new RedisQueryCache(url, ttl)
-          : new MemoryQueryCache(max, ttl);
+        return new MeteredQueryCache(
+          url && max && ttl
+            ? new RedisQueryCache(url, ttl)
+            : new MemoryQueryCache(max, ttl),
+          metrics,
+        );
       },
     },
     {

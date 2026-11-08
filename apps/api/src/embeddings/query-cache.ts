@@ -1,3 +1,4 @@
+import type { MetricsService } from '../metrics/metrics.service.js';
 import { createHash } from 'node:crypto';
 import { Redis } from 'ioredis';
 import type { OnModuleDestroy } from '@nestjs/common';
@@ -65,5 +66,38 @@ export class RedisQueryCache implements QueryCache, OnModuleDestroy {
   }
   async onModuleDestroy(): Promise<void> {
     await this.client.quit().catch(() => undefined);
+  }
+}
+
+export class MeteredQueryCache implements QueryCache, OnModuleDestroy {
+  constructor(
+    private readonly cache: QueryCache,
+    private readonly metrics: MetricsService,
+  ) {}
+  async get(key: string): Promise<string | null> {
+    try {
+      const value = await this.cache.get(key);
+      this.metrics.increment('query_cache_requests_total', {
+        kind: key.split(':')[0] ?? '',
+        result: value === null ? 'miss' : 'hit',
+      });
+      return value;
+    } catch (error) {
+      this.metrics.increment('query_cache_requests_total', {
+        kind: key.split(':')[0] ?? '',
+        result: 'miss',
+      });
+      throw error;
+    }
+  }
+  async set(key: string, value: string): Promise<void> {
+    return this.cache.set(key, value);
+  }
+  async onModuleDestroy(): Promise<void> {
+    if (
+      'onModuleDestroy' in this.cache &&
+      typeof this.cache.onModuleDestroy === 'function'
+    )
+      await this.cache.onModuleDestroy();
   }
 }
