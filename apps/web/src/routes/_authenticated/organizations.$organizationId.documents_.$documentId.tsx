@@ -56,7 +56,6 @@ import { RouteError } from '~/components/route-states';
 import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { pollingInterval } from '~/lib/document-polling';
-import { useDocumentNotifications } from '~/hooks/use-document-notifications';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -182,10 +181,6 @@ function DocumentDetailPage() {
       ]);
     },
   });
-  useDocumentNotifications(
-    organizationId,
-    document.data ? [document.data.document] : [],
-  );
   useQueryErrorToast(document.error, () => void document.refetch());
 
   const { page, quote } = Route.useSearch();

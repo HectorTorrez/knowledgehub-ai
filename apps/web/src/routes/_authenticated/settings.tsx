@@ -27,6 +27,10 @@ import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
 import { RouteError } from '~/components/route-states';
 import { useToast } from '~/components/ui/toast';
+import {
+  browserNotificationsEnabled,
+  setBrowserNotificationsEnabled,
+} from '~/hooks/use-document-notifications';
 import { useSession } from '~/hooks/use-auth';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { isApiError } from '~/lib/api/errors';
@@ -60,6 +64,11 @@ function AccountSettingsPage() {
   const session = useSession();
   const user =
     session.data?.status === 'authenticated' ? session.data.user : undefined;
+
+  const [browserNotifications, setBrowserNotifications] = useState(false);
+  useEffect(() => {
+    setBrowserNotifications(browserNotificationsEnabled());
+  }, []);
 
   const [deletePassword, setDeletePassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -228,6 +237,25 @@ function AccountSettingsPage() {
         description={t('account.description')}
       />
 
+      <Card>
+        <CardContent className="pt-6">
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={browserNotifications}
+              onChange={async (event) => {
+                const enabled =
+                  event.target.checked &&
+                  'Notification' in window &&
+                  (await Notification.requestPermission()) === 'granted';
+                setBrowserNotificationsEnabled(enabled);
+                setBrowserNotifications(enabled);
+              }}
+            />
+            {t('notifications.browserToggle')}
+          </label>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

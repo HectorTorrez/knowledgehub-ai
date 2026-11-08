@@ -1453,6 +1453,10 @@ export const es: Messages = {
     scopeLabel: 'Alcance de las conversaciones',
   },
   notifications: {
+    readyMany: '{count} documentos están listos',
+    browserToggle:
+      'Notificaciones del navegador para el procesamiento de documentos',
+
     ready: '{title} está listo',
     failed: 'Falló {title}',
     view: 'Ver',

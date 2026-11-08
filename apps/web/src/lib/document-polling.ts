@@ -34,3 +34,10 @@ export function terminalTransition(
   if (previous !== 'PENDING' && previous !== 'PROCESSING') return undefined;
   return current === 'READY' || current === 'FAILED' ? current : undefined;
 }
+
+export function remainingTrackedDocuments(
+  pending: string[],
+  completed: { id: string }[],
+): string[] {
+  return pending.filter((id) => !completed.some((item) => item.id === id));
+}
