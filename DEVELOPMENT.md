@@ -1270,3 +1270,7 @@ Scanned PDFs can use OCR when `OCR_ENABLED=true` and an OpenAI API key is config
 ## Evaluation regression baseline
 
 With Postgres migrated and `OPENAI_API_KEY` set, run `pnpm --filter @knowledgehub/api eval:retrieval` and `pnpm --filter @knowledgehub/api test:answers:eval`, then `pnpm --filter @knowledgehub/api eval:compare`. Set `EVAL_TOLERANCE` to change the allowed absolute drop (default 0.05). Run `pnpm --filter @knowledgehub/api eval:baseline` after both evaluations to intentionally replace the baseline; review and commit the resulting JSON. An empty baseline reports metrics without gating until the first real run is recorded.
+
+## Query caches
+
+Query embeddings and standalone query rewrites use an in-process LRU cache by default. `EMBEDDING_CACHE_MAX_ENTRIES` defaults to 1000 and `EMBEDDING_CACHE_TTL_SECONDS` defaults to 86400; set either to 0 to disable caching. When `RATE_LIMIT_REDIS_URL` is configured, instances share Redis entries with the same TTL. Redis failures bypass the cache. Document embeddings and final answers are not cached.
