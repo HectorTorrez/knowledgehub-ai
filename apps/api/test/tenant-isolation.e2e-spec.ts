@@ -131,6 +131,7 @@ describe('tenant isolation (e2e)', () => {
       ['patch', `/collections/${collection.id}`],
       ['delete', `/collections/${collection.id}`],
       ['post', '/documents'],
+      ['post', '/documents/import-url'],
       ['get', '/documents'],
       ['get', `/documents/${document.id}`],
       ['get', `/documents/${document.id}/download`],

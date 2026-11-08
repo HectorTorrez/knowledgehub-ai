@@ -443,6 +443,7 @@ an unauthenticated request returns `401`, an authenticated non-member returns
 
 ```
 POST   /organizations/:organizationId/documents
+POST   /organizations/:organizationId/documents/import-url
 GET    /organizations/:organizationId/documents
 GET    /organizations/:organizationId/documents/:documentId
 GET    /organizations/:organizationId/documents/:documentId/download
@@ -463,6 +464,22 @@ Body `{ "title": string }` (trimmed, 1–200 characters; unknown fields are
 rejected with `400`). The organization comes from the route, the uploader from
 the session, and the status always starts at `PENDING`. Returns `{ document }`
 (`DocumentDetailResponse`).
+
+### POST /organizations/:organizationId/documents/import-url → 201
+
+Body `{ "url": string, "title"?: string }`. Returns `{ document }` with the
+source URL and a `PROCESSING` status. If omitted, the title is derived from the
+fetched document or URL.
+
+`URL_NOT_ALLOWED` returns `400`; `URL_FETCH_FAILED`, `URL_UNSUPPORTED_TYPE`, and
+`URL_TOO_LARGE` return `422`.
+
+Only HTTP and HTTPS URLs on ports 80 and 443 are allowed, without credentials.
+Every resolved address must be public: private, loopback, link-local, CGNAT,
+multicast, reserved, and metadata ranges are blocked. The connection is pinned
+to a vetted IP. At most three redirects are followed, each re-validated. A
+10-second deadline includes DNS, and downloads are capped at the upload size
+limit. Only allowed upload types are accepted.
 
 ### GET /organizations/:organizationId/documents → 200
 
