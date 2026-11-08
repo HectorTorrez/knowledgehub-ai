@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 import {
   MAX_UPLOAD_BYTES,
@@ -5,6 +6,7 @@ import {
   type AllowedUploadContentType,
 } from './upload-policy.js';
 import {
+  evaluateOfficeArchive,
   evaluateUploadMetadata,
   evaluateUploadSignature,
   isAllowedUploadContentType,
@@ -182,5 +184,42 @@ describe('DOCX signatures', () => {
     expect(
       evaluateUploadSignature(docx, new TextEncoder().encode('%PDF-1.7')),
     ).toBe('SIGNATURE_MISMATCH');
+  });
+});
+
+describe('Office archives', () => {
+  it.each([
+    [
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'ppt/presentation.xml',
+    ],
+    [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'xl/workbook.xml',
+    ],
+  ])('checks the required entry for %s', async (type, entry) => {
+    const zip = new JSZip();
+    zip.file(entry, '<xml/>');
+    const bytes = await zip.generateAsync({ type: 'uint8array' });
+    expect(await evaluateOfficeArchive(type, bytes)).toBeNull();
+    expect(
+      await evaluateOfficeArchive(type, new TextEncoder().encode('invalid')),
+    ).toBe('SIGNATURE_MISMATCH');
+    const other = new JSZip();
+    other.file('other.xml', '');
+    expect(
+      await evaluateOfficeArchive(
+        type,
+        await other.generateAsync({ type: 'uint8array' }),
+      ),
+    ).toBe('SIGNATURE_MISMATCH');
+  });
+  it('checks HTML as UTF-8', () => {
+    expect(
+      evaluateUploadSignature('text/html', bytes('<p>café</p>')),
+    ).toBeNull();
+    expect(evaluateUploadSignature('text/html', Uint8Array.of(0xff))).toBe(
+      'SIGNATURE_MISMATCH',
+    );
   });
 });

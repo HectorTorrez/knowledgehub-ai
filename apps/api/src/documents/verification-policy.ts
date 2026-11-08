@@ -1,3 +1,4 @@
+import { fromBuffer } from 'yauzl';
 import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
   DOCX_CONTENT_TYPE,
@@ -103,4 +104,30 @@ function isStrictUtf8Text(bytes: Uint8Array): boolean {
   } catch {
     return false;
   }
+}
+
+export async function evaluateOfficeArchive(
+  contentType: string,
+  bytes: Uint8Array,
+): Promise<UploadFailureReason | null> {
+  const required =
+    contentType === PPTX_CONTENT_TYPE
+      ? 'ppt/presentation.xml'
+      : contentType === XLSX_CONTENT_TYPE
+        ? 'xl/workbook.xml'
+        : null;
+  if (!required) return null;
+  return new Promise((resolve) => {
+    fromBuffer(Buffer.from(bytes), { lazyEntries: true }, (error, zip) => {
+      if (error || !zip) return resolve('SIGNATURE_MISMATCH');
+      let found = false;
+      zip.on('error', () => resolve('SIGNATURE_MISMATCH'));
+      zip.on('entry', (entry) => {
+        if (entry.fileName === required) found = true;
+        zip.readEntry();
+      });
+      zip.on('end', () => resolve(found ? null : 'SIGNATURE_MISMATCH'));
+      zip.readEntry();
+    });
+  });
 }
