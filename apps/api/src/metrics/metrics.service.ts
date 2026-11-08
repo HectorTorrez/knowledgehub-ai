@@ -23,6 +23,10 @@ export class MetricsService {
   private readonly metrics = new Map<string, Metric>();
 
   constructor() {
+    this.counter('query_cache_requests_total', 'Query cache lookups.', [
+      'kind',
+      'result',
+    ]);
     this.counter('http_requests_total', 'Total number of HTTP requests.', [
       'method',
       'status_code',

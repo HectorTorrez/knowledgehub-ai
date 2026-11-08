@@ -16,6 +16,7 @@ process.env.STORAGE_SECRET_ACCESS_KEY ??=
   'test-only-storage-secret-access-key-000000';
 
 process.env.PROCESSING_WORKER_ENABLED ??= 'false';
+process.env.EMBEDDING_CACHE_MAX_ENTRIES ??= '0';
 
 process.env.ANSWERS_ENABLED ??= 'true';
 process.env.OPENAI_API_KEY ??= 'test-only-openai-api-key';
