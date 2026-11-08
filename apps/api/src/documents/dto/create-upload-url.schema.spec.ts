@@ -47,7 +47,6 @@ describe('createUploadUrlSchema', () => {
   it('rejects a non-allowlisted or incorrectly typed content type', () => {
     for (const contentType of [
       'image/png',
-      'text/html',
       'application/octet-stream',
       'application/PDF',
       '',
@@ -112,8 +111,11 @@ describe('upload policy', () => {
     expect(ALLOWED_UPLOAD_CONTENT_TYPES).toEqual([
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'text/plain',
       'text/markdown',
+      'text/html',
     ]);
   });
 });

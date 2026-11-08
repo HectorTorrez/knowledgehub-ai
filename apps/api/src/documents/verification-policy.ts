@@ -2,6 +2,8 @@ import {
   ALLOWED_UPLOAD_CONTENT_TYPES,
   DOCX_CONTENT_TYPE,
   MAX_UPLOAD_BYTES,
+  PPTX_CONTENT_TYPE,
+  XLSX_CONTENT_TYPE,
   SIGNATURE_PREFIX_BYTES,
   type AllowedUploadContentType,
   type UploadFailureReason,
@@ -60,7 +62,12 @@ function hasZipLocalFileHeader(prefix: Uint8Array): boolean {
 
 function hasValidSignature(contentType: string, prefix: Uint8Array): boolean {
   if (contentType === 'application/pdf') return containsPdfMagic(prefix);
-  if (contentType === DOCX_CONTENT_TYPE) return hasZipLocalFileHeader(prefix);
+  if (
+    [DOCX_CONTENT_TYPE, PPTX_CONTENT_TYPE, XLSX_CONTENT_TYPE].includes(
+      contentType,
+    )
+  )
+    return hasZipLocalFileHeader(prefix);
   return isStrictUtf8Text(prefix);
 }
 
