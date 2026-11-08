@@ -63,6 +63,7 @@ const DOCUMENT_PUBLIC_SELECT = {
   id: true,
   title: true,
   status: true,
+  sourceUrl: true,
   originalFileName: true,
   contentType: true,
   sizeBytes: true,
@@ -93,6 +94,7 @@ interface DocumentProjection {
   id: string;
   title: string;
   status: DocumentStatus;
+  sourceUrl: string | null;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;
@@ -117,6 +119,7 @@ function toDocumentSummary(document: DocumentProjection): DocumentSummary {
     title: document.title,
     status: document.status,
     ...deriveProcessingProgress(document),
+    sourceUrl: document.sourceUrl,
     originalFileName: document.originalFileName,
     contentType: document.contentType,
     sizeBytes: document.sizeBytes,

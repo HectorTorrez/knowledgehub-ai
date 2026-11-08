@@ -412,6 +412,7 @@ export interface DocumentSummary {
   status: DocumentStatus;
   processingStage: DocumentProcessingStage;
   retry: { attempt: number; maxAttempts: number; nextRetryAt: string } | null;
+  sourceUrl: string | null;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;
