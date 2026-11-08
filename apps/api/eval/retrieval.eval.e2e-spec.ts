@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -53,17 +54,19 @@ it('reports retrieval performance on the synthetic corpus', async () => {
         }),
       );
     }
-    process.stdout.write(
-      JSON.stringify({
-        questions: scores.length,
-        recall5:
-          scores.reduce((sum, score) => sum + score.recall5, 0) / scores.length,
-        recall10:
-          scores.reduce((sum, score) => sum + score.recall10, 0) /
-          scores.length,
-        mrr: meanReciprocalRank(scores.map((score) => score.rr)),
-      }) + '\n',
+    const metrics = {
+      questions: scores.length,
+      recall5:
+        scores.reduce((sum, score) => sum + score.recall5, 0) / scores.length,
+      recall10:
+        scores.reduce((sum, score) => sum + score.recall10, 0) / scores.length,
+      mrr: meanReciprocalRank(scores.map((score) => score.rr)),
+    };
+    writeFileSync(
+      'eval/retrieval-results.json',
+      JSON.stringify(metrics, null, 2) + '\n',
     );
+    process.stdout.write(JSON.stringify(metrics) + '\n');
   } finally {
     if (organizationId)
       await app

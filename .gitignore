@@ -52,3 +52,5 @@ sprint*.md
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+
+apps/api/eval/*-results.json
