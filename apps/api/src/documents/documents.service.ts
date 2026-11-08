@@ -244,7 +244,7 @@ export class DocumentsService {
         },
         data: {
           status: 'FAILED',
-          failureReason: 'Storage write failed',
+          failureReason: 'STORAGE_WRITE_FAILED',
           failureKind: 'VERIFICATION',
         },
       });
