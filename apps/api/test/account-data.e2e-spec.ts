@@ -77,7 +77,7 @@ describe('account data (e2e)', () => {
         { organizationId: org.id, createdById: other.id, title: 'Secret' },
       ],
     });
-    const conversation = await prisma.conversation.findFirstOrThrow({
+    const conversation = await prisma.unscoped.conversation.findFirstOrThrow({
       where: { createdById: caller.id },
     });
     await prisma.answer.create({

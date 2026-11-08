@@ -83,7 +83,7 @@ describe('DocumentChunk embedding constraints (e2e)', () => {
       insertChunk(document.id, organization.id, VECTOR_LITERAL),
     ).resolves.toBe(1);
 
-    const chunks = await prisma.documentChunk.findMany({
+    const chunks = await prisma.unscoped.documentChunk.findMany({
       where: { documentId: document.id },
     });
     expect(chunks).toHaveLength(1);
@@ -131,7 +131,9 @@ describe('DocumentChunk embedding constraints (e2e)', () => {
     expect(unchanged.failureReason).toBeNull();
     expect(unchanged.failureKind).toBeNull();
     expect(
-      await prisma.documentChunk.count({ where: { documentId: document.id } }),
+      await prisma.unscoped.documentChunk.count({
+        where: { documentId: document.id },
+      }),
     ).toBe(0);
   });
 });

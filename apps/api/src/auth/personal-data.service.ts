@@ -36,7 +36,7 @@ export class PersonalDataService {
             organization: { select: { name: true } },
           },
         }),
-        this.prisma.conversation.findMany({
+        this.prisma.unscoped.conversation.findMany({
           where: { createdById: userId },
           select: {
             id: true,
@@ -47,7 +47,7 @@ export class PersonalDataService {
             answers: { select: answerFields, orderBy: { createdAt: 'asc' } },
           },
         }),
-        this.prisma.answer.findMany({
+        this.prisma.unscoped.answer.findMany({
           where: { askedById: userId, conversationId: null },
           select: answerFields,
         }),

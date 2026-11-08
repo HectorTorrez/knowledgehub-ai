@@ -165,7 +165,7 @@ describe('documents (e2e)', () => {
     prisma.document.findUniqueOrThrow({ where: { id: documentId } });
 
   const loadJobs = (documentId: string) =>
-    prisma.documentProcessingJob.findMany({
+    prisma.unscoped.documentProcessingJob.findMany({
       where: { documentId },
       orderBy: { createdAt: 'asc' },
     });

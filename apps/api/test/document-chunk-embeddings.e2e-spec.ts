@@ -270,7 +270,9 @@ describe('document chunk embeddings (e2e)', () => {
     );
 
     expect(
-      await prisma.documentChunk.count({ where: { documentId: document.id } }),
+      await prisma.unscoped.documentChunk.count({
+        where: { documentId: document.id },
+      }),
     ).toBe(0);
   });
 
@@ -308,12 +310,12 @@ describe('document chunk embeddings (e2e)', () => {
     `;
     expect(older).toEqual([{ matches: true }]);
     expect(
-      await prisma.documentChunk.count({
+      await prisma.unscoped.documentChunk.count({
         where: { documentId: other.document.id },
       }),
     ).toBe(2);
     expect(
-      await prisma.documentChunk.count({
+      await prisma.unscoped.documentChunk.count({
         where: { documentId: document.id, documentGeneration: 1 },
       }),
     ).toBe(1);

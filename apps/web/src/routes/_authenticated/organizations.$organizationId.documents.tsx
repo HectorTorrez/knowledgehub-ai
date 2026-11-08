@@ -78,7 +78,7 @@ import { Spinner } from '~/components/ui/spinner';
 import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { pollingInterval } from '~/lib/document-polling';
-import { useDocumentNotifications } from '~/hooks/use-document-notifications';
+import { useTrackDocument } from '~/lib/document-notifications';
 import { documentsApi, uploadFileToDocument } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { organizationsApi } from '~/lib/api/organizations';
@@ -128,6 +128,7 @@ interface UploadItem {
 
 function DocumentsPage() {
   const t = useT();
+  const trackDocument = useTrackDocument();
   const locale = useLocale();
   const { organizationId } = Route.useParams();
   const organization = useQuery({
@@ -204,6 +205,15 @@ function DocumentsPage() {
       );
     },
   });
+  useEffect(() => {
+    for (const page of documents.data?.pages ?? []) {
+      for (const item of page.documents) {
+        if (item.status === 'PENDING' || item.status === 'PROCESSING') {
+          trackDocument(item.id);
+        }
+      }
+    }
+  }, [documents.data, trackDocument]);
   useQueryErrorToast(documents.error, () => void documents.refetch());
   useQueryErrorToast(collections.error, () => void collections.refetch());
 
@@ -318,7 +328,7 @@ function DocumentsPage() {
       }
 
       try {
-        await uploadFileToDocument(
+        const uploaded = await uploadFileToDocument(
           organizationId,
           titleFromFileName(item.file.name, t('upload.untitled')),
           item.file,
@@ -330,6 +340,7 @@ function DocumentsPage() {
               updateUploadItem(item.id, { progress: fraction }),
           },
         );
+        trackDocument(uploaded.document.id);
         updateUploadItem(item.id, { status: 'completed', progress: 1 });
       } catch (error) {
         failures += 1;
@@ -502,7 +513,7 @@ function DocumentsPage() {
   }
 
   const rows = documents.data?.pages.flatMap((page) => page.documents) ?? [];
-  useDocumentNotifications(organizationId, rows);
+
   const hasDocuments = rows.length > 0;
 
   function resetFilters() {

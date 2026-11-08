@@ -82,6 +82,7 @@ export class RetrievalService {
       c."chunkIndex", c.content,
       (1 - (c."embedding" <=> ${vectorLiteral(vector)}::vector)) AS similarity
     `;
+    const lexicalQuery = Prisma.sql`(websearch_to_tsquery('public.kh_spanish', public.kh_unaccent(${query.text})) || websearch_to_tsquery('public.kh_english', public.kh_unaccent(${query.text})) || websearch_to_tsquery('public.kh_simple', public.kh_unaccent(${query.text})))`;
     const [vectorRows, lexicalRows] = await Promise.all([
       this.prisma.$queryRaw<ChunkMatchRow[]>(Prisma.sql`
         SELECT ${fields} FROM "DocumentChunk" c
@@ -94,8 +95,8 @@ export class RetrievalService {
         SELECT ${fields} FROM "DocumentChunk" c
         JOIN "Document" d ON d.id = c."documentId"
         WHERE ${filter}
-          AND c."searchVector" @@ websearch_to_tsquery('simple', ${query.text})
-        ORDER BY ts_rank_cd(c."searchVector", websearch_to_tsquery('simple', ${query.text})) DESC, c.id
+          AND c."searchVector" @@ ${lexicalQuery}
+        ORDER BY ts_rank_cd(c."searchVector", ${lexicalQuery}) DESC, c.id
         LIMIT ${Math.max(40, limit)}
       `),
     ]);

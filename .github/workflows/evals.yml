@@ -1,0 +1,65 @@
+name: Evaluation regression gate
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/api/src/retrieval/**'
+      - 'apps/api/src/answers/**'
+      - 'apps/api/src/embeddings/**'
+      - 'apps/api/src/processing/**'
+      - 'apps/api/src/search/**'
+      - 'apps/api/eval/**'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: knowledgehub
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: knowledgehub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U knowledgehub"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://knowledgehub:ci-password@127.0.0.1:5432/knowledgehub?schema=public
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - id: key
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo '::notice::OPENAI_API_KEY unavailable; evaluations skipped.'
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.available == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.key.outputs.available == 'true'
+        with:
+          version: 11.23.0
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.available == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+      - if: steps.key.outputs.available == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.key.outputs.available == 'true'
+        run: pnpm db:migrate:deploy
+      - if: steps.key.outputs.available == 'true'
+        run: pnpm --filter @knowledgehub/api eval:retrieval
+      - if: steps.key.outputs.available == 'true'
+        run: pnpm --filter @knowledgehub/api test:answers:eval
+      - if: steps.key.outputs.available == 'true'
+        working-directory: apps/api
+        run: pnpm exec tsx eval/compare-cli.ts | tee -a "$GITHUB_STEP_SUMMARY"
