@@ -18,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
+  useEffect,
   useState,
   type FormEvent,
   type MouseEvent,
@@ -55,6 +56,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { RouteError } from '~/components/route-states';
 import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
+import { useTrackDocument } from '~/lib/document-notifications';
 import { pollingInterval } from '~/lib/document-polling';
 import { documentsApi } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
@@ -103,6 +105,7 @@ const ACTIVE_STATUSES = new Set(['PENDING', 'PROCESSING']);
 
 function DocumentDetailPage() {
   const t = useT();
+  const trackDocument = useTrackDocument();
   const locale = useLocale();
   const { organizationId, documentId } = Route.useParams();
   const organization = useQuery({
@@ -134,6 +137,11 @@ function DocumentDetailPage() {
       );
     },
   });
+  useEffect(() => {
+    if (document.data && ACTIVE_STATUSES.has(document.data.document.status)) {
+      trackDocument(document.data.document.id);
+    }
+  }, [document.data, trackDocument]);
   const collections = useQuery({
     queryKey: queryKeys.organizations.collections(organizationId),
     queryFn: () => collectionsApi.list(organizationId),

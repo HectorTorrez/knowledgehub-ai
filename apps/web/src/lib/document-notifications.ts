@@ -1,3 +1,5 @@
+import type { DocumentDetailResponse } from '@knowledgehub/shared-types';
+import { isNotFound } from './api/errors';
 import { createContext, useContext } from 'react';
 
 export const TrackingContext = createContext<(id: string) => void>(() => {});
@@ -48,4 +50,33 @@ export function writeTrackedDocuments(
   } catch {
     return;
   }
+}
+
+export function decideDocumentNotifications(
+  pending: string[],
+  results: PromiseSettledResult<DocumentDetailResponse>[],
+) {
+  const ready: DocumentDetailResponse['document'][] = [];
+  const failed: DocumentDetailResponse['document'][] = [];
+  const removed: string[] = [];
+  const stillPending: string[] = [];
+  pending.forEach((id, index) => {
+    const result = results[index];
+    if (
+      result?.status === 'fulfilled' &&
+      result.value.document.status === 'READY'
+    ) {
+      ready.push(result.value.document);
+    } else if (
+      result?.status === 'fulfilled' &&
+      result.value.document.status === 'FAILED'
+    ) {
+      failed.push(result.value.document);
+    } else if (result?.status === 'rejected' && isNotFound(result.reason)) {
+      removed.push(id);
+    } else {
+      stillPending.push(id);
+    }
+  });
+  return { ready, failed, removed, stillPending };
 }

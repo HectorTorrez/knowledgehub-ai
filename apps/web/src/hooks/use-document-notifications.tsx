@@ -2,14 +2,13 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useToast } from '~/components/ui/toast';
 import { documentsApi } from '~/lib/api/documents';
-import { isNotFound } from '~/lib/api/errors';
 import {
   TrackingContext,
   browserNotificationsEnabled,
+  decideDocumentNotifications,
   readTrackedDocuments,
   writeTrackedDocuments,
 } from '~/lib/document-notifications';
-import { remainingTrackedDocuments } from '~/lib/document-polling';
 import { documentFailureMessage } from '~/lib/document-display';
 import { useT } from '~/lib/i18n/hooks';
 
@@ -45,17 +44,15 @@ export function DocumentNotificationsProvider({
         pending.map((id) => documentsApi.detail(organizationId, id)),
       );
       if (cancelled) return;
-      const documents = results.flatMap((result) =>
-        result.status === 'fulfilled' ? [result.value.document] : [],
+      const { ready, failed, removed } = decideDocumentNotifications(
+        pending,
+        results,
       );
-      const ready = documents.filter((item) => item.status === 'READY');
-      const failed = documents.filter((item) => item.status === 'FAILED');
-      const deleted = results.flatMap((result, index) =>
-        result.status === 'rejected' && isNotFound(result.reason)
-          ? [{ id: pending[index] }]
-          : [],
-      );
-      const completed = [...ready, ...failed, ...deleted];
+      const completed = new Set([
+        ...ready.map((item) => item.id),
+        ...failed.map((item) => item.id),
+        ...removed,
+      ]);
       if (ready.length > 0) {
         const first = ready[0];
         const title =
@@ -65,6 +62,18 @@ export function DocumentNotificationsProvider({
         toast({
           variant: 'success',
           title,
+          secondaryAction:
+            ready.length === 1
+              ? {
+                  label: t('notifications.askAbout'),
+                  onClick: () =>
+                    void navigate({
+                      to: '/organizations/$organizationId/ask',
+                      params: { organizationId },
+                      search: { documentId: first.id },
+                    }),
+                }
+              : undefined,
           action: {
             label: t('notifications.view'),
             onClick: () =>
@@ -99,7 +108,7 @@ export function DocumentNotificationsProvider({
         });
         notifyBrowser(title, description);
       }
-      setPending((items) => remainingTrackedDocuments(items, completed));
+      setPending((items) => items.filter((id) => !completed.has(id)));
       setDelay((current) => Math.min(current * 2, 30000));
     }, delay);
     return () => {

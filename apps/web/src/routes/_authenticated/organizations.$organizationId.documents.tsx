@@ -205,6 +205,15 @@ function DocumentsPage() {
       );
     },
   });
+  useEffect(() => {
+    for (const page of documents.data?.pages ?? []) {
+      for (const item of page.documents) {
+        if (item.status === 'PENDING' || item.status === 'PROCESSING') {
+          trackDocument(item.id);
+        }
+      }
+    }
+  }, [documents.data, trackDocument]);
   useQueryErrorToast(documents.error, () => void documents.refetch());
   useQueryErrorToast(collections.error, () => void collections.refetch());
 
