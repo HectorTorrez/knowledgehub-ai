@@ -258,6 +258,8 @@ model Document {
 
   title String
 
+  language String @default("unknown")
+
   status DocumentStatus @default(PENDING)
 
   /// Increments exactly once per successful verification. It is the immutable
@@ -439,6 +441,7 @@ model DocumentChunk {
   chunkIndex Int
 
   content        String
+  language       String @default("unknown")
   characterCount Int
 
   /// 1536-dimensional embedding from `EMBEDDING_MODEL` (OpenAI
@@ -446,7 +449,7 @@ model DocumentChunk {
   /// vector type: it is excluded from the generated client and read or written
   /// only through raw SQL. The database enforces NOT NULL and the dimension.
   embedding    Unsupported("vector(1536)")
-  searchVector Unsupported("tsvector")?    @default(dbgenerated("to_tsvector('simple'::regconfig, content)"))
+  searchVector Unsupported("tsvector")?    @default(dbgenerated())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

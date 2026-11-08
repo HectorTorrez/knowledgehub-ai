@@ -133,8 +133,9 @@ describe('DocumentChunkStore', () => {
 
     expect(sqlOf(lockedCalls[0]!)).toContain('FOR UPDATE OF j, d');
 
-    expect(executeCalls).toHaveLength(3);
-    const [remove, first, second] = executeCalls;
+    expect(executeCalls).toHaveLength(4);
+    const [update, remove, first, second] = executeCalls;
+    expect(sqlOf(update!)).toContain('UPDATE "Document"');
     expect(sqlOf(remove!)).toContain('DELETE FROM "DocumentChunk"');
     expect(sqlOf(remove!)).toContain('"documentGeneration" <= ');
     expect(remove!.values).toEqual([
@@ -159,8 +160,8 @@ describe('DocumentChunkStore', () => {
     await expect(store.replaceForGeneration(OWNERSHIP, [])).resolves.toBe(true);
 
     expect(embeddings.embed).toHaveBeenCalledWith([]);
-    expect(executeCalls).toHaveLength(1);
-    expect(sqlOf(executeCalls[0]!)).toContain('DELETE FROM "DocumentChunk"');
+    expect(executeCalls).toHaveLength(2);
+    expect(sqlOf(executeCalls[1]!)).toContain('DELETE FROM "DocumentChunk"');
   });
 
   it('does not embed or write when the job no longer owns the document', async () => {
