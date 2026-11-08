@@ -23,12 +23,16 @@ export class CachedQueryEmbedding implements EmbeddingProvider {
             )
               return value as number[];
           }
-        } catch {}
+        } catch {
+          return (await this.provider.embed([text]))[0]!;
+        }
         const [vector] = await this.provider.embed([text]);
         if (!vector) throw new Error('Embedding provider returned no vector');
         try {
           await this.cache.set(key, JSON.stringify(vector));
-        } catch {}
+        } catch {
+          return vector;
+        }
         return vector;
       }),
     );

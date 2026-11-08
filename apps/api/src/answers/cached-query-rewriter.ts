@@ -17,11 +17,15 @@ export class CachedQueryRewriter implements QueryRewriter {
     try {
       const cached = await this.cache.get(key);
       if (cached) return cached;
-    } catch {}
+    } catch {
+      return this.provider.rewrite(question, history);
+    }
     const result = await this.provider.rewrite(question, history);
     try {
       await this.cache.set(key, result);
-    } catch {}
+    } catch {
+      return result;
+    }
     return result;
   }
 }
