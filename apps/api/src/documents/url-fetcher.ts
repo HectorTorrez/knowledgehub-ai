@@ -31,7 +31,12 @@ for (const [address, prefix] of [
   ['127.0.0.0', 8],
   ['169.254.0.0', 16],
   ['172.16.0.0', 12],
+  ['192.0.0.0', 24],
+  ['192.0.2.0', 24],
   ['192.168.0.0', 16],
+  ['198.18.0.0', 15],
+  ['198.51.100.0', 24],
+  ['203.0.113.0', 24],
   ['224.0.0.0', 4],
   ['240.0.0.0', 4],
 ] as const)
@@ -39,6 +44,9 @@ for (const [address, prefix] of [
 for (const [address, prefix] of [
   ['::', 128],
   ['::1', 128],
+  ['64:ff9b::', 96],
+  ['100::', 64],
+  ['2001:db8::', 32],
   ['fc00::', 7],
   ['fe80::', 10],
   ['ff00::', 8],
@@ -65,16 +73,30 @@ const extensions: Record<string, AllowedUploadContentType> = {
 
 type Resolver = typeof lookup;
 
+const FETCH_TIMEOUT_MS = 10_000;
+
+function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolvePromise, reject) => {
+    const onAbort = () => reject(new UrlFetchError('URL_FETCH_FAILED'));
+    if (signal.aborted) return onAbort();
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise
+      .then(resolvePromise, reject)
+      .finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
+
 export async function fetchDocumentUrl(
   input: string,
   resolve: Resolver = lookup,
+  timeoutMs = FETCH_TIMEOUT_MS,
 ): Promise<{
   bytes: Buffer;
   contentType: AllowedUploadContentType;
   url: string;
 }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     let current = input;
     for (let redirects = 0; redirects <= 3; redirects++) {
@@ -92,7 +114,10 @@ export async function fetchDocumentUrl(
       )
         throw new UrlFetchError('URL_NOT_ALLOWED');
       const hostname = url.hostname.replace(/^\[|\]$/g, '');
-      const addresses = await resolve(hostname, { all: true, verbatim: true });
+      const addresses = await abortable(
+        resolve(hostname, { all: true, verbatim: true }),
+        controller.signal,
+      );
       if (
         !addresses.length ||
         addresses.some(({ address }) => !isPublicAddress(address))
