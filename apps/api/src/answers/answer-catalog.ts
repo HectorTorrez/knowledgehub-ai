@@ -83,6 +83,7 @@ export function buildDocumentCatalog(
       marker: startMarker + sources.length + 1,
       chunkId: chunk.id,
       documentId: row.id,
+      documentGeneration: row.generation,
       documentTitle: row.title,
       pageNumber: chunk.pageNumber,
       chunkIndex: chunk.chunkIndex,
