@@ -1313,3 +1313,15 @@ citations. Citation links open that generation using `GET …/download?generatio
 the document page warns when a newer generation exists. Legacy answers without
 version provenance open the current file. Version files are retained until the
 document is deleted, increasing storage use; garbage collection preserves them.
+
+## Refreshing URL imports
+
+Writers can use **Check source for updates** on a ready URL import, or call
+`POST /organizations/:organizationId/documents/:documentId/refresh-url`.
+The server uses the same SSRF-protected fetcher as imports, compares content type
+and SHA-256 byte digests against the verified file, and records `sourceCheckedAt`.
+Unchanged sources return `changed: false` without creating processing jobs or
+embeddings. Changed sources pass through upload verification and create a new
+retained version. Concurrent document or staging changes reject the refresh with
+`409`; fetch and storage failures preserve the current verified file. Refreshes
+are manual and use the document-write rate limit.

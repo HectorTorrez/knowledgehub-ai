@@ -32,3 +32,41 @@ test('shows a disallowed URL error', async ({ page }) => {
   await page.getByRole('button', { name: 'Import from URL' }).last().click();
   await expect(page.getByRole('alert')).toHaveText('This URL is not allowed.');
 });
+
+test('checks a source and reports unchanged content', async ({ page }) => {
+  await mockApi(page, { authenticated: true });
+  const date = '2026-11-10T00:00:00.000Z';
+  const document = {
+    id: 'doc-1',
+    title: 'Imported guide',
+    sourceUrl: 'https://example.com/guide.txt',
+    sourceCheckedAt: null as string | null,
+    generation: 1,
+    collections: [],
+    status: 'READY',
+    processingStage: 'READY',
+    retry: null,
+    originalFileName: null,
+    contentType: 'text/plain',
+    sizeBytes: 100,
+    failureReason: null,
+    failureKind: null,
+    createdAt: date,
+    updatedAt: date,
+  };
+  await page.route(
+    'http://localhost:3001/organizations/org-1/documents/doc-1',
+    (route) => route.fulfill({ json: { document } }),
+  );
+  await page.route(
+    'http://localhost:3001/organizations/org-1/documents/doc-1/refresh-url',
+    (route) => {
+      document.sourceCheckedAt = date;
+      return route.fulfill({ json: { document, changed: false } });
+    },
+  );
+  await page.goto('/organizations/org-1/documents/doc-1');
+  await page.getByRole('button', { name: 'Check source for updates' }).click();
+  await expect(page.getByText('The source has not changed.')).toBeVisible();
+  await expect(page.getByText(/Last checked:/)).toBeVisible();
+});

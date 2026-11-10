@@ -30,6 +30,8 @@ interface DocumentRecord {
   title: string;
   status: DocumentStatus;
   generation: number;
+  sourceUrl?: string | null;
+  sourceCheckedAt?: Date | null;
   pendingReplacement: boolean;
   versions: Array<{ storageKey: string }>;
   uploadStorageKey: string | null;
@@ -128,6 +130,7 @@ interface UpdateManyArgs {
     id: string;
     organizationId: string;
     uploadStorageKey?: string;
+    generation?: number;
     status?: DocumentStatus | { in: DocumentStatus[] };
   };
   data: Record<string, unknown>;
@@ -222,6 +225,8 @@ function createCompletionHarness(
           where.id === state.id &&
           where.organizationId === state.organizationId &&
           matchesKey &&
+          (where.generation === undefined ||
+            where.generation === state.generation) &&
           matchesStatus;
 
         if (!matches) {
@@ -396,6 +401,7 @@ describe('DocumentsService.list', () => {
         contentType: true,
         sizeBytes: true,
         sourceUrl: true,
+        sourceCheckedAt: true,
         failureReason: true,
         failureKind: true,
         createdAt: true,
@@ -1826,5 +1832,37 @@ describe('DocumentsService.importFromUrl', () => {
       }),
     ).rejects.toThrow('storage');
     expect(harness.state.status).toBe('FAILED');
+  });
+});
+
+describe('DocumentsService.refreshFromUrl', () => {
+  it('does not replace a generation changed while its source was fetched', async () => {
+    const verifiedKey = 'organizations/org-1/documents/doc-1/verified/original';
+    const storage = new FakeObjectStorage();
+    storage.putObject(verifiedKey, 'Original', 'text/plain');
+    const fetcher = vi.fn(async () => ({
+      bytes: Buffer.from('Updated'),
+      contentType: 'text/plain' as const,
+      url: 'https://example.com/notes',
+    }));
+    const harness = createCompletionHarness(
+      documentRecord({
+        generation: 1,
+        status: 'READY',
+        storageKey: verifiedKey,
+        contentType: 'text/plain',
+        sourceUrl: 'https://example.com/notes',
+      }),
+      storage,
+      fetcher,
+    );
+    storage.onReadObject = () => {
+      harness.state.generation = 2;
+    };
+    await expect(
+      harness.service.refreshFromUrl(organizationContext(), 'doc-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(harness.prisma.documentProcessingJob.create).not.toHaveBeenCalled();
+    expect(harness.state.storageKey).toBe(verifiedKey);
   });
 });

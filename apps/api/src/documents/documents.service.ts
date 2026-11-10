@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -71,6 +72,7 @@ const DOCUMENT_PUBLIC_SELECT = {
   title: true,
   status: true,
   sourceUrl: true,
+  sourceCheckedAt: true,
   originalFileName: true,
   contentType: true,
   sizeBytes: true,
@@ -103,6 +105,7 @@ interface DocumentProjection {
   title: string;
   status: DocumentStatus;
   sourceUrl: string | null;
+  sourceCheckedAt?: Date | null;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;
@@ -129,6 +132,9 @@ function toDocumentSummary(document: DocumentProjection): DocumentSummary {
     status: document.status,
     ...deriveProcessingProgress(document),
     sourceUrl: document.sourceUrl,
+    ...(document.sourceUrl
+      ? { sourceCheckedAt: document.sourceCheckedAt?.toISOString() ?? null }
+      : {}),
     originalFileName: document.originalFileName,
     contentType: document.contentType,
     sizeBytes: document.sizeBytes,
@@ -181,19 +187,7 @@ export class DocumentsService {
     context: OrganizationContext,
     body: ImportUrlInput,
   ): Promise<DocumentDetailResponse> {
-    let fetched: Awaited<ReturnType<typeof fetchDocumentUrl>>;
-    try {
-      fetched = await this.urlFetcher(body.url);
-    } catch (error) {
-      if (error instanceof UrlFetchError) {
-        const Exception =
-          error.code === 'URL_NOT_ALLOWED'
-            ? BadRequestException
-            : UnprocessableEntityException;
-        throw new Exception({ code: error.code });
-      }
-      throw error;
-    }
+    const fetched = await this.fetchSource(body.url);
     const url = new URL(fetched.url);
     const htmlTitle =
       fetched.contentType === 'text/html'
@@ -223,6 +217,7 @@ export class DocumentsService {
         uploadedById: context.userId,
         title,
         sourceUrl: fetched.url,
+        sourceCheckedAt: new Date(),
         expectedContentType: fetched.contentType,
       },
       select: { id: true },
@@ -254,6 +249,116 @@ export class DocumentsService {
       throw error;
     }
     return this.finishUpload(context, document.id, {});
+  }
+
+  async refreshFromUrl(context: OrganizationContext, documentId: string) {
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, organizationId: context.organizationId },
+      select: {
+        sourceUrl: true,
+        status: true,
+        generation: true,
+        storageKey: true,
+        uploadStorageKey: true,
+        contentType: true,
+      },
+    });
+    if (!document) throw new NotFoundException('Document not found');
+    if (
+      !document.sourceUrl ||
+      document.status !== 'READY' ||
+      !document.storageKey
+    )
+      throw new ConflictException('Only ready URL imports can be refreshed');
+    const fetched = await this.fetchSource(document.sourceUrl);
+    const verifiedKey = document.storageKey;
+    if (
+      !isDocumentVerifiedKey(
+        document.storageKey,
+        context.organizationId,
+        documentId,
+      )
+    )
+      throw new ServiceUnavailableException('The verified file key is invalid');
+    const metadata = await this.runStorage(() =>
+      this.storage.inspectObject(verifiedKey),
+    );
+    if (!metadata || metadata.sizeBytes > MAX_UPLOAD_BYTES)
+      throw new ConflictException('The current file is unavailable');
+    const currentBytes = await this.runStorage(() =>
+      this.storage.readObject({ key: verifiedKey, version: metadata.version }),
+    );
+    const digest = (bytes: Uint8Array) =>
+      createHash('sha256').update(bytes).digest('hex');
+    const changed =
+      fetched.contentType !== document.contentType ||
+      digest(currentBytes) !== digest(fetched.bytes);
+    const checkedAt = new Date();
+    const snapshot = {
+      id: documentId,
+      organizationId: context.organizationId,
+      status: 'READY' as const,
+      generation: document.generation,
+      storageKey: document.storageKey,
+      uploadStorageKey: document.uploadStorageKey,
+    };
+    if (!changed) {
+      const updated = await this.prisma.document.updateMany({
+        where: snapshot,
+        data: { sourceCheckedAt: checkedAt },
+      });
+      if (!updated.count)
+        throw new ConflictException(
+          'The document changed while checking its source',
+        );
+      return {
+        ...(await this.readDocument(context.organizationId, documentId)),
+        changed: false,
+      };
+    }
+    const stagingKey = createDocumentStorageKey(
+      context.organizationId,
+      documentId,
+    );
+    await this.runStorage(() =>
+      this.storage.writeObject({
+        key: stagingKey,
+        contentType: fetched.contentType,
+        bytes: fetched.bytes,
+      }),
+    );
+    const staged = await this.prisma.document.updateMany({
+      where: snapshot,
+      data: {
+        uploadStorageKey: stagingKey,
+        expectedContentType: fetched.contentType,
+        pendingReplacement: true,
+        sourceCheckedAt: checkedAt,
+      },
+    });
+    if (!staged.count)
+      throw new ConflictException(
+        'The document changed while checking its source',
+      );
+    return {
+      ...(await this.finishUpload(context, documentId, {})),
+      changed: true,
+    };
+  }
+
+  private async fetchSource(url: string) {
+    try {
+      return await this.urlFetcher(url);
+    } catch (error) {
+      if (error instanceof UrlFetchError) {
+        const Exception =
+          error.code === 'URL_NOT_ALLOWED'
+            ? BadRequestException
+            : UnprocessableEntityException;
+        throw new Exception({ code: error.code });
+      }
+      throw error;
+    }
   }
 
   async list(
