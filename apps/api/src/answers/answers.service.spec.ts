@@ -703,6 +703,7 @@ describe('AnswersService', () => {
         {
           marker: 1,
           documentId: 'doc-catalog',
+          documentGeneration: 1,
           documentTitle: 'Envios locales',
           pageNumber: 1,
           chunkIndex: 0,
