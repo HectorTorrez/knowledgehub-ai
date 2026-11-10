@@ -106,7 +106,7 @@ describe('knowledge gaps (e2e)', () => {
     });
     const base = `/organizations/${org.id}/knowledge-gaps`;
     const input = { status: 'OPEN', assigneeId: null, documentId: null };
-    const save = (id: string, body: unknown, auth = owner.auth) =>
+    const save = (id: string, body: object, auth = owner.auth) =>
       request(app.getHttpServer())
         .put(`${base}/${id}`)
         .set('Authorization', auth)

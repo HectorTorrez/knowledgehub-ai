@@ -126,6 +126,8 @@ describe('tenant isolation (e2e)', () => {
       ['get', '/search?q=private'],
       ['get', '/aggregates/contract-totals'],
       ['get', '/insights'],
+      ['get', '/knowledge-gaps'],
+      ['put', `/knowledge-gaps/${answer.id}`],
       ['get', '/collections'],
       ['post', '/collections'],
       ['patch', `/collections/${collection.id}`],
