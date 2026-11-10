@@ -690,9 +690,8 @@ verified object bound to its inspected version, and extracts text:
 
 Extraction is bounded before its output is used: an object above 10 MiB is
 rejected without being read, and a PDF above 150 pages or text above 500,000
-characters is rejected after parsing. Those limits are deliberately far below the
-2 GB upload limit, but they are input-size bounds only: see the limitations
-below for what they do not guarantee.
+characters is rejected after parsing. The upload limit is also 10 MiB. These are input-size bounds only: see the
+limitations below for what they do not guarantee.
 
 Ingestion is fenced and completes the lifecycle. The page-attributed extracted
 text is written to `DocumentExtraction` as an array of `{ pageNumber, content }`
@@ -737,9 +736,9 @@ document generation.
 
 ### Response contract
 
-`DocumentSummary` exposes only `id`, `title`, `status`, `originalFileName`,
-`contentType`, `sizeBytes`, `failureReason`, `failureKind`, `createdAt`, and
-`updatedAt`. The processing `status` is one of `PENDING`, `PROCESSING`, `READY`,
+`DocumentSummary` exposes `id`, `title`, `status`, `collections`, `sourceUrl`,
+`originalFileName`, `contentType`, `sizeBytes`, `failureReason`, `failureKind`,
+`createdAt`, `updatedAt`, and processing progress fields. The processing `status` is one of `PENDING`, `PROCESSING`, `READY`,
 or `FAILED`. `originalFileName`, `contentType`, and `sizeBytes` are `null` until
 an upload is verified; after verification `contentType` and `sizeBytes` are the
 verified values and `originalFileName` is the client's declared name, if
@@ -760,9 +759,10 @@ are never returned.
 - **`READY` now means ingested.** Processing extracts the text, splits it into
   page-scoped chunks, embeds each chunk, and only then marks the document
   `READY`. A document in `PROCESSING` is still being worked on. A document whose
-  text yields no chunks, such as a scanned PDF with no extractable text layer,
-  fails permanently with `NO_EXTRACTABLE_TEXT` and is excluded from retrieval.
-  OCR is not part of this pipeline.
+  text yields no chunks fails permanently with `NO_EXTRACTABLE_TEXT` and is
+  excluded from retrieval. Scanned PDFs can use the optional OCR fallback
+  described in [OCR for scanned PDFs](#ocr-for-scanned-pdfs); without it, PDFs
+  with no meaningful text layer cannot be ingested.
   Vector search uses an HNSW index (`vector_cosine_ops`), which is approximate:
   a near neighbor can be missed, and results with equal similarity are returned
   in arbitrary order. Recall is tuned through `hnsw.ef_search` at the database
