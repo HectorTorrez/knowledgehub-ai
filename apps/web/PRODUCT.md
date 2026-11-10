@@ -21,7 +21,9 @@ Answers are only as good as the evidence behind them: KnowledgeHub AI shows the 
 
 ## Operating Context
 
-- Documents: PDF, Word (.docx), Markdown, and plain text, up to 25 MB each.
+- Documents: PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), HTML, Markdown, and plain text, up to 10 MiB each.
+- Public URLs can be imported as document snapshots.
+- Scanned PDFs support optional OCR when enabled by the operator; OCR is disabled by default.
 - Workspaces are organizations with Owner, Admin, Member, and Viewer roles.
 - A demo workspace named Northwind Labs exists behind `VITE_DEMO_ENABLED`; its sample documents are synthetic.
 - Interface is localized in English and Spanish.
