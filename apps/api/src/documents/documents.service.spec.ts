@@ -402,6 +402,14 @@ describe('DocumentsService.list', () => {
         sizeBytes: true,
         sourceUrl: true,
         sourceCheckedAt: true,
+        reviewDueAt: true,
+        lastReviewedAt: true,
+        reviewOwner: {
+          select: {
+            userId: true,
+            user: { select: { firstName: true, lastName: true } },
+          },
+        },
         failureReason: true,
         failureKind: true,
         createdAt: true,

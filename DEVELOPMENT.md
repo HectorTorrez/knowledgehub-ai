@@ -1348,3 +1348,16 @@ embeddings. Changed sources pass through upload verification and create a new
 retained version. Concurrent document or staging changes reject the refresh with
 `409`; fetch and storage failures preserve the current verified file. Refreshes
 are manual and use the document-write rate limit.
+
+## Document ownership and reviews
+
+Writers can assign a current organization member and a UTC review date through
+`PATCH /organizations/:organizationId/documents/:documentId/review` with
+`{ ownerId, dueDate, markReviewed? }`. Owner and date accept `null` to clear them.
+Review ownership references membership, so removing a member clears their document
+assignments. A review becomes overdue after its entire UTC due date has passed.
+
+`markReviewed: true` requires a ready document, records the server timestamp, and
+clears the due date; schedule the next review explicitly. The document list flags
+overdue reviews, and details expose the owner and review state to readers.
+Review changes are recorded as `DOCUMENT_REVIEW_UPDATED` in the audit log.

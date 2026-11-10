@@ -71,6 +71,8 @@ export function formatActivity(
       return t('activity.conversationShared', { actor });
     case 'CONVERSATION_UNSHARED':
       return t('activity.conversationUnshared', { actor });
+    case 'DOCUMENT_REVIEW_UPDATED':
+      return t('activity.documentReviewUpdated', { actor, document });
     case 'DOCUMENT_REPROCESSED':
       return t('activity.documentReprocessed', { actor, document });
   }

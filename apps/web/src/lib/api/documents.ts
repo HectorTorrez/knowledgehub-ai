@@ -1,6 +1,7 @@
 import type {
   CreateDocumentRequest,
   DocumentDetailResponse,
+  UpdateDocumentReviewRequest,
   RefreshDocumentResponse,
   DocumentVersionsResponse,
   DocumentDownloadUrlResponse,
@@ -28,6 +29,17 @@ export interface ListDocumentsOptions extends RequestOptions {
 }
 
 export const documentsApi = {
+  updateReview(
+    organizationId: string,
+    documentId: string,
+    body: UpdateDocumentReviewRequest,
+  ): Promise<DocumentDetailResponse> {
+    return apiFetch(`${documentsPath(organizationId)}/${documentId}/review`, {
+      method: 'PATCH',
+      body,
+      authRecovery: true,
+    });
+  },
   refreshUrl(
     organizationId: string,
     documentId: string,

@@ -140,6 +140,7 @@ describe('tenant isolation (e2e)', () => {
       ['get', `/documents/${document.id}/versions`],
       ['post', `/documents/${document.id}/replacement-upload-url`],
       ['post', `/documents/${document.id}/refresh-url`],
+      ['patch', `/documents/${document.id}/review`],
       ['patch', `/documents/${document.id}`],
       ['delete', `/documents/${document.id}`],
       ['post', `/documents/${document.id}/reprocess`],
@@ -188,6 +189,8 @@ describe('tenant isolation (e2e)', () => {
         body = { name: 'Updated' };
       if (method === 'patch' && path.startsWith('/documents/'))
         body = { title: 'Updated' };
+      if (method === 'patch' && path.endsWith('/review'))
+        body = { ownerId: null, dueDate: null };
       if (method === 'patch' && path.startsWith('/conversations/'))
         body = { visibility: 'PRIVATE' };
       if (method === 'put' && path.endsWith('/collections'))
