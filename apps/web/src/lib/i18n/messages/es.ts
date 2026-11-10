@@ -1351,6 +1351,14 @@ export const es: Messages = {
     sharedAnswer: 'Respuesta compartida',
     answerLoadError: 'No se pudo cargar la respuesta',
   },
+  sourceRefresh: {
+    check: 'Buscar actualizaciones en la fuente',
+    checking: 'Comprobando fuente…',
+    checked: 'Última comprobación: {date}',
+    never: 'Todavía no se han buscado actualizaciones.',
+    unchanged: 'La fuente no ha cambiado.',
+    updated: 'Fuente actualizada. Se está procesando una nueva versión.',
+  },
   documentVersions: {
     title: 'Versiones del documento',
     replace: 'Reemplazar documento',

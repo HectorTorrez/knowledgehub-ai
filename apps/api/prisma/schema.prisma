@@ -284,7 +284,8 @@ model Document {
   /// the public API. Later phases read this key, not `uploadStorageKey`.
   storageKey String?
 
-  sourceUrl        String? @db.Text
+  sourceCheckedAt  DateTime?
+  sourceUrl        String?   @db.Text
   originalFileName String?
   contentType      String?
   sizeBytes        Int?

@@ -15,6 +15,7 @@ describe('URL import (e2e)', () => {
   let app: INestApplication;
   let realFetcherApp: INestApplication;
   let prisma: PrismaService;
+  let sourceText = 'Hello from the web';
   const emails: string[] = [];
   const organizationIds: string[] = [];
 
@@ -63,7 +64,7 @@ describe('URL import (e2e)', () => {
         .useValue(new FakeObjectStorage());
       if (fakeFetcher) {
         builder.overrideProvider(URL_FETCHER).useValue(async () => ({
-          bytes: Buffer.from('Hello from the web'),
+          bytes: Buffer.from(sourceText),
           contentType: 'text/plain',
           url: 'https://example.com/notes.txt',
         }));
@@ -101,6 +102,74 @@ describe('URL import (e2e)', () => {
       title: 'notes.txt',
       status: 'PROCESSING',
     });
+  });
+
+  it('checks unchanged bytes without reprocessing and versions changed bytes with tenant and SSRF checks', async () => {
+    const owner = await register();
+    const viewer = await register();
+    const organizationId = await createOrganization(owner.token);
+    const imported = await request(app.getHttpServer())
+      .post(`/organizations/${organizationId}/documents/import-url`)
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ url: 'https://example.com/notes.txt' })
+      .expect(201);
+    const documentId = imported.body.document.id as string;
+    await prisma.documentProcessingJob.updateMany({
+      where: { organizationId, documentId },
+      data: { state: 'SUCCEEDED' },
+    });
+    await prisma.document.updateMany({
+      where: { id: documentId, organizationId },
+      data: { status: 'READY' },
+    });
+    const base = `/organizations/${organizationId}/documents/${documentId}/refresh-url`;
+    const check = () =>
+      request(app.getHttpServer())
+        .post(base)
+        .set('Authorization', `Bearer ${owner.token}`);
+    const unchanged = await check().expect(200);
+    expect(unchanged.body.changed).toBe(false);
+    expect(unchanged.body.document.generation).toBe(1);
+    expect(unchanged.body.document.sourceCheckedAt).toEqual(expect.any(String));
+    expect(
+      await prisma.documentProcessingJob.count({
+        where: { organizationId, documentId },
+      }),
+    ).toBe(1);
+    sourceText = 'Changed source content';
+    const updated = await check().expect(200);
+    expect(updated.body).toMatchObject({
+      changed: true,
+      document: { generation: 2, status: 'PROCESSING' },
+    });
+    expect(
+      await prisma.documentVersion.count({
+        where: { organizationId, documentId },
+      }),
+    ).toBe(2);
+    await check().expect(409);
+    await prisma.membership.create({
+      data: { organizationId, userId: viewer.userId, role: 'VIEWER' },
+    });
+    await request(app.getHttpServer())
+      .post(base)
+      .set('Authorization', `Bearer ${viewer.token}`)
+      .expect(403);
+    const foreignOrg = await createOrganization(owner.token);
+    await request(app.getHttpServer())
+      .post(`/organizations/${foreignOrg}/documents/${documentId}/refresh-url`)
+      .set('Authorization', `Bearer ${owner.token}`)
+      .expect(404);
+    await prisma.document.updateMany({
+      where: { id: documentId, organizationId },
+      data: { status: 'READY', sourceUrl: 'http://127.0.0.1/private' },
+    });
+    const blocked = await request(realFetcherApp.getHttpServer())
+      .post(base)
+      .set('Authorization', `Bearer ${owner.token}`)
+      .expect(400);
+    expect(blocked.body.code).toBe('URL_NOT_ALLOWED');
+    sourceText = 'Hello from the web';
   });
 
   it('rejects loopback URLs using the real fetcher', async () => {

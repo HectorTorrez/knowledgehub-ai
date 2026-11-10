@@ -1323,6 +1323,14 @@ export const en = {
     sharedAnswer: 'Shared answer',
     answerLoadError: 'Unable to load answer',
   },
+  sourceRefresh: {
+    check: 'Check source for updates',
+    checking: 'Checking source…',
+    checked: 'Last checked: {date}',
+    never: 'Source has not been checked for updates yet.',
+    unchanged: 'The source has not changed.',
+    updated: 'Source updated. A new version is processing.',
+  },
   documentVersions: {
     title: 'Document versions',
     replace: 'Replace document',

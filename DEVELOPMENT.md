@@ -1293,6 +1293,25 @@ Scanned PDFs can use OCR when `OCR_ENABLED=true` and an OpenAI API key is config
 
 With Postgres migrated and `OPENAI_API_KEY` set, run `pnpm --filter @knowledgehub/api eval:retrieval` and `pnpm --filter @knowledgehub/api test:answers:eval`, then `pnpm --filter @knowledgehub/api eval:compare`. Set `EVAL_TOLERANCE` to change the allowed absolute drop (default 0.05). Run `pnpm --filter @knowledgehub/api eval:baseline` after both evaluations to intentionally replace the baseline; review and commit the resulting JSON. An empty baseline is rejected by the comparison CLI. Baseline updates validate numeric metrics and require matching corpus hashes and embedding models across both runs.
 
+## Expanded answer evaluation
+
+The answer evaluation includes real persisted conversation history and checks
+citation support with an additional provider call per answered or partial response.
+`EVAL_JUDGE_MODEL` overrides the judge model; it otherwise uses `ANSWER_MODEL`.
+The reported answer token totals exclude judge calls. All evaluation fixtures are
+synthetic and their temporary organization and user are removed afterward.
+
+Run both evaluations before updating the baseline. `eval:baseline` records the
+measured metrics and copies run provenance to `eval/baseline-metadata.json`.
+`eval:compare` includes entailment accuracy alongside retrieval, citation, refusal,
+and structure metrics. Review changes to both baseline files before committing.
+
+The evaluation workflow runs for relevant pull requests and daily when the
+repository secret `OPENAI_API_KEY` exists, and uploads synthetic reports as CI
+artifacts. Without that secret it emits a skip notice; a successful skipped job
+is not evidence that live evaluations passed. The secret is managed separately
+from local development credentials.
+
 ## Query caches
 
 Query embeddings and standalone query rewrites use an in-process LRU cache by default. `EMBEDDING_CACHE_MAX_ENTRIES` defaults to 1000 and `EMBEDDING_CACHE_TTL_SECONDS` defaults to 86400; set either to 0 to disable caching. When `RATE_LIMIT_REDIS_URL` is configured, instances share Redis entries with the same TTL. Redis failures bypass the cache. Document embeddings and final answers are not cached.
@@ -1318,22 +1337,14 @@ the document page warns when a newer generation exists. Legacy answers without
 version provenance open the current file. Version files are retained until the
 document is deleted, increasing storage use; garbage collection preserves them.
 
+## Refreshing URL imports
 
-## Expanded answer evaluation
-
-The answer evaluation includes real persisted conversation history and checks
-citation support with an additional provider call per answered or partial response.
-`EVAL_JUDGE_MODEL` overrides the judge model; it otherwise uses `ANSWER_MODEL`.
-The reported answer token totals exclude judge calls. All evaluation fixtures are
-synthetic and their temporary organization and user are removed afterward.
-
-Run both evaluations before updating the baseline. `eval:baseline` records the
-measured metrics and copies run provenance to `eval/baseline-metadata.json`.
-`eval:compare` includes entailment accuracy alongside retrieval, citation, refusal,
-and structure metrics. Review changes to both baseline files before committing.
-
-The evaluation workflow runs for relevant pull requests and daily when the
-repository secret `OPENAI_API_KEY` exists, and uploads synthetic reports as CI
-artifacts. Without that secret it emits a skip notice; a successful skipped job
-is not evidence that live evaluations passed. The secret is managed separately
-from local development credentials.
+Writers can use **Check source for updates** on a ready URL import, or call
+`POST /organizations/:organizationId/documents/:documentId/refresh-url`.
+The server uses the same SSRF-protected fetcher as imports, compares content type
+and SHA-256 byte digests against the verified file, and records `sourceCheckedAt`.
+Unchanged sources return `changed: false` without creating processing jobs or
+embeddings. Changed sources pass through upload verification and create a new
+retained version. Concurrent document or staging changes reject the refresh with
+`409`; fetch and storage failures preserve the current verified file. Refreshes
+are manual and use the document-write rate limit.
