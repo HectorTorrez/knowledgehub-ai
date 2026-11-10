@@ -226,6 +226,98 @@ describe('documents (e2e)', () => {
     await app.close();
   });
 
+  it('retains verified versions, rejects invalid replacements, and isolates historical downloads', async () => {
+    const { token } = await registerUser();
+    const organizationId = await createOrganization(token, 'Version workspace');
+    const created = await createDocument(token, organizationId, {
+      title: 'Handbook',
+    }).expect(201);
+    const documentId = created.body.document.id as string;
+    const base = `/organizations/${organizationId}/documents/${documentId}`;
+    await uploadUrlAndObject(
+      token,
+      organizationId,
+      documentId,
+      'text/plain',
+      'Original policy',
+    );
+    await completeUpload(token, organizationId, documentId, {
+      originalFileName: 'original.txt',
+    }).expect(200);
+    const originalKey = (await loadDocument(documentId)).storageKey!;
+    await prisma.documentProcessingJob.updateMany({
+      where: { documentId, organizationId },
+      data: { state: 'SUCCEEDED' },
+    });
+    await prisma.document.updateMany({
+      where: { id: documentId, organizationId },
+      data: { status: 'READY' },
+    });
+    const replacement = () =>
+      request(app.getHttpServer())
+        .post(`${base}/replacement-upload-url`)
+        .set(bearer(token))
+        .send({ contentType: 'text/plain' });
+    await replacement().expect(200);
+    let current = await loadDocument(documentId);
+    expect(current.status).toBe('READY');
+    storage.putObject(current.uploadStorageKey!, '', 'text/plain');
+    await completeUpload(token, organizationId, documentId, {}).expect(422);
+    expect((await loadDocument(documentId)).storageKey).toBe(originalKey);
+    await replacement().expect(200);
+    current = await loadDocument(documentId);
+    storage.putObject(
+      current.uploadStorageKey!,
+      'Updated policy',
+      'text/plain',
+    );
+    await completeUpload(token, organizationId, documentId, {
+      originalFileName: 'updated.txt',
+    }).expect(200);
+    const versions = await request(app.getHttpServer())
+      .get(`${base}/versions`)
+      .set(bearer(token))
+      .expect(200);
+    expect(
+      versions.body.versions.map(
+        (version: { generation: number }) => version.generation,
+      ),
+    ).toEqual([2, 1]);
+    expect(JSON.stringify(versions.body)).not.toContain('storageKey');
+    await request(app.getHttpServer())
+      .get(`${base}/download?generation=1`)
+      .set(bearer(token))
+      .expect(200);
+    expect(storage.downloadCalls.at(-1)?.key).toBe(originalKey);
+    await request(app.getHttpServer())
+      .get(`${base}/download?generation=99`)
+      .set(bearer(token))
+      .expect(404);
+    const foreignOrg = await createOrganization(token, 'Other workspace');
+    await request(app.getHttpServer())
+      .get(
+        `/organizations/${foreignOrg}/documents/${documentId}/download?generation=1`,
+      )
+      .set(bearer(token))
+      .expect(404);
+    const viewer = await registerUser();
+    await prisma.membership.create({
+      data: { organizationId, userId: viewer.userId, role: 'VIEWER' },
+    });
+    await request(app.getHttpServer())
+      .post(`${base}/replacement-upload-url`)
+      .set(bearer(viewer.token))
+      .send({ contentType: 'text/plain' })
+      .expect(403);
+    await deleteDocument(token, organizationId, documentId).expect(204);
+    expect(await storage.inspectObject(originalKey)).toBeNull();
+    expect(
+      await prisma.documentVersion.count({
+        where: { organizationId, documentId },
+      }),
+    ).toBe(0);
+  });
+
   it('rejects unauthenticated requests with 401', async () => {
     const organizationId = randomUUID();
     const documentId = randomUUID();
@@ -272,6 +364,7 @@ describe('documents (e2e)', () => {
           id: expect.any(String),
           title: 'Quarterly report',
           status: 'PENDING',
+          generation: 0,
           processingStage: 'UPLOADING',
           retry: null,
           originalFileName: null,
@@ -429,6 +522,7 @@ describe('documents (e2e)', () => {
           'createdAt',
           'failureKind',
           'failureReason',
+          'generation',
           'id',
           'originalFileName',
           'processingStage',
@@ -540,6 +634,7 @@ describe('documents (e2e)', () => {
           'createdAt',
           'failureKind',
           'failureReason',
+          'generation',
           'id',
           'originalFileName',
           'processingStage',
@@ -712,6 +807,7 @@ describe('documents (e2e)', () => {
           id: documentId,
           title: 'Quarterly report',
           status: 'PENDING',
+          generation: 0,
           processingStage: 'UPLOADING',
           retry: null,
           originalFileName: null,
@@ -1323,6 +1419,7 @@ describe('documents (e2e)', () => {
         id: documentId,
         title: 'Report',
         status: 'PROCESSING',
+        generation: 1,
         processingStage: 'QUEUED',
         retry: null,
         originalFileName: 'report.pdf',

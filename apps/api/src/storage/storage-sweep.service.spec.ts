@@ -16,6 +16,7 @@ function buildService(
     objects?: ListedObject[];
     referencedVerified?: string[];
     referencedStaging?: string[];
+    referencedVersions?: string[];
     graceMs?: number;
   } = {},
 ) {
@@ -39,8 +40,15 @@ function buildService(
   }));
 
   const prisma = {
-    document: {
-      findMany: vi.fn(async () => rows),
+    unscoped: {
+      document: { findMany: vi.fn(async () => rows) },
+      documentVersion: {
+        findMany: vi.fn(async () =>
+          (options.referencedVersions ?? []).map((storageKey) => ({
+            storageKey,
+          })),
+        ),
+      },
     },
   } as unknown as PrismaService;
 
@@ -55,6 +63,14 @@ function buildService(
 }
 
 describe('StorageSweepService', () => {
+  it('retains a historical version after the current document changes', async () => {
+    const { service, deleteObject } = buildService({
+      objects: [object(VERIFIED, Date.now() - 120_000)],
+      referencedVersions: [VERIFIED],
+    });
+    await expect(service.sweepOnce()).resolves.toBe(0);
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
   it('deletes an old unreferenced verified object', async () => {
     const { service, deleteObject } = buildService({
       objects: [object(VERIFIED, Date.now() - 120_000)],

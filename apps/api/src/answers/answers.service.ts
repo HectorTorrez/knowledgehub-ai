@@ -848,7 +848,7 @@ export class AnswersService {
     documentId: string,
   ): Promise<AnswerSource[] | null> {
     const rows = await this.prisma.$queryRaw<DocumentContextChunk[]>(Prisma.sql`
-      SELECT c.id AS "chunkId", c."documentId", d.title AS "documentTitle",
+      SELECT c.id AS "chunkId", c."documentId", c."documentGeneration", d.title AS "documentTitle",
         c."pageNumber", c."chunkIndex", c.content
       FROM "DocumentChunk" c
       JOIN "Document" d ON d.id = c."documentId"

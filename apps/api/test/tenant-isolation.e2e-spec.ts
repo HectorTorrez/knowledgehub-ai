@@ -135,6 +135,8 @@ describe('tenant isolation (e2e)', () => {
       ['get', '/documents'],
       ['get', `/documents/${document.id}`],
       ['get', `/documents/${document.id}/download`],
+      ['get', `/documents/${document.id}/versions`],
+      ['post', `/documents/${document.id}/replacement-upload-url`],
       ['patch', `/documents/${document.id}`],
       ['delete', `/documents/${document.id}`],
       ['post', `/documents/${document.id}/reprocess`],
@@ -189,7 +191,11 @@ describe('tenant isolation (e2e)', () => {
         body = { collectionIds: [] };
       if (method === 'put' && path.endsWith('/feedback'))
         body = { value: 'UP' };
-      if (path.endsWith('/upload-url')) body = { contentType: 'text/plain' };
+      if (
+        path.endsWith('/upload-url') ||
+        path.endsWith('/replacement-upload-url')
+      )
+        body = { contentType: 'text/plain' };
       const client = request(app.getHttpServer());
       const response = await client[method](
         `/organizations/${organizations[1]}${path}`,

@@ -74,6 +74,9 @@ export function buildCitations(
     .map((source) => ({
       marker: source.marker,
       documentId: source.documentId,
+      ...(source.documentGeneration !== undefined
+        ? { documentGeneration: source.documentGeneration }
+        : {}),
       documentTitle: source.documentTitle,
       pageNumber: source.pageNumber,
       chunkIndex: source.chunkIndex,

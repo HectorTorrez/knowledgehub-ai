@@ -7,6 +7,7 @@ import { joinText } from './neighbor-expansion.js';
 
 export interface DocumentContextChunk {
   chunkId: string;
+  documentGeneration?: number;
   documentId: string;
   documentTitle: string;
   pageNumber: number;

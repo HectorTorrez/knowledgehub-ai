@@ -27,6 +27,7 @@ interface FactRow {
   evidenceText: string;
   documentId: string;
   documentTitle: string;
+  documentGeneration?: number;
   documentCreatedAt: Date;
 }
 
@@ -162,7 +163,7 @@ export class AggregationService {
         SELECT
           f.id AS "factId", f."naturalKey", f.label, f."amountMinor", f.scale,
           f.currency, f."pageNumber", f."chunkIndex", f."evidenceText",
-          d.id AS "documentId", d.title AS "documentTitle",
+          d.id AS "documentId", d.generation AS "documentGeneration", d.title AS "documentTitle",
           d."createdAt" AS "documentCreatedAt"
         FROM "DocumentFact" AS f
         JOIN "Document" AS d ON d.id = f."documentId"
@@ -182,7 +183,7 @@ export class AggregationService {
         SELECT
           f.id AS "factId", f."naturalKey", f.label, f."amountMinor", f.scale,
           f.currency, f."pageNumber", f."chunkIndex", f."evidenceText",
-          d.id AS "documentId", d.title AS "documentTitle",
+          d.id AS "documentId", d.generation AS "documentGeneration", d.title AS "documentTitle",
           d."createdAt" AS "documentCreatedAt"
         FROM "DocumentFact" AS f
         JOIN "Document" AS d ON d.id = f."documentId"
@@ -201,7 +202,7 @@ export class AggregationService {
         SELECT
           f.id AS "factId", f."naturalKey", f.label, f."amountMinor", f.scale,
           f.currency, f."pageNumber", f."chunkIndex", f."evidenceText",
-          d.id AS "documentId", d.title AS "documentTitle",
+          d.id AS "documentId", d.generation AS "documentGeneration", d.title AS "documentTitle",
           d."createdAt" AS "documentCreatedAt"
         FROM "DocumentFact" AS f
         JOIN "Document" AS d ON d.id = f."documentId"
@@ -219,7 +220,7 @@ export class AggregationService {
       SELECT
         f.id AS "factId", f."naturalKey", f.label, f."amountMinor", f.scale,
         f.currency, f."pageNumber", f."chunkIndex", f."evidenceText",
-        d.id AS "documentId", d.title AS "documentTitle",
+        d.id AS "documentId", d.generation AS "documentGeneration", d.title AS "documentTitle",
         d."createdAt" AS "documentCreatedAt"
       FROM "DocumentFact" AS f
       JOIN "Document" AS d ON d.id = f."documentId"
@@ -258,6 +259,9 @@ export class AggregationService {
     return [...byDocument.values()].map(({ row, minor, count }) => ({
       documentId: row.documentId,
       documentTitle: row.documentTitle,
+      ...(row.documentGeneration !== undefined
+        ? { documentGeneration: row.documentGeneration }
+        : {}),
       currency: row.currency,
       scale: row.scale,
       subtotalMinor: minor.toString(),

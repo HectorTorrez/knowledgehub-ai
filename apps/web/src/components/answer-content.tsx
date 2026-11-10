@@ -157,6 +157,7 @@ export function SourcesList({
                   search={{
                     page: citation.pageNumber,
                     quote: citation.excerpt,
+                    generation: citation.documentGeneration,
                   }}
                   className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
                   title={t('answer.openAt', {
@@ -256,6 +257,7 @@ export function AnswerSources({
                     search={{
                       page: citation.pageNumber,
                       quote: citation.excerpt,
+                      generation: citation.documentGeneration,
                     }}
                     className="min-w-0 flex-1 truncate text-xs font-medium hover:underline"
                     title={t('answer.openAt', {

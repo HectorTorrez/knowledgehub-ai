@@ -1,3 +1,4 @@
+import { DocumentVersions } from '~/components/document-versions';
 import type { DocumentDetailResponse } from '@knowledgehub/shared-types';
 import { CollectionBadges } from '~/components/collections-manager';
 import { DocumentMultiSelect } from '~/components/document-multi-select';
@@ -79,7 +80,8 @@ export const Route = createFileRoute(
   },
   validateSearch: (
     search: Record<string, unknown>,
-  ): { page?: number; quote?: string } => {
+  ): { page?: number; quote?: string; generation?: number } => {
+    const generation = Number(search.generation);
     const raw = search.page;
     const page =
       typeof raw === 'number'
@@ -96,6 +98,9 @@ export const Route = createFileRoute(
     return {
       ...(Number.isInteger(page) && page > 0 ? { page } : {}),
       ...(quote ? { quote } : {}),
+      ...(Number.isSafeInteger(generation) && generation > 0
+        ? { generation }
+        : {}),
     };
   },
   component: DocumentDetailPage,
@@ -191,18 +196,34 @@ function DocumentDetailPage() {
   });
   useQueryErrorToast(document.error, () => void document.refetch());
 
-  const { page, quote } = Route.useSearch();
+  const { page, quote, generation } = Route.useSearch();
+  const versions = useQuery({
+    queryKey: [
+      'document-versions',
+      organizationId,
+      documentId,
+      document.data?.document.generation,
+    ],
+    queryFn: () => documentsApi.versions(organizationId, documentId),
+  });
+  useQueryErrorToast(versions.error, () => void versions.refetch());
+  const selectedVersion = versions.data?.versions.find(
+    (version) => version.generation === generation,
+  );
+  const previewContentType =
+    selectedVersion?.contentType ?? document.data?.document.contentType ?? null;
   const originalAvailable =
     document.data !== undefined &&
     document.data.document.status !== 'PENDING' &&
     document.data.document.failureKind !== 'VERIFICATION';
 
   const download = useQuery({
-    queryKey: queryKeys.organizations.documents.download(
-      organizationId,
-      documentId,
-    ),
-    queryFn: () => documentsApi.downloadUrl(organizationId, documentId),
+    queryKey: [
+      ...queryKeys.organizations.documents.download(organizationId, documentId),
+      generation ?? document.data?.document.generation,
+    ],
+    queryFn: () =>
+      documentsApi.downloadUrl(organizationId, documentId, generation),
     enabled: originalAvailable,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: true,
@@ -441,6 +462,14 @@ function DocumentDetailPage() {
         }
       />
 
+      <DocumentVersions
+        organizationId={organizationId}
+        documentId={documentId}
+        generation={generation}
+        currentGeneration={entry.generation}
+        versions={versions.data?.versions ?? []}
+        canReplace={canWrite && entry.status === 'READY'}
+      />
       {originalAvailable && download.isError ? (
         <p className="text-sm text-muted-foreground">
           {t('documentDetail.originalUnavailable')}{' '}
@@ -454,11 +483,11 @@ function DocumentDetailPage() {
         </p>
       ) : null}
 
-      {download.data && canPreviewDocument(entry.contentType) ? (
+      {download.data && canPreviewDocument(previewContentType) ? (
         <DocumentViewer
           key={download.dataUpdatedAt}
           url={download.data.url}
-          contentType={entry.contentType}
+          contentType={previewContentType}
           page={page}
           quote={quote}
           onRetry={() => void download.refetch()}

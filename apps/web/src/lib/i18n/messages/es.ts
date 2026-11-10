@@ -1334,6 +1334,19 @@ export const es: Messages = {
     sharedAnswer: 'Respuesta compartida',
     answerLoadError: 'No se pudo cargar la respuesta',
   },
+  documentVersions: {
+    title: 'Versiones del documento',
+    replace: 'Reemplazar documento',
+    choose: 'Selecciona el archivo de reemplazo',
+    uploading: 'Subiendo reemplazo…',
+    version: 'Versión {generation}',
+    outdated:
+      'Esta respuesta cita la versión {generation}. Hay una versión más reciente.',
+    legacy:
+      'Las respuestas antiguas sin versión registrada abren el archivo actual.',
+    retention:
+      'Los archivos verificados se conservan hasta eliminar el documento. Reprocesar también crea una nueva versión.',
+  },
   documentDetail: {
     pageTitle: 'Documento · KnowledgeHub AI',
     pageDescription:

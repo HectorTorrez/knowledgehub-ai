@@ -10,6 +10,7 @@ export interface ContextBudget {
 export interface AnswerSource {
   marker: number;
   chunkId: string;
+  documentGeneration?: number;
   documentId: string;
   documentTitle: string;
   pageNumber: number;
@@ -64,6 +65,9 @@ export function assembleContext(
       marker: sources.length + 1,
       chunkId: chunk.chunkId,
       documentId: chunk.documentId,
+      ...(chunk.documentGeneration !== undefined
+        ? { documentGeneration: chunk.documentGeneration }
+        : {}),
       documentTitle: chunk.title,
       pageNumber: chunk.pageNumber,
       chunkIndex: chunk.chunkIndex,

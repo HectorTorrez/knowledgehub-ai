@@ -264,7 +264,8 @@ model Document {
 
   /// Increments exactly once per successful verification. It is the immutable
   /// processing identity of the verified bytes and what a processing job targets.
-  generation Int @default(0)
+  generation         Int     @default(0)
+  pendingReplacement Boolean @default(false)
 
   /// Client-writable staging key for the most recently issued upload URL. Each
   /// new upload URL supersedes it. The client can overwrite the object it names,
@@ -305,6 +306,7 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  versions       DocumentVersion[]
   collections    DocumentCollection[]
   processingJobs DocumentProcessingJob[]
   extractions    DocumentExtraction[]
@@ -685,4 +687,20 @@ model OrganizationActivity {
   createdAt      DateTime                   @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+model DocumentVersion {
+  id               String   @id @default(uuid()) @db.Uuid
+  documentId       String   @db.Uuid
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organizationId   String   @db.Uuid
+  generation       Int
+  storageKey       String
+  originalFileName String?
+  contentType      String?
+  sizeBytes        Int?
+  createdAt        DateTime @default(now())
+
+  @@unique([documentId, generation])
+  @@index([organizationId, documentId])
 }

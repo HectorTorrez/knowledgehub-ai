@@ -1306,6 +1306,18 @@ export const en = {
     sharedAnswer: 'Shared answer',
     answerLoadError: 'Unable to load answer',
   },
+  documentVersions: {
+    title: 'Document versions',
+    replace: 'Replace document',
+    choose: 'Choose replacement file',
+    uploading: 'Uploading replacement…',
+    version: 'Version {generation}',
+    outdated:
+      'This answer cites version {generation}. A newer version is available.',
+    legacy: 'Older answers without a recorded version open the current file.',
+    retention:
+      'Verified files are retained until the document is deleted. Reprocessing also creates a new version.',
+  },
   documentDetail: {
     pageTitle: 'Document · KnowledgeHub AI',
     pageDescription:
