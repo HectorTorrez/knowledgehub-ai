@@ -191,6 +191,8 @@ describe('tenant isolation (e2e)', () => {
         body = { collectionIds: [] };
       if (method === 'put' && path.endsWith('/feedback'))
         body = { value: 'UP' };
+      if (method === 'put' && path.startsWith('/knowledge-gaps/'))
+        body = { status: 'OPEN', assigneeId: null, documentId: null };
       if (path.endsWith('/upload-url')) body = { contentType: 'text/plain' };
       const client = request(app.getHttpServer());
       const response = await client[method](
