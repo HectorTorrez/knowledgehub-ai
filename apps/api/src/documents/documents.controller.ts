@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   Body,
   Controller,
@@ -63,6 +64,10 @@ function requireDocumentCapability(
     throw new ForbiddenException();
 }
 
+const downloadQuerySchema = z
+  .object({ generation: z.coerce.number().int().positive().optional() })
+  .strict();
+
 @Controller('organizations/:organizationId/documents')
 @UseGuards(SessionGuard, OrganizationMembershipGuard)
 export class DocumentsController {
@@ -119,14 +124,47 @@ export class DocumentsController {
     );
   }
 
+  @Get(':documentId/versions')
+  versions(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    return this.documents.versions(
+      requireOrganizationContext(request).organizationId,
+      documentId,
+    );
+  }
+
+  @Post(':documentId/replacement-upload-url')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('documentWriteUser')
+  replacement(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Body(new ZodValidationPipe(createUploadUrlSchema))
+    body: CreateUploadUrlInput,
+    @Req() request: OrganizationRequest,
+  ) {
+    requireDocumentCapability(request, 'documents.write');
+    return this.documents.createUploadUrl(
+      requireOrganizationContext(request),
+      documentId,
+      body,
+      true,
+    );
+  }
+
   @Get(':documentId/download')
   download(
+    @Query(new ZodValidationPipe(downloadQuerySchema))
+    query: z.infer<typeof downloadQuerySchema>,
     @Param('documentId', ParseUUIDPipe) documentId: string,
     @Req() request: OrganizationRequest,
   ): Promise<DocumentDownloadUrlResponse> {
     return this.documents.createDownloadUrl(
       requireOrganizationContext(request).organizationId,
       documentId,
+      query.generation,
     );
   }
 

@@ -64,6 +64,9 @@ function citationsFromSources(sources: AggregateSource[]): AnswerCitation[] {
   return sources.map((source, index) => ({
     marker: index + 1,
     documentId: source.documentId,
+    ...(source.documentGeneration !== undefined
+      ? { documentGeneration: source.documentGeneration }
+      : {}),
     documentTitle: source.documentTitle,
     pageNumber: source.pageNumber,
     chunkIndex: source.chunkIndex ?? 0,

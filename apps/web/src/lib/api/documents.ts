@@ -1,6 +1,7 @@
 import type {
   CreateDocumentRequest,
   DocumentDetailResponse,
+  DocumentVersionsResponse,
   DocumentDownloadUrlResponse,
   DocumentListResponse,
   DocumentStatus,
@@ -26,6 +27,24 @@ export interface ListDocumentsOptions extends RequestOptions {
 }
 
 export const documentsApi = {
+  versions(
+    organizationId: string,
+    documentId: string,
+  ): Promise<DocumentVersionsResponse> {
+    return apiFetch(`${documentsPath(organizationId)}/${documentId}/versions`, {
+      authRecovery: true,
+    });
+  },
+  replacementUploadUrl(
+    organizationId: string,
+    documentId: string,
+    input: DocumentUploadUrlRequest,
+  ): Promise<DocumentUploadUrlResponse> {
+    return apiFetch(
+      `${documentsPath(organizationId)}/${documentId}/replacement-upload-url`,
+      { method: 'POST', body: input, authRecovery: true },
+    );
+  },
   list(
     organizationId: string,
     options: ListDocumentsOptions = {},
@@ -94,9 +113,10 @@ export const documentsApi = {
   downloadUrl(
     organizationId: string,
     documentId: string,
+    generation?: number,
   ): Promise<DocumentDownloadUrlResponse> {
     return apiFetch<DocumentDownloadUrlResponse>(
-      `${documentsPath(organizationId)}/${documentId}/download`,
+      `${documentsPath(organizationId)}/${documentId}/download${generation === undefined ? '' : `?generation=${generation}`}`,
       { authRecovery: true },
     );
   },
@@ -241,5 +261,22 @@ function putFileWithProgress(
     });
 
     request.send(file);
+  });
+}
+
+export async function replaceDocumentFile(
+  organizationId: string,
+  documentId: string,
+  file: File,
+  contentType: string,
+) {
+  const target = await documentsApi.replacementUploadUrl(
+    organizationId,
+    documentId,
+    { contentType, sizeBytes: file.size },
+  );
+  await putFileWithProgress(target, file, { contentType });
+  return documentsApi.completeUpload(organizationId, documentId, {
+    originalFileName: file.name,
   });
 }

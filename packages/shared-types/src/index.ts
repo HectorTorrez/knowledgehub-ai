@@ -406,6 +406,7 @@ export interface Collection extends CollectionSummary {
 }
 
 export interface DocumentSummary {
+  generation?: number;
   collections: CollectionSummary[];
   id: string;
   title: string;
@@ -522,6 +523,7 @@ export interface AnswerRequest {
  * is derived from the cited chunk on the server, never from model output.
  */
 export interface AnswerCitation {
+  documentGeneration?: number;
   marker: number;
   documentId: string;
   documentTitle: string;
@@ -736,6 +738,7 @@ export interface AggregateFact {
  * deterministic answer can cite every document that contributed.
  */
 export interface AggregateSource {
+  documentGeneration?: number;
   documentId: string;
   documentTitle: string;
   currency: string;
@@ -821,6 +824,17 @@ export interface OrganizationActivityItem {
 export interface OrganizationActivityListResponse {
   activities: OrganizationActivityItem[];
   nextCursor: string | null;
+}
+
+export interface DocumentVersionSummary {
+  generation: number;
+  originalFileName: string | null;
+  contentType: string | null;
+  sizeBytes: number | null;
+  createdAt: string;
+}
+export interface DocumentVersionsResponse {
+  versions: DocumentVersionSummary[];
 }
 
 export interface KnowledgeGapTask {

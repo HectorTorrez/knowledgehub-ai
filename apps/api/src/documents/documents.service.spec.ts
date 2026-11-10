@@ -30,6 +30,8 @@ interface DocumentRecord {
   title: string;
   status: DocumentStatus;
   generation: number;
+  pendingReplacement: boolean;
+  versions: Array<{ storageKey: string }>;
   uploadStorageKey: string | null;
   expectedContentType: string | null;
   storageKey: string | null;
@@ -61,6 +63,8 @@ function documentRecord(
     title: 'Quarterly report',
     status: 'PENDING',
     generation: 0,
+    pendingReplacement: false,
+    versions: [],
     uploadStorageKey: STAGING_KEY,
     expectedContentType: 'application/pdf',
     storageKey: null,
@@ -152,6 +156,7 @@ function applyUpdate(
 
 function createHarness(options: HarnessOptions = {}) {
   const prisma = {
+    documentVersion: { create: vi.fn(), findFirst: vi.fn() },
     $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
       callback(prisma),
     ),
@@ -196,6 +201,7 @@ function createCompletionHarness(
   const state: DocumentRecord = { ...record };
 
   const prisma = {
+    documentVersion: { create: vi.fn(), findFirst: vi.fn() },
     document: {
       findFirst: vi.fn(async (): Promise<DocumentRecord | null> => ({
         ...state,
@@ -270,6 +276,7 @@ const PUBLIC_DOCUMENT_FIELDS = [
   'createdAt',
   'failureKind',
   'failureReason',
+  'generation',
   'id',
   'originalFileName',
   'processingStage',
@@ -293,6 +300,7 @@ describe('DocumentsService.create', () => {
       document: {
         collections: [],
         id: 'doc-1',
+        generation: 0,
         title: 'Quarterly report',
         status: 'PENDING',
         processingStage: 'UPLOADING',
@@ -381,6 +389,7 @@ describe('DocumentsService.list', () => {
           },
         },
         id: true,
+        generation: true,
         title: true,
         status: true,
         originalFileName: true,
@@ -436,6 +445,7 @@ describe('DocumentsService.list', () => {
     expect(result.documents).toEqual([
       {
         id: 'doc-2',
+        generation: 0,
         collections: [],
         title: 'Second',
         status: 'PENDING',
@@ -451,6 +461,7 @@ describe('DocumentsService.list', () => {
       },
       {
         id: 'doc-1',
+        generation: 0,
         collections: [],
         title: 'First',
         status: 'PENDING',
@@ -980,12 +991,17 @@ describe('DocumentsService.createUploadUrl', () => {
         organizationId: 'org-1',
         status: { in: ['PENDING', 'FAILED'] },
       },
-      data: { uploadStorageKey: key, expectedContentType: 'application/pdf' },
+      data: {
+        uploadStorageKey: key,
+        expectedContentType: 'application/pdf',
+        pendingReplacement: false,
+      },
     });
 
     const args = prisma.document.updateMany.mock.calls[0][0];
     expect(Object.keys(args.data).sort()).toEqual([
       'expectedContentType',
+      'pendingReplacement',
       'uploadStorageKey',
     ]);
     expect(args.data).not.toHaveProperty('storageKey');
@@ -1343,6 +1359,7 @@ describe('DocumentsService.completeUpload', () => {
 
     const args = prisma.document.updateMany.mock.calls[0][0];
     expect(args.where).toEqual({
+      generation: 0,
       id: 'doc-1',
       organizationId: 'org-1',
       uploadStorageKey: STAGING_KEY,

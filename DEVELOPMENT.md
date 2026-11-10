@@ -1292,3 +1292,24 @@ With Postgres migrated and `OPENAI_API_KEY` set, run `pnpm --filter @knowledgehu
 ## Query caches
 
 Query embeddings and standalone query rewrites use an in-process LRU cache by default. `EMBEDDING_CACHE_MAX_ENTRIES` defaults to 1000 and `EMBEDDING_CACHE_TTL_SECONDS` defaults to 86400; set either to 0 to disable caching. When `RATE_LIMIT_REDIS_URL` is configured, instances share Redis entries with the same TTL. Redis failures bypass the cache. Document embeddings and final answers are not cached.
+
+## Document version history
+
+Verified uploads and reprocessing generations are recorded in document history.
+`GET /organizations/:organizationId/documents/:documentId/versions` returns public
+file metadata ordered by descending generation. Existing verified files are
+backfilled when the migration runs; files superseded before that migration cannot
+be recovered.
+
+Writers can request `POST …/documents/:documentId/replacement-upload-url` for a
+`READY` document, upload the replacement, then call the existing `upload-complete`
+endpoint. The original stays available until verification succeeds; a rejected
+replacement leaves it unchanged. Successful verification queues processing for the
+new generation. While that generation processes, the document is excluded from
+retrieval. Failed processing can use the existing retry action.
+
+New answer citations record `documentGeneration`, including contract-total
+citations. Citation links open that generation using `GET …/download?generation=N`;
+the document page warns when a newer generation exists. Legacy answers without
+version provenance open the current file. Version files are retained until the
+document is deleted, increasing storage use; garbage collection preserves them.

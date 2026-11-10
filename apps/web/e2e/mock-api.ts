@@ -598,6 +598,10 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === `/organizations/org-1/documents/${DOCUMENT.id}/versions`) {
+      await route.fulfill(json({ versions: [] }));
+      return;
+    }
     if (path === `/organizations/org-1/documents/${DOCUMENT.id}/download`) {
       await route.fulfill(
         json({

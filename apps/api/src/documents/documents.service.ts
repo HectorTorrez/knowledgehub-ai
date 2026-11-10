@@ -67,6 +67,7 @@ const DOCUMENT_PUBLIC_SELECT = {
     select: { collection: { select: { id: true, name: true, color: true } } },
   },
   id: true,
+  generation: true,
   title: true,
   status: true,
   sourceUrl: true,
@@ -98,6 +99,7 @@ interface DocumentProjection {
     collection: { id: string; name: string; color: string };
   }>;
   id: string;
+  generation: number;
   title: string;
   status: DocumentStatus;
   sourceUrl: string | null;
@@ -121,6 +123,7 @@ interface DocumentProjection {
 function toDocumentSummary(document: DocumentProjection): DocumentSummary {
   return {
     id: document.id,
+    generation: document.generation,
     collections: document.collections.map(({ collection }) => collection),
     title: document.title,
     status: document.status,
@@ -355,6 +358,7 @@ export class DocumentsService {
           title: true,
           uploadStorageKey: true,
           storageKey: true,
+          versions: { select: { storageKey: true } },
         },
       });
 
@@ -382,6 +386,7 @@ export class DocumentsService {
     await this.deleteObjectsBestEffort([
       document.uploadStorageKey,
       document.storageKey,
+      ...document.versions.map((version) => version.storageKey),
     ]);
   }
 
@@ -450,7 +455,26 @@ export class DocumentsService {
 
       const transitioned = await tx.document.findFirstOrThrow({
         where: { id: documentId, organizationId },
-        select: { generation: true, title: true },
+        select: {
+          generation: true,
+          title: true,
+          storageKey: true,
+          originalFileName: true,
+          contentType: true,
+          sizeBytes: true,
+        },
+      });
+
+      await tx.documentVersion.create({
+        data: {
+          documentId,
+          organizationId,
+          generation: transitioned.generation,
+          storageKey: verifiedKey,
+          originalFileName: transitioned.originalFileName,
+          contentType: transitioned.contentType,
+          sizeBytes: transitioned.sizeBytes,
+        },
       });
 
       await tx.documentProcessingJob.create({
@@ -490,6 +514,7 @@ export class DocumentsService {
   async createDownloadUrl(
     organizationId: string,
     documentId: string,
+    generation?: number,
   ): Promise<DocumentDownloadUrlResponse> {
     const document = await this.prisma.document.findFirst({
       where: { id: documentId, organizationId },
@@ -500,7 +525,16 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    const storageKey = document.storageKey;
+    const version =
+      generation === undefined
+        ? null
+        : await this.prisma.documentVersion.findFirst({
+            where: { documentId, organizationId, generation },
+            select: { storageKey: true },
+          });
+    if (generation !== undefined && !version)
+      throw new NotFoundException('Document version not found');
+    const storageKey = version?.storageKey ?? document.storageKey;
 
     if (
       !storageKey ||
@@ -536,6 +570,7 @@ export class DocumentsService {
     context: OrganizationContext,
     documentId: string,
     input: CreateUploadUrlInput,
+    replacement = false,
   ): Promise<DocumentUploadUrlResponse> {
     const organizationId = context.organizationId;
     const document = await this.prisma.document.findFirst({
@@ -547,7 +582,9 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    if (isProcessing(document.status)) {
+    if (
+      replacement ? document.status !== 'READY' : isProcessing(document.status)
+    ) {
       throw new ConflictException(
         'Upload URLs cannot be issued once processing has started',
       );
@@ -571,9 +608,13 @@ export class DocumentsService {
       where: {
         id: documentId,
         organizationId,
-        status: { in: [...VERIFIABLE_STATUSES] },
+        status: replacement ? 'READY' : { in: [...VERIFIABLE_STATUSES] },
       },
-      data: { uploadStorageKey: key, expectedContentType: input.contentType },
+      data: {
+        uploadStorageKey: key,
+        expectedContentType: input.contentType,
+        pendingReplacement: replacement,
+      },
     });
 
     if (updated.count === 0) {
@@ -614,6 +655,8 @@ export class DocumentsService {
         status: true,
         uploadStorageKey: true,
         expectedContentType: true,
+        pendingReplacement: true,
+        generation: true,
       },
     });
 
@@ -621,7 +664,10 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    if (isProcessing(document.status)) {
+    if (
+      isProcessing(document.status) &&
+      !(document.status === 'READY' && document.pendingReplacement)
+    ) {
       return this.readDocument(organizationId, documentId);
     }
 
@@ -661,6 +707,7 @@ export class DocumentsService {
         documentId,
         stagingKey,
         metadataFailure,
+        document.pendingReplacement,
       );
     }
 
@@ -683,6 +730,7 @@ export class DocumentsService {
         documentId,
         stagingKey,
         signatureFailure,
+        document.pendingReplacement,
       );
     }
 
@@ -709,6 +757,7 @@ export class DocumentsService {
         documentId,
         stagingKey,
         archiveFailure,
+        document.pendingReplacement,
       );
     }
 
@@ -745,9 +794,15 @@ export class DocumentsService {
           id: documentId,
           organizationId,
           uploadStorageKey: stagingKey,
-          status: { in: [...VERIFIABLE_STATUSES] },
+          generation: document.generation,
+          ...(document.pendingReplacement
+            ? { status: 'READY', pendingReplacement: true }
+            : { status: { in: [...VERIFIABLE_STATUSES] } }),
         },
         data: {
+          pendingReplacement: false,
+          factsStatus: 'PENDING',
+          summaryStatus: 'PENDING',
           storageKey: verifiedKey,
           status: 'PROCESSING',
           generation: { increment: 1 },
@@ -767,7 +822,25 @@ export class DocumentsService {
 
       const transitioned = await tx.document.findFirstOrThrow({
         where: { id: documentId, organizationId },
-        select: { generation: true, title: true },
+        select: {
+          generation: true,
+          title: true,
+          originalFileName: true,
+          contentType: true,
+          sizeBytes: true,
+        },
+      });
+
+      await tx.documentVersion.create({
+        data: {
+          documentId,
+          organizationId,
+          generation: transitioned.generation,
+          storageKey: verifiedKey,
+          originalFileName: transitioned.originalFileName,
+          contentType: transitioned.contentType,
+          sizeBytes: transitioned.sizeBytes,
+        },
       });
 
       await tx.documentProcessingJob.create({
@@ -803,12 +876,55 @@ export class DocumentsService {
     return this.readDocument(organizationId, documentId);
   }
 
+  async versions(organizationId: string, documentId: string) {
+    if (
+      !(await this.prisma.document.findFirst({
+        where: { id: documentId, organizationId },
+        select: { id: true },
+      }))
+    )
+      throw new NotFoundException('Document not found');
+    const versions = await this.prisma.documentVersion.findMany({
+      where: { documentId, organizationId },
+      orderBy: { generation: 'desc' },
+      select: {
+        generation: true,
+        originalFileName: true,
+        contentType: true,
+        sizeBytes: true,
+        createdAt: true,
+      },
+    });
+    return {
+      versions: versions.map((version) => ({
+        ...version,
+        createdAt: version.createdAt.toISOString(),
+      })),
+    };
+  }
+
   private async recordVerificationFailure(
     organizationId: string,
     documentId: string,
     stagingKey: string,
     reason: UploadFailureReason,
+    pendingReplacement = false,
   ): Promise<DocumentDetailResponse> {
+    if (pendingReplacement) {
+      const replacement = await this.prisma.document.updateMany({
+        where: {
+          id: documentId,
+          organizationId,
+          uploadStorageKey: stagingKey,
+          status: 'READY',
+          pendingReplacement: true,
+        },
+        data: { pendingReplacement: false },
+      });
+      if (replacement.count)
+        throw new UnprocessableEntityException({ code: reason });
+      return this.resolveSupersededCompletion(organizationId, documentId);
+    }
     const updated = await this.prisma.document.updateMany({
       where: {
         id: documentId,

@@ -76,7 +76,7 @@ export class StorageSweepService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async referencedKeys(): Promise<Set<string>> {
-    const rows = await this.prisma.document.findMany({
+    const rows = await this.prisma.unscoped.document.findMany({
       where: {
         OR: [
           { storageKey: { not: null } },
@@ -97,6 +97,10 @@ export class StorageSweepService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    const versions = await this.prisma.unscoped.documentVersion.findMany({
+      select: { storageKey: true },
+    });
+    for (const version of versions) keys.add(version.storageKey);
     return keys;
   }
 

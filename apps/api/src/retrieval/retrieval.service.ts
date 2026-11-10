@@ -25,6 +25,7 @@ export interface RetrievalQuery {
 
 export interface RetrievedChunk {
   chunkId: string;
+  documentGeneration?: number;
   documentId: string;
   title: string;
   pageNumber: number;
@@ -37,6 +38,7 @@ export interface RetrievedChunk {
 
 interface ChunkMatchRow {
   chunkId: string;
+  documentGeneration?: number;
   documentId: string;
   title: string;
   pageNumber: number;
@@ -78,7 +80,7 @@ export class RetrievalService {
       ${query.createdBefore ? Prisma.sql`AND d."createdAt" < ${new Date(new Date(query.createdBefore).getTime() + 86400000)}` : Prisma.empty}
     `;
     const fields = Prisma.sql`
-      c.id AS "chunkId", c."documentId", d.title, c."pageNumber",
+      c.id AS "chunkId", c."documentId", c."documentGeneration", d.title, c."pageNumber",
       c."chunkIndex", c.content,
       (1 - (c."embedding" <=> ${vectorLiteral(vector)}::vector)) AS similarity
     `;

@@ -47,6 +47,11 @@ describe('buildExcerpt', () => {
 });
 
 describe('buildCitations', () => {
+  it('preserves the source generation so historical citations open the verified version', () => {
+    expect(
+      buildCitations([1], [source(1, { documentGeneration: 3 })])[0],
+    ).toMatchObject({ documentGeneration: 3 });
+  });
   const sources = [source(1), source(2), source(3)];
 
   it('maps markers to sources in ascending order', () => {
