@@ -6,6 +6,7 @@ import { hasTenantScope } from './tenant-scope.js';
 
 const tenantModels = new Set([
   'DocumentVersion',
+  'KnowledgeGap',
   'Document',
   'Collection',
   'DocumentCollection',

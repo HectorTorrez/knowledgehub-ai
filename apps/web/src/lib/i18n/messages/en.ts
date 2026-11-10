@@ -283,6 +283,7 @@ export const en = {
         legal: 'Legal',
         documents: '{count} documents',
       },
+
       insights: {
         title: 'Insights',
         text: 'See what your team asks and which questions went unanswered.',
@@ -1202,6 +1203,22 @@ export const en = {
     perCurrency: 'Totals are per currency. Amounts are never converted.',
     recalculating: 'Recalculating…',
     recalculate: 'Recalculate',
+  },
+  knowledgeGaps: {
+    title: 'Knowledge gap tasks',
+    create: 'Track knowledge gap',
+    tracked: 'Tracked',
+    empty:
+      'Track an unanswered question or negative rating below to assign follow-up work.',
+    status: 'Status',
+    open: 'Open',
+    inProgress: 'In progress',
+    resolved: 'Resolved',
+    assignee: 'Owner',
+    unassigned: 'Unassigned',
+    document: 'Resolving document',
+    noDocument: 'Choose a document',
+    viewDocument: 'View resolving document',
   },
   insights: {
     title: 'Knowledge insights',

@@ -291,6 +291,7 @@ export const es: Messages = {
         legal: 'Legal',
         documents: '{count} documentos',
       },
+
       insights: {
         title: 'Análisis',
         text: 'Mira qué pregunta tu equipo y qué preguntas quedaron sin respuesta.',
@@ -1229,6 +1230,22 @@ export const es: Messages = {
       'Los totales se muestran por moneda. Los montos nunca se convierten.',
     recalculating: 'Recalculando…',
     recalculate: 'Recalcular',
+  },
+  knowledgeGaps: {
+    title: 'Tareas de conocimiento pendiente',
+    create: 'Crear tarea',
+    tracked: 'En seguimiento',
+    empty:
+      'Crea una tarea a partir de una pregunta sin respuesta o una valoración negativa.',
+    status: 'Estado',
+    open: 'Abierta',
+    inProgress: 'En curso',
+    resolved: 'Resuelta',
+    assignee: 'Responsable',
+    unassigned: 'Sin asignar',
+    document: 'Documento de resolución',
+    noDocument: 'Selecciona un documento',
+    viewDocument: 'Ver documento de resolución',
   },
   insights: {
     title: 'Análisis del conocimiento',

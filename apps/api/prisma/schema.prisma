@@ -42,6 +42,7 @@ model User {
   memberships             Membership[]
   documents               Document[]
   answers                 Answer[]
+  assignedKnowledgeGaps   KnowledgeGap[]
   answerFeedback          AnswerFeedback[]
   activities              OrganizationActivity[]
   conversations           Conversation[]
@@ -158,6 +159,7 @@ model Organization {
 
   memberships         Membership[]
   documents           Document[]
+  knowledgeGaps       KnowledgeGap[]
   collections         Collection[]
   documentCollections DocumentCollection[]
   answers             Answer[]
@@ -306,13 +308,14 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  versions       DocumentVersion[]
-  collections    DocumentCollection[]
-  processingJobs DocumentProcessingJob[]
-  extractions    DocumentExtraction[]
-  chunks         DocumentChunk[]
-  facts          DocumentFact[]
-  summaries      DocumentSummary[]
+  versions              DocumentVersion[]
+  collections           DocumentCollection[]
+  processingJobs        DocumentProcessingJob[]
+  extractions           DocumentExtraction[]
+  chunks                DocumentChunk[]
+  facts                 DocumentFact[]
+  summaries             DocumentSummary[]
+  resolvedKnowledgeGaps KnowledgeGap[]
 
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
@@ -548,7 +551,8 @@ model Answer {
 
   createdAt DateTime @default(now())
 
-  feedback AnswerFeedback[]
+  feedback     AnswerFeedback[]
+  knowledgeGap KnowledgeGap?
 
   @@index([organizationId, createdAt])
   @@index([conversationId, createdAt])
@@ -703,4 +707,27 @@ model DocumentVersion {
 
   @@unique([documentId, generation])
   @@index([organizationId, documentId])
+}
+
+enum KnowledgeGapStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model KnowledgeGap {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @db.Uuid
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  answerId       String             @unique @db.Uuid
+  answer         Answer             @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  assigneeId     String?            @db.Uuid
+  assignee       User?              @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  documentId     String?            @db.Uuid
+  document       Document?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  status         KnowledgeGapStatus @default(OPEN)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([organizationId, createdAt])
 }
