@@ -124,6 +124,21 @@ export class DocumentsController {
     );
   }
 
+  @Post(':documentId/refresh-url')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit('documentWriteUser')
+  refresh(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Req() request: OrganizationRequest,
+  ) {
+    requireDocumentCapability(request, 'documents.write');
+    return this.documents.refreshFromUrl(
+      requireOrganizationContext(request),
+      documentId,
+    );
+  }
+
   @Get(':documentId/versions')
   versions(
     @Param('documentId', ParseUUIDPipe) documentId: string,

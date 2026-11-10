@@ -1,6 +1,7 @@
 import type {
   CreateDocumentRequest,
   DocumentDetailResponse,
+  RefreshDocumentResponse,
   DocumentVersionsResponse,
   DocumentDownloadUrlResponse,
   DocumentListResponse,
@@ -27,6 +28,15 @@ export interface ListDocumentsOptions extends RequestOptions {
 }
 
 export const documentsApi = {
+  refreshUrl(
+    organizationId: string,
+    documentId: string,
+  ): Promise<RefreshDocumentResponse> {
+    return apiFetch(
+      `${documentsPath(organizationId)}/${documentId}/refresh-url`,
+      { method: 'POST', authRecovery: true },
+    );
+  },
   versions(
     organizationId: string,
     documentId: string,

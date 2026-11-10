@@ -1,3 +1,4 @@
+import { RefreshDocumentSource } from '~/components/refresh-document-source';
 import { DocumentVersions } from '~/components/document-versions';
 import type { DocumentDetailResponse } from '@knowledgehub/shared-types';
 import { CollectionBadges } from '~/components/collections-manager';
@@ -403,6 +404,14 @@ function DocumentDetailPage() {
           />
         ) : null}
       </div>
+      {entry.sourceUrl ? (
+        <RefreshDocumentSource
+          organizationId={organizationId}
+          documentId={documentId}
+          checkedAt={entry.sourceCheckedAt}
+          canRefresh={canWrite && entry.status === 'READY'}
+        />
+      ) : null}
       {entry.sourceUrl ? (
         <a
           href={entry.sourceUrl}

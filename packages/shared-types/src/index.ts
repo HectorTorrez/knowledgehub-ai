@@ -406,6 +406,7 @@ export interface Collection extends CollectionSummary {
 }
 
 export interface DocumentSummary {
+  sourceCheckedAt?: string | null;
   generation?: number;
   collections: CollectionSummary[];
   id: string;
@@ -851,4 +852,8 @@ export interface UpdateKnowledgeGapRequest {
   status: KnowledgeGapTask['status'];
   assigneeId: string | null;
   documentId: string | null;
+}
+
+export interface RefreshDocumentResponse extends DocumentDetailResponse {
+  changed: boolean;
 }
