@@ -1,3 +1,7 @@
+import {
+  CreateKnowledgeGap,
+  KnowledgeGapTasks,
+} from '~/components/knowledge-gap-tasks';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -111,6 +115,8 @@ function InsightsPage() {
             ))}
           </div>
 
+          <KnowledgeGapTasks organizationId={organizationId} />
+
           <Card>
             <CardHeader>
               <CardTitle>{t('insights.unanswered')}</CardTitle>
@@ -137,6 +143,10 @@ function InsightsPage() {
                   {insights.data.unansweredQuestions.map((item) => (
                     <li className="py-3" key={item.answerId}>
                       <p>{item.question}</p>
+                      <CreateKnowledgeGap
+                        organizationId={organizationId}
+                        answerId={item.answerId}
+                      />
                       <Link
                         className="text-sm text-brand underline"
                         to="/organizations/$organizationId/ask"
@@ -181,6 +191,10 @@ function InsightsPage() {
                   {insights.data.negativeFeedback.map((item, index) => (
                     <li className="py-3" key={`${item.answerId}-${index}`}>
                       <p>{item.question}</p>
+                      <CreateKnowledgeGap
+                        organizationId={organizationId}
+                        answerId={item.answerId}
+                      />
                       {item.comment ? (
                         <p className="text-sm">{item.comment}</p>
                       ) : null}
