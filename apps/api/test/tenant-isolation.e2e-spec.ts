@@ -126,6 +126,8 @@ describe('tenant isolation (e2e)', () => {
       ['get', '/search?q=private'],
       ['get', '/aggregates/contract-totals'],
       ['get', '/insights'],
+      ['get', '/knowledge-gaps'],
+      ['put', `/knowledge-gaps/${answer.id}`],
       ['get', '/collections'],
       ['post', '/collections'],
       ['patch', `/collections/${collection.id}`],
@@ -189,6 +191,8 @@ describe('tenant isolation (e2e)', () => {
         body = { collectionIds: [] };
       if (method === 'put' && path.endsWith('/feedback'))
         body = { value: 'UP' };
+      if (method === 'put' && path.startsWith('/knowledge-gaps/'))
+        body = { status: 'OPEN', assigneeId: null, documentId: null };
       if (path.endsWith('/upload-url')) body = { contentType: 'text/plain' };
       const client = request(app.getHttpServer());
       const response = await client[method](

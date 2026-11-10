@@ -822,3 +822,19 @@ export interface OrganizationActivityListResponse {
   activities: OrganizationActivityItem[];
   nextCursor: string | null;
 }
+
+export interface KnowledgeGapTask {
+  id: string;
+  answerId: string;
+  question: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  assigneeId: string | null;
+  documentId: string | null;
+  updatedAt: string;
+}
+
+export interface UpdateKnowledgeGapRequest {
+  status: KnowledgeGapTask['status'];
+  assigneeId: string | null;
+  documentId: string | null;
+}

@@ -1,3 +1,5 @@
+import { KnowledgeGapsController } from './knowledge-gaps.controller.js';
+import { KnowledgeGapsService } from './knowledge-gaps.service.js';
 import { InsightsController } from './insights.controller.js';
 import { InsightsService } from './insights.service.js';
 import { ActivityModule } from '../activity/activity.module.js';
@@ -16,6 +18,7 @@ import { OrganizationsService } from './organizations.service.js';
 @Module({
   imports: [AuthModule, ActivityModule, EmailModule],
   controllers: [
+    KnowledgeGapsController,
     ActivityController,
     InsightsController,
     OrganizationsController,
@@ -24,6 +27,7 @@ import { OrganizationsService } from './organizations.service.js';
     InvitationAcceptController,
   ],
   providers: [
+    KnowledgeGapsService,
     InsightsService,
     OrganizationsService,
     InvitationsService,
