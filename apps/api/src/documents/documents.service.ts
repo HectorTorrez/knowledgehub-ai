@@ -1,3 +1,6 @@
+import { requireCapability } from '../organizations/require-owner.js';
+import { isReviewOverdue } from './document-review.policy.js';
+import type { UpdateDocumentReviewInput } from './dto/update-document-review.schema.js';
 import { createHash } from 'node:crypto';
 import {
   BadRequestException,
@@ -73,6 +76,14 @@ const DOCUMENT_PUBLIC_SELECT = {
   status: true,
   sourceUrl: true,
   sourceCheckedAt: true,
+  reviewDueAt: true,
+  lastReviewedAt: true,
+  reviewOwner: {
+    select: {
+      userId: true,
+      user: { select: { firstName: true, lastName: true } },
+    },
+  },
   originalFileName: true,
   contentType: true,
   sizeBytes: true,
@@ -106,6 +117,12 @@ interface DocumentProjection {
   status: DocumentStatus;
   sourceUrl: string | null;
   sourceCheckedAt?: Date | null;
+  reviewDueAt?: Date | null;
+  lastReviewedAt?: Date | null;
+  reviewOwner?: {
+    userId: string;
+    user: { firstName: string; lastName: string };
+  } | null;
   originalFileName: string | null;
   contentType: string | null;
   sizeBytes: number | null;
@@ -125,6 +142,21 @@ interface DocumentProjection {
 
 function toDocumentSummary(document: DocumentProjection): DocumentSummary {
   return {
+    ...(document.reviewOwner || document.reviewDueAt || document.lastReviewedAt
+      ? {
+          review: {
+            owner: document.reviewOwner
+              ? {
+                  userId: document.reviewOwner.userId,
+                  ...document.reviewOwner.user,
+                }
+              : null,
+            dueDate: document.reviewDueAt?.toISOString().slice(0, 10) ?? null,
+            lastReviewedAt: document.lastReviewedAt?.toISOString() ?? null,
+            overdue: isReviewOverdue(document.reviewDueAt ?? null),
+          },
+        }
+      : {}),
     id: document.id,
     generation: document.generation,
     collections: document.collections.map(({ collection }) => collection),
@@ -249,6 +281,74 @@ export class DocumentsService {
       throw error;
     }
     return this.finishUpload(context, document.id, {});
+  }
+
+  async updateReview(
+    context: OrganizationContext,
+    documentId: string,
+    input: UpdateDocumentReviewInput,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      await requireCapability(
+        tx,
+        context,
+        'documents.write',
+        'update document reviews',
+      );
+      const document = await tx.document.findFirst({
+        where: { id: documentId, organizationId: context.organizationId },
+        select: { status: true, title: true },
+      });
+      if (!document) throw new NotFoundException('Document not found');
+      if (input.markReviewed && document.status !== 'READY')
+        throw new ConflictException(
+          'Only ready documents can be marked reviewed',
+        );
+      const owner = input.ownerId
+        ? await tx.membership.findUnique({
+            where: {
+              userId_organizationId: {
+                userId: input.ownerId,
+                organizationId: context.organizationId,
+              },
+            },
+            select: { id: true },
+          })
+        : null;
+      if (input.ownerId && !owner)
+        throw new NotFoundException('Review owner not found');
+      const updated = await tx.document.updateMany({
+        where: {
+          id: documentId,
+          organizationId: context.organizationId,
+          ...(input.markReviewed ? { status: 'READY' } : {}),
+        },
+        data: {
+          reviewOwnerMembershipId: owner?.id ?? null,
+          reviewDueAt:
+            input.markReviewed || !input.dueDate
+              ? null
+              : new Date(`${input.dueDate}T00:00:00.000Z`),
+          ...(input.markReviewed ? { lastReviewedAt: new Date() } : {}),
+        },
+      });
+      if (!updated.count)
+        throw new ConflictException('The document changed during review');
+      await this.activity.record(tx, {
+        organizationId: context.organizationId,
+        actorId: context.userId,
+        action: 'DOCUMENT_REVIEW_UPDATED',
+        targetType: 'document',
+        targetId: documentId,
+        metadata: {
+          title: document.title,
+          ownerId: input.ownerId ?? '',
+          dueDate: input.markReviewed ? '' : (input.dueDate ?? ''),
+          reviewed: String(input.markReviewed),
+        },
+      });
+    });
+    return this.readDocument(context.organizationId, documentId);
   }
 
   async refreshFromUrl(context: OrganizationContext, documentId: string) {

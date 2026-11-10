@@ -1,3 +1,4 @@
+import { DocumentReviewBadge } from '~/components/document-review';
 import {
   documentContentTypeIcon,
   documentFailureMessage,
@@ -810,6 +811,7 @@ function DocumentsPage() {
                               </span>
                               <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                                 <DocumentStatusBadge status={document.status} />
+                                <DocumentReviewBadge review={document.review} />
                                 <span
                                   className="min-w-0 truncate text-xs text-muted-foreground"
                                   title={document.originalFileName ?? undefined}

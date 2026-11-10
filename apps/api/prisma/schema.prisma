@@ -172,7 +172,8 @@ model Organization {
 /// Links a user to an organization with a role. The [userId, organizationId]
 /// pair is unique, so a user belongs to a given organization at most once.
 model Membership {
-  id String @id @default(uuid()) @db.Uuid
+  maintainedDocuments Document[]
+  id                  String     @id @default(uuid()) @db.Uuid
 
   userId         String       @db.Uuid
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -284,11 +285,15 @@ model Document {
   /// the public API. Later phases read this key, not `uploadStorageKey`.
   storageKey String?
 
-  sourceCheckedAt  DateTime?
-  sourceUrl        String?   @db.Text
-  originalFileName String?
-  contentType      String?
-  sizeBytes        Int?
+  reviewOwnerMembershipId String?     @db.Uuid
+  reviewOwner             Membership? @relation(fields: [reviewOwnerMembershipId], references: [id], onDelete: SetNull)
+  reviewDueAt             DateTime?
+  lastReviewedAt          DateTime?
+  sourceCheckedAt         DateTime?
+  sourceUrl               String?     @db.Text
+  originalFileName        String?
+  contentType             String?
+  sizeBytes               Int?
 
   /// Sanitized reason populated only when `status` is FAILED.
   failureReason String?
@@ -671,6 +676,7 @@ enum OrganizationActivityAction {
   DOCUMENT_RENAMED
   DOCUMENT_DELETED
   DOCUMENT_REPROCESSED
+  DOCUMENT_REVIEW_UPDATED
   CONVERSATION_SHARED
   CONVERSATION_UNSHARED
   COLLECTION_CREATED

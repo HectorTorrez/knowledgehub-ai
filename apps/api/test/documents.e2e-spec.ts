@@ -318,6 +318,72 @@ describe('documents (e2e)', () => {
     ).toBe(0);
   });
 
+  it('assigns current members, flags overdue reviews, and clears ownership when membership ends', async () => {
+    const owner = await registerUser();
+    const maintainer = await registerUser();
+    const outsider = await registerUser();
+    const organizationId = await createOrganization(
+      owner.token,
+      'Review workspace',
+    );
+    const membership = await prisma.membership.create({
+      data: { organizationId, userId: maintainer.userId, role: 'MEMBER' },
+    });
+    const created = await createDocument(owner.token, organizationId, {
+      title: 'Review handbook',
+    }).expect(201);
+    const documentId = created.body.document.id as string;
+    const path = `/organizations/${organizationId}/documents/${documentId}/review`;
+    const update = (body: object, token = owner.token) =>
+      request(app.getHttpServer()).patch(path).set(bearer(token)).send(body);
+    await update({ ownerId: outsider.userId, dueDate: null }).expect(404);
+    await update({
+      ownerId: owner.userId,
+      dueDate: null,
+      markReviewed: true,
+    }).expect(409);
+    const assigned = await update({
+      ownerId: maintainer.userId,
+      dueDate: '2000-01-01',
+    }).expect(200);
+    expect(assigned.body.document.review).toMatchObject({
+      owner: { userId: maintainer.userId },
+      dueDate: '2000-01-01',
+      overdue: true,
+      lastReviewedAt: null,
+    });
+    await prisma.document.updateMany({
+      where: { id: documentId, organizationId },
+      data: { status: 'READY' },
+    });
+    const reviewed = await update(
+      { ownerId: maintainer.userId, dueDate: '2000-01-01', markReviewed: true },
+      maintainer.token,
+    ).expect(200);
+    expect(reviewed.body.document.review).toMatchObject({
+      overdue: false,
+      dueDate: null,
+      lastReviewedAt: expect.any(String),
+    });
+    const audit = await prisma.organizationActivity.findMany({
+      where: { organizationId, action: 'DOCUMENT_REVIEW_UPDATED' },
+    });
+    expect(audit).toHaveLength(2);
+    await prisma.membership.delete({ where: { id: membership.id } });
+    const detail = await getDocument(
+      owner.token,
+      organizationId,
+      documentId,
+    ).expect(200);
+    expect(detail.body.document.review.owner).toBeNull();
+    await prisma.membership.create({
+      data: { organizationId, userId: maintainer.userId, role: 'VIEWER' },
+    });
+    await update({ ownerId: null, dueDate: null }, maintainer.token).expect(
+      403,
+    );
+  });
+
   it('rejects unauthenticated requests with 401', async () => {
     const organizationId = randomUUID();
     const documentId = randomUUID();

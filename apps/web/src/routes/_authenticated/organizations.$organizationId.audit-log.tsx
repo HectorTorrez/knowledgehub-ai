@@ -46,6 +46,7 @@ const actions: OrganizationActivityItem['action'][] = [
   'CONVERSATION_SHARED',
   'CONVERSATION_UNSHARED',
   'DOCUMENT_REPROCESSED',
+  'DOCUMENT_REVIEW_UPDATED',
 ];
 
 function AuditLogPage() {
