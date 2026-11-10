@@ -406,6 +406,7 @@ export interface Collection extends CollectionSummary {
 }
 
 export interface DocumentSummary {
+  review?: DocumentReview;
   sourceCheckedAt?: string | null;
   generation?: number;
   collections: CollectionSummary[];
@@ -801,6 +802,7 @@ export type OrganizationActivityAction =
   | 'DOCUMENT_RENAMED'
   | 'DOCUMENT_DELETED'
   | 'DOCUMENT_REPROCESSED'
+  | 'DOCUMENT_REVIEW_UPDATED'
   | 'CONVERSATION_SHARED'
   | 'CONVERSATION_UNSHARED'
   | 'COLLECTION_CREATED'
@@ -856,4 +858,16 @@ export interface UpdateKnowledgeGapRequest {
 
 export interface RefreshDocumentResponse extends DocumentDetailResponse {
   changed: boolean;
+}
+
+export interface DocumentReview {
+  owner: { userId: string; firstName: string; lastName: string } | null;
+  dueDate: string | null;
+  lastReviewedAt: string | null;
+  overdue: boolean;
+}
+export interface UpdateDocumentReviewRequest {
+  ownerId: string | null;
+  dueDate: string | null;
+  markReviewed?: boolean;
 }

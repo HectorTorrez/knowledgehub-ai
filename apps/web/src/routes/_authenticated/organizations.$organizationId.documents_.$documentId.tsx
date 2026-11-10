@@ -1,3 +1,4 @@
+import { DocumentReviewEditor } from '~/components/document-review';
 import { RefreshDocumentSource } from '~/components/refresh-document-source';
 import { DocumentVersions } from '~/components/document-versions';
 import type { DocumentDetailResponse } from '@knowledgehub/shared-types';
@@ -471,6 +472,12 @@ function DocumentDetailPage() {
         }
       />
 
+      <DocumentReviewEditor
+        key={`${entry.id}-${entry.updatedAt}`}
+        organizationId={organizationId}
+        document={entry}
+        canWrite={canWrite}
+      />
       <DocumentVersions
         organizationId={organizationId}
         documentId={documentId}

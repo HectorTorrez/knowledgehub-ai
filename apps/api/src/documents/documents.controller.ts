@@ -1,3 +1,7 @@
+import {
+  updateDocumentReviewSchema,
+  type UpdateDocumentReviewInput,
+} from './dto/update-document-review.schema.js';
 import { z } from 'zod';
 import {
   Body,
@@ -121,6 +125,21 @@ export class DocumentsController {
     return this.documents.getDetail(
       requireOrganizationContext(request).organizationId,
       documentId,
+    );
+  }
+
+  @Patch(':documentId/review')
+  updateReview(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Body(new ZodValidationPipe(updateDocumentReviewSchema))
+    body: UpdateDocumentReviewInput,
+    @Req() request: OrganizationRequest,
+  ) {
+    requireDocumentCapability(request, 'documents.write');
+    return this.documents.updateReview(
+      requireOrganizationContext(request),
+      documentId,
+      body,
     );
   }
 
