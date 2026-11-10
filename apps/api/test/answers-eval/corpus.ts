@@ -18,7 +18,7 @@ export const EVAL_CORPUS: CorpusDocument[] = [
       },
       {
         pageNumber: 2,
-        text: 'A production release can be rolled back to the previous release within 15 minutes without approval. The on-call incident commander authorizes a rollback. Every rollback is recorded in the release log.',
+        text: 'The on-call incident commander authorizes production rollbacks. A production release can be rolled back to the previous release within 15 minutes after authorization. Every rollback is recorded in the release log.',
       },
       {
         pageNumber: 3,
@@ -48,7 +48,7 @@ export const EVAL_CORPUS: CorpusDocument[] = [
     pages: [
       {
         pageNumber: 1,
-        text: 'Helios invoices are issued on the first business day of each month. Payment terms are net-30 from the invoice date. Late payments accrue 1 percent interest per month.',
+        text: 'The current Helios billing policy applies in 2026. Helios invoices are issued on the first business day of each month. Payment terms are net-30 from the invoice date. Late payments accrue 1 percent interest per month.',
       },
       {
         pageNumber: 2,
@@ -79,6 +79,24 @@ export const EVAL_CORPUS: CorpusDocument[] = [
       {
         pageNumber: 2,
         text: 'A verified deletion request is completed within 30 days. Deletion removes primary data and lets backups expire on their normal schedule.',
+      },
+    ],
+  },
+  {
+    title: 'Archived Helios Billing Policy',
+    pages: [
+      {
+        pageNumber: 1,
+        text: 'ARCHIVED: This Helios billing policy applied only through December 2024 and is no longer effective. Its invoice payment terms were net-60. The current Helios Billing Policy replaces these terms.',
+      },
+    ],
+  },
+  {
+    title: 'Manual de incorporación',
+    pages: [
+      {
+        pageNumber: 1,
+        text: 'El equipo de Seguridad aprueba las solicitudes de acceso en un máximo de dos días hábiles. Cada solicitud debe incluir la autorización de la persona responsable del área.',
       },
     ],
   },

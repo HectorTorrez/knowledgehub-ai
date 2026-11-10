@@ -11,6 +11,9 @@ on:
       - 'apps/api/src/processing/**'
       - 'apps/api/src/search/**'
       - 'apps/api/eval/**'
+      - 'apps/api/test/answers-eval/**'
+      - 'apps/api/test/answers.eval.e2e-spec.ts'
+      - '.github/workflows/evals.yml'
 
 jobs:
   evaluate:
@@ -63,3 +66,9 @@ jobs:
       - if: steps.key.outputs.available == 'true'
         working-directory: apps/api
         run: pnpm exec tsx eval/compare-cli.ts | tee -a "$GITHUB_STEP_SUMMARY"
+      - if: always() && steps.key.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-reports
+          path: apps/api/eval/*-results.json
+          if-no-files-found: warn

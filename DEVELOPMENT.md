@@ -1202,9 +1202,11 @@ Prerequisites:
   pre-populates the placeholder before the app loads.
 - `ANSWERS_ENABLED=true`.
 
-The harness seeds a synthetic corpus of five documents / twelve pages with real
-embeddings and asks eight human-labeled questions: two single-source, two
-multi-source, two plausible distractors, and two unanswerable. It sweeps
+The harness seeds a synthetic corpus of seven documents / fourteen pages with real
+embeddings and asks sixteen human-labeled questions: seven single-source, three
+multi-source, three plausible distractors, and three unanswerable. Cases include
+Spanish sources and questions, cross-language retrieval, two actual conversation
+follow-ups, and current versus archived billing terms. It sweeps
 `ANSWER_MIN_SIMILARITY` over `0.2`, `0.35`, and `0.5`, applying each value to the
 runtime configuration before running the full question set.
 
@@ -1226,10 +1228,11 @@ hard gates are asserted. Every other metric is a diagnostic target, not a
 release-blocking threshold. Threshold selection must consider the whole
 trade-off, not citation recall alone.
 
-The current eight-question corpus is an **initial smoke evaluation, not proof of
-production reliability**. Live evaluation results are pending; no metrics have
-been recorded yet. The default similarity floor stays at `0.2` until live
-evidence justifies changing it.
+The sixteen-question corpus remains a **smoke evaluation, not proof of production
+reliability**. The measured baseline and its model, corpus hash, question IDs, and
+run timestamps are committed in `apps/api/eval/baseline.json` and
+`apps/api/eval/baseline-metadata.json`. The default similarity floor stays at `0.2`;
+a baseline records observed behavior rather than establishing a quality claim.
 
 ### Citation validity versus factual entailment
 
@@ -1238,10 +1241,11 @@ answered response it requires at least one marker, requires every marker to
 resolve to a retrieved source, and rejects malformed or unknown markers with
 `502`. It does not check that the cited passage supports the sentence.
 
-An answer can therefore be structurally valid and still wrong. Automated
-entailment checking is not implemented. The evaluation reports a grounding hit
-against human-labeled supporting pages, but that is evidence for review, not
-proof of entailment; human review remains necessary.
+An answer can therefore be structurally valid and still wrong. The offline evaluation also calls a separate structured-output grounding judge
+against the full cited synthetic pages. It reports `entailmentAccuracy`, calibrates
+the judge against a supported and unsupported claim, and records unsupported
+answers with reasons. This is a model judgment, not proof of entailment; human
+review remains necessary. Runtime answers do not call the judge.
 
 ### Limitations
 
@@ -1257,7 +1261,7 @@ proof of entailment; human review remains necessary.
   prose can be visible before the stream fails.
 - **Cancelling aborts the provider request.** A cancelled or disconnected stream
   is not persisted, so the partial answer does not appear in history.
-- **No automated entailment evaluation.**
+- **Entailment judgments are offline and fallible.** They do not block runtime answers.
 - **The similarity floor is a heuristic** and is model- and corpus-dependent.
 - **The document catalog is bounded.** Only the 20 most recent `READY`
   documents are described to the model; larger organizations can ask about the
@@ -1287,7 +1291,7 @@ Scanned PDFs can use OCR when `OCR_ENABLED=true` and an OpenAI API key is config
 
 ## Evaluation regression baseline
 
-With Postgres migrated and `OPENAI_API_KEY` set, run `pnpm --filter @knowledgehub/api eval:retrieval` and `pnpm --filter @knowledgehub/api test:answers:eval`, then `pnpm --filter @knowledgehub/api eval:compare`. Set `EVAL_TOLERANCE` to change the allowed absolute drop (default 0.05). Run `pnpm --filter @knowledgehub/api eval:baseline` after both evaluations to intentionally replace the baseline; review and commit the resulting JSON. An empty baseline reports metrics without gating until the first real run is recorded.
+With Postgres migrated and `OPENAI_API_KEY` set, run `pnpm --filter @knowledgehub/api eval:retrieval` and `pnpm --filter @knowledgehub/api test:answers:eval`, then `pnpm --filter @knowledgehub/api eval:compare`. Set `EVAL_TOLERANCE` to change the allowed absolute drop (default 0.05). Run `pnpm --filter @knowledgehub/api eval:baseline` after both evaluations to intentionally replace the baseline; review and commit the resulting JSON. An empty baseline is rejected by the comparison CLI. Baseline updates validate numeric metrics and require matching corpus hashes and embedding models across both runs.
 
 ## Query caches
 
@@ -1313,3 +1317,23 @@ citations. Citation links open that generation using `GET …/download?generatio
 the document page warns when a newer generation exists. Legacy answers without
 version provenance open the current file. Version files are retained until the
 document is deleted, increasing storage use; garbage collection preserves them.
+
+
+## Expanded answer evaluation
+
+The answer evaluation includes real persisted conversation history and checks
+citation support with an additional provider call per answered or partial response.
+`EVAL_JUDGE_MODEL` overrides the judge model; it otherwise uses `ANSWER_MODEL`.
+The reported answer token totals exclude judge calls. All evaluation fixtures are
+synthetic and their temporary organization and user are removed afterward.
+
+Run both evaluations before updating the baseline. `eval:baseline` records the
+measured metrics and copies run provenance to `eval/baseline-metadata.json`.
+`eval:compare` includes entailment accuracy alongside retrieval, citation, refusal,
+and structure metrics. Review changes to both baseline files before committing.
+
+The evaluation workflow runs for relevant pull requests and daily when the
+repository secret `OPENAI_API_KEY` exists, and uploads synthetic reports as CI
+artifacts. Without that secret it emits a skip notice; a successful skipped job
+is not evidence that live evaluations passed. The secret is managed separately
+from local development credentials.

@@ -73,6 +73,7 @@ function formatMetrics(metrics: EvalMetrics): string {
   return [
     `metrics: answered=${metrics.answered} refused=${metrics.refused} errored=${metrics.errored}`,
     `         precision=${percentage(metrics.citationPrecision)} recall=${percentage(metrics.citationRecall)} exact=${percentage(metrics.exactMatchRate)} grounding=${percentage(metrics.groundingHitRate)}`,
+    `         entailment=${percentage(metrics.entailmentAccuracy ?? null)}`,
     `         structural=${percentage(metrics.structuralIntegrity)} refusal=${percentage(metrics.refusalAccuracy)} false-refusal=${percentage(metrics.falseRefusalRate)}`,
     `         latency p50=${duration(metrics.latencyP50Ms)} p95=${duration(metrics.latencyP95Ms)} tokens=${metrics.inputTokens}/${metrics.outputTokens} (reported by ${metrics.tokenReports}/${metrics.total})`,
   ].join('\n');
@@ -80,6 +81,10 @@ function formatMetrics(metrics: EvalMetrics): string {
 
 function formatFailures(outcomes: QuestionOutcome[]): string {
   const failures = outcomes.flatMap((outcome) => {
+    if (outcome.groundingVerdict?.supported === false)
+      return [
+        `${outcome.id}: unsupported answer (${outcome.groundingVerdict.reason})`,
+      ];
     if (outcome.violation !== null) {
       return [`${outcome.id}: structural violation (${outcome.violation})`];
     }

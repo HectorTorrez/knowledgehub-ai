@@ -198,8 +198,15 @@ describe('OpenAiAnswerProvider', () => {
           type: 'string',
           enum: ['answered', 'partial', 'insufficient_evidence'],
         },
-        missing: { type: 'array', items: { type: 'string' } },
+        missing: {
+          type: 'array',
+          description:
+            'Must be [] for answered and insufficient_evidence. Only partial responses list missing parts here.',
+          items: { type: 'string' },
+        },
         claims: {
+          description:
+            'Must be null for insufficient_evidence; answered and partial require a nonempty claim list.',
           type: ['array', 'null'],
           items: {
             type: 'object',

@@ -28,6 +28,27 @@ function outcome(
 }
 
 describe('computeMetrics', () => {
+  it('separates entailment from valid citation markers and excludes refusals from judgments', () => {
+    const metrics = computeMetrics([
+      outcome({
+        id: 'supported',
+        groundingVerdict: { supported: true, reason: 'Supported.' },
+      }),
+      outcome({
+        id: 'unsupported',
+        citations: [DOC_A],
+        expected: [DOC_A],
+        groundingVerdict: { supported: false, reason: 'Invented number.' },
+      }),
+      outcome({
+        id: 'refusal',
+        status: 'insufficient_evidence',
+        groundingVerdict: null,
+      }),
+    ]);
+    expect(metrics.entailmentAccuracy).toBe(0.5);
+    expect(metrics.structuralIntegrity).toBe(1);
+  });
   it('reports perfect scores when every answer is exact and every unanswerable question refuses', () => {
     const metrics = computeMetrics([
       outcome({

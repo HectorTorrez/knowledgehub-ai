@@ -1,4 +1,7 @@
 import { writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { ConfigService } from '@nestjs/config';
+import { allCorpusPages } from '../test/answers-eval/corpus.js';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -65,6 +68,22 @@ it('reports retrieval performance on the synthetic corpus', async () => {
     writeFileSync(
       'eval/retrieval-results.json',
       JSON.stringify(metrics, null, 2) + '\n',
+    );
+    const config = app.get(ConfigService);
+    writeFileSync(
+      'eval/retrieval-metadata-results.json',
+      JSON.stringify(
+        {
+          recordedAt: new Date().toISOString(),
+          embeddingModel: config.get<string>('EMBEDDING_MODEL'),
+          corpusHash: createHash('sha256')
+            .update(JSON.stringify(allCorpusPages()))
+            .digest('hex'),
+          questionIds: RETRIEVAL_QUESTIONS.map((item) => item.id),
+        },
+        null,
+        2,
+      ) + '\n',
     );
     process.stdout.write(JSON.stringify(metrics) + '\n');
   } finally {

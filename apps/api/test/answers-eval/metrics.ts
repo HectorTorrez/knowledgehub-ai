@@ -12,6 +12,7 @@ export interface EvalQuestion {
   kind: EvalKind;
   expected: CitationRef[];
   supporting: CitationRef[];
+  history?: Array<{ question: string; answer: string }>;
 }
 
 export type OutcomeStatus =
@@ -26,12 +27,14 @@ export interface QuestionOutcome {
   supporting: CitationRef[];
   answer: string | null;
   violation: string | null;
+  groundingVerdict?: { supported: boolean; reason: string } | null;
   latencyMs: number;
   inputTokens: number | null;
   outputTokens: number | null;
 }
 
 export interface EvalMetrics {
+  entailmentAccuracy?: number | null;
   total: number;
   answered: number;
   refused: number;
@@ -180,7 +183,16 @@ export function computeMetrics(outcomes: QuestionOutcome[]): EvalMetrics {
     (outcome) => outcome.inputTokens !== null || outcome.outputTokens !== null,
   ).length;
 
+  const judged = outcomes.filter((outcome) => outcome.groundingVerdict != null);
   return {
+    ...(outcomes.some((outcome) => 'groundingVerdict' in outcome)
+      ? {
+          entailmentAccuracy: judged.length
+            ? judged.filter((outcome) => outcome.groundingVerdict?.supported)
+                .length / judged.length
+            : null,
+        }
+      : {}),
     total: outcomes.length,
     answered: answered.length,
     refused: outcomes.filter(

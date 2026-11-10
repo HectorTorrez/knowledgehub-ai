@@ -1,3 +1,4 @@
+import { collectReportMetrics } from './report-metrics.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { compare, type Metrics } from './compare.js';
 
@@ -5,34 +6,39 @@ const read = (path: string) =>
   JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 const retrieval = read('eval/retrieval-results.json');
 const answers = read('eval/answers-results.json');
-const current: Metrics = {};
-for (const key of ['recall5', 'recall10', 'mrr'])
-  current[`retrieval.${key}`] = retrieval[key] as number;
-for (const [threshold, value] of Object.entries(answers)) {
-  const metrics = value as Record<string, number | null>;
-  for (const key of [
-    'citationPrecision',
-    'citationRecall',
-    'exactMatchRate',
-    'groundingHitRate',
-    'structuralIntegrity',
-    'refusalAccuracy',
-  ]) {
-    if (metrics[key] !== null && metrics[key] !== undefined)
-      current[`answers.${threshold}.${key}`] = metrics[key];
-  }
-  if (
-    metrics.falseRefusalRate !== null &&
-    metrics.falseRefusalRate !== undefined
-  )
-    current[`answers.${threshold}.nonFalseRefusalRate`] =
-      1 - metrics.falseRefusalRate;
-}
+const current = collectReportMetrics(retrieval, answers);
 if (process.argv.includes('--update')) {
+  compare({}, current, 0);
+  for (const [metric, value] of Object.entries(current)) {
+    if (
+      (metric.endsWith('.structuralIntegrity') ||
+        metric.endsWith('.refusalAccuracy')) &&
+      value !== 1
+    )
+      throw new Error(`Cannot baseline a failed hard gate: ${metric}`);
+  }
+  const answerRun = read('eval/metadata-results.json');
+  const retrievalRun = read('eval/retrieval-metadata-results.json');
+  if (
+    answerRun.corpusHash !== retrievalRun.corpusHash ||
+    answerRun.embeddingModel !== retrievalRun.embeddingModel
+  )
+    throw new Error(
+      'Evaluation reports use different corpora or embedding models; rerun both evaluations',
+    );
+  writeFileSync(
+    'eval/baseline-metadata.json',
+    JSON.stringify({ answerRun, retrievalRun }, null, 2) + '\n',
+  );
   writeFileSync('eval/baseline.json', JSON.stringify(current, null, 2) + '\n');
 } else {
+  const baseline = read('eval/baseline.json') as Metrics;
+  if (!Object.keys(baseline).length)
+    throw new Error(
+      'No measured evaluation baseline; run both evaluations and eval:baseline',
+    );
   const rows = compare(
-    read('eval/baseline.json') as Metrics,
+    baseline,
     current,
     Number(process.env.EVAL_TOLERANCE ?? '0.05'),
   );
