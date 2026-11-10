@@ -470,6 +470,7 @@ describe('answers (e2e)', () => {
       {
         marker: 1,
         documentId,
+        documentGeneration: 1,
         documentTitle: 'Architecture Notes',
         pageNumber: 2,
         chunkIndex: 4,

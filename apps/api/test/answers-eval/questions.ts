@@ -74,4 +74,87 @@ export const EVAL_QUESTIONS: EvalQuestion[] = [
     expected: [],
     supporting: [],
   },
+  {
+    id: 'spanish-staging',
+    kind: 'single_source',
+    question:
+      '¿Cuánto tiempo debe permanecer una versión en staging antes de llegar a producción?',
+    expected: [{ documentTitle: 'Aurora Deployment Guide', pageNumber: 1 }],
+    supporting: [{ documentTitle: 'Aurora Deployment Guide', pageNumber: 1 }],
+  },
+  {
+    id: 'spanish-access',
+    kind: 'single_source',
+    question: '¿Quién aprueba las solicitudes de acceso y en cuánto tiempo?',
+    expected: [{ documentTitle: 'Manual de incorporación', pageNumber: 1 }],
+    supporting: [{ documentTitle: 'Manual de incorporación', pageNumber: 1 }],
+  },
+  {
+    id: 'cross-language-access',
+    kind: 'single_source',
+    question:
+      'Which team approves access requests and how long does approval take?',
+    expected: [{ documentTitle: 'Manual de incorporación', pageNumber: 1 }],
+    supporting: [{ documentTitle: 'Manual de incorporación', pageNumber: 1 }],
+  },
+  {
+    id: 'conversation-refund',
+    kind: 'single_source',
+    question: 'How is that refund returned?',
+    history: [
+      {
+        question: 'What is the Helios refund window?',
+        answer:
+          'Helios customers can request a refund within 14 days of a charge.',
+      },
+    ],
+    expected: [{ documentTitle: 'Helios Billing Policy', pageNumber: 2 }],
+    supporting: [{ documentTitle: 'Helios Billing Policy', pageNumber: 2 }],
+  },
+  {
+    id: 'conversation-backups',
+    kind: 'single_source',
+    question: 'And how long are its backups retained?',
+    history: [
+      {
+        question: 'How long are Nimbus application logs kept?',
+        answer: 'Nimbus application logs are retained for 30 days.',
+      },
+    ],
+    expected: [
+      { documentTitle: 'Nimbus Data Retention Notice', pageNumber: 1 },
+    ],
+    supporting: [
+      { documentTitle: 'Nimbus Data Retention Notice', pageNumber: 1 },
+    ],
+  },
+  {
+    id: 'conflicting-payment-terms',
+    kind: 'multi_source',
+    question:
+      'How do the current 2026 Helios invoice payment terms differ from the archived policy that applied through 2024?',
+    expected: [
+      { documentTitle: 'Helios Billing Policy', pageNumber: 1 },
+      { documentTitle: 'Archived Helios Billing Policy', pageNumber: 1 },
+    ],
+    supporting: [
+      { documentTitle: 'Helios Billing Policy', pageNumber: 1 },
+      { documentTitle: 'Archived Helios Billing Policy', pageNumber: 1 },
+    ],
+  },
+  {
+    id: 'current-payment-terms',
+    kind: 'distractor',
+    question:
+      'What are the currently effective Helios invoice payment terms in 2026?',
+    expected: [{ documentTitle: 'Helios Billing Policy', pageNumber: 1 }],
+    supporting: [{ documentTitle: 'Helios Billing Policy', pageNumber: 1 }],
+  },
+  {
+    id: 'spanish-budget-unanswerable',
+    kind: 'unanswerable',
+    question: '¿Cuál es el presupuesto anual para viajes del equipo?',
+    expected: [],
+    supporting: [],
+  },
 ];

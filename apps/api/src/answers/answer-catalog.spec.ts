@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildCitations } from './answer-citation.js';
 import {
   buildDocumentCatalog,
   CATALOG_CONTENT_MAX_CHARS,
@@ -28,6 +29,10 @@ function row(overrides: Partial<CatalogDocumentRow> = {}): CatalogDocumentRow {
 }
 
 describe('buildDocumentCatalog', () => {
+  it('preserves document version provenance when a catalog source becomes an answer citation', () => {
+    const catalog = buildDocumentCatalog([row()], 1, 0);
+    expect(buildCitations([1], catalog.sources)[0]?.documentGeneration).toBe(1);
+  });
   it('maps the current generation chunk into a citable catalog source', () => {
     const catalog = buildDocumentCatalog([row()], 1, 0);
 
@@ -37,6 +42,7 @@ describe('buildDocumentCatalog', () => {
         marker: 1,
         chunkId: 'chunk-1',
         documentId: 'doc-1',
+        documentGeneration: 1,
         documentTitle: 'Envios locales',
         pageNumber: 1,
         chunkIndex: 0,

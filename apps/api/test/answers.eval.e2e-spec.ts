@@ -2,7 +2,8 @@ import { writeFileSync } from 'node:fs';
 import { RERANKER } from '../src/answers/reranker.port.js';
 import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { judgeGrounding } from './answers-eval/grounding-judge.js';
 import {
   BadGatewayException,
   Logger,
@@ -38,7 +39,7 @@ import { EVAL_QUESTIONS } from './answers-eval/questions.js';
 import { formatSweepReport, type SweepRun } from './answers-eval/report.js';
 
 const TEST_PLACEHOLDER_KEY = 'test-only-openai-api-key';
-const EVAL_USER_ID = 'answers-evaluation';
+const EVAL_USER_ID = randomUUID();
 const SIMILARITY_THRESHOLDS = [0.2, 0.35, 0.5];
 
 interface LoggedAnswer {
@@ -271,6 +272,7 @@ describe('answers evaluation (real providers)', () => {
   let config: ConfigService;
   let organizationId: string | null = null;
   let logged: LoggedAnswer[] = [];
+  let providerDraft: unknown;
   let restoreLogs: Array<() => void> = [];
 
   const capture = (message: unknown): void => {
@@ -304,11 +306,70 @@ describe('answers evaluation (real providers)', () => {
 
     assertResolvedConfig(config);
     await preflight(app);
+    await prisma.user.create({
+      data: {
+        id: EVAL_USER_ID,
+        email: `eval-${EVAL_USER_ID}@example.test`,
+        passwordHash: 'unused-evaluation-account',
+        firstName: 'Evaluation',
+        lastName: 'Runner',
+      },
+    });
     organizationId = await seedCorpus(app, prisma);
+    await prisma.membership.create({
+      data: { organizationId, userId: EVAL_USER_ID, role: 'OWNER' },
+    });
+    const judgeOptions = {
+      apiKey: config.getOrThrow<string>('OPENAI_API_KEY'),
+      baseUrl: config.getOrThrow<string>('OPENAI_BASE_URL'),
+      model:
+        process.env.EVAL_JUDGE_MODEL ??
+        config.getOrThrow<string>('ANSWER_MODEL'),
+    };
+    const calibration = {
+      evidence: [
+        {
+          marker: 1,
+          documentTitle: 'Calibration',
+          pageNumber: 1,
+          text: 'Payment terms are net-30.',
+        },
+      ],
+      ...judgeOptions,
+    };
+    expect(
+      (
+        await judgeGrounding({
+          ...calibration,
+          answer: 'Payment terms are net-30 [1].',
+        })
+      ).supported,
+    ).toBe(true);
+    expect(
+      (
+        await judgeGrounding({
+          ...calibration,
+          answer: 'Payment terms are net-90 [1].',
+        })
+      ).supported,
+    ).toBe(false);
 
+    const provider = app.get<AnswerProvider>(ANSWER_PROVIDER);
+    const generate = provider.generate.bind(provider);
+    const draftCapture = vi
+      .spyOn(provider, 'generate')
+      .mockImplementation(async (...args) => {
+        const result = await generate(...args);
+        providerDraft = result.draft;
+        return result;
+      });
     const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(capture);
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(capture);
-    restoreLogs = [() => log.mockRestore(), () => warn.mockRestore()];
+    restoreLogs = [
+      () => log.mockRestore(),
+      () => warn.mockRestore(),
+      () => draftCapture.mockRestore(),
+    ];
   }, 180_000);
 
   afterAll(async () => {
@@ -322,20 +383,45 @@ describe('answers evaluation (real providers)', () => {
       restore();
     }
 
+    if (prisma) await prisma.user.deleteMany({ where: { id: EVAL_USER_ID } });
     await app?.close();
   }, 60_000);
 
   const ask = async (item: EvalQuestion): Promise<QuestionOutcome> => {
     logged = [];
+    providerDraft = undefined;
     const startedAt = performance.now();
     let response: AnswerResponse | null = null;
     let thrown: unknown = null;
 
     try {
+      let conversationId: string | undefined;
+      if (item.history?.length) {
+        const conversation = await prisma.conversation.create({
+          data: {
+            organizationId: organizationId as string,
+            createdById: EVAL_USER_ID,
+          },
+        });
+        conversationId = conversation.id;
+        await prisma.answer.createMany({
+          data: item.history.map((turn, index) => ({
+            organizationId: organizationId as string,
+            conversationId,
+            askedById: EVAL_USER_ID,
+            question: turn.question,
+            answer: turn.answer,
+            status: 'answered',
+            citations: [],
+            createdAt: new Date(Date.now() + index),
+          })),
+        });
+      }
       response = await answers.answer(
         organizationId as string,
         EVAL_USER_ID,
         item.question,
+        conversationId,
       );
     } catch (error) {
       thrown = error;
@@ -367,7 +453,7 @@ describe('answers evaluation (real providers)', () => {
         status: 'error',
         citations: [],
         answer: null,
-        violation: violationOf(thrown),
+        violation: `${violationOf(thrown)}: ${JSON.stringify(providerDraft) ?? 'no draft'}`,
       };
     }
 
@@ -377,14 +463,44 @@ describe('answers evaluation (real providers)', () => {
       );
     }
 
+    const groundingVerdict =
+      response.status === 'insufficient_evidence'
+        ? null
+        : await judgeGrounding({
+            answer: response.answer,
+            evidence: response.citations.map((citation) => {
+              const page = allCorpusPages().find(
+                (page) =>
+                  page.documentTitle === citation.documentTitle &&
+                  page.pageNumber === citation.pageNumber,
+              );
+              if (!page)
+                throw new Error(
+                  `Unknown evaluation source: ${citation.documentTitle}`,
+                );
+              return {
+                marker: citation.marker,
+                documentTitle: page.documentTitle,
+                pageNumber: page.pageNumber,
+                text: page.text,
+              };
+            }),
+            apiKey: config.getOrThrow<string>('OPENAI_API_KEY'),
+            baseUrl: config.getOrThrow<string>('OPENAI_BASE_URL'),
+            model:
+              process.env.EVAL_JUDGE_MODEL ??
+              config.getOrThrow<string>('ANSWER_MODEL'),
+          });
     return {
       ...base,
+      groundingVerdict,
       status: response.status,
       citations: response.citations.map((citation) => ({
         documentTitle: citation.documentTitle,
         pageNumber: citation.pageNumber,
       })),
-      answer: response.status === 'answered' ? response.answer : null,
+      answer:
+        response.status !== 'insufficient_evidence' ? response.answer : null,
       violation: null,
     };
   };
@@ -418,6 +534,29 @@ describe('answers evaluation (real providers)', () => {
       ) + '\n',
     );
 
+    writeFileSync(
+      'eval/answer-outcomes-results.json',
+      JSON.stringify(runs, null, 2) + '\n',
+    );
+    writeFileSync(
+      'eval/metadata-results.json',
+      JSON.stringify(
+        {
+          recordedAt: new Date().toISOString(),
+          model: config.get<string>('ANSWER_MODEL'),
+          embeddingModel: config.get<string>('EMBEDDING_MODEL'),
+          judgeModel:
+            process.env.EVAL_JUDGE_MODEL ?? config.get<string>('ANSWER_MODEL'),
+          corpusHash: createHash('sha256')
+            .update(JSON.stringify(allCorpusPages()))
+            .digest('hex'),
+          questionIds: EVAL_QUESTIONS.map((item) => item.id),
+          thresholds: SIMILARITY_THRESHOLDS,
+        },
+        null,
+        2,
+      ) + '\n',
+    );
     console.log(
       formatSweepReport(runs, {
         model: config.get<string>('ANSWER_MODEL') ?? 'unknown',

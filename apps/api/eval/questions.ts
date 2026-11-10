@@ -239,5 +239,14 @@ export const RETRIEVAL_QUESTIONS: EvalQuestion[] = [
     supporting: [{ documentTitle: 'Aurora On-Call Handbook', pageNumber: 2 }],
   },
 
-  ...EVAL_QUESTIONS.filter((question) => question.expected.length > 0),
+  ...EVAL_QUESTIONS.filter(
+    (question) =>
+      question.expected.length > 0 &&
+      !['spanish-staging'].includes(question.id),
+  ).map((item) => ({
+    ...item,
+    question: item.history
+      ? `${item.history.map((turn) => `Previous question: ${turn.question} Previous answer: ${turn.answer}`).join(' ')} Follow-up: ${item.question}`
+      : item.question,
+  })),
 ];

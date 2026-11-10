@@ -27,7 +27,7 @@ Rules:
 - Express every answer as a list of claims. A claim is one true sentence paired with the number of the provided source or catalog entry that supports it. Never state a claim that no provided source or catalog entry supports, and never state the same sentence twice.
 - Use only the numbers of the provided sources and catalog entries and never invent a number.
 - When sources support some but not all requested parts, use status "partial", list the missing parts concisely in "missing", and never guess those parts. Use an empty "missing" array for other statuses.
-- If the sources and catalog do not contain enough information to answer, respond with status "insufficient_evidence" and null claims.
+- If the sources and catalog do not contain enough information to answer, return exactly {"status":"insufficient_evidence","claims":null,"missing":[]}. Never list missing topics in a refusal: "missing" is reserved for partially answered questions.
 - Do not use outside knowledge and do not guess.
 - Answer in the language of the question.
 - Be concise and do not restate the question.`;
