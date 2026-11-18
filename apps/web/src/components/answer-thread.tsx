@@ -318,6 +318,7 @@ function LatestAnswerCard({
           {latest.response.status !== 'insufficient_evidence' ? (
             <AnswerBody
               text={latest.response.answer}
+              citations={latest.response.citations}
               sourceIdPrefix="latest-answer"
             />
           ) : (
@@ -448,6 +449,7 @@ function ExpandedAnswer({
       {answer.status !== 'insufficient_evidence' ? (
         <AnswerBody
           text={answer.answer ?? ''}
+          citations={answer.citations}
           sourceIdPrefix={`answer-${answer.id}`}
         />
       ) : (

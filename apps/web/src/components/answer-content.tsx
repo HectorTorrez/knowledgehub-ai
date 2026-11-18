@@ -1,9 +1,14 @@
 import type { AnswerCitation } from '@knowledgehub/shared-types';
 import { Link } from '@tanstack/react-router';
 import { Check, ChevronDown, Copy, Layers, SearchX } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '~/components/ui/hover-card';
 import {
   Collapsible,
   CollapsibleContent,
@@ -16,10 +21,12 @@ import { useT } from '~/lib/i18n/hooks';
 
 export function AnswerBody({
   text,
+  citations = [],
   sourceIdPrefix,
   onCitationSelect,
 }: Readonly<{
   text: string;
+  citations?: AnswerCitation[];
   sourceIdPrefix?: string;
   onCitationSelect?: (marker: number) => void;
 }>) {
@@ -31,10 +38,12 @@ export function AnswerBody({
         const match = /^\[(\d+)\]$/.exec(part);
 
         if (match) {
+          const marker = Number(match[1]);
           return (
             <CitationMarker
               key={index}
-              marker={Number(match[1])}
+              marker={marker}
+              citation={citations.find((item) => item.marker === marker)}
               sourceIdPrefix={sourceIdPrefix}
               onSelect={onCitationSelect}
             />
@@ -49,27 +58,89 @@ export function AnswerBody({
 
 export function CitationMarker({
   marker,
+  citation,
   sourceIdPrefix,
   onSelect,
 }: Readonly<{
   marker: number;
+  citation?: AnswerCitation;
   sourceIdPrefix?: string;
   onSelect?: (marker: number) => void;
 }>) {
+  const link = (
+    <CitationLink
+      marker={marker}
+      sourceIdPrefix={sourceIdPrefix}
+      onMarkerSelect={onSelect}
+    />
+  );
+
+  if (citation === undefined) {
+    return link;
+  }
+
+  return (
+    <HoverCard>
+      <HoverCardTrigger asChild>{link}</HoverCardTrigger>
+      <HoverCardContent side="top" className="space-y-2">
+        <CitationPreview citation={citation} />
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+function CitationPreview({ citation }: Readonly<{ citation: AnswerCitation }>) {
+  const t = useT();
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span className="flex size-5 shrink-0 items-center justify-center rounded bg-brand/10 text-[11px] font-semibold text-brand">
+          {citation.marker}
+        </span>
+        <p className="min-w-0 flex-1 truncate text-xs font-medium">
+          {citation.documentTitle}
+        </p>
+        <span className="shrink-0 text-[11px] text-muted-foreground">
+          {t('search.page', { page: citation.pageNumber })}
+        </span>
+      </div>
+      <blockquote className="line-clamp-6 border-l-2 border-brand/40 pl-2.5 text-xs leading-relaxed text-muted-foreground">
+        {citation.excerpt}
+      </blockquote>
+    </>
+  );
+}
+
+function CitationLink({
+  marker,
+  sourceIdPrefix,
+  onMarkerSelect,
+  ...props
+}: Readonly<
+  {
+    marker: number;
+    sourceIdPrefix?: string;
+    onMarkerSelect?: (marker: number) => void;
+  } & Omit<ComponentProps<'a'>, 'href'>
+>) {
   const t = useT();
   const href = `#${sourceId(sourceIdPrefix, marker)}`;
 
   return (
     <a
+      {...props}
       href={href}
       aria-label={t('answer.goToSource', { marker })}
       onClick={(event) => {
-        if (onSelect === undefined) {
+        props.onClick?.(event);
+
+        if (onMarkerSelect === undefined) {
           return;
         }
 
         event.preventDefault();
-        onSelect(marker);
+        onMarkerSelect(marker);
       }}
       className="relative mx-0.5 inline-flex h-4 min-w-4 translate-y-[-1px] items-center justify-center rounded-sm bg-brand/10 px-1 align-middle text-[10px] leading-none font-semibold text-brand transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none after:absolute after:-inset-2 after:content-[''] hover:bg-brand/20"
     >

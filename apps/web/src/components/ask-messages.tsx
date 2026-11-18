@@ -370,6 +370,7 @@ function PendingTurn({
             ) : hasText ? (
               <AnswerBody
                 text={stream.text}
+                citations={stream.citations}
                 sourceIdPrefix="pending-answer"
                 onCitationSelect={(marker) => {
                   setSourcesOpen(true);
@@ -471,6 +472,7 @@ function AssistantAnswer({
           {status !== 'insufficient_evidence' ? (
             <AnswerBody
               text={answer ?? ''}
+              citations={citations}
               sourceIdPrefix={sourceIdPrefix}
               onCitationSelect={(marker) => {
                 setSourcesOpen(true);

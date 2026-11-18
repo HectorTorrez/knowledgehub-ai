@@ -803,6 +803,7 @@ function PermalinkAnswer({
             {detail.data.answer.status !== 'insufficient_evidence' ? (
               <AnswerBody
                 text={detail.data.answer.answer ?? ''}
+                citations={detail.data.answer.citations}
                 sourceIdPrefix={`shared-${answerId}`}
               />
             ) : (
