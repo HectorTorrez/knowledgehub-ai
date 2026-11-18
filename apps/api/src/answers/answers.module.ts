@@ -25,6 +25,13 @@ import { OpenAiReranker } from './openai-reranker.js';
 import { QUERY_REWRITER } from './query-rewriter.port.js';
 import { OpenAiQueryRewriter } from './openai-query-rewriter.js';
 import { OpenAiAnswerProvider } from './openai-answer-provider.js';
+import { OpenAiQuestionSuggester } from './openai-question-suggester.js';
+import {
+  QUESTION_SUGGESTER,
+  type QuestionSuggester,
+} from './question-suggester.port.js';
+import { QuestionSuggestionsController } from './question-suggestions.controller.js';
+import { QuestionSuggestionsService } from './question-suggestions.service.js';
 
 @Module({
   imports: [
@@ -36,7 +43,11 @@ import { OpenAiAnswerProvider } from './openai-answer-provider.js';
     AggregationModule,
     FactsModule,
   ],
-  controllers: [AnswersController, ConversationsController],
+  controllers: [
+    AnswersController,
+    ConversationsController,
+    QuestionSuggestionsController,
+  ],
   providers: [
     AnswerConfig,
     {
@@ -67,6 +78,18 @@ import { OpenAiAnswerProvider } from './openai-answer-provider.js';
     },
     AnswersService,
     ConversationsService,
+    QuestionSuggestionsService,
+    {
+      provide: QUESTION_SUGGESTER,
+      inject: [AnswerConfig],
+      useFactory: (config: AnswerConfig): QuestionSuggester =>
+        new OpenAiQuestionSuggester({
+          apiKey: config.apiKey,
+          model: config.queryRewriteModel,
+          timeoutMs: config.timeoutMs,
+          baseUrl: config.baseUrl,
+        }),
+    },
     {
       provide: ANSWER_PROVIDER,
       inject: [AnswerConfig],

@@ -159,6 +159,8 @@ describe('tenant isolation (e2e)', () => {
       ['put', `/answers/${answer.id}/feedback`],
       ['delete', `/answers/${answer.id}/feedback`],
       ['delete', `/answers/${answer.id}`],
+      ['get', `/answers/${answer.id}/follow-ups`],
+      ['get', '/question-suggestions'],
       ['post', '/invitations'],
       ['get', '/invitations'],
       ['delete', `/invitations/${invitation.id}`],

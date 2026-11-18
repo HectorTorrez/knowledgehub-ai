@@ -1,6 +1,10 @@
 import { RERANKER } from '../src/answers/reranker.port.js';
 import { SUMMARIZER } from '../src/summaries/summarizer.js';
 import { QUERY_REWRITER } from '../src/answers/query-rewriter.port.js';
+import {
+  QUESTION_SUGGESTER,
+  type QuestionSuggester,
+} from '../src/answers/question-suggester.port.js';
 import { randomUUID } from 'node:crypto';
 import { Logger, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -84,6 +88,7 @@ describe('answers (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let answerProvider: FakeAnswerProvider;
+  let suggester: QuestionSuggester;
   let embedImpl: EmbeddingProvider['embed'];
   const trackedEmails = new Set<string>();
   const trackedOrganizationIds = new Set<string>();
@@ -204,6 +209,12 @@ describe('answers (e2e)', () => {
   beforeAll(async () => {
     embedImpl = async () => [basis(0)];
     answerProvider = new FakeAnswerProvider();
+    suggester = {
+      followUps: async ({ question }) => [`What else about ${question}`],
+      starters: async ({ locale, documents }) => [
+        `${locale}: ${documents.map((document) => document.title).join(', ')}`,
+      ],
+    };
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -220,6 +231,8 @@ describe('answers (e2e)', () => {
       .useValue({ rewrite: async (question: string) => question })
       .overrideProvider(ANSWER_PROVIDER)
       .useValue(answerProvider)
+      .overrideProvider(QUESTION_SUGGESTER)
+      .useValue(suggester)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -1040,6 +1053,50 @@ describe('answers (e2e)', () => {
       status: 'answered',
       sourceCount: 1,
       citationCount: 1,
+    });
+  });
+
+  describe('question suggestions', () => {
+    it('suggests follow-ups for an answer the member can read', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Follow-up Org');
+      await seedReadyChunk(organizationId, 'Follow-up passage.');
+
+      await ask(token, organizationId, { question: 'Alpha terms?' }).expect(
+        200,
+      );
+      const list = await request(app.getHttpServer())
+        .get(`/organizations/${organizationId}/answers`)
+        .set(bearer(token))
+        .expect(200);
+      const answerId = list.body.answers[0].id as string;
+
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${organizationId}/answers/${answerId}/follow-ups`)
+        .set(bearer(token))
+        .expect(200);
+
+      expect(response.body).toEqual({
+        questions: ['What else about Alpha terms?'],
+      });
+    });
+
+    it('suggests starter questions from the organization ready documents', async () => {
+      const { token } = await registerUser();
+      const organizationId = await createOrganization(token, 'Starter Org');
+      await seedDocument(organizationId, { title: 'Travel Policy' });
+      await seedDocument(organizationId, {
+        title: 'Draft Notes',
+        status: 'PROCESSING',
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${organizationId}/question-suggestions`)
+        .query({ locale: 'es' })
+        .set(bearer(token))
+        .expect(200);
+
+      expect(response.body).toEqual({ questions: ['es: Travel Policy'] });
     });
   });
 

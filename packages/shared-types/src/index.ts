@@ -601,6 +601,16 @@ export interface SetAnswerFeedbackRequest {
   comment?: string;
 }
 
+/**
+ * Response body of `GET /organizations/:organizationId/question-suggestions`
+ * and `GET /organizations/:organizationId/answers/:answerId/follow-ups`.
+ * Suggestions are best effort: an empty list means none are available, never
+ * an error.
+ */
+export interface QuestionSuggestionsResponse {
+  questions: string[];
+}
+
 /** Response body of the feedback endpoints. `null` after a rating is removed. */
 export interface AnswerFeedbackResponse {
   feedback: AnswerFeedbackSummary | null;
