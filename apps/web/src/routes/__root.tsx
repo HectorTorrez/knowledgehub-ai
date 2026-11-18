@@ -9,7 +9,7 @@ import {
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import type { QueryClient } from '@tanstack/react-query';
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useEffect, type ReactNode } from 'react';
 import { ToastProvider } from '~/components/ui/toast';
 import { useTheme } from '~/hooks/use-theme';
 import { type Locale } from '~/lib/i18n/locale';
@@ -18,6 +18,7 @@ import { I18nProvider } from '~/lib/i18n/provider';
 import { useLocale } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
 import { SITE_NAME, pageHead } from '~/lib/seo';
+import { registerServiceWorker } from '~/lib/share-target';
 import { themeBootstrapScript } from '~/lib/theme';
 import appCss from '~/styles/app.css?url';
 
@@ -75,6 +76,10 @@ function RootComponent() {
     },
     [router],
   );
+
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
 
   return (
     <I18nProvider initialLocale={locale} onLocaleChange={handleLocaleChange}>

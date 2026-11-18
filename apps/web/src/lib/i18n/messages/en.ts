@@ -66,6 +66,28 @@ export const en = {
     failed_one: '{count} document could not be updated',
     failed_other: '{count} documents could not be updated',
   },
+  shareTarget: {
+    pageTitle: 'Add to KnowledgeHub · KnowledgeHub AI',
+    title: 'Add to KnowledgeHub',
+    description: 'Choose where to save what you shared.',
+    loading: 'Reading what you shared…',
+    emptyTitle: 'Nothing to add',
+    emptyDescription:
+      'Share a file or link to KnowledgeHub from another app to add it here.',
+    goToOrganizations: 'Go to organizations',
+    organization: 'Organization',
+    noWritableOrganizations:
+      'You need permission to add documents in an organization first.',
+    link: 'Link',
+    files: 'Files',
+    titleLabel: 'Title (optional)',
+    add: 'Add to documents',
+    adding: 'Adding…',
+    discard: 'Discard',
+    added_one: 'Added {count} item',
+    added_other: 'Added {count} items',
+    someFailed: 'Some items could not be added',
+  },
   nav: {
     more: 'More',
     mobileNavigation: 'Quick navigation',

@@ -68,6 +68,28 @@ export const es: Messages = {
     failed_one: 'No se pudo actualizar {count} documento',
     failed_other: 'No se pudieron actualizar {count} documentos',
   },
+  shareTarget: {
+    pageTitle: 'Agregar a KnowledgeHub · KnowledgeHub AI',
+    title: 'Agregar a KnowledgeHub',
+    description: 'Elige dónde guardar lo que compartiste.',
+    loading: 'Leyendo lo que compartiste…',
+    emptyTitle: 'No hay nada para agregar',
+    emptyDescription:
+      'Comparte un archivo o un enlace con KnowledgeHub desde otra app para agregarlo aquí.',
+    goToOrganizations: 'Ir a organizaciones',
+    organization: 'Organización',
+    noWritableOrganizations:
+      'Primero necesitas permiso para agregar documentos en una organización.',
+    link: 'Enlace',
+    files: 'Archivos',
+    titleLabel: 'Título (opcional)',
+    add: 'Agregar a documentos',
+    adding: 'Agregando…',
+    discard: 'Descartar',
+    added_one: 'Se agregó {count} elemento',
+    added_other: 'Se agregaron {count} elementos',
+    someFailed: 'Algunos elementos no se pudieron agregar',
+  },
   nav: {
     more: 'Más',
     mobileNavigation: 'Navegación rápida',

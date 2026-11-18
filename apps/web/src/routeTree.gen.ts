@@ -19,6 +19,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password';
 import { Route as SecurityRouteImport } from './routes/security';
 import { Route as VerifyEmailRouteImport } from './routes/verify-email';
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings';
+import { Route as AuthenticatedShareRouteImport } from './routes/_authenticated/share';
 import { Route as AuthenticatedInvitationsAcceptRouteImport } from './routes/_authenticated/invitations.accept';
 import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations.index';
 import { Route as AuthenticatedOrganizationsOrganizationIdRouteImport } from './routes/_authenticated/organizations.$organizationId';
@@ -78,6 +79,11 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any);
+const AuthenticatedShareRoute = AuthenticatedShareRouteImport.update({
+  id: '/share',
+  path: '/share',
   getParentRoute: () => AuthenticatedRoute,
 } as any);
 const AuthenticatedInvitationsAcceptRoute =
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/security': typeof SecurityRoute;
   '/verify-email': typeof VerifyEmailRoute;
   '/settings': typeof AuthenticatedSettingsRoute;
+  '/share': typeof AuthenticatedShareRoute;
   '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute;
   '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren;
   '/organizations/': typeof AuthenticatedOrganizationsIndexRoute;
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/security': typeof SecurityRoute;
   '/verify-email': typeof VerifyEmailRoute;
   '/settings': typeof AuthenticatedSettingsRoute;
+  '/share': typeof AuthenticatedShareRoute;
   '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute;
   '/organizations': typeof AuthenticatedOrganizationsIndexRoute;
   '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute;
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/security': typeof SecurityRoute;
   '/verify-email': typeof VerifyEmailRoute;
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute;
+  '/_authenticated/share': typeof AuthenticatedShareRoute;
   '/_authenticated/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute;
   '/_authenticated/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren;
   '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute;
@@ -228,6 +237,7 @@ export interface FileRouteTypes {
     | '/security'
     | '/verify-email'
     | '/settings'
+    | '/share'
     | '/invitations/accept'
     | '/organizations/$organizationId'
     | '/organizations/'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/security'
     | '/verify-email'
     | '/settings'
+    | '/share'
     | '/invitations/accept'
     | '/organizations'
     | '/organizations/$organizationId/ask'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/security'
     | '/verify-email'
     | '/_authenticated/settings'
+    | '/_authenticated/share'
     | '/_authenticated/invitations/accept'
     | '/_authenticated/organizations/$organizationId'
     | '/_authenticated/organizations/'
@@ -367,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/settings';
       fullPath: '/settings';
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport;
+      parentRoute: typeof AuthenticatedRoute;
+    };
+    '/_authenticated/share': {
+      id: '/_authenticated/share';
+      path: '/share';
+      fullPath: '/share';
+      preLoaderRoute: typeof AuthenticatedShareRouteImport;
       parentRoute: typeof AuthenticatedRoute;
     };
     '/_authenticated/invitations/accept': {
@@ -487,6 +506,7 @@ const AuthenticatedOrganizationsOrganizationIdRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute;
+  AuthenticatedShareRoute: typeof AuthenticatedShareRoute;
   AuthenticatedInvitationsAcceptRoute: typeof AuthenticatedInvitationsAcceptRoute;
   AuthenticatedOrganizationsOrganizationIdRoute: typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren;
   AuthenticatedOrganizationsIndexRoute: typeof AuthenticatedOrganizationsIndexRoute;
@@ -494,6 +514,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedShareRoute: AuthenticatedShareRoute,
   AuthenticatedInvitationsAcceptRoute: AuthenticatedInvitationsAcceptRoute,
   AuthenticatedOrganizationsOrganizationIdRoute:
     AuthenticatedOrganizationsOrganizationIdRouteWithChildren,

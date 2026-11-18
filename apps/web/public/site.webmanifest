@@ -2,7 +2,7 @@
   "name": "KnowledgeHub AI",
   "short_name": "KnowledgeHub",
   "description": "Multi-tenant retrieval-augmented search and Q&A over your organization's documents.",
-  "start_url": "/",
+  "start_url": "/organizations",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -32,5 +32,40 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "id": "/",
+  "lang": "en",
+  "categories": ["productivity", "business"],
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": [
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/html",
+            "text/plain",
+            "text/markdown",
+            ".pdf",
+            ".docx",
+            ".pptx",
+            ".xlsx",
+            ".html",
+            ".htm",
+            ".txt",
+            ".md"
+          ]
+        }
+      ]
+    }
+  }
 }
