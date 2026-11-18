@@ -34,6 +34,7 @@ import {
 } from '~/components/collections-manager';
 import { collectionsApi } from '~/lib/api/collections';
 import { DocumentProgress } from '~/components/document-progress';
+import { DocumentBulkActions } from '~/components/document-bulk-actions';
 import { DocumentMultiSelect } from '~/components/document-multi-select';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
 import { EmptyState } from '~/components/empty-state';
@@ -180,6 +181,9 @@ function DocumentsPage() {
     queryFn: () => collectionsApi.list(organizationId),
   });
   const [order, setOrder] = useState<DocumentOrder>('createdAt_desc');
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -566,6 +570,32 @@ function DocumentsPage() {
   const rows = documents.data?.pages.flatMap((page) => page.documents) ?? [];
 
   const hasDocuments = rows.length > 0;
+  const selectedRows = rows.filter((row) => selectedIds.has(row.id));
+  const allSelected = hasDocuments && selectedRows.length === rows.length;
+
+  function toggleSelected(documentId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(documentId)) {
+        next.delete(documentId);
+      } else {
+        next.add(documentId);
+      }
+
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds(
+      allSelected ? new Set() : new Set(rows.map((row) => row.id)),
+    );
+  }
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [organizationId, query, statusFilter, collectionId, order]);
 
   function resetFilters() {
     setQueryDraft('');
@@ -777,6 +807,23 @@ function DocumentsPage() {
             <div className="space-y-4">
               <Card>
                 <CardContent className="p-0">
+                  {canWrite ? (
+                    <div className="flex items-center gap-3 border-b px-4 py-2.5 sm:px-6">
+                      <SelectionCheckbox
+                        checked={allSelected}
+                        indeterminate={selectedRows.length > 0 && !allSelected}
+                        label={t('bulkDocuments.selectAll')}
+                        onChange={toggleAll}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {selectedRows.length > 0
+                          ? t('bulkDocuments.selected', {
+                              count: selectedRows.length,
+                            })
+                          : t('bulkDocuments.selectAll')}
+                      </span>
+                    </div>
+                  ) : null}
                   <ul className="divide-y">
                     {rows.map((document) => {
                       const DocumentIcon = documentContentTypeIcon(
@@ -785,8 +832,21 @@ function DocumentsPage() {
                       return (
                         <li
                           key={document.id}
-                          className="flex items-start gap-2 px-4 py-4 sm:items-center sm:gap-4 sm:px-6"
+                          className={cn(
+                            'flex items-start gap-2 px-4 py-4 sm:items-center sm:gap-4 sm:px-6',
+                            selectedIds.has(document.id) && 'bg-brand/5',
+                          )}
                         >
+                          {canWrite ? (
+                            <SelectionCheckbox
+                              checked={selectedIds.has(document.id)}
+                              label={t('bulkDocuments.selectDocument', {
+                                title: document.title,
+                              })}
+                              onChange={() => toggleSelected(document.id)}
+                              className="mt-3 sm:mt-0"
+                            />
+                          ) : null}
                           <Link
                             to="/organizations/$organizationId/documents/$documentId"
                             params={{ organizationId, documentId: document.id }}
@@ -887,6 +947,15 @@ function DocumentsPage() {
                   </ul>
                 </CardContent>
               </Card>
+
+              {canWrite && selectedRows.length > 0 ? (
+                <DocumentBulkActions
+                  organizationId={organizationId}
+                  selected={selectedRows}
+                  collections={collections.data ?? []}
+                  onClear={() => setSelectedIds(new Set())}
+                />
+              ) : null}
 
               {documents.hasNextPage ? (
                 <div className="flex justify-center">
@@ -1209,6 +1278,38 @@ function DocumentsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function SelectionCheckbox({
+  checked,
+  indeterminate = false,
+  label,
+  onChange,
+  className,
+}: Readonly<{
+  checked: boolean;
+  indeterminate?: boolean;
+  label: string;
+  onChange: () => void;
+  className?: string;
+}>) {
+  return (
+    <input
+      type="checkbox"
+      ref={(element) => {
+        if (element !== null) {
+          element.indeterminate = indeterminate;
+        }
+      }}
+      checked={checked}
+      aria-label={label}
+      onChange={onChange}
+      className={cn(
+        'size-4 shrink-0 cursor-pointer rounded border-input accent-brand',
+        className,
+      )}
+    />
   );
 }
 
