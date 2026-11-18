@@ -1,4 +1,5 @@
 import { CommandPalette } from '~/components/command-palette';
+import { KeyboardShortcuts } from '~/components/keyboard-shortcuts';
 import { EmailVerificationBanner } from '~/components/email-verification-banner';
 import { LanguageMenuItems } from '~/components/language-switcher';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +15,7 @@ import {
   ChevronsUpDown,
   FileText,
   History,
+  Keyboard,
   LayoutGrid,
   LogOut,
   MessageSquareText,
@@ -22,13 +24,14 @@ import {
   Settings,
   Sun,
 } from 'lucide-react';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import {
@@ -114,6 +117,7 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
     select: (state) => state.location.pathname,
   });
   const { setOpenMobile } = useSidebar();
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const reportError = useReportError();
   const { toast } = useToast();
   const organizations = useQuery({
@@ -322,6 +326,16 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
                     </DropdownMenuItem>
                     <LanguageMenuItems />
                     <DropdownMenuItem
+                      onSelect={() => {
+                        setOpenMobile(false);
+                        setShortcutsOpen(true);
+                      }}
+                    >
+                      <Keyboard />
+                      {t('shortcuts.menuItem')}
+                      <DropdownMenuShortcut>?</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       onSelect={() => void handleSignOut()}
                       disabled={signOut.isPending}
                     >
@@ -349,6 +363,16 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
               </span>
             </>
           )}
+          <KeyboardShortcuts
+            organizationId={organizationId}
+            canViewInsights={
+              organization.data?.organization.capabilities.includes(
+                'insights.view',
+              ) ?? false
+            }
+            open={shortcutsOpen}
+            onOpenChange={setShortcutsOpen}
+          />
           <CommandPalette
             organizationId={organizationId}
             organizations={organizations.data?.organizations ?? []}

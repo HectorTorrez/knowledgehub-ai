@@ -1,11 +1,12 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { Link } from '@tanstack/react-router';
 import { ArrowUp, Mic, Pencil, Square, X } from 'lucide-react';
-import type { KeyboardEvent } from 'react';
+import { useRef, type KeyboardEvent } from 'react';
 import { DocumentScopeSelect } from '~/components/document-scope-select';
 import { Button } from '~/components/ui/button';
 import { Spinner } from '~/components/ui/spinner';
 import { Textarea } from '~/components/ui/textarea';
+import { useSlashFocus } from '~/hooks/use-slash-focus';
 import { useQuestionDictation } from '~/lib/use-question-dictation';
 import { QUESTION_MAX_LENGTH } from '~/lib/validation';
 
@@ -45,6 +46,8 @@ export function AskComposer({
   documentsPending: boolean;
 }>) {
   const t = useT();
+  const questionRef = useRef<HTMLTextAreaElement>(null);
+  useSlashFocus(questionRef);
   const dictation = useQuestionDictation(
     draftScope,
     question,
@@ -115,6 +118,7 @@ export function AskComposer({
           ) : null}
           <Textarea
             id="ask-question"
+            ref={questionRef}
             aria-label={t('ask.yourQuestion')}
             rows={1}
             maxLength={QUESTION_MAX_LENGTH}
