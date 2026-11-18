@@ -509,3 +509,24 @@
     cursor: pointer;
   }
 }
+
+@media screen {
+  #print-root {
+    display: none;
+  }
+}
+
+@media print {
+  body:has(> #print-root) > :not(#print-root) {
+    display: none !important;
+  }
+
+  #print-root {
+    color: #000;
+    background: #fff;
+  }
+
+  #print-root .print-avoid-break {
+    break-inside: avoid;
+  }
+}

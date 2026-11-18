@@ -15,7 +15,9 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowUpRight,
   Download,
+  FileText,
   MessageSquareText,
+  Printer,
   PanelLeft,
   SquarePen,
 } from 'lucide-react';
@@ -35,6 +37,13 @@ import {
 import { AnswerThread } from '~/components/answer-thread';
 import { ConversationRail } from '~/components/conversation-rail';
 import { ConversationShare } from '~/components/conversation-share';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
+import { Spinner } from '~/components/ui/spinner';
 import { Button, buttonVariants } from '~/components/ui/button';
 import {
   AlertDialog,
@@ -59,6 +68,7 @@ import { RouteError } from '~/components/route-states';
 import { Textarea } from '~/components/ui/textarea';
 import { useToast } from '~/components/ui/toast';
 import { useAnswerStream } from '~/hooks/use-answer-stream';
+import { useConversationPrint } from '~/hooks/use-conversation-print';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
 import { useReadyDocuments } from '~/hooks/use-ready-documents';
 import { answersApi } from '~/lib/api/answers';
@@ -442,6 +452,12 @@ function AskPage() {
   }
 
   const streaming = stream.status === 'streaming';
+  const conversationPrint = useConversationPrint(organizationId);
+
+  function reportExportError() {
+    toast({ variant: 'error', title: t('ask.exportError') });
+  }
+
   const conversationRows = useMemo(
     () => conversations.data?.pages.flatMap((page) => page.conversations) ?? [],
     [conversations.data],
@@ -544,21 +560,47 @@ function AskPage() {
             ) : null}
 
             {activeConversationId !== null && (
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  void conversationsApi
-                    .export(organizationId, activeConversationId)
-                    .catch(() => {
-                      toast({
-                        variant: 'error',
-                        title: t('ask.exportError'),
-                      });
-                    });
-                }}
-              >
-                <Download className="size-4" /> {t('ask.exportConversation')}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    disabled={conversationPrint.preparing}
+                  >
+                    {conversationPrint.preparing ? (
+                      <Spinner />
+                    ) : (
+                      <Download className="size-4" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {conversationPrint.preparing
+                        ? t('ask.exportPreparing')
+                        : t('ask.exportConversation')}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      void conversationsApi
+                        .export(organizationId, activeConversationId)
+                        .catch(reportExportError);
+                    }}
+                  >
+                    <FileText className="size-4" />
+                    {t('ask.exportMarkdown')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      void conversationPrint
+                        .print(activeConversationId, conversationTitle)
+                        .catch(reportExportError);
+                    }}
+                  >
+                    <Printer className="size-4" />
+                    {t('ask.exportPdf')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             <Button
@@ -675,6 +717,8 @@ function AskPage() {
           )}
         </div>
       </div>
+
+      {conversationPrint.portal}
 
       <Dialog open={showConversations} onOpenChange={setShowConversations}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-sm">

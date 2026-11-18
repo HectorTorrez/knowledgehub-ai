@@ -1281,6 +1281,12 @@ export const en = {
     askAboutDocument: 'Ask about this document',
   },
   ask: {
+    exportMarkdown: 'Markdown (.md)',
+    exportPdf: 'PDF',
+    exportPreparing: 'Preparing PDF…',
+    exportedOn: 'Exported {date}',
+    printQuestion: 'Question',
+    printAnswer: 'Answer',
     basedOnDocuments: 'Based on your documents',
     pageTitle: 'Ask a question · KnowledgeHub AI',
     conversationDeleted: 'Conversation deleted',

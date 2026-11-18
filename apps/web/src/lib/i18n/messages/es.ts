@@ -1308,6 +1308,12 @@ export const es: Messages = {
     askAboutDocument: 'Preguntar sobre este documento',
   },
   ask: {
+    exportMarkdown: 'Markdown (.md)',
+    exportPdf: 'PDF',
+    exportPreparing: 'Preparando PDF…',
+    exportedOn: 'Exportada el {date}',
+    printQuestion: 'Pregunta',
+    printAnswer: 'Respuesta',
     basedOnDocuments: 'Según tus documentos',
     pageTitle: 'Hacer una pregunta · KnowledgeHub AI',
     conversationDeleted: 'Conversación eliminada',
