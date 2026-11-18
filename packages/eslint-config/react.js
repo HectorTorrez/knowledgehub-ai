@@ -6,6 +6,15 @@ import base from './base.js';
 export default [
   ...base,
   {
+    files: ['public/**/sw.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        ...globals.serviceworker,
+      },
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       globals: {
