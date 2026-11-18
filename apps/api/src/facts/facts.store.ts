@@ -153,7 +153,7 @@ export class FactsStore {
   }
 
   async nextPending(limit: number): Promise<PendingDocument[]> {
-    return this.prisma.document.findMany({
+    return this.prisma.unscoped.document.findMany({
       where: { status: 'READY', factsStatus: 'PENDING' },
       select: {
         id: true,
@@ -166,16 +166,12 @@ export class FactsStore {
     });
   }
 
-  async loadPages(
-    documentId: string,
-    generation: number,
-  ): Promise<StoredPage[]> {
-    const row = await this.prisma.documentExtraction.findUnique({
+  async loadPages(document: PendingDocument): Promise<StoredPage[]> {
+    const row = await this.prisma.documentExtraction.findFirst({
       where: {
-        documentId_documentGeneration: {
-          documentId,
-          documentGeneration: generation,
-        },
+        documentId: document.id,
+        organizationId: document.organizationId,
+        documentGeneration: document.generation,
       },
       select: { pages: true },
     });
@@ -187,14 +183,12 @@ export class FactsStore {
     return parseStoredPages((row as PageRow).pages);
   }
 
-  async loadChunks(
-    documentId: string,
-    generation: number,
-  ): Promise<StoredChunk[]> {
+  async loadChunks(document: PendingDocument): Promise<StoredChunk[]> {
     return this.prisma.documentChunk.findMany({
       where: {
-        documentId,
-        documentGeneration: generation,
+        documentId: document.id,
+        organizationId: document.organizationId,
+        documentGeneration: document.generation,
       },
       select: { chunkIndex: true, pageNumber: true, content: true },
       orderBy: { chunkIndex: 'asc' },

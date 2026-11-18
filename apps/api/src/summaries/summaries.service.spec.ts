@@ -20,8 +20,9 @@ function setup(enabled = true) {
     $transaction: vi.fn(async (fn: (value: typeof tx) => Promise<void>) =>
       fn(tx),
     ),
-    document: { updateMany: vi.fn(), findMany: vi.fn() },
+    document: { updateMany: vi.fn() },
     documentChunk: { findMany: vi.fn() },
+    unscoped: { document: { findMany: vi.fn() } },
   };
   const summarizer = {
     summarize: vi.fn(async () => ({ summary: 'summary', keyTopics: [] })),
@@ -70,7 +71,7 @@ describe('SummariesService', () => {
 
   it('backfills pending documents using tenant and generation scoped chunks', async () => {
     const { service, prisma, summarizer } = setup();
-    prisma.document.findMany
+    prisma.unscoped.document.findMany
       .mockResolvedValueOnce([
         { id: 'doc', organizationId: 'org', generation: 2 },
       ])
@@ -78,7 +79,7 @@ describe('SummariesService', () => {
     prisma.documentChunk.findMany.mockResolvedValueOnce(chunks);
     service.onModuleInit();
     await vi.waitFor(() =>
-      expect(prisma.document.findMany).toHaveBeenCalledTimes(2),
+      expect(prisma.unscoped.document.findMany).toHaveBeenCalledTimes(2),
     );
     await service.onModuleDestroy();
     expect(prisma.documentChunk.findMany).toHaveBeenCalledWith(

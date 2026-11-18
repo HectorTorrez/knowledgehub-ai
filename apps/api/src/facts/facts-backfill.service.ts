@@ -38,10 +38,7 @@ export class FactsBackfillService implements OnModuleInit, OnModuleDestroy {
     const documents = await this.store.nextPending(this.config.backfillBatch);
 
     for (const document of documents) {
-      const pages = await this.store.loadPages(
-        document.id,
-        document.generation,
-      );
+      const pages = await this.store.loadPages(document);
 
       if (pages.length === 0) {
         await this.store.markFailed(
@@ -55,10 +52,7 @@ export class FactsBackfillService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      const chunks = await this.store.loadChunks(
-        document.id,
-        document.generation,
-      );
+      const chunks = await this.store.loadChunks(document);
 
       await this.facts.extractForDocument(
         {

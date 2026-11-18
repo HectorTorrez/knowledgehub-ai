@@ -105,38 +105,42 @@ export class SummariesService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async backfill(): Promise<void> {
-    try {
-      while (this.running) {
-        const documents = await this.prisma.document.findMany({
-          where: { status: 'READY', summaryStatus: 'PENDING' },
-          select: { id: true, organizationId: true, generation: true },
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          take: 5,
-        });
-        if (!documents.length) return;
-        for (const document of documents) {
-          if (!this.running) return;
-          const target = {
+  async runOnce(): Promise<number> {
+    const documents = await this.prisma.unscoped.document.findMany({
+      where: { status: 'READY', summaryStatus: 'PENDING' },
+      select: { id: true, organizationId: true, generation: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 5,
+    });
+    for (const document of documents) {
+      const target = {
+        documentId: document.id,
+        organizationId: document.organizationId,
+        documentGeneration: document.generation,
+      };
+      try {
+        const chunks = await this.prisma.documentChunk.findMany({
+          where: {
             documentId: document.id,
             organizationId: document.organizationId,
             documentGeneration: document.generation,
-          };
-          try {
-            const chunks = await this.prisma.documentChunk.findMany({
-              where: {
-                documentId: document.id,
-                organizationId: document.organizationId,
-                documentGeneration: document.generation,
-              },
-              select: { chunkIndex: true, pageNumber: true, content: true },
-              orderBy: { chunkIndex: 'asc' },
-            });
-            await this.summarize(target, chunks);
-          } catch (error) {
-            await this.markFailed(target, error);
-          }
-        }
+          },
+          select: { chunkIndex: true, pageNumber: true, content: true },
+          orderBy: { chunkIndex: 'asc' },
+        });
+        await this.summarize(target, chunks);
+      } catch (error) {
+        await this.markFailed(target, error);
+      }
+    }
+    return documents.length;
+  }
+
+  private async backfill(): Promise<void> {
+    try {
+      while (this.running) {
+        const processed = await this.runOnce();
+        if (processed === 0) return;
       }
     } catch (error) {
       this.logger.warn('Summary backfill failed', error);
