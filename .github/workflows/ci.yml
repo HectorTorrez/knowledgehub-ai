@@ -9,7 +9,48 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
+env:
+  RAILWAY_ENVIRONMENT_ID: bc8b810c-8b81-47b8-876a-f0192a62edbe
+  IMAGE_REGISTRY: ghcr.io/hectortorrez
+
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared: &shared
+              - packages/**
+              - package.json
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - turbo.json
+              - .npmrc
+              - .nvmrc
+              - .dockerignore
+              - .github/workflows/ci.yml
+              - .github/scripts/**
+            api:
+              - *shared
+              - apps/api/**
+            web:
+              - *shared
+              - apps/web/**
+
   verify:
     name: Lint, typecheck, unit tests, build
     runs-on: ubuntu-latest
@@ -35,6 +76,8 @@ jobs:
 
   e2e:
     name: E2E (Postgres + pgvector)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -47,9 +90,9 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U knowledgehub"
-          --health-interval 10s
+          --health-interval 2s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 15
     env:
       DATABASE_URL: postgresql://knowledgehub:ci-password@127.0.0.1:5432/knowledgehub?schema=public
     steps:
@@ -71,8 +114,22 @@ jobs:
       - run: pnpm --filter @knowledgehub/api test:e2e
 
   web-e2e:
-    name: Web E2E (Playwright)
+    name: Web E2E (Playwright ${{ matrix.shard }}/3)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      PLAYWRIGHT_USE_BUILD: 'true'
+      VITE_API_BASE_URL: http://localhost:3001
+      VITE_SITE_URL: http://localhost:3100
+      VITE_DISABLE_DEVTOOLS: 'true'
+      VITE_DEMO_ENABLED: 'false'
     steps:
       - uses: actions/checkout@v4
 
@@ -85,94 +142,102 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --filter @knowledgehub/web...
 
-      - id: playwright
-        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - run: pnpm --filter @knowledgehub/web... build
+
+      - run: pnpm exec playwright test --shard=${{ matrix.shard }}/3
         working-directory: apps/web
 
-      - uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium
-        working-directory: apps/web
-
-      - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
-        working-directory: apps/web
-
-      - run: pnpm test:e2e
-        working-directory: apps/web
-
-  changes:
-    name: Detect deployable changes
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  image-api:
+    name: Build api image
+    needs: changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
-    outputs:
-      api: ${{ steps.filter.outputs.api }}
-      web: ${{ steps.filter.outputs.web }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dorny/paths-filter@v3
-        id: filter
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
         with:
-          filters: |
-            shared: &shared
-              - packages/**
-              - package.json
-              - pnpm-lock.yaml
-              - pnpm-workspace.yaml
-              - turbo.json
-              - .npmrc
-              - .nvmrc
-              - .dockerignore
-              - .github/workflows/ci.yml
-            api:
-              - *shared
-              - apps/api/**
-            web:
-              - *shared
-              - apps/web/**
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_REGISTRY }}/knowledgehub-api:${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  image-web:
+    name: Build web image
+    needs: changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_REGISTRY }}/knowledgehub-web:${{ github.sha }}
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+            VITE_SITE_URL=${{ vars.VITE_SITE_URL }}
+            VITE_DEMO_ENABLED=${{ vars.VITE_DEMO_ENABLED }}
+            VITE_SENTRY_DSN=${{ vars.VITE_SENTRY_DSN }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
 
   deploy-api:
     name: Deploy api to Railway
-    needs: [verify, e2e, changes]
-    if: needs.changes.outputs.api == 'true'
+    needs: [verify, e2e, image-api]
     runs-on: ubuntu-latest
     environment: production
     concurrency:
       group: railway-api
       cancel-in-progress: true
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
-      - run: npm install --global @railway/cli@5.71.0
-
-      - run: railway up --ci --service api --environment production -m "${{ github.sha }}"
-        timeout-minutes: 20
+      - run: .github/scripts/railway-deploy-image.sh b5775291-ea1b-492c-98ae-ec26a4e84a68 "$IMAGE_REGISTRY/knowledgehub-api:${{ github.sha }}"
+        timeout-minutes: 16
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
   deploy-web:
     name: Deploy web to Railway
-    needs: [verify, web-e2e, changes]
-    if: needs.changes.outputs.web == 'true'
+    needs: [verify, web-e2e, image-web]
     runs-on: ubuntu-latest
     environment: production
     concurrency:
       group: railway-knowledgehub-ai
       cancel-in-progress: true
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
-      - run: npm install --global @railway/cli@5.71.0
-
-      - run: railway up --ci --service knowledgehub-ai --environment production -m "${{ github.sha }}"
-        timeout-minutes: 20
+      - run: .github/scripts/railway-deploy-image.sh 9d13cb79-aa1c-46b0-b15d-a0ec7247bc46 "$IMAGE_REGISTRY/knowledgehub-web:${{ github.sha }}"
+        timeout-minutes: 16
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

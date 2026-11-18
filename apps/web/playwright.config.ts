@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const port = process.env.PLAYWRIGHT_PORT ?? '3100';
+const useProductionBuild = process.env.PLAYWRIGHT_USE_BUILD === 'true';
 
 export default defineConfig({
   testDir: './e2e',
@@ -14,11 +15,14 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: `pnpm dev --port ${port} --strictPort`,
+    command: useProductionBuild
+      ? 'node .output/server/index.mjs'
+      : `pnpm dev --port ${port} --strictPort`,
     url: `http://localhost:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
+      PORT: port,
       VITE_API_BASE_URL: 'http://localhost:3001',
       VITE_SITE_URL: `http://localhost:${port}`,
       VITE_DISABLE_DEVTOOLS: 'true',

@@ -9,6 +9,7 @@ test('requests a reset link from the sign-in page', async ({ page }) => {
   await page.getByRole('link', { name: 'Forgot password?' }).click();
 
   await expect(page).toHaveURL(/\/forgot-password$/);
+  await expect(page.getByLabel('Email')).toBeFocused();
   await page.getByLabel('Email').fill('ada@example.test');
   await page.getByRole('button', { name: 'Send reset link' }).click();
 
