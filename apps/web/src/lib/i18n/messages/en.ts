@@ -1334,7 +1334,6 @@ export const en = {
     updated: 'Source updated. A new version is processing.',
   },
   documentReview: {
-    title: 'Document review',
     owner: 'Document owner',
     unassigned: 'Unassigned',
     dueDate: 'Review date (UTC)',
@@ -1342,17 +1341,14 @@ export const en = {
     never: 'This document has not been marked reviewed.',
     markReviewed: 'Mark reviewed',
     overdue: 'Review overdue',
-    ownerName: 'Owner: {name}',
   },
   documentVersions: {
-    title: 'Document versions',
     replace: 'Replace document',
     choose: 'Choose replacement file',
     uploading: 'Uploading replacement…',
     version: 'Version {generation}',
     outdated:
       'This answer cites version {generation}. A newer version is available.',
-    legacy: 'Older answers without a recorded version open the current file.',
     retention:
       'Verified files are retained until the document is deleted. Reprocessing also creates a new version.',
   },
@@ -1361,32 +1357,35 @@ export const en = {
     pageDescription:
       'Inspect a document, its processing status, and the file it was uploaded from.',
     noCollections: 'No collections',
-    description:
-      'The file, processing state, and metadata behind this document.',
     downloadOriginal: 'Download original',
-    retrying: 'Retrying…',
     originalUnavailable: 'The original file is not available right now.',
-    noFailureDetails:
-      'No failure details were recorded. Delete this document and upload it again.',
     reprocess: 'Reprocess',
     uploadAgain: 'Upload again',
     refreshing:
       'This page refreshes automatically while the document is being processed.',
     details: 'Details',
-    status: 'Status',
     originalFile: 'Original file',
     contentType: 'Content type',
     size: 'Size',
     uploaded: 'Uploaded',
     lastUpdated: 'Last updated',
-    useInAnswers: 'Use this document in answers',
-    useInAnswersDescription:
-      'Ask a question and narrow the scope to this document.',
     loadError: 'Unable to load document',
     reprocessingDescription:
       'This page will refresh when the document moves forward.',
     deletedDescription:
       'The document and everything derived from it were removed.',
+    moreActions: 'More actions',
+    failureCode: 'Error code: {code}',
+    processingTitle: 'Processing this document',
+    viewCurrent: 'View current version',
+    noPreview: 'Preview isn’t available for {type} files',
+    noPreviewHint:
+      'Download the original to open it, or ask a question about its content.',
+    review: 'Review',
+    versions: 'Versions',
+    source: 'Source',
+    currentVersion: 'Current',
+    noVersions: 'No earlier versions yet.',
   },
   askMessages: {
     loadEarlier: 'Load earlier questions',

@@ -1,7 +1,8 @@
 import type { DocumentVersionSummary } from '@knowledgehub/shared-types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useId } from 'react';
+import { Upload } from 'lucide-react';
+import { useRef } from 'react';
 import { replaceDocumentFile } from '~/lib/api/documents';
 import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime } from '~/lib/format';
@@ -11,9 +12,10 @@ import {
   validateUploadFile,
 } from '~/lib/upload-validation';
 import { useReportError } from '~/hooks/use-error-toast';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
+import { DocumentDetailSection } from './document-detail-section';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { cn } from '~/lib/utils';
 
 export function DocumentVersions({
   organizationId,
@@ -32,7 +34,8 @@ export function DocumentVersions({
 }) {
   const t = useT();
   const locale = useLocale();
-  const id = useId();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const viewing = generation ?? currentGeneration;
   const client = useQueryClient();
   const reportError = useReportError();
   const replacement = useMutation({
@@ -65,66 +68,84 @@ export function DocumentVersions({
     onError: (error) => reportError(error),
   });
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('documentVersions.title')}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {generation !== undefined &&
-        currentGeneration !== undefined &&
-        generation < currentGeneration ? (
-          <p role="status" className="rounded-md border p-3 text-sm">
-            {t('documentVersions.outdated', { generation })}
-          </p>
-        ) : null}
-        <ul className="flex flex-wrap gap-3">
-          {versions.map((version) => (
-            <li key={version.generation} className="text-sm">
-              <Link
-                className="text-brand underline"
-                to="/organizations/$organizationId/documents/$documentId"
-                params={{ organizationId, documentId }}
-                search={{ generation: version.generation }}
+    <DocumentDetailSection title={t('documentDetail.versions')}>
+      {versions.length > 0 ? (
+        <ol className="space-y-1">
+          {versions.map((version) => {
+            const isCurrent = version.generation === currentGeneration;
+            const isViewing = version.generation === viewing;
+            return (
+              <li
+                key={version.generation}
+                className={cn(
+                  'relative -mx-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted',
+                  isViewing && 'bg-muted',
+                )}
               >
-                {t('documentVersions.version', {
-                  generation: version.generation,
-                })}
-              </Link>
-              <p className="text-xs text-muted-foreground">
-                {version.originalFileName} ·{' '}
-                {formatDateTime(version.createdAt, locale)}
-              </p>
-            </li>
-          ))}
-        </ul>
-        <p className="text-xs text-muted-foreground">
-          {t('documentVersions.retention')}
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <Link
+                    className="after:absolute after:inset-0 after:rounded-md focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                    to="/organizations/$organizationId/documents/$documentId"
+                    params={{ organizationId, documentId }}
+                    search={isCurrent ? {} : { generation: version.generation }}
+                    aria-current={isViewing ? 'page' : undefined}
+                  >
+                    {t('documentVersions.version', {
+                      generation: version.generation,
+                    })}
+                  </Link>
+                  {isCurrent ? (
+                    <Badge variant="secondary">
+                      {t('documentDetail.currentVersion')}
+                    </Badge>
+                  ) : null}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {version.originalFileName} ·{' '}
+                  {formatDateTime(version.createdAt, locale)}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {t('documentDetail.noVersions')}
         </p>
-        <p className="text-xs text-muted-foreground">
-          {t('documentVersions.legacy')}
-        </p>
-        {canReplace ? (
-          <div className="space-y-2">
-            <Label htmlFor={id}>{t('documentVersions.choose')}</Label>
-            <Input
-              id={id}
-              type="file"
-              accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.txt,.md,.markdown"
-              disabled={replacement.isPending}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                if (file) replacement.mutate(file);
-              }}
-            />
-          </div>
-        ) : null}
-        {replacement.isPending ? (
-          <p role="status" className="text-sm">
-            {t('documentVersions.uploading')}
-          </p>
-        ) : null}
-      </CardContent>
-    </Card>
+      )}
+      {canReplace ? (
+        <>
+          <input
+            ref={fileInput}
+            type="file"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label={t('documentVersions.choose')}
+            accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.txt,.md,.markdown"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) replacement.mutate(file);
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={replacement.isPending}
+            onClick={() => fileInput.current?.click()}
+          >
+            <Upload />
+            {replacement.isPending
+              ? t('documentVersions.uploading')
+              : t('documentVersions.replace')}
+          </Button>
+        </>
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        {t('documentVersions.retention')}
+      </p>
+    </DocumentDetailSection>
   );
 }

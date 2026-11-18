@@ -1,39 +1,34 @@
-import { DocumentReviewEditor } from '~/components/document-review';
-import { RefreshDocumentSource } from '~/components/refresh-document-source';
-import { DocumentVersions } from '~/components/document-versions';
-import type { DocumentDetailResponse } from '@knowledgehub/shared-types';
-import { CollectionBadges } from '~/components/collections-manager';
-import { DocumentMultiSelect } from '~/components/document-multi-select';
-import { collectionsApi } from '~/lib/api/collections';
-import {
-  canPreviewDocument,
-  documentContentTypeLabel,
-  documentFailureMessage,
-} from '~/lib/document-display';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowLeft,
-  ExternalLink,
-  FileText,
+  Download,
+  Eye,
+  History,
+  MessageSquare,
+  MoreHorizontal,
   Pencil,
   RotateCcw,
   Trash2,
+  TriangleAlert,
 } from 'lucide-react';
-import {
-  useEffect,
-  useState,
-  type FormEvent,
-  type MouseEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useState, type FormEvent, type MouseEvent } from 'react';
 import { ContractTotalsCard } from '~/components/contract-totals-card';
-import { DocumentViewer } from '~/components/document-viewer';
+import { DocumentCollections } from '~/components/document-collections';
+import {
+  DocumentDetailRow,
+  DocumentDetailSection,
+} from '~/components/document-detail-section';
 import { DocumentProgress } from '~/components/document-progress';
-import { documentFailureGuidance } from '~/lib/document-display';
+import {
+  DocumentReviewBadge,
+  DocumentReviewEditor,
+} from '~/components/document-review';
 import { DocumentStatusBadge } from '~/components/document-status-badge';
-import { PageHeader } from '~/components/page-header';
-import { Button, buttonVariants } from '~/components/ui/button';
+import { DocumentVersions } from '~/components/document-versions';
+import { DocumentViewer } from '~/components/document-viewer';
+import { RefreshDocumentSource } from '~/components/refresh-document-source';
+import { RouteError } from '~/components/route-states';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '~/components/ui/alert-dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Button, buttonVariants } from '~/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -53,17 +48,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Skeleton } from '~/components/ui/skeleton';
-import { RouteError } from '~/components/route-states';
 import { useToast } from '~/components/ui/toast';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
+import { documentsApi } from '~/lib/api/documents';
+import { organizationsApi } from '~/lib/api/organizations';
+import { queryKeys } from '~/lib/api/query-keys';
+import {
+  canPreviewDocument,
+  documentContentTypeIcon,
+  documentContentTypeLabel,
+  documentFailureGuidance,
+} from '~/lib/document-display';
 import { useTrackDocument } from '~/lib/document-notifications';
 import { pollingInterval } from '~/lib/document-polling';
-import { documentsApi } from '~/lib/api/documents';
-import { queryKeys } from '~/lib/api/query-keys';
-import { organizationsApi } from '~/lib/api/organizations';
 import { formatBytes, formatDateTime } from '~/lib/format';
 import { useLocale, useT } from '~/lib/i18n/hooks';
 import { createTranslator } from '~/lib/i18n/translate';
@@ -149,53 +156,6 @@ function DocumentDetailPage() {
       trackDocument(document.data.document.id);
     }
   }, [document.data, trackDocument]);
-  const collections = useQuery({
-    queryKey: queryKeys.organizations.collections(organizationId),
-    queryFn: () => collectionsApi.list(organizationId),
-  });
-  const assignment = useMutation({
-    mutationFn: (ids: string[]) =>
-      collectionsApi.setDocumentCollections(organizationId, documentId, ids),
-    onMutate: async (ids) => {
-      const key = queryKeys.organizations.documents.detail(
-        organizationId,
-        documentId,
-      );
-      await client.cancelQueries({ queryKey: key });
-      const previous = client.getQueryData<DocumentDetailResponse>(key);
-      client.setQueryData<DocumentDetailResponse>(key, (current) =>
-        current
-          ? {
-              ...current,
-              document: {
-                ...current.document,
-                collections: (collections.data ?? []).filter((item) =>
-                  ids.includes(item.id),
-                ),
-              },
-            }
-          : current,
-      );
-      return { previous };
-    },
-    onError: (error, _ids, context) => {
-      client.setQueryData(
-        queryKeys.organizations.documents.detail(organizationId, documentId),
-        context?.previous,
-      );
-      reportError(error);
-    },
-    onSettled: async () => {
-      await Promise.all([
-        client.invalidateQueries({
-          queryKey: queryKeys.organizations.documents.all(organizationId),
-        }),
-        client.invalidateQueries({
-          queryKey: queryKeys.organizations.collections(organizationId),
-        }),
-      ]);
-    },
-  });
   useQueryErrorToast(document.error, () => void document.refetch());
 
   const { page, quote, generation } = Route.useSearch();
@@ -364,9 +324,18 @@ function DocumentDetailPage() {
   if (document.isPending) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-10 w-72" />
-        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-5 w-32" />
+        <div className="flex items-start gap-4">
+          <Skeleton className="size-12 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-72" />
+            <Skeleton className="h-4 w-56" />
+          </div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <Skeleton className="h-[32rem] w-full rounded-xl" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -384,243 +353,318 @@ function DocumentDetailPage() {
   }
 
   const entry = document.data.document;
+  const TypeIcon = documentContentTypeIcon(entry.contentType);
+  const isReady = entry.status === 'READY';
+  const failure =
+    entry.status === 'FAILED'
+      ? documentFailureGuidance(entry.failureReason, t)
+      : null;
+  const viewingOlderVersion =
+    generation !== undefined &&
+    entry.generation !== undefined &&
+    generation < entry.generation;
+  const previewable = canPreviewDocument(previewContentType);
+  const metadata = [
+    documentContentTypeLabel(entry.contentType, t),
+    entry.sizeBytes === null ? null : formatBytes(entry.sizeBytes, locale),
+    entry.generation === undefined
+      ? null
+      : t('documentVersions.version', { generation: entry.generation }),
+  ].filter((item): item is string => item !== null);
 
   return (
     <div className="space-y-6">
       <BackLink organizationId={organizationId} />
 
-      <div className="space-y-2">
-        <CollectionBadges collections={entry.collections ?? []} />
-        {canWrite ? (
-          <DocumentMultiSelect
-            disabled={assignment.isPending}
-            label={t('search.collections')}
-            emptyLabel={t('documentDetail.noCollections')}
-            documents={(collections.data ?? []).map((item) => ({
-              id: item.id,
-              title: item.name,
-            }))}
-            selectedIds={(entry.collections ?? []).map((item) => item.id)}
-            onChange={(ids) => assignment.mutate(ids)}
-          />
-        ) : null}
-      </div>
-      {entry.sourceUrl ? (
-        <RefreshDocumentSource
-          organizationId={organizationId}
-          documentId={documentId}
-          checkedAt={entry.sourceCheckedAt}
-          canRefresh={canWrite && entry.status === 'READY'}
-        />
-      ) : null}
-      {entry.sourceUrl ? (
-        <a
-          href={entry.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm text-muted-foreground underline"
-        >
-          {t('documents.importedFrom', {
-            hostname: new URL(entry.sourceUrl).hostname,
-          })}
-        </a>
-      ) : null}
-      <PageHeader
-        title={entry.title}
-        description={t('documentDetail.description')}
-        eyebrow={<DocumentStatusBadge status={entry.status} />}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            {download.data ? (
-              <Button variant="outline" asChild>
-                <a
-                  href={withPage(download.data.url, page)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(event) => void openOriginal(event)}
-                >
-                  <ExternalLink />
-                  {t('documentDetail.downloadOriginal')}
-                </a>
-              </Button>
-            ) : null}
-            {canWrite && entry.status === 'FAILED' ? (
-              <Button
-                variant="outline"
-                disabled={reprocess.isPending}
-                onClick={() => reprocess.mutate()}
-              >
-                <RotateCcw />
-                {reprocess.isPending
-                  ? t('documentDetail.retrying')
-                  : t('documents.retryProcessing')}
-              </Button>
-            ) : null}
-            {canWrite ? (
-              <Button variant="outline" onClick={openRename}>
-                <Pencil />
-                {t('documents.rename')}
-              </Button>
-            ) : null}
-            {canDelete ? (
-              <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-                <Trash2 />
-                {t('documents.delete')}
-              </Button>
-            ) : null}
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="hidden size-12 shrink-0 items-center justify-center rounded-lg border bg-muted/40 sm:flex">
+            <TypeIcon className="size-5 text-muted-foreground" />
           </div>
-        }
-      />
-
-      <DocumentReviewEditor
-        key={`${entry.id}-${entry.updatedAt}`}
-        organizationId={organizationId}
-        document={entry}
-        canWrite={canWrite}
-      />
-      <DocumentVersions
-        organizationId={organizationId}
-        documentId={documentId}
-        generation={generation}
-        currentGeneration={entry.generation}
-        versions={versions.data?.versions ?? []}
-        canReplace={canWrite && entry.status === 'READY'}
-      />
-      {originalAvailable && download.isError ? (
-        <p className="text-sm text-muted-foreground">
-          {t('documentDetail.originalUnavailable')}{' '}
-          <button
-            type="button"
-            className="font-medium underline underline-offset-4"
-            onClick={() => void download.refetch()}
-          >
-            {t('common.tryAgain')}
-          </button>
-        </p>
-      ) : null}
-
-      {download.data && canPreviewDocument(previewContentType) ? (
-        <DocumentViewer
-          key={download.dataUpdatedAt}
-          url={download.data.url}
-          contentType={previewContentType}
-          page={page}
-          quote={quote}
-          onRetry={() => void download.refetch()}
-        />
-      ) : null}
-
-      {entry.status === 'FAILED' ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
-          <p className="font-medium text-destructive">
-            {documentFailureGuidance(entry.failureReason, t).title}
-          </p>
-          <p className="mt-1 text-muted-foreground">
-            {documentFailureMessage(entry.failureReason, t) ??
-              t('documentDetail.noFailureDetails')}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {canWrite ? (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => reprocess.mutate()}
-                  disabled={reprocess.isPending}
-                >
-                  {t('documentDetail.reprocess')}
-                </Button>
-                <Link
-                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                  to="/organizations/$organizationId/documents"
-                  params={{ organizationId }}
-                  hash="upload"
-                >
-                  {t('documentDetail.uploadAgain')}
-                </Link>
-              </>
-            ) : null}
-            {canDelete ? (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setDeleteOpen(true)}
-              >
-                {t('documents.delete')}
-              </Button>
-            ) : null}
+          <div className="min-w-0 space-y-2">
+            <h1 className="text-2xl font-semibold tracking-tight break-words">
+              {entry.title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
+              <DocumentStatusBadge status={entry.status} />
+              <DocumentReviewBadge review={entry.review} />
+              {metadata.map((item, index) => (
+                <span key={item} className="flex items-center gap-3">
+                  {index > 0 ? (
+                    <span aria-hidden className="text-border">
+                      •
+                    </span>
+                  ) : null}
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
-      ) : null}
-
-      <DocumentProgress document={entry} detailed />
-      {ACTIVE_STATUSES.has(entry.status) ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          {t('documentDetail.refreshing')}
-        </p>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="size-4 text-muted-foreground" />
-            {t('documentDetail.details')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <DetailItem label={t('documentDetail.status')}>
-              <DocumentStatusBadge status={entry.status} />
-            </DetailItem>
-            <DetailItem label={t('documentDetail.originalFile')}>
-              {entry.originalFileName ?? t('documents.uploadPending')}
-            </DetailItem>
-            <DetailItem label={t('documentDetail.contentType')}>
-              {documentContentTypeLabel(entry.contentType, t)}
-            </DetailItem>
-            <DetailItem label={t('documentDetail.size')}>
-              {entry.sizeBytes === null
-                ? '—'
-                : formatBytes(entry.sizeBytes, locale)}
-            </DetailItem>
-            <DetailItem label={t('documentDetail.uploaded')}>
-              {formatDateTime(entry.createdAt, locale)}
-            </DetailItem>
-            <DetailItem label={t('documentDetail.lastUpdated')}>
-              {formatDateTime(entry.updatedAt, locale)}
-            </DetailItem>
-          </dl>
-        </CardContent>
-      </Card>
-
-      {entry.status === 'READY' ? (
-        <Card>
-          <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">
-                {t('documentDetail.useInAnswers')}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {t('documentDetail.useInAnswersDescription')}
-              </p>
-            </div>
-            <Button asChild variant="outline">
+        <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap">
+          {isReady ? (
+            <Button asChild>
               <Link
                 to="/organizations/$organizationId/ask"
                 params={{ organizationId }}
+                search={{ documentId }}
               >
+                <MessageSquare />
                 {t('search.askAboutDocument')}
               </Link>
             </Button>
-          </CardContent>
-        </Card>
-      ) : null}
+          ) : null}
+          {download.data ? (
+            <Button variant="outline" asChild>
+              <a
+                href={withPage(download.data.url, page)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => void openOriginal(event)}
+              >
+                <Download />
+                {t('documentDetail.downloadOriginal')}
+              </a>
+            </Button>
+          ) : null}
+          {canWrite || canDelete ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={t('documentDetail.moreActions')}
+                >
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {canWrite ? (
+                  <DropdownMenuItem onSelect={openRename}>
+                    <Pencil />
+                    {t('documents.rename')}
+                  </DropdownMenuItem>
+                ) : null}
+                {canWrite && canDelete ? <DropdownMenuSeparator /> : null}
+                {canDelete ? (
+                  <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    onSelect={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 />
+                    {t('documents.delete')}
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
+      </header>
 
-      {entry.status === 'READY' ? (
-        <ContractTotalsCard
-          organizationId={organizationId}
-          documentId={documentId}
-        />
-      ) : null}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="min-w-0 space-y-4">
+          {failure ? (
+            <div
+              role="alert"
+              className="flex gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+            >
+              <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="font-medium text-destructive">{failure.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  {failure.description}
+                </p>
+                {entry.failureReason ? (
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {t('documentDetail.failureCode', {
+                      code: entry.failureReason,
+                    })}
+                  </p>
+                ) : null}
+                {canWrite || canDelete ? (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {canWrite ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant={
+                            failure.action === 'reprocess'
+                              ? 'default'
+                              : 'outline'
+                          }
+                          onClick={() => reprocess.mutate()}
+                          disabled={reprocess.isPending}
+                        >
+                          <RotateCcw />
+                          {t('documentDetail.reprocess')}
+                        </Button>
+                        <Link
+                          className={buttonVariants({
+                            variant:
+                              failure.action === 'replace'
+                                ? 'default'
+                                : 'outline',
+                            size: 'sm',
+                          })}
+                          to="/organizations/$organizationId/documents"
+                          params={{ organizationId }}
+                          hash="upload"
+                        >
+                          {t('documentDetail.uploadAgain')}
+                        </Link>
+                      </>
+                    ) : null}
+                    {canDelete ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        {t('documents.delete')}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {ACTIVE_STATUSES.has(entry.status) ? (
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-sm font-medium">
+                {t('documentDetail.processingTitle')}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {t('documentDetail.refreshing')}
+              </p>
+              <DocumentProgress document={entry} detailed />
+            </div>
+          ) : null}
+
+          {viewingOlderVersion ? (
+            <div
+              role="status"
+              className="flex flex-col gap-3 rounded-xl border border-info/30 bg-info/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p className="flex items-center gap-2">
+                <History className="size-4 shrink-0 text-info" />
+                {t('documentVersions.outdated', { generation })}
+              </p>
+              <Link
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                to="/organizations/$organizationId/documents/$documentId"
+                params={{ organizationId, documentId }}
+              >
+                {t('documentDetail.viewCurrent')}
+              </Link>
+            </div>
+          ) : null}
+
+          {originalAvailable && download.isError ? (
+            <p className="rounded-xl border p-4 text-sm text-muted-foreground">
+              {t('documentDetail.originalUnavailable')}{' '}
+              <button
+                type="button"
+                className="font-medium text-foreground underline underline-offset-4"
+                onClick={() => void download.refetch()}
+              >
+                {t('common.tryAgain')}
+              </button>
+            </p>
+          ) : null}
+
+          {download.data && previewable ? (
+            <DocumentViewer
+              key={download.dataUpdatedAt}
+              url={download.data.url}
+              contentType={previewContentType}
+              page={page}
+              quote={quote}
+              onRetry={() => void download.refetch()}
+            />
+          ) : null}
+
+          {download.data && !previewable ? (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-14 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                <Eye className="size-5 text-muted-foreground" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium">
+                  {t('documentDetail.noPreview', {
+                    type: documentContentTypeLabel(previewContentType, t),
+                  })}
+                </p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  {t('documentDetail.noPreviewHint')}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {isReady ? (
+            <ContractTotalsCard
+              organizationId={organizationId}
+              documentId={documentId}
+            />
+          ) : null}
+        </div>
+
+        <aside className="divide-y rounded-xl border bg-card">
+          <DocumentDetailSection title={t('documentDetail.details')}>
+            <dl className="space-y-2">
+              <DocumentDetailRow label={t('documentDetail.originalFile')}>
+                <span title={entry.originalFileName ?? undefined}>
+                  {entry.originalFileName ?? t('documents.uploadPending')}
+                </span>
+              </DocumentDetailRow>
+              <DocumentDetailRow label={t('documentDetail.contentType')}>
+                {documentContentTypeLabel(entry.contentType, t)}
+              </DocumentDetailRow>
+              <DocumentDetailRow label={t('documentDetail.size')}>
+                {entry.sizeBytes === null
+                  ? '—'
+                  : formatBytes(entry.sizeBytes, locale)}
+              </DocumentDetailRow>
+              <DocumentDetailRow label={t('documentDetail.uploaded')}>
+                {formatDateTime(entry.createdAt, locale)}
+              </DocumentDetailRow>
+              <DocumentDetailRow label={t('documentDetail.lastUpdated')}>
+                {formatDateTime(entry.updatedAt, locale)}
+              </DocumentDetailRow>
+            </dl>
+          </DocumentDetailSection>
+          <DocumentCollections
+            organizationId={organizationId}
+            document={entry}
+            canWrite={canWrite}
+          />
+          {entry.sourceUrl ? (
+            <RefreshDocumentSource
+              organizationId={organizationId}
+              documentId={documentId}
+              sourceUrl={entry.sourceUrl}
+              checkedAt={entry.sourceCheckedAt}
+              canRefresh={canWrite && isReady}
+            />
+          ) : null}
+          <DocumentReviewEditor
+            key={`${entry.id}-${entry.updatedAt}`}
+            organizationId={organizationId}
+            document={entry}
+            canWrite={canWrite}
+          />
+          <DocumentVersions
+            organizationId={organizationId}
+            documentId={documentId}
+            generation={generation}
+            currentGeneration={entry.generation}
+            versions={versions.data?.versions ?? []}
+            canReplace={canWrite && isReady}
+          />
+        </aside>
+      </div>
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent className="sm:max-w-md">
@@ -704,16 +748,4 @@ function BackLink({ organizationId }: Readonly<{ organizationId: string }>) {
 
 function withPage(url: string, page?: number): string {
   return page === undefined ? url : `${url}#page=${page}`;
-}
-
-function DetailItem({
-  label,
-  children,
-}: Readonly<{ label: string; children: ReactNode }>) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm font-medium">{children}</dd>
-    </div>
-  );
 }

@@ -10,9 +10,12 @@ import { queryKeys } from '~/lib/api/query-keys';
 import { formatDateTime } from '~/lib/format';
 import { useLocale, useT } from '~/lib/i18n/hooks';
 import { useQueryErrorToast, useReportError } from '~/hooks/use-error-toast';
+import {
+  DocumentDetailRow,
+  DocumentDetailSection,
+} from './document-detail-section';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
@@ -66,98 +69,90 @@ export function DocumentReviewEditor({
       ]),
     onError: (error) => reportError(error),
   });
+  const review = document.review;
+  const ownerName = review?.owner
+    ? `${review.owner.firstName} ${review.owner.lastName}`
+    : t('documentReview.unassigned');
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('documentReview.title')}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <DocumentReviewBadge review={document.review} />
-        <p className="text-sm text-muted-foreground">
-          {document.review?.lastReviewedAt
-            ? t('documentReview.reviewed', {
-                date: formatDateTime(document.review.lastReviewedAt, locale),
-              })
-            : t('documentReview.never')}
-        </p>
-        {canWrite ? (
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              update.mutate(false);
-            }}
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label htmlFor={`${id}-owner`}>
-                  {t('documentReview.owner')}
-                </Label>
-                <select
-                  id={`${id}-owner`}
-                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
-                  value={ownerId}
-                  onChange={(event) => setOwnerId(event.target.value)}
-                >
-                  <option value="">{t('documentReview.unassigned')}</option>
-                  {members.data?.members.map((member) => (
-                    <option key={member.userId} value={member.userId}>
-                      {member.firstName} {member.lastName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor={`${id}-date`}>
-                  {t('documentReview.dueDate')}
-                </Label>
-                <Input
-                  id={`${id}-date`}
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                type="submit"
-                disabled={
-                  update.isPending || members.isPending || members.isError
-                }
-              >
-                {t('common.save')}
-              </Button>
-              <Button
-                size="sm"
-                type="button"
-                variant="outline"
-                disabled={
-                  update.isPending ||
-                  document.status !== 'READY' ||
-                  members.isPending ||
-                  members.isError
-                }
-                onClick={() => update.mutate(true)}
-              >
-                {t('documentReview.markReviewed')}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <p className="text-sm">
-            {document.review?.owner
-              ? t('documentReview.ownerName', {
-                  name: `${document.review.owner.firstName} ${document.review.owner.lastName}`,
-                })
-              : t('documentReview.unassigned')}
-            {document.review?.dueDate
-              ? ` · ${document.review.dueDate} UTC`
-              : ''}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <DocumentDetailSection title={t('documentDetail.review')}>
+      <p className="text-xs text-muted-foreground">
+        {review?.lastReviewedAt
+          ? t('documentReview.reviewed', {
+              date: formatDateTime(review.lastReviewedAt, locale),
+            })
+          : t('documentReview.never')}
+      </p>
+      {canWrite ? (
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            update.mutate(false);
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-owner`}>{t('documentReview.owner')}</Label>
+            <select
+              id={`${id}-owner`}
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              value={ownerId}
+              onChange={(event) => setOwnerId(event.target.value)}
+            >
+              <option value="">{t('documentReview.unassigned')}</option>
+              {members.data?.members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.firstName} {member.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-date`}>{t('documentReview.dueDate')}</Label>
+            <Input
+              id={`${id}-date`}
+              type="date"
+              className="h-10"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              type="submit"
+              disabled={
+                update.isPending || members.isPending || members.isError
+              }
+            >
+              {t('common.save')}
+            </Button>
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              disabled={
+                update.isPending ||
+                document.status !== 'READY' ||
+                members.isPending ||
+                members.isError
+              }
+              onClick={() => update.mutate(true)}
+            >
+              {t('documentReview.markReviewed')}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <dl className="space-y-2">
+          <DocumentDetailRow label={t('documentReview.owner')}>
+            {ownerName}
+          </DocumentDetailRow>
+          <DocumentDetailRow label={t('documentReview.dueDate')}>
+            {review?.dueDate ?? '—'}
+          </DocumentDetailRow>
+        </dl>
+      )}
+    </DocumentDetailSection>
   );
 }

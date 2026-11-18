@@ -1362,7 +1362,6 @@ export const es: Messages = {
     updated: 'Fuente actualizada. Se está procesando una nueva versión.',
   },
   documentReview: {
-    title: 'Revisión del documento',
     owner: 'Responsable del documento',
     unassigned: 'Sin asignar',
     dueDate: 'Fecha de revisión (UTC)',
@@ -1370,18 +1369,14 @@ export const es: Messages = {
     never: 'Este documento todavía no se ha marcado como revisado.',
     markReviewed: 'Marcar como revisado',
     overdue: 'Revisión vencida',
-    ownerName: 'Responsable: {name}',
   },
   documentVersions: {
-    title: 'Versiones del documento',
     replace: 'Reemplazar documento',
     choose: 'Selecciona el archivo de reemplazo',
     uploading: 'Subiendo reemplazo…',
     version: 'Versión {generation}',
     outdated:
       'Esta respuesta cita la versión {generation}. Hay una versión más reciente.',
-    legacy:
-      'Las respuestas antiguas sin versión registrada abren el archivo actual.',
     retention:
       'Los archivos verificados se conservan hasta eliminar el documento. Reprocesar también crea una nueva versión.',
   },
@@ -1390,32 +1385,35 @@ export const es: Messages = {
     pageDescription:
       'Revisa un documento, su estado de procesamiento y el archivo del que se subió.',
     noCollections: 'Sin colecciones',
-    description:
-      'El archivo, el estado de procesamiento y los metadatos de este documento.',
     downloadOriginal: 'Descargar original',
-    retrying: 'Reintentando…',
     originalUnavailable:
       'El archivo original no está disponible en este momento.',
-    noFailureDetails:
-      'No se registraron detalles del fallo. Elimina este documento y vuelve a subirlo.',
     reprocess: 'Volver a procesar',
     uploadAgain: 'Subir de nuevo',
     refreshing:
       'Esta página se actualiza automáticamente mientras el documento se procesa.',
     details: 'Detalles',
-    status: 'Estado',
     originalFile: 'Archivo original',
     contentType: 'Tipo de contenido',
     size: 'Tamaño',
     uploaded: 'Subido',
     lastUpdated: 'Última actualización',
-    useInAnswers: 'Usa este documento en las respuestas',
-    useInAnswersDescription:
-      'Haz una pregunta y limita el alcance a este documento.',
     loadError: 'No se pudo cargar el documento',
     reprocessingDescription:
       'Esta página se actualizará cuando el documento avance.',
     deletedDescription: 'Se eliminaron el documento y todo lo derivado de él.',
+    moreActions: 'Más acciones',
+    failureCode: 'Código de error: {code}',
+    processingTitle: 'Procesando este documento',
+    viewCurrent: 'Ver versión actual',
+    noPreview: 'La vista previa no está disponible para archivos {type}',
+    noPreviewHint:
+      'Descarga el original para abrirlo o haz una pregunta sobre su contenido.',
+    review: 'Revisión',
+    versions: 'Versiones',
+    source: 'Fuente',
+    currentVersion: 'Actual',
+    noVersions: 'Todavía no hay versiones anteriores.',
   },
   askMessages: {
     loadEarlier: 'Cargar preguntas anteriores',
