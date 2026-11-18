@@ -572,6 +572,11 @@ function AskPage() {
                   <Button
                     variant="ghost"
                     disabled={conversationPrint.preparing}
+                    aria-label={
+                      conversationPrint.preparing
+                        ? t('ask.exportPreparing')
+                        : t('ask.exportConversation')
+                    }
                   >
                     {conversationPrint.preparing ? (
                       <Spinner />

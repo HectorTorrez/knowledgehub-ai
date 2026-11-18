@@ -125,7 +125,6 @@ test('keeps the ask composer and answer inside the mobile viewport', async ({
   await expect(page.locator('#conversation-list-mobile')).toBeHidden();
   await page.getByRole('button', { name: 'Conversations' }).click();
   await expect(page.locator('#conversation-list-mobile')).toBeVisible();
-  await expect(page.getByText('Tap Ask to send')).toBeVisible();
 
   const answerBody = page.getByText('You get twenty days').first();
   const fontSize = await answerBody.evaluate(

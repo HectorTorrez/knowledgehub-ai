@@ -131,7 +131,12 @@ export function DocumentBulkActions({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" disabled={working}>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={working}
+            aria-label={t('bulkDocuments.addToCollection')}
+          >
             <FolderPlus />
             <span className="hidden sm:inline">
               {t('bulkDocuments.addToCollection')}
@@ -162,6 +167,7 @@ export function DocumentBulkActions({
             variant="ghost"
             size="sm"
             disabled={working || members.isPending || members.isError}
+            aria-label={t('bulkDocuments.assignOwner')}
           >
             <UserRound />
             <span className="hidden sm:inline">
@@ -194,6 +200,7 @@ export function DocumentBulkActions({
         size="sm"
         disabled={working}
         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        aria-label={t('bulkDocuments.delete')}
         onClick={() => setConfirmDelete(true)}
       >
         <Trash2 />

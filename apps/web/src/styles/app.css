@@ -530,3 +530,9 @@
     break-inside: avoid;
   }
 }
+
+@media (width < 48rem) {
+  html:has([data-mobile-bottom-nav]) {
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}

@@ -8,144 +8,144 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as IndexRouteImport } from './routes/index';
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated';
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password';
-import { Route as InviteRouteImport } from './routes/invite';
-import { Route as LoginRouteImport } from './routes/login';
-import { Route as RegisterRouteImport } from './routes/register';
-import { Route as ResetPasswordRouteImport } from './routes/reset-password';
-import { Route as SecurityRouteImport } from './routes/security';
-import { Route as VerifyEmailRouteImport } from './routes/verify-email';
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings';
-import { Route as AuthenticatedShareRouteImport } from './routes/_authenticated/share';
-import { Route as AuthenticatedInvitationsAcceptRouteImport } from './routes/_authenticated/invitations.accept';
-import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations.index';
-import { Route as AuthenticatedOrganizationsOrganizationIdRouteImport } from './routes/_authenticated/organizations.$organizationId';
-import { Route as AuthenticatedOrganizationsOrganizationIdIndexRouteImport } from './routes/_authenticated/organizations.$organizationId.index';
-import { Route as AuthenticatedOrganizationsOrganizationIdAskRouteImport } from './routes/_authenticated/organizations.$organizationId.ask';
-import { Route as AuthenticatedOrganizationsOrganizationIdAuditLogRouteImport } from './routes/_authenticated/organizations.$organizationId.audit-log';
-import { Route as AuthenticatedOrganizationsOrganizationIdDocumentsRouteImport } from './routes/_authenticated/organizations.$organizationId.documents';
-import { Route as AuthenticatedOrganizationsOrganizationIdInsightsRouteImport } from './routes/_authenticated/organizations.$organizationId.insights';
-import { Route as AuthenticatedOrganizationsOrganizationIdSearchRouteImport } from './routes/_authenticated/organizations.$organizationId.search';
-import { Route as AuthenticatedOrganizationsOrganizationIdSettingsRouteImport } from './routes/_authenticated/organizations.$organizationId.settings';
-import { Route as AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRouteImport } from './routes/_authenticated/organizations.$organizationId.documents_.$documentId';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as InviteRouteImport } from './routes/invite'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SecurityRouteImport } from './routes/security'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedShareRouteImport } from './routes/_authenticated/share'
+import { Route as AuthenticatedInvitationsAcceptRouteImport } from './routes/_authenticated/invitations.accept'
+import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations.index'
+import { Route as AuthenticatedOrganizationsOrganizationIdRouteImport } from './routes/_authenticated/organizations.$organizationId'
+import { Route as AuthenticatedOrganizationsOrganizationIdIndexRouteImport } from './routes/_authenticated/organizations.$organizationId.index'
+import { Route as AuthenticatedOrganizationsOrganizationIdAskRouteImport } from './routes/_authenticated/organizations.$organizationId.ask'
+import { Route as AuthenticatedOrganizationsOrganizationIdAuditLogRouteImport } from './routes/_authenticated/organizations.$organizationId.audit-log'
+import { Route as AuthenticatedOrganizationsOrganizationIdDocumentsRouteImport } from './routes/_authenticated/organizations.$organizationId.documents'
+import { Route as AuthenticatedOrganizationsOrganizationIdInsightsRouteImport } from './routes/_authenticated/organizations.$organizationId.insights'
+import { Route as AuthenticatedOrganizationsOrganizationIdSearchRouteImport } from './routes/_authenticated/organizations.$organizationId.search'
+import { Route as AuthenticatedOrganizationsOrganizationIdSettingsRouteImport } from './routes/_authenticated/organizations.$organizationId.settings'
+import { Route as AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRouteImport } from './routes/_authenticated/organizations.$organizationId.documents_.$documentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const InviteRoute = InviteRouteImport.update({
   id: '/invite',
   path: '/invite',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const SecurityRoute = SecurityRouteImport.update({
   id: '/security',
   path: '/security',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
-} as any);
+} as any)
 const AuthenticatedShareRoute = AuthenticatedShareRouteImport.update({
   id: '/share',
   path: '/share',
   getParentRoute: () => AuthenticatedRoute,
-} as any);
+} as any)
 const AuthenticatedInvitationsAcceptRoute =
   AuthenticatedInvitationsAcceptRouteImport.update({
     id: '/invitations/accept',
     path: '/invitations/accept',
     getParentRoute: () => AuthenticatedRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsIndexRoute =
   AuthenticatedOrganizationsIndexRouteImport.update({
     id: '/organizations/',
     path: '/organizations/',
     getParentRoute: () => AuthenticatedRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdRoute =
   AuthenticatedOrganizationsOrganizationIdRouteImport.update({
     id: '/organizations/$organizationId',
     path: '/organizations/$organizationId',
     getParentRoute: () => AuthenticatedRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdIndexRoute =
   AuthenticatedOrganizationsOrganizationIdIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdAskRoute =
   AuthenticatedOrganizationsOrganizationIdAskRouteImport.update({
     id: '/ask',
     path: '/ask',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdAuditLogRoute =
   AuthenticatedOrganizationsOrganizationIdAuditLogRouteImport.update({
     id: '/audit-log',
     path: '/audit-log',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdDocumentsRoute =
   AuthenticatedOrganizationsOrganizationIdDocumentsRouteImport.update({
     id: '/documents',
     path: '/documents',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdInsightsRoute =
   AuthenticatedOrganizationsOrganizationIdInsightsRouteImport.update({
     id: '/insights',
     path: '/insights',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdSearchRoute =
   AuthenticatedOrganizationsOrganizationIdSearchRouteImport.update({
     id: '/search',
     path: '/search',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdSettingsRoute =
   AuthenticatedOrganizationsOrganizationIdSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
     getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
-  } as any);
+  } as any)
 const AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute =
   AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRouteImport.update(
     {
@@ -153,80 +153,80 @@ const AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute =
       path: '/documents/$documentId',
       getParentRoute: () => AuthenticatedOrganizationsOrganizationIdRoute,
     } as any,
-  );
+  )
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute;
-  '/forgot-password': typeof ForgotPasswordRoute;
-  '/invite': typeof InviteRoute;
-  '/login': typeof LoginRoute;
-  '/register': typeof RegisterRoute;
-  '/reset-password': typeof ResetPasswordRoute;
-  '/security': typeof SecurityRoute;
-  '/verify-email': typeof VerifyEmailRoute;
-  '/settings': typeof AuthenticatedSettingsRoute;
-  '/share': typeof AuthenticatedShareRoute;
-  '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute;
-  '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren;
-  '/organizations/': typeof AuthenticatedOrganizationsIndexRoute;
-  '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute;
-  '/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute;
-  '/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute;
-  '/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute;
-  '/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute;
-  '/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute;
-  '/organizations/$organizationId/': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute;
-  '/organizations/$organizationId/documents/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute;
+  '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/invite': typeof InviteRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
+  '/verify-email': typeof VerifyEmailRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/share': typeof AuthenticatedShareRoute
+  '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
+  '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
+  '/organizations/': typeof AuthenticatedOrganizationsIndexRoute
+  '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
+  '/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute
+  '/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute
+  '/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute
+  '/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
+  '/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute
+  '/organizations/$organizationId/': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute
+  '/organizations/$organizationId/documents/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute;
-  '/forgot-password': typeof ForgotPasswordRoute;
-  '/invite': typeof InviteRoute;
-  '/login': typeof LoginRoute;
-  '/register': typeof RegisterRoute;
-  '/reset-password': typeof ResetPasswordRoute;
-  '/security': typeof SecurityRoute;
-  '/verify-email': typeof VerifyEmailRoute;
-  '/settings': typeof AuthenticatedSettingsRoute;
-  '/share': typeof AuthenticatedShareRoute;
-  '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute;
-  '/organizations': typeof AuthenticatedOrganizationsIndexRoute;
-  '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute;
-  '/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute;
-  '/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute;
-  '/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute;
-  '/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute;
-  '/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute;
-  '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute;
-  '/organizations/$organizationId/documents/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute;
+  '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/invite': typeof InviteRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
+  '/verify-email': typeof VerifyEmailRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/share': typeof AuthenticatedShareRoute
+  '/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
+  '/organizations': typeof AuthenticatedOrganizationsIndexRoute
+  '/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
+  '/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute
+  '/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute
+  '/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute
+  '/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
+  '/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute
+  '/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute
+  '/organizations/$organizationId/documents/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  '/': typeof IndexRoute;
-  '/_authenticated': typeof AuthenticatedRouteWithChildren;
-  '/forgot-password': typeof ForgotPasswordRoute;
-  '/invite': typeof InviteRoute;
-  '/login': typeof LoginRoute;
-  '/register': typeof RegisterRoute;
-  '/reset-password': typeof ResetPasswordRoute;
-  '/security': typeof SecurityRoute;
-  '/verify-email': typeof VerifyEmailRoute;
-  '/_authenticated/settings': typeof AuthenticatedSettingsRoute;
-  '/_authenticated/share': typeof AuthenticatedShareRoute;
-  '/_authenticated/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute;
-  '/_authenticated/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren;
-  '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute;
-  '/_authenticated/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute;
-  '/_authenticated/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute;
-  '/_authenticated/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute;
-  '/_authenticated/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute;
-  '/_authenticated/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute;
-  '/_authenticated/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute;
-  '/_authenticated/organizations/$organizationId/': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute;
-  '/_authenticated/organizations/$organizationId/documents_/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/invite': typeof InviteRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRoute
+  '/verify-email': typeof VerifyEmailRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/share': typeof AuthenticatedShareRoute
+  '/_authenticated/invitations/accept': typeof AuthenticatedInvitationsAcceptRoute
+  '/_authenticated/organizations/$organizationId': typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
+  '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute
+  '/_authenticated/organizations/$organizationId/ask': typeof AuthenticatedOrganizationsOrganizationIdAskRoute
+  '/_authenticated/organizations/$organizationId/audit-log': typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute
+  '/_authenticated/organizations/$organizationId/documents': typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute
+  '/_authenticated/organizations/$organizationId/insights': typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute
+  '/_authenticated/organizations/$organizationId/search': typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
+  '/_authenticated/organizations/$organizationId/settings': typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute
+  '/_authenticated/organizations/$organizationId/': typeof AuthenticatedOrganizationsOrganizationIdIndexRoute
+  '/_authenticated/organizations/$organizationId/documents_/$documentId': typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/forgot-password'
@@ -248,8 +248,8 @@ export interface FileRouteTypes {
     | '/organizations/$organizationId/search'
     | '/organizations/$organizationId/settings'
     | '/organizations/$organizationId/'
-    | '/organizations/$organizationId/documents/$documentId';
-  fileRoutesByTo: FileRoutesByTo;
+    | '/organizations/$organizationId/documents/$documentId'
+  fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/forgot-password'
@@ -270,7 +270,7 @@ export interface FileRouteTypes {
     | '/organizations/$organizationId/search'
     | '/organizations/$organizationId/settings'
     | '/organizations/$organizationId'
-    | '/organizations/$organizationId/documents/$documentId';
+    | '/organizations/$organizationId/documents/$documentId'
   id:
     | '__root__'
     | '/'
@@ -294,189 +294,189 @@ export interface FileRouteTypes {
     | '/_authenticated/organizations/$organizationId/search'
     | '/_authenticated/organizations/$organizationId/settings'
     | '/_authenticated/organizations/$organizationId/'
-    | '/_authenticated/organizations/$organizationId/documents_/$documentId';
-  fileRoutesById: FileRoutesById;
+    | '/_authenticated/organizations/$organizationId/documents_/$documentId'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren;
-  ForgotPasswordRoute: typeof ForgotPasswordRoute;
-  InviteRoute: typeof InviteRoute;
-  LoginRoute: typeof LoginRoute;
-  RegisterRoute: typeof RegisterRoute;
-  ResetPasswordRoute: typeof ResetPasswordRoute;
-  SecurityRoute: typeof SecurityRoute;
-  VerifyEmailRoute: typeof VerifyEmailRoute;
+  IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  InviteRoute: typeof InviteRoute
+  LoginRoute: typeof LoginRoute
+  RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  SecurityRoute: typeof SecurityRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
-      id: '/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
-      id: '/_authenticated';
-      path: '';
-      fullPath: '/';
-      preLoaderRoute: typeof AuthenticatedRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forgot-password': {
-      id: '/forgot-password';
-      path: '/forgot-password';
-      fullPath: '/forgot-password';
-      preLoaderRoute: typeof ForgotPasswordRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invite': {
-      id: '/invite';
-      path: '/invite';
-      fullPath: '/invite';
-      preLoaderRoute: typeof InviteRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/invite'
+      path: '/invite'
+      fullPath: '/invite'
+      preLoaderRoute: typeof InviteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
-      id: '/login';
-      path: '/login';
-      fullPath: '/login';
-      preLoaderRoute: typeof LoginRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
-      id: '/register';
-      path: '/register';
-      fullPath: '/register';
-      preLoaderRoute: typeof RegisterRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
-      id: '/reset-password';
-      path: '/reset-password';
-      fullPath: '/reset-password';
-      preLoaderRoute: typeof ResetPasswordRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/security': {
-      id: '/security';
-      path: '/security';
-      fullPath: '/security';
-      preLoaderRoute: typeof SecurityRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify-email': {
-      id: '/verify-email';
-      path: '/verify-email';
-      fullPath: '/verify-email';
-      preLoaderRoute: typeof VerifyEmailRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/settings': {
-      id: '/_authenticated/settings';
-      path: '/settings';
-      fullPath: '/settings';
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/share': {
-      id: '/_authenticated/share';
-      path: '/share';
-      fullPath: '/share';
-      preLoaderRoute: typeof AuthenticatedShareRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
+      id: '/_authenticated/share'
+      path: '/share'
+      fullPath: '/share'
+      preLoaderRoute: typeof AuthenticatedShareRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/invitations/accept': {
-      id: '/_authenticated/invitations/accept';
-      path: '/invitations/accept';
-      fullPath: '/invitations/accept';
-      preLoaderRoute: typeof AuthenticatedInvitationsAcceptRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
+      id: '/_authenticated/invitations/accept'
+      path: '/invitations/accept'
+      fullPath: '/invitations/accept'
+      preLoaderRoute: typeof AuthenticatedInvitationsAcceptRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/organizations/': {
-      id: '/_authenticated/organizations/';
-      path: '/organizations';
-      fullPath: '/organizations/';
-      preLoaderRoute: typeof AuthenticatedOrganizationsIndexRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
+      id: '/_authenticated/organizations/'
+      path: '/organizations'
+      fullPath: '/organizations/'
+      preLoaderRoute: typeof AuthenticatedOrganizationsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/organizations/$organizationId': {
-      id: '/_authenticated/organizations/$organizationId';
-      path: '/organizations/$organizationId';
-      fullPath: '/organizations/$organizationId';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdRouteImport;
-      parentRoute: typeof AuthenticatedRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId'
+      path: '/organizations/$organizationId'
+      fullPath: '/organizations/$organizationId'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/organizations/$organizationId/': {
-      id: '/_authenticated/organizations/$organizationId/';
-      path: '/';
-      fullPath: '/organizations/$organizationId/';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdIndexRouteImport;
-      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId/'
+      path: '/'
+      fullPath: '/organizations/$organizationId/'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdIndexRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/ask': {
-      id: '/_authenticated/organizations/$organizationId/ask';
-      path: '/ask';
-      fullPath: '/organizations/$organizationId/ask';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdAskRouteImport;
-      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId/ask'
+      path: '/ask'
+      fullPath: '/organizations/$organizationId/ask'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdAskRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/audit-log': {
-      id: '/_authenticated/organizations/$organizationId/audit-log';
-      path: '/audit-log';
-      fullPath: '/organizations/$organizationId/audit-log';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdAuditLogRouteImport;
-      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId/audit-log'
+      path: '/audit-log'
+      fullPath: '/organizations/$organizationId/audit-log'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdAuditLogRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/documents': {
-      id: '/_authenticated/organizations/$organizationId/documents';
-      path: '/documents';
-      fullPath: '/organizations/$organizationId/documents';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsRouteImport;
-      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId/documents'
+      path: '/documents'
+      fullPath: '/organizations/$organizationId/documents'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/insights': {
-      id: '/_authenticated/organizations/$organizationId/insights';
-      path: '/insights';
-      fullPath: '/organizations/$organizationId/insights';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdInsightsRouteImport;
-      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId/insights'
+      path: '/insights'
+      fullPath: '/organizations/$organizationId/insights'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdInsightsRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/search': {
-      id: '/_authenticated/organizations/$organizationId/search';
-      path: '/search';
-      fullPath: '/organizations/$organizationId/search';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdSearchRouteImport;
-      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId/search'
+      path: '/search'
+      fullPath: '/organizations/$organizationId/search'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdSearchRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/settings': {
-      id: '/_authenticated/organizations/$organizationId/settings';
-      path: '/settings';
-      fullPath: '/organizations/$organizationId/settings';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdSettingsRouteImport;
-      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId/settings'
+      path: '/settings'
+      fullPath: '/organizations/$organizationId/settings'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdSettingsRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
     '/_authenticated/organizations/$organizationId/documents_/$documentId': {
-      id: '/_authenticated/organizations/$organizationId/documents_/$documentId';
-      path: '/documents/$documentId';
-      fullPath: '/organizations/$organizationId/documents/$documentId';
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRouteImport;
-      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute;
-    };
+      id: '/_authenticated/organizations/$organizationId/documents_/$documentId'
+      path: '/documents/$documentId'
+      fullPath: '/organizations/$organizationId/documents/$documentId'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrganizationIdRoute
+    }
   }
 }
 
 interface AuthenticatedOrganizationsOrganizationIdRouteChildren {
-  AuthenticatedOrganizationsOrganizationIdAskRoute: typeof AuthenticatedOrganizationsOrganizationIdAskRoute;
-  AuthenticatedOrganizationsOrganizationIdAuditLogRoute: typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute;
-  AuthenticatedOrganizationsOrganizationIdDocumentsRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute;
-  AuthenticatedOrganizationsOrganizationIdInsightsRoute: typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute;
-  AuthenticatedOrganizationsOrganizationIdSearchRoute: typeof AuthenticatedOrganizationsOrganizationIdSearchRoute;
-  AuthenticatedOrganizationsOrganizationIdSettingsRoute: typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute;
-  AuthenticatedOrganizationsOrganizationIdIndexRoute: typeof AuthenticatedOrganizationsOrganizationIdIndexRoute;
-  AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute;
+  AuthenticatedOrganizationsOrganizationIdAskRoute: typeof AuthenticatedOrganizationsOrganizationIdAskRoute
+  AuthenticatedOrganizationsOrganizationIdAuditLogRoute: typeof AuthenticatedOrganizationsOrganizationIdAuditLogRoute
+  AuthenticatedOrganizationsOrganizationIdDocumentsRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsRoute
+  AuthenticatedOrganizationsOrganizationIdInsightsRoute: typeof AuthenticatedOrganizationsOrganizationIdInsightsRoute
+  AuthenticatedOrganizationsOrganizationIdSearchRoute: typeof AuthenticatedOrganizationsOrganizationIdSearchRoute
+  AuthenticatedOrganizationsOrganizationIdSettingsRoute: typeof AuthenticatedOrganizationsOrganizationIdSettingsRoute
+  AuthenticatedOrganizationsOrganizationIdIndexRoute: typeof AuthenticatedOrganizationsOrganizationIdIndexRoute
+  AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute: typeof AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute
 }
 
 const AuthenticatedOrganizationsOrganizationIdRouteChildren: AuthenticatedOrganizationsOrganizationIdRouteChildren =
@@ -497,19 +497,19 @@ const AuthenticatedOrganizationsOrganizationIdRouteChildren: AuthenticatedOrgani
       AuthenticatedOrganizationsOrganizationIdIndexRoute,
     AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute:
       AuthenticatedOrganizationsOrganizationIdDocumentsDocumentIdRoute,
-  };
+  }
 
 const AuthenticatedOrganizationsOrganizationIdRouteWithChildren =
   AuthenticatedOrganizationsOrganizationIdRoute._addFileChildren(
     AuthenticatedOrganizationsOrganizationIdRouteChildren,
-  );
+  )
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute;
-  AuthenticatedShareRoute: typeof AuthenticatedShareRoute;
-  AuthenticatedInvitationsAcceptRoute: typeof AuthenticatedInvitationsAcceptRoute;
-  AuthenticatedOrganizationsOrganizationIdRoute: typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren;
-  AuthenticatedOrganizationsIndexRoute: typeof AuthenticatedOrganizationsIndexRoute;
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedShareRoute: typeof AuthenticatedShareRoute
+  AuthenticatedInvitationsAcceptRoute: typeof AuthenticatedInvitationsAcceptRoute
+  AuthenticatedOrganizationsOrganizationIdRoute: typeof AuthenticatedOrganizationsOrganizationIdRouteWithChildren
+  AuthenticatedOrganizationsIndexRoute: typeof AuthenticatedOrganizationsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -519,11 +519,11 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOrganizationsOrganizationIdRoute:
     AuthenticatedOrganizationsOrganizationIdRouteWithChildren,
   AuthenticatedOrganizationsIndexRoute: AuthenticatedOrganizationsIndexRoute,
-};
+}
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
-);
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -535,16 +535,16 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SecurityRoute: SecurityRoute,
   VerifyEmailRoute: VerifyEmailRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from './router.tsx';
-import type { createStart } from '@tanstack/react-start';
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
 declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }

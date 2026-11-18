@@ -68,7 +68,9 @@ test('a failed document request can be retried', async ({ page }) => {
     page.getByRole('heading', { name: 'Unable to load documents' }),
   ).toBeVisible({ timeout: 20000 });
   failingResources.length = 0;
-  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  const retry = page.getByRole('button', { name: 'Retry', exact: true });
+  await retry.focus();
+  await page.keyboard.press('Enter');
   await expect(
     page.getByRole('link', { name: /Handbook/ }).first(),
   ).toBeVisible();
