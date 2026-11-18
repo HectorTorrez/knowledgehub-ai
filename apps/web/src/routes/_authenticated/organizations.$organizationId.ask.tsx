@@ -63,6 +63,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '~/components/ui/sheet';
 import { Skeleton } from '~/components/ui/skeleton';
 import { RouteError } from '~/components/route-states';
 import { Textarea } from '~/components/ui/textarea';
@@ -507,7 +514,7 @@ function AskPage() {
         />
       ) : null}
 
-      <div className="grid h-[calc(100dvh-12rem)] grid-cols-1 overflow-hidden rounded-xl border bg-card shadow-sm sm:h-[calc(100dvh-14.5rem)] lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="-mx-4 -mt-6 -mb-6 grid h-[calc(100dvh-7.5rem-env(safe-area-inset-bottom))] grid-cols-1 overflow-hidden border-b bg-card sm:-mx-6 sm:-mt-8 sm:-mb-8 md:m-0 md:h-[calc(100dvh-14.5rem)] md:rounded-xl md:border md:shadow-sm lg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="hidden min-h-0 min-w-0 border-r bg-muted/20 lg:block">
           <ConversationRail
             conversations={conversationRows}
@@ -720,16 +727,19 @@ function AskPage() {
 
       {conversationPrint.portal}
 
-      <Dialog open={showConversations} onOpenChange={setShowConversations}>
-        <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-sm">
-          <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12">
-            <DialogTitle className="text-base">
+      <Sheet open={showConversations} onOpenChange={setShowConversations}>
+        <SheetContent
+          side="left"
+          className="w-[85vw] gap-0 p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:max-w-sm"
+        >
+          <SheetHeader className="shrink-0 border-b px-4 py-3 pr-12">
+            <SheetTitle className="text-base">
               {t('ask.conversations')}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
+            </SheetTitle>
+            <SheetDescription className="sr-only">
               {t('ask.switchConversation')}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           <div className="min-h-0 flex-1">
             <ConversationRail
               conversations={conversationRows}
@@ -756,8 +766,8 @@ function AskPage() {
               }}
             />
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">

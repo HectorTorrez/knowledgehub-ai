@@ -69,6 +69,8 @@ export const es: Messages = {
     failed_other: 'No se pudieron actualizar {count} documentos',
   },
   nav: {
+    more: 'Más',
+    mobileNavigation: 'Navegación rápida',
     overview: 'Resumen',
     documents: 'Documentos',
     ask: 'Pregunta',

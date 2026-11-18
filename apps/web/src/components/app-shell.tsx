@@ -1,5 +1,6 @@
 import { CommandPalette } from '~/components/command-palette';
 import { KeyboardShortcuts } from '~/components/keyboard-shortcuts';
+import { MobileBottomNav } from '~/components/mobile-bottom-nav';
 import { EmailVerificationBanner } from '~/components/email-verification-banner';
 import { LanguageMenuItems } from '~/components/language-switcher';
 import { useQuery } from '@tanstack/react-query';
@@ -56,6 +57,7 @@ import { useWebMcpTools } from '~/hooks/use-webmcp-tools';
 import { organizationsApi } from '~/lib/api/organizations';
 import { queryKeys } from '~/lib/api/query-keys';
 import { useT } from '~/lib/i18n/hooks';
+import { cn } from '~/lib/utils';
 
 const sections = [
   {
@@ -388,13 +390,20 @@ function ShellContent({ children }: Readonly<{ children: ReactNode }>) {
         <main
           id="main-content"
           tabIndex={-1}
-          className="mx-auto max-w-6xl px-4 py-6 focus-visible:outline-2 focus-visible:outline-ring sm:px-6 sm:py-8"
+          className={cn(
+            'mx-auto max-w-6xl px-4 py-6 focus-visible:outline-2 focus-visible:outline-ring sm:px-6 sm:py-8',
+            organizationId &&
+              'pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8',
+          )}
         >
           {user !== undefined && !user.emailVerified ? (
             <EmailVerificationBanner user={user} />
           ) : null}
           {children}
         </main>
+        {organizationId ? (
+          <MobileBottomNav organizationId={organizationId} />
+        ) : null}
       </div>
     </>
   );

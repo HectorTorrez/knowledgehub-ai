@@ -89,7 +89,7 @@ export function AskComposer({
   }
 
   return (
-    <div className="shrink-0 border-t bg-background/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6 sm:py-4">
+    <div className="shrink-0 border-t bg-background/95 px-3 pt-2.5 pb-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6 md:py-4">
       <form
         aria-label={t('ask.title')}
         onSubmit={(event) => {
@@ -183,24 +183,23 @@ export function AskComposer({
             : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
-          {documents.length === 0 && !documentsPending ? (
-            <p>
-              {t('composer.noDocumentsReady')}{' '}
-              <Link
-                to="/organizations/$organizationId/documents"
-                params={{ organizationId }}
-                className="font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                {t('composer.uploadOne')}
-              </Link>{' '}
-              {t('composer.toAsk')}
-            </p>
-          ) : (
-            <p className="hidden sm:block">{t('composer.hint')}</p>
-          )}
-          <p className="sm:hidden">Tap Ask to send</p>
-        </div>
+        {documents.length === 0 && !documentsPending ? (
+          <p className="px-1 text-[11px] text-muted-foreground">
+            {t('composer.noDocumentsReady')}{' '}
+            <Link
+              to="/organizations/$organizationId/documents"
+              params={{ organizationId }}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              {t('composer.uploadOne')}
+            </Link>{' '}
+            {t('composer.toAsk')}
+          </p>
+        ) : (
+          <p className="hidden px-1 text-[11px] text-muted-foreground md:block">
+            {t('composer.hint')}
+          </p>
+        )}
       </form>
     </div>
   );

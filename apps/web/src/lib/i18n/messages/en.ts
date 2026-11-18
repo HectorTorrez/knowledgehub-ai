@@ -67,6 +67,8 @@ export const en = {
     failed_other: '{count} documents could not be updated',
   },
   nav: {
+    more: 'More',
+    mobileNavigation: 'Quick navigation',
     overview: 'Overview',
     documents: 'Documents',
     ask: 'Ask',
