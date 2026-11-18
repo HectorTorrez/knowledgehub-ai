@@ -1464,6 +1464,16 @@ export const en = {
     uploadOne: 'Upload one',
     toAsk: 'to ask questions.',
     hint: 'Enter to send · Shift+Enter for a new line',
+    voice: {
+      start: 'Dictate question',
+      stop: 'Stop dictation',
+      listening: 'Listening…',
+      finishing: 'Finishing transcription…',
+      unavailable: 'This browser does not support dictation.',
+      permission: 'Allow microphone access in your browser to use dictation.',
+      noSpeech: 'No speech was detected. Try speaking again.',
+      failed: 'Dictation couldn’t start or was interrupted. Try again.',
+    },
   },
   share: {
     shared: 'Shared',

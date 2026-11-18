@@ -614,8 +614,8 @@ function DocumentsPage() {
           />
 
           <Card>
-            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-              <div className="relative min-w-0 flex-1">
+            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+              <div className="relative min-w-0 grow-[3] basis-64">
                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={queryDraft}
@@ -643,7 +643,7 @@ function DocumentsPage() {
               </div>
               <Select value={collectionId} onValueChange={setCollectionId}>
                 <SelectTrigger
-                  className="w-full sm:w-52 sm:shrink-0"
+                  className="min-w-0 grow basis-44"
                   aria-label={t('documents.filterCollection')}
                 >
                   <SelectValue />
@@ -666,7 +666,7 @@ function DocumentsPage() {
                 }
               >
                 <SelectTrigger
-                  className="w-full sm:w-44 sm:shrink-0"
+                  className="min-w-0 grow basis-40"
                   aria-label={t('documents.filterStatus')}
                 >
                   <SelectValue />
@@ -694,7 +694,7 @@ function DocumentsPage() {
                 onValueChange={(value) => setOrder(value as DocumentOrder)}
               >
                 <SelectTrigger
-                  className="w-full sm:w-52 sm:shrink-0"
+                  className="min-w-0 grow basis-40"
                   aria-label={t('documents.sort')}
                 >
                   <SelectValue />

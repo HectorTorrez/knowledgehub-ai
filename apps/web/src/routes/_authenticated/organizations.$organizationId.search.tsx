@@ -233,15 +233,15 @@ function SearchPage() {
       </form>
 
       <Card>
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <DocumentMultiSelect
-              documents={ready.documents}
-              selectedIds={filters.documentIds}
-              onChange={(documentIds) => updateFilters({ documentIds })}
-            />
-          </div>
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 sm:items-end xl:grid-cols-4">
           <DocumentMultiSelect
+            className="sm:w-full"
+            documents={ready.documents}
+            selectedIds={filters.documentIds}
+            onChange={(documentIds) => updateFilters({ documentIds })}
+          />
+          <DocumentMultiSelect
+            className="sm:w-full"
             label={t('search.collections')}
             emptyLabel={t('documents.allCollections')}
             documents={(collections.data ?? []).map((item) => ({
@@ -258,6 +258,7 @@ function SearchPage() {
             <DatePicker
               id="search-created-after"
               ariaLabel={t('search.createdAfter')}
+              className="sm:w-full"
               value={filters.createdAfter}
               max={createdBefore ?? endOfToday}
               onChange={(createdAfter) => updateFilters({ createdAfter })}
@@ -270,6 +271,7 @@ function SearchPage() {
             <DatePicker
               id="search-created-before"
               ariaLabel={t('search.createdBefore')}
+              className="sm:w-full"
               value={filters.createdBefore}
               min={createdAfter}
               max={endOfToday}
@@ -281,6 +283,7 @@ function SearchPage() {
             <Button
               type="button"
               variant="outline"
+              className="sm:col-span-2 sm:justify-self-start xl:col-span-4"
               onClick={() =>
                 updateFilters({
                   documentIds: [],

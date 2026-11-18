@@ -28,6 +28,7 @@ export function DocumentMultiSelect({
   label,
   emptyLabel,
   disabled = false,
+  className,
 }: Readonly<{
   documents: ReadonlyArray<DocumentOption>;
   selectedIds: ReadonlyArray<string>;
@@ -36,6 +37,7 @@ export function DocumentMultiSelect({
   label?: string;
   emptyLabel?: string;
   disabled?: boolean;
+  className?: string;
 }>) {
   const t = useT();
   const labelId = useId();
@@ -72,7 +74,10 @@ export function DocumentMultiSelect({
             role="combobox"
             aria-labelledby={labelId}
             disabled={disabled || documents.length === 0}
-            className="w-full justify-between font-normal sm:w-64"
+            className={cn(
+              'w-full justify-between font-normal sm:w-64',
+              className,
+            )}
           >
             <span className="truncate">{summary}</span>
             <ChevronDownIcon className="size-4 shrink-0 opacity-50" />

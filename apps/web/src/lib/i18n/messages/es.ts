@@ -1493,6 +1493,17 @@ export const es: Messages = {
     uploadOne: 'Sube uno',
     toAsk: 'para hacer preguntas.',
     hint: 'Enter para enviar · Shift+Enter para un salto de línea',
+    voice: {
+      start: 'Dictar pregunta',
+      stop: 'Detener dictado',
+      listening: 'Escuchando…',
+      finishing: 'Finalizando la transcripción…',
+      unavailable: 'Este navegador no admite el dictado.',
+      permission:
+        'Permite el acceso al micrófono en el navegador para usar el dictado.',
+      noSpeech: 'No se detectó tu voz. Intenta hablar de nuevo.',
+      failed: 'El dictado falló. Intenta de nuevo.',
+    },
   },
   share: {
     shared: 'Compartida',

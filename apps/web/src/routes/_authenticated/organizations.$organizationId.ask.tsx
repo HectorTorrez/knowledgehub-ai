@@ -558,6 +558,11 @@ function AskPage() {
             </div>
           ) : (
             <AskComposer
+              draftScope={JSON.stringify([
+                organizationId,
+                activeConversationId,
+                presetQuestion,
+              ])}
               organizationId={organizationId}
               documents={ready.documents}
               selection={selection}

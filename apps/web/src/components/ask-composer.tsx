@@ -1,11 +1,12 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { Link } from '@tanstack/react-router';
-import { ArrowUp, Square } from 'lucide-react';
+import { ArrowUp, Mic, Square } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import { DocumentScopeSelect } from '~/components/document-scope-select';
 import { Button } from '~/components/ui/button';
 import { Spinner } from '~/components/ui/spinner';
 import { Textarea } from '~/components/ui/textarea';
+import { useQuestionDictation } from '~/lib/use-question-dictation';
 import { QUESTION_MAX_LENGTH } from '~/lib/validation';
 
 import { useT } from '~/lib/i18n/hooks';
@@ -15,6 +16,7 @@ export function AskComposer({
   documents,
   selection,
   collections,
+  draftScope,
   question,
   onQuestionChange,
   onDocumentChange,
@@ -28,6 +30,7 @@ export function AskComposer({
   documents: DocumentSummary[];
   selection: string;
   collections: { id: string; name: string }[];
+  draftScope: string;
   question: string;
   onQuestionChange: (value: string) => void;
   onDocumentChange: (value: string) => void;
@@ -38,6 +41,22 @@ export function AskComposer({
   documentsPending: boolean;
 }>) {
   const t = useT();
+  const dictation = useQuestionDictation(
+    draftScope,
+    question,
+    onQuestionChange,
+  );
+  const busy = streaming || submitting;
+  const canSubmit =
+    !busy &&
+    dictation.status !== 'listening' &&
+    dictation.status !== 'finishing';
+
+  function submitQuestion() {
+    if (canSubmit) {
+      onSubmit();
+    }
+  }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (
@@ -53,7 +72,7 @@ export function AskComposer({
     }
 
     event.preventDefault();
-    onSubmit();
+    submitQuestion();
   }
 
   return (
@@ -62,7 +81,7 @@ export function AskComposer({
         aria-label={t('ask.title')}
         onSubmit={(event) => {
           event.preventDefault();
-          onSubmit();
+          submitQuestion();
         }}
         className="mx-auto w-full max-w-3xl space-y-2"
       >
@@ -93,6 +112,7 @@ export function AskComposer({
               <span className="hidden text-[11px] text-muted-foreground sm:inline">
                 {question.length}/{QUESTION_MAX_LENGTH}
               </span>
+              <DictationButton dictation={dictation} disabled={busy} />
               {streaming ? (
                 <Button
                   type="button"
@@ -110,13 +130,26 @@ export function AskComposer({
                   size="icon"
                   aria-label={t('composer.ask')}
                   className="rounded-full"
-                  disabled={submitting || question.trim().length === 0}
+                  disabled={!canSubmit || question.trim().length === 0}
                 >
                   {submitting ? <Spinner /> : <ArrowUp />}
                 </Button>
               )}
             </div>
           </div>
+        </div>
+
+        <div
+          role="status"
+          className={
+            dictation.status === 'idle'
+              ? 'sr-only'
+              : 'px-1 text-xs text-muted-foreground'
+          }
+        >
+          {dictation.status !== 'idle'
+            ? t(`composer.voice.${dictation.status}`)
+            : null}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground">
@@ -139,5 +172,41 @@ export function AskComposer({
         </div>
       </form>
     </div>
+  );
+}
+
+function DictationButton({
+  dictation,
+  disabled,
+}: Readonly<{
+  dictation: ReturnType<typeof useQuestionDictation>;
+  disabled: boolean;
+}>) {
+  const t = useT();
+  const listening = dictation.status === 'listening';
+  const finishing = dictation.status === 'finishing';
+  const label = t(
+    listening || finishing ? 'composer.voice.stop' : 'composer.voice.start',
+  );
+
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant={listening ? 'destructive' : 'ghost'}
+      aria-label={label}
+      title={label}
+      className="rounded-full"
+      disabled={disabled || finishing}
+      onClick={dictation.toggle}
+    >
+      {finishing ? (
+        <Spinner />
+      ) : listening ? (
+        <Square className="size-3.5 fill-current" />
+      ) : (
+        <Mic />
+      )}
+    </Button>
   );
 }

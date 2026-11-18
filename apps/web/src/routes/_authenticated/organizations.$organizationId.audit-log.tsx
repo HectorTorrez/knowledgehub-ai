@@ -128,7 +128,7 @@ function AuditLogPage() {
         title={t('nav.auditLog')}
         description={t('auditLog.description')}
       />
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="audit-action">{t('auditLog.action')}</Label>
           <Select
@@ -167,18 +167,24 @@ function AuditLogPage() {
             </SelectContent>
           </Select>
         </div>
-        <DatePicker
-          ariaLabel={t('auditLog.fromDate')}
-          value={from}
-          onChange={setFrom}
-          placeholder={t('auditLog.fromDate')}
-        />
-        <DatePicker
-          ariaLabel={t('auditLog.toDate')}
-          value={to}
-          onChange={setTo}
-          placeholder={t('auditLog.toDate')}
-        />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="audit-from">{t('auditLog.fromDate')}</Label>
+          <DatePicker
+            id="audit-from"
+            ariaLabel={t('auditLog.fromDate')}
+            value={from}
+            onChange={setFrom}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="audit-to">{t('auditLog.toDate')}</Label>
+          <DatePicker
+            id="audit-to"
+            ariaLabel={t('auditLog.toDate')}
+            value={to}
+            onChange={setTo}
+          />
+        </div>
         <Button variant="outline" onClick={download} disabled={!rows.length}>
           {t('auditLog.exportCsv')}
         </Button>
