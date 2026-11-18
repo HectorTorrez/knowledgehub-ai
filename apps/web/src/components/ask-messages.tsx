@@ -4,7 +4,13 @@ import type {
   AnswerSummary,
 } from '@knowledgehub/shared-types';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { ArrowDown, Pencil, RefreshCw, Sparkles } from 'lucide-react';
+import {
+  ArrowDown,
+  CornerDownRight,
+  Pencil,
+  RefreshCw,
+  Sparkles,
+} from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -40,6 +46,7 @@ export interface AskedQuestion {
 
 export interface LastTurnActions {
   disabled: boolean;
+  onFollowUp: (question: string) => void;
   onRegenerate: (answer: AnswerSummary) => void;
   onEdit: (answer: AnswerSummary) => void;
 }
@@ -337,6 +344,17 @@ function PersistedTurn({
           }
         />
       ) : null}
+
+      {actions !== undefined &&
+      detail.data !== undefined &&
+      detail.data.answer.status !== 'insufficient_evidence' ? (
+        <FollowUpSuggestions
+          organizationId={organizationId}
+          answerId={answer.id}
+          disabled={actions.disabled}
+          onSelect={actions.onFollowUp}
+        />
+      ) : null}
     </article>
   );
 }
@@ -550,6 +568,67 @@ function AssistantAnswer({
         )}
       </div>
     </AssistantFrame>
+  );
+}
+
+function FollowUpSuggestions({
+  organizationId,
+  answerId,
+  disabled,
+  onSelect,
+}: Readonly<{
+  organizationId: string;
+  answerId: string;
+  disabled: boolean;
+  onSelect: (question: string) => void;
+}>) {
+  const t = useT();
+  const followUps = useQuery({
+    queryKey: queryKeys.organizations.answers.followUps(
+      organizationId,
+      answerId,
+    ),
+    queryFn: () => answersApi.followUps(organizationId, answerId),
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  if (followUps.isPending) {
+    return (
+      <div className="flex flex-wrap gap-2 pl-9 sm:pl-10" aria-hidden="true">
+        <Skeleton className="h-8 w-48 rounded-full" />
+        <Skeleton className="h-8 w-40 rounded-full" />
+      </div>
+    );
+  }
+
+  const questions = followUps.data?.questions ?? [];
+
+  if (questions.length === 0) {
+    return null;
+  }
+
+  return (
+    <nav
+      aria-label={t('askMessages.followUps')}
+      className="flex flex-wrap gap-2 pl-9 sm:pl-10"
+    >
+      {questions.map((question) => (
+        <Button
+          key={question}
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          aria-label={t('askMessages.askFollowUp', { question })}
+          className="h-auto min-h-8 max-w-full justify-start rounded-full px-3 py-1.5 text-left text-xs font-normal whitespace-normal sm:h-auto"
+          onClick={() => onSelect(question)}
+        >
+          <CornerDownRight className="size-3.5 shrink-0 text-muted-foreground" />
+          <span>{question}</span>
+        </Button>
+      ))}
+    </nav>
   );
 }
 

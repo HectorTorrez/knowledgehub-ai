@@ -5,6 +5,7 @@ import type {
   AnswerRequest,
   AnswerResponse,
   AnswerStreamEvent,
+  QuestionSuggestionsResponse,
   SetAnswerFeedbackRequest,
 } from '@knowledgehub/shared-types';
 import { apiFetch, apiStream, type RequestOptions } from './client';
@@ -66,6 +67,26 @@ export const answersApi = {
   ): Promise<AnswerDetailResponse> {
     return apiFetch<AnswerDetailResponse>(
       `/organizations/${organizationId}/answers/${answerId}`,
+      { authRecovery: true },
+    );
+  },
+
+  followUps(
+    organizationId: string,
+    answerId: string,
+  ): Promise<QuestionSuggestionsResponse> {
+    return apiFetch<QuestionSuggestionsResponse>(
+      `/organizations/${organizationId}/answers/${answerId}/follow-ups`,
+      { authRecovery: true },
+    );
+  },
+
+  starters(
+    organizationId: string,
+    locale: string,
+  ): Promise<QuestionSuggestionsResponse> {
+    return apiFetch<QuestionSuggestionsResponse>(
+      `/organizations/${organizationId}/question-suggestions?locale=${encodeURIComponent(locale)}`,
       { authRecovery: true },
     );
   },

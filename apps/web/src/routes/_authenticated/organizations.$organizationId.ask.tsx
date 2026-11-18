@@ -292,13 +292,14 @@ function AskPage() {
   }
 
   async function submit(
-    revision?: Readonly<{ question: string; replaceAnswerId: string }>,
+    revision?: Readonly<{ question: string; replaceAnswerId?: string }>,
   ) {
     if (stream.status === 'streaming') {
       return;
     }
 
-    const replaceAnswerId = revision?.replaceAnswerId ?? editing?.id;
+    const replaceAnswerId =
+      revision === undefined ? editing?.id : revision.replaceAnswerId;
     const result = questionSchema(t).safeParse({
       question: revision?.question ?? question,
     });
@@ -600,6 +601,8 @@ function AskPage() {
                           replaceAnswerId: answer.id,
                         }),
                       onEdit: editAnswer,
+                      onFollowUp: (followUp) =>
+                        void submit({ question: followUp }),
                     }
                   : undefined
               }
@@ -774,6 +777,22 @@ function EmptyConversation({
   onSuggestion: (suggestion: string) => void;
 }>) {
   const t = useT();
+  const locale = useLocale();
+  const starters = useQuery({
+    queryKey: queryKeys.organizations.questionSuggestions(
+      organizationId,
+      locale,
+    ),
+    queryFn: () => answersApi.starters(organizationId, locale),
+    enabled: documentsCount > 0,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const generated = starters.data?.questions ?? [];
+  const suggestions =
+    generated.length > 0
+      ? generated
+      : SUGGESTED_QUESTIONS.map((suggestionKey) => t(suggestionKey));
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -791,19 +810,20 @@ function EmptyConversation({
               : t('ask.emptyUpload')}
           </p>
 
-          {documentsPending ? (
+          {documentsPending || (documentsCount > 0 && starters.isPending) ? (
             <Skeleton className="mt-6 h-24 w-full rounded-xl" />
           ) : documentsCount > 0 ? (
             <div className="mt-6 space-y-2">
               <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                {t('ask.tryAsking')}
+                {generated.length > 0
+                  ? t('ask.basedOnDocuments')
+                  : t('ask.tryAsking')}
               </p>
               <div className="grid gap-2">
-                {SUGGESTED_QUESTIONS.map((suggestionKey) => {
-                  const suggestion = t(suggestionKey);
+                {suggestions.map((suggestion) => {
                   return (
                     <Button
-                      key={suggestionKey}
+                      key={suggestion}
                       type="button"
                       variant="outline"
                       onClick={() => onSuggestion(suggestion)}

@@ -1308,6 +1308,7 @@ export const es: Messages = {
     askAboutDocument: 'Preguntar sobre este documento',
   },
   ask: {
+    basedOnDocuments: 'Según tus documentos',
     pageTitle: 'Hacer una pregunta · KnowledgeHub AI',
     conversationDeleted: 'Conversación eliminada',
     allDocuments: 'Todos los documentos',
@@ -1416,6 +1417,8 @@ export const es: Messages = {
     noVersions: 'Todavía no hay versiones anteriores.',
   },
   askMessages: {
+    followUps: 'Preguntas de seguimiento sugeridas',
+    askFollowUp: 'Preguntar “{question}”',
     regenerate: 'Regenerar',
     regenerateFor: 'Regenerar la respuesta a “{question}”',
     edit: 'Editar',

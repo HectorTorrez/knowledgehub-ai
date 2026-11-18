@@ -132,7 +132,22 @@ export const queryKeys = {
           'detail',
           answerId,
         ] as const,
+      followUps: (organizationId: string, answerId: string) =>
+        [
+          'organizations',
+          organizationId,
+          'answers',
+          'follow-ups',
+          answerId,
+        ] as const,
     },
+    questionSuggestions: (organizationId: string, locale: string) =>
+      [
+        'organizations',
+        organizationId,
+        'question-suggestions',
+        locale,
+      ] as const,
     search: (
       organizationId: string,
       query: string | null,

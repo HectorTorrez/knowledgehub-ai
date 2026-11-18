@@ -1281,6 +1281,7 @@ export const en = {
     askAboutDocument: 'Ask about this document',
   },
   ask: {
+    basedOnDocuments: 'Based on your documents',
     pageTitle: 'Ask a question · KnowledgeHub AI',
     conversationDeleted: 'Conversation deleted',
     allDocuments: 'All documents',
@@ -1388,6 +1389,8 @@ export const en = {
     noVersions: 'No earlier versions yet.',
   },
   askMessages: {
+    followUps: 'Suggested follow-ups',
+    askFollowUp: 'Ask “{question}”',
     regenerate: 'Regenerate',
     regenerateFor: 'Regenerate the answer to “{question}”',
     edit: 'Edit',
