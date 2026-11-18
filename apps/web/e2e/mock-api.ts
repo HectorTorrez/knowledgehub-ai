@@ -693,6 +693,30 @@ export async function mockApi(page: Page, options: ApiOptions): Promise<void> {
       return;
     }
 
+    if (path === '/organizations/org-1/answers/answer-1/follow-ups') {
+      await route.fulfill(
+        json({
+          questions: [
+            'How do I request leave?',
+            'Does unused leave carry over?',
+          ],
+        }),
+      );
+      return;
+    }
+
+    if (path === '/organizations/org-1/question-suggestions') {
+      await route.fulfill(
+        json({
+          questions: [
+            'How many leave days do employees get?',
+            'Who approves time off requests?',
+          ],
+        }),
+      );
+      return;
+    }
+
     if (path === '/organizations/org-1/answers/answer-1') {
       await route.fulfill(
         json({

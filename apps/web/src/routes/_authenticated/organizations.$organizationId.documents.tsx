@@ -1306,7 +1306,7 @@ function SelectionCheckbox({
       aria-label={label}
       onChange={onChange}
       className={cn(
-        'size-4 shrink-0 cursor-pointer rounded border-input accent-brand',
+        'size-5 shrink-0 cursor-pointer rounded border-input accent-brand sm:size-4',
         className,
       )}
     />

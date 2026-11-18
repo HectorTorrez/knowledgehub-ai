@@ -2,6 +2,8 @@ import type { Messages } from './schema';
 
 export const es: Messages = {
   common: {
+    close: 'Cerrar',
+    toggleSidebar: 'Mostrar u ocultar la barra lateral',
     save: 'Guardar',
     cancel: 'Cancelar',
     language: 'Idioma',

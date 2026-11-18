@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { useT } from '~/lib/i18n/hooks';
 import { cn } from '~/lib/utils';
 import { PanelLeftIcon } from 'lucide-react';
 import { Slot } from 'radix-ui';
@@ -25,6 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '~/components/ui/tooltip';
+import { useT } from '~/lib/i18n/hooks';
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -269,6 +269,7 @@ function SidebarTrigger({
 }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar } = useSidebar();
 
+  const t = useT();
   return (
     <Button
       data-sidebar="trigger"
@@ -283,7 +284,7 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
+      <span className="sr-only">{t('common.toggleSidebar')}</span>
     </Button>
   );
 }

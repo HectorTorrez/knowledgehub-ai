@@ -542,7 +542,7 @@ function AssistantAnswer({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-1">
-        <span className="mr-1 text-[11px] text-muted-foreground">
+        <span className="mr-1 hidden text-[11px] text-muted-foreground sm:inline">
           {t('askMessages.wasHelpful')}
         </span>
         <AnswerFeedback
@@ -717,8 +717,8 @@ function ThinkingIndicator({ scopeLabel }: Readonly<{ scopeLabel: string }>) {
         {[0, 1, 2].map((index) => (
           <span
             key={index}
-            className="size-1.5 animate-bounce rounded-full bg-muted-foreground/70 motion-reduce:animate-none"
-            style={{ animationDelay: `${index * 120}ms` }}
+            className="size-1.5 animate-pulse rounded-full bg-muted-foreground/70 motion-reduce:animate-none"
+            style={{ animationDelay: `${index * 200}ms` }}
           />
         ))}
       </span>

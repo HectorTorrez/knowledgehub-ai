@@ -50,7 +50,10 @@ test('empty conversations show example questions', async ({ page }) => {
     emptyResources: ['conversations'],
   });
   await page.goto('/organizations/org-1/ask');
-  await expect(page.getByText('Try asking')).toBeVisible();
+  await expect(page.getByText('Based on your documents')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /How many leave days/ }),
+  ).toBeVisible();
 });
 
 test('empty audit activity offers clear filters', async ({ page }) => {

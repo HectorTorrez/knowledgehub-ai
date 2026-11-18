@@ -8,6 +8,21 @@ describe('isTypingTarget', () => {
     );
   });
 
+  it('ignores inputs that do not accept text', () => {
+    for (const type of ['checkbox', 'radio', 'button', 'submit']) {
+      expect(
+        isTypingTarget(
+          Object.assign(new EventTarget(), { tagName: 'INPUT', type }),
+        ),
+      ).toBe(false);
+    }
+    expect(
+      isTypingTarget(
+        Object.assign(new EventTarget(), { tagName: 'INPUT', type: 'search' }),
+      ),
+    ).toBe(true);
+  });
+
   it('recognizes content editable elements', () => {
     const target = Object.assign(new EventTarget(), {
       tagName: 'DIV',

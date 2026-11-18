@@ -1,5 +1,7 @@
 export const en = {
   common: {
+    close: 'Close',
+    toggleSidebar: 'Toggle Sidebar',
     save: 'Save',
     cancel: 'Cancel',
     language: 'Language',

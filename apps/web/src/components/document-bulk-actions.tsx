@@ -120,7 +120,7 @@ export function DocumentBulkActions({
     <div
       role="toolbar"
       aria-label={t('bulkDocuments.toolbar')}
-      className="sticky bottom-4 z-20 mx-auto flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg"
+      className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 md:bottom-4 mx-auto flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg"
     >
       <span
         className="px-2 text-sm font-medium tabular-nums"
