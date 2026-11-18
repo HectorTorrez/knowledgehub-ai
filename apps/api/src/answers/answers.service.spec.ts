@@ -1527,13 +1527,28 @@ describe('AnswersService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('deletes an answer scoped to its organization', async () => {
+  it('deletes only answers the member asked or whose conversation they own', async () => {
     const { service, prisma } = createService();
 
-    await service.delete('org-1', 'answer-1');
+    await service.delete('org-1', 'answer-1', USER_ID);
 
     expect(prisma.answer.deleteMany).toHaveBeenCalledWith({
-      where: { id: 'answer-1', organizationId: 'org-1' },
+      where: {
+        id: 'answer-1',
+        organizationId: 'org-1',
+        AND: [
+          {
+            OR: [
+              { conversationId: null, askedById: USER_ID },
+              {
+                conversation: {
+                  OR: [{ createdById: USER_ID }, { createdById: null }],
+                },
+              },
+            ],
+          },
+        ],
+      },
     });
   });
 
@@ -1541,8 +1556,8 @@ describe('AnswersService', () => {
     const { service, prisma } = createService();
     prisma.answer.deleteMany.mockResolvedValueOnce({ count: 0 });
 
-    await expect(service.delete('org-1', 'answer-1')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.delete('org-1', 'answer-1', USER_ID),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

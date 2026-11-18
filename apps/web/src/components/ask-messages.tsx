@@ -4,7 +4,7 @@ import type {
   AnswerSummary,
 } from '@knowledgehub/shared-types';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { ArrowDown, Sparkles } from 'lucide-react';
+import { ArrowDown, Pencil, RefreshCw, Sparkles } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -38,6 +38,12 @@ export interface AskedQuestion {
   scopeLabel: string;
 }
 
+export interface LastTurnActions {
+  disabled: boolean;
+  onRegenerate: (answer: AnswerSummary) => void;
+  onEdit: (answer: AnswerSummary) => void;
+}
+
 export interface StreamSnapshot {
   status: 'idle' | 'streaming' | 'done' | 'error';
   answerStatus: AnswerResponse['status'] | null;
@@ -51,11 +57,13 @@ export function ConversationMessages({
   conversationId,
   pending,
   stream,
+  lastTurnActions,
 }: Readonly<{
   organizationId: string;
   conversationId: string;
   pending: AskedQuestion | null;
   stream: StreamSnapshot;
+  lastTurnActions?: LastTurnActions;
 }>) {
   const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -238,11 +246,16 @@ export function ConversationMessages({
           ) : null}
 
           <ol className="flex flex-col gap-8">
-            {rows.map((answer) => (
+            {rows.map((answer, index) => (
               <li key={answer.id}>
                 <PersistedTurn
                   organizationId={organizationId}
                   answer={answer}
+                  actions={
+                    index === rows.length - 1 && !pendingVisible
+                      ? lastTurnActions
+                      : undefined
+                  }
                 />
               </li>
             ))}
@@ -279,7 +292,12 @@ export function ConversationMessages({
 function PersistedTurn({
   organizationId,
   answer,
-}: Readonly<{ organizationId: string; answer: AnswerSummary }>) {
+  actions,
+}: Readonly<{
+  organizationId: string;
+  answer: AnswerSummary;
+  actions?: LastTurnActions;
+}>) {
   const locale = useLocale();
   const detail = useQuery({
     queryKey: queryKeys.organizations.answers.detail(organizationId, answer.id),
@@ -312,6 +330,11 @@ function PersistedTurn({
           createdAt={detail.data.answer.createdAt}
           feedback={detail.data.answer.feedback}
           sourceIdPrefix={`answer-${detail.data.answer.id}`}
+          revise={
+            actions === undefined ? undefined : (
+              <ReviseActions answer={answer} actions={actions} />
+            )
+          }
         />
       ) : null}
     </article>
@@ -422,7 +445,9 @@ function AssistantAnswer({
   createdAt,
   feedback,
   sourceIdPrefix,
+  revise,
 }: Readonly<{
+  revise?: ReactNode;
   organizationId: string;
   answerId: string;
   question: string;
@@ -517,8 +542,50 @@ function AssistantAnswer({
           citations={citations}
           missing={missing}
         />
+        {revise === undefined ? null : (
+          <>
+            <Separator orientation="vertical" className="mx-1 h-4" />
+            {revise}
+          </>
+        )}
       </div>
     </AssistantFrame>
+  );
+}
+
+function ReviseActions({
+  answer,
+  actions,
+}: Readonly<{ answer: AnswerSummary; actions: LastTurnActions }>) {
+  const t = useT();
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        disabled={actions.disabled}
+        aria-label={t('askMessages.regenerateFor', {
+          question: answer.question,
+        })}
+        title={t('askMessages.regenerate')}
+        onClick={() => actions.onRegenerate(answer)}
+      >
+        <RefreshCw className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        disabled={actions.disabled}
+        aria-label={t('askMessages.editFor', { question: answer.question })}
+        title={t('askMessages.edit')}
+        onClick={() => actions.onEdit(answer)}
+      >
+        <Pencil className="size-4" />
+      </Button>
+    </>
   );
 }
 

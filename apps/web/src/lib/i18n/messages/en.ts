@@ -1388,6 +1388,10 @@ export const en = {
     noVersions: 'No earlier versions yet.',
   },
   askMessages: {
+    regenerate: 'Regenerate',
+    regenerateFor: 'Regenerate the answer to “{question}”',
+    edit: 'Edit',
+    editFor: 'Edit the question “{question}”',
     loadEarlier: 'Load earlier questions',
     noQuestions: 'This conversation has no questions yet.',
     jumpToLatest: 'Jump to latest',
@@ -1456,6 +1460,8 @@ export const en = {
     tryAgainLater: 'Try again in a moment.',
   },
   composer: {
+    editing: 'Editing your last question. Sending replaces its answer.',
+    cancelEdit: 'Cancel editing',
     placeholder: 'Ask anything about these documents…',
     stop: 'Stop generating',
     ask: 'Ask',

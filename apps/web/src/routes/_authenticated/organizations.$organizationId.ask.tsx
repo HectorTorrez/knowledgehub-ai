@@ -1,8 +1,13 @@
 import { collectionsApi } from '~/lib/api/collections';
-import type { ConversationSummary } from '@knowledgehub/shared-types';
+import type {
+  AnswerListResponse,
+  AnswerSummary,
+  ConversationSummary,
+} from '@knowledgehub/shared-types';
 import {
   useInfiniteQuery,
   useMutation,
+  type InfiniteData,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -147,6 +152,7 @@ function AskPage() {
     string | null
   >(presetConversationId ?? null);
   const [asked, setAsked] = useState<AskedQuestion | null>(null);
+  const [editing, setEditing] = useState<AnswerSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(
     null,
   );
@@ -268,12 +274,34 @@ function AskPage() {
     });
   }, [stream.status, activeConversationId, client, organizationId]);
 
-  async function submit() {
+  async function replaceAnswer(conversationId: string, answerId: string) {
+    await answersApi.remove(organizationId, answerId);
+    client.setQueryData<InfiniteData<AnswerListResponse>>(
+      queryKeys.organizations.answers.list(organizationId, conversationId),
+      (data) =>
+        data === undefined
+          ? data
+          : {
+              ...data,
+              pages: data.pages.map((page) => ({
+                ...page,
+                answers: page.answers.filter((row) => row.id !== answerId),
+              })),
+            },
+    );
+  }
+
+  async function submit(
+    revision?: Readonly<{ question: string; replaceAnswerId: string }>,
+  ) {
     if (stream.status === 'streaming') {
       return;
     }
 
-    const result = questionSchema(t).safeParse({ question });
+    const replaceAnswerId = revision?.replaceAnswerId ?? editing?.id;
+    const result = questionSchema(t).safeParse({
+      question: revision?.question ?? question,
+    });
 
     if (!result.success) {
       reportError(
@@ -298,14 +326,27 @@ function AskPage() {
       }
     }
 
+    if (replaceAnswerId !== undefined) {
+      try {
+        await replaceAnswer(conversationId, replaceAnswerId);
+      } catch (error) {
+        reportError(error);
+        return;
+      }
+    }
+
+    setEditing(null);
     setAsked({
       question: questionText,
       documentId: scope.documentId,
       scopeLabel: scope.label,
     });
-    clearAskDraft(organizationId, activeConversationId ?? undefined);
-    clearAskDraft(organizationId, conversationId);
-    setQuestion('');
+
+    if (revision === undefined) {
+      clearAskDraft(organizationId, activeConversationId ?? undefined);
+      clearAskDraft(organizationId, conversationId);
+      setQuestion('');
+    }
 
     await stream.ask(
       questionText,
@@ -328,9 +369,29 @@ function AskPage() {
     });
   }
 
+  function focusComposer() {
+    window.requestAnimationFrame(() => {
+      document.getElementById('ask-question')?.focus();
+    });
+  }
+
+  function editAnswer(answer: AnswerSummary) {
+    setEditing(answer);
+    setQuestion(answer.question);
+    focusComposer();
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setQuestion(
+      readAskDraft(organizationId, activeConversationId ?? undefined),
+    );
+  }
+
   function startNewConversation() {
     stream.reset();
     setAsked(null);
+    setEditing(null);
     setActiveConversationId(null);
     updateConversationSearch(undefined);
     setQuestion(readAskDraft(organizationId));
@@ -345,6 +406,7 @@ function AskPage() {
 
     stream.reset();
     setAsked(null);
+    setEditing(null);
     setActiveConversationId(conversationId);
     updateConversationSearch(conversationId);
     setQuestion(readAskDraft(organizationId, conversationId));
@@ -353,14 +415,15 @@ function AskPage() {
 
   function changeQuestion(value: string) {
     setQuestion(value);
-    writeAskDraft(organizationId, activeConversationId ?? undefined, value);
+
+    if (editing === null) {
+      writeAskDraft(organizationId, activeConversationId ?? undefined, value);
+    }
   }
 
   function applySuggestion(suggestion: string) {
     changeQuestion(suggestion);
-    window.requestAnimationFrame(() => {
-      document.getElementById('ask-question')?.focus();
-    });
+    focusComposer();
   }
 
   async function handleDelete() {
@@ -527,6 +590,19 @@ function AskPage() {
                 missing: stream.missing,
                 citations: stream.citations,
               }}
+              lastTurnActions={
+                activeConversationDetail.data?.conversation.canEdit === true
+                  ? {
+                      disabled: streaming || createConversation.isPending,
+                      onRegenerate: (answer) =>
+                        void submit({
+                          question: answer.question,
+                          replaceAnswerId: answer.id,
+                        }),
+                      onEdit: editAnswer,
+                    }
+                  : undefined
+              }
             />
           )}
 
@@ -587,6 +663,8 @@ function AskPage() {
               }}
               onSubmit={() => void submit()}
               onStop={stream.cancel}
+              editing={editing !== null}
+              onCancelEdit={cancelEdit}
               streaming={streaming}
               submitting={createConversation.isPending}
               documentsPending={ready.query.isPending}

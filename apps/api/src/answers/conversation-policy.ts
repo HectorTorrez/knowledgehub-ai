@@ -93,3 +93,12 @@ export function readableAnswerWhere(userId: string): Prisma.AnswerWhereInput {
     ],
   };
 }
+
+export function removableAnswerWhere(userId: string): Prisma.AnswerWhereInput {
+  return {
+    OR: [
+      { conversationId: null, askedById: userId },
+      { conversation: continuableConversationWhere(userId) },
+    ],
+  };
+}

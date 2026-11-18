@@ -1,6 +1,6 @@
 import type { DocumentSummary } from '@knowledgehub/shared-types';
 import { Link } from '@tanstack/react-router';
-import { ArrowUp, Mic, Square } from 'lucide-react';
+import { ArrowUp, Mic, Pencil, Square, X } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import { DocumentScopeSelect } from '~/components/document-scope-select';
 import { Button } from '~/components/ui/button';
@@ -22,10 +22,14 @@ export function AskComposer({
   onDocumentChange,
   onSubmit,
   onStop,
+  editing = false,
+  onCancelEdit,
   streaming,
   submitting,
   documentsPending,
 }: Readonly<{
+  editing?: boolean;
+  onCancelEdit?: () => void;
   organizationId: string;
   documents: DocumentSummary[];
   selection: string;
@@ -59,6 +63,12 @@ export function AskComposer({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === 'Escape' && editing) {
+      event.preventDefault();
+      onCancelEdit?.();
+      return;
+    }
+
     if (
       event.nativeEvent.isComposing ||
       event.key !== 'Enter' ||
@@ -86,6 +96,23 @@ export function AskComposer({
         className="mx-auto w-full max-w-3xl space-y-2"
       >
         <div className="rounded-2xl border bg-card shadow-sm transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30">
+          {editing ? (
+            <div className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+              <Pencil className="size-3.5 shrink-0" />
+              <p className="min-w-0 flex-1">{t('composer.editing')}</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-6 rounded-full"
+                aria-label={t('composer.cancelEdit')}
+                title={t('composer.cancelEdit')}
+                onClick={onCancelEdit}
+              >
+                <X className="size-3.5" />
+              </Button>
+            </div>
+          ) : null}
           <Textarea
             id="ask-question"
             aria-label={t('ask.yourQuestion')}

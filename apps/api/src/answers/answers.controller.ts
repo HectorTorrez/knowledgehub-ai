@@ -220,9 +220,12 @@ export class AnswersController {
     @Param('answerId', ParseUUIDPipe) answerId: string,
     @Req() request: OrganizationRequest,
   ): Promise<void> {
+    const context = requireOrganizationContext(request);
+
     return this.answers.delete(
-      requireOrganizationContext(request).organizationId,
+      context.organizationId,
       answerId,
+      context.userId,
     );
   }
 }

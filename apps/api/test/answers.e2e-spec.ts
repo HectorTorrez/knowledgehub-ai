@@ -1143,5 +1143,26 @@ describe('answers (e2e)', () => {
       const after = await listAnswers(token, organizationId).expect(200);
       expect(after.body.answers).toHaveLength(0);
     });
+
+    it('does not let another member delete an answer they did not ask', async () => {
+      const owner = await registerUser();
+      const member = await registerUser();
+      const organizationId = await createOrganization(
+        owner.token,
+        'History Delete Guard Org',
+      );
+      await prisma.membership.create({
+        data: { organizationId, userId: member.userId, role: 'MEMBER' },
+      });
+      await seedReadyChunk(organizationId, 'Guarded passage.');
+
+      await ask(owner.token, organizationId, { question: 'Mine?' }).expect(200);
+      const list = await listAnswers(owner.token, organizationId).expect(200);
+      const answerId = list.body.answers[0].id as string;
+
+      await deleteAnswer(member.token, organizationId, answerId).expect(404);
+      const after = await listAnswers(owner.token, organizationId).expect(200);
+      expect(after.body.answers).toHaveLength(1);
+    });
   });
 });

@@ -187,10 +187,14 @@ export function AnswerThread({
                     onToggle={() =>
                       setExpandedId(expandedId === answer.id ? null : answer.id)
                     }
-                    onRequestDelete={() => {
-                      remove.reset();
-                      setDeleteTarget(answer);
-                    }}
+                    onRequestDelete={
+                      scope === 'me'
+                        ? () => {
+                            remove.reset();
+                            setDeleteTarget(answer);
+                          }
+                        : undefined
+                    }
                   />
                 ))}
               </ul>
@@ -352,7 +356,7 @@ function HistoryRow({
   answer: AnswerSummary;
   expanded: boolean;
   onToggle: () => void;
-  onRequestDelete: () => void;
+  onRequestDelete?: () => void;
 }>) {
   const t = useT();
   const locale = useLocale();
@@ -396,17 +400,19 @@ function HistoryRow({
               />
             </Button>
           </CollapsibleTrigger>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onRequestDelete}
-            aria-label={t('answerThread.removeAria', {
-              question: answer.question,
-            })}
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="size-4" />
-          </Button>
+          {onRequestDelete ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onRequestDelete}
+              aria-label={t('answerThread.removeAria', {
+                question: answer.question,
+              })}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          ) : null}
         </div>
 
         <CollapsibleContent>

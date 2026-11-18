@@ -2,6 +2,7 @@ import { resolveCollectionScope } from '../collections/resolve-collection-scope.
 import {
   continuableConversationWhere,
   readableAnswerWhere,
+  removableAnswerWhere,
 } from './conversation-policy.js';
 import { RERANKER, type Reranker } from './reranker.port.js';
 import { orderReranked } from './rerank-order.js';
@@ -633,9 +634,17 @@ export class AnswersService {
     }
   }
 
-  async delete(organizationId: string, answerId: string): Promise<void> {
+  async delete(
+    organizationId: string,
+    answerId: string,
+    userId: string,
+  ): Promise<void> {
     const result = await this.prisma.answer.deleteMany({
-      where: { id: answerId, organizationId },
+      where: {
+        id: answerId,
+        organizationId,
+        AND: [removableAnswerWhere(userId)],
+      },
     });
 
     if (result.count === 0) {

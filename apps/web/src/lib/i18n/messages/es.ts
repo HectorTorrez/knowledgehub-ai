@@ -1416,6 +1416,10 @@ export const es: Messages = {
     noVersions: 'Todavía no hay versiones anteriores.',
   },
   askMessages: {
+    regenerate: 'Regenerar',
+    regenerateFor: 'Regenerar la respuesta a “{question}”',
+    edit: 'Editar',
+    editFor: 'Editar la pregunta “{question}”',
     loadEarlier: 'Cargar preguntas anteriores',
     noQuestions: 'Esta conversación aún no tiene preguntas.',
     jumpToLatest: 'Ir a lo más reciente',
@@ -1484,6 +1488,9 @@ export const es: Messages = {
     tryAgainLater: 'Inténtalo de nuevo en un momento.',
   },
   composer: {
+    editing:
+      'Editando tu última pregunta. Al enviarla se reemplaza su respuesta.',
+    cancelEdit: 'Cancelar edición',
     placeholder: 'Pregunta lo que quieras sobre estos documentos…',
     stop: 'Detener generación',
     ask: 'Preguntar',
